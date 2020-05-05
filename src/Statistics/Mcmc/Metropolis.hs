@@ -18,8 +18,16 @@ module Statistics.Mcmc.Metropolis
 
 import Statistics.Mcmc.Types
 
-mhMove :: Mcmc a -> Move m a -> Link a
-mhMove (Mcmc s f) (Move p q) = undefined
+mhMove :: Move m a -> Mcmc a -> Link a
+mhMove (Move p q) (Mcmc s f) = undefined
   -- 1. Sample new state.
   -- 2. Calculate Metropolis-Hastings ratio.
   -- 3. Accept or reject.
+
+mhCycle :: Cycle m a -> Mcmc a -> Link a
+-- mhCycle = fold moves in cycle
+mhCycle = undefined
+
+mh :: Int -> Cycle m a -> Mcmc a -> Chain a
+-- mh n = repeat mhCycle n times
+mh = undefined
