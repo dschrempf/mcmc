@@ -17,76 +17,53 @@ TODO: Think about how to save and restore an MCMC run. It is easy to save and
 restore the current state and likelihood (or the trace), but it seems impossible
 to store all the moves and so on.
 
-TODO: Maybe rename Chain to Trace; the Chain seems to be the list of States, and
-the Trace includes the log-likelihoods and so on.
-
 -}
 
 module Statistics.Mcmc.Types
-  ( -- * Static types
-    --
-    -- Types related to the status of an MCMC.
-    State (..)
-  , Mcmc (..)
-  , Link (..)
-  , Chain (..)
-    -- * Dynamic types
-    --
-    -- Types related to moving between states.
+  ( S (..)
+  , Item (..)
+  , Trace (..)
   , Move (..)
   , Cycle (..)
+  , LogLikelihoodFunction
+  , Status (..)
+  -- , Mcmc (..)
   ) where
 
 import Control.Monad.Primitive
 import Numeric.Log
 import System.Random.MWC
 
--- | A 'State' in the state space @a@.
-newtype State a = State a
+-- | A state 'S' in the state space @a@.
+newtype S a = S a
   deriving (Eq, Ord, Show, Read, Functor)
 
--- | An MCMC is defined by the current 'State' in the state space @a@, a
--- log-likelihood function, and a set of 'Move's forming a 'Cycle'. The wrapper
--- @m@ provides a source of randomness.
---
--- We could think of adding a set of moves, or something equivalent, but we
--- don't do that at the moment :).
-data Mcmc a = Mcmc
+-- | An 'Item' of the 'Trace'. For simplicity, we associate each state 'S' with the
+-- corresponding log-likelihood. A list of 'Item's is just a 'Trace'.
+data Item a = Item
   {
     -- ^ The current state.
-    mcmcState :: State a
-    -- ^ The log-likelihood function.
-  , mcmcLlhf  :: State a -> Log Double
-  }
-
--- | A 'Link' of the 'Chain'. For simplicity, we associate each passed 'State'
--- with the corresponding log-likelihood. A list of 'Link's is what makes a
--- 'Chain'.
-data Link a = Link
-  {
-    -- ^ The current state.
-    lnState   :: State a
+    lnState   :: S a
     -- ^ The current log-likelihood.
   , lnLlh     :: Log Double
   }
   deriving (Eq, Ord, Show, Read)
 
--- | A 'Chain' passes through a list of 'State's with associated log-likelihoods
--- called 'Link's.
-newtype Chain a = Chain [Link a]
+
+-- | A 'Trace' passes through a list of states 'S' with associated log-likelihoods
+-- called 'Item's.
+newtype Trace a = Trace [Item a]
   deriving (Show, Read)
 
-instance Semigroup (Chain a) where
-  (Chain l) <> (Chain r) = Chain (l <> r)
+instance Semigroup (Trace a) where
+  (Trace l) <> (Trace r) = Trace (l <> r)
 
-instance Monoid (Chain a) where
-  mempty = Chain []
+instance Monoid (Trace a) where
+  mempty = Trace []
 
--- XXX: It may be advantageous to include these types into the Metropolis module.
-
--- | A 'Move' is an instruction about how the MCMC will traverse the 'State'
+-- | A 'Move' is an instruction about how the MCMC will traverse the state
 -- space. Essentially, it is a probability distribution conditioned on the
--- current 'State'.
+-- current state 'S'.
 --
 -- We need to be able to sample a new state.
 --
@@ -95,13 +72,13 @@ instance Monoid (Chain a) where
 data Move m a = Move
   {
     -- ^ Instruction about sampling a new state.
-    mvSample :: PrimMonad m => Gen (PrimState m) -> State a -> m (State a)
+    mvSample :: PrimMonad m => S a -> Gen (PrimState m) -> m (S a)
     -- ^ The log-likelihood of going from one state to another.
-  , mvLlh :: State a -> State a -> Log Double
+  , mvLlh :: S a -> S a -> Log Double
   }
 
--- | A collection of 'Move's form a 'Cycle'. The 'State' of the 'Chain' will be
--- logged after each 'Cycle'.
+-- | A collection of 'Move's form a 'Cycle'. The state 'S' of the 'Trace' will
+-- be logged after each 'Cycle'.
 newtype Cycle m a = Cycle [Move m a]
 
 instance Semigroup (Cycle m a) where
@@ -110,3 +87,31 @@ instance Semigroup (Cycle m a) where
 instance Monoid (Cycle m a) where
   mempty = Cycle []
 
+-- | The log-likelihood function maps a state 'S' to a log-likelihood.
+type LogLikelihoodFunction a = S a -> Log Double
+
+-- | The 'Status' of an MCMC run is defined by
+--   - the current state in the state space @a@ together with the
+--     log-likelihood,
+--   - a log-likelihood function,
+--   - a set of 'Move's forming a 'Cycle', and
+--   - the 'Trace'.
+--
+-- The wrapper @m@ provides a source of randomness.
+data Status m a = Status
+  {
+    -- ^ The current 'Item' of the chain combines the current state 'S' and
+    -- log-likelihood.
+    mcmcState :: Item a
+    -- ^ The log-likelihood function.
+  , mcmcLlhf  :: LogLikelihoodFunction a
+    -- ^ A set of 'Move's form a 'Cycle'.
+  , mcmcCycle :: Cycle m a
+    -- ^ The 'Trace' of the Markov chain in reverse order, newest first.
+  , mcmcTrace :: Trace a
+  }
+
+-- -- | An Mcmc state transformer.
+-- --
+-- -- TODO: Improve documentation.
+-- newtype Mcmc m a = StateT (Status m a)

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d182bb93ef3ece525cc16a68ba37685c9538af4dc3c6a6264a371b8574106723
+-- hash: 70116eb12b04a67c45aef8a94375e83a88cf20daba39925a306b9a9279163cba
 
 name:           mcmc
 version:        0.1.0.0
@@ -40,6 +40,7 @@ library
     , log-domain
     , mwc-random
     , primitive
+    , transformers
   default-language: Haskell2010
 
 test-suite mcmc-test

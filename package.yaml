@@ -21,6 +21,7 @@ library:
     - log-domain
     - mwc-random
     - primitive
+    - transformers
 
 tests:
   mcmc-test:
