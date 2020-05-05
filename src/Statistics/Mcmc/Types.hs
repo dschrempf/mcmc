@@ -25,17 +25,19 @@ module Statistics.Mcmc.Types
   , Trace (..)
   , Move (..)
   , Cycle (..)
-  , LogLikelihoodFunction
+  , LogPrior
+  , LogLikelihood
+  , LogPosterior
   , Status (..)
-  -- , Mcmc (..)
+  , Mcmc
   ) where
 
-import Control.Monad.Primitive
+import Control.Monad.Trans.State.Strict
 import Numeric.Log
 import System.Random.MWC
 
 -- | A state 'S' in the state space @a@.
-newtype S a = S a
+newtype S a = S { unpack :: a }
   deriving (Eq, Ord, Show, Read, Functor)
 
 -- | An 'Item' of the 'Trace'. For simplicity, we associate each state 'S' with the
@@ -43,9 +45,9 @@ newtype S a = S a
 data Item a = Item
   {
     -- ^ The current state.
-    lnState   :: S a
-    -- ^ The current log-likelihood.
-  , lnLlh     :: Log Double
+    lnState      :: S a
+    -- ^ The current log-posterior.
+  , lnLogPostVal :: Log Double
   }
   deriving (Eq, Ord, Show, Read)
 
@@ -69,49 +71,50 @@ instance Monoid (Trace a) where
 --
 -- We need to know the probability of jumping forth, but also the probability of
 -- jumping back. They are needed to calculate the Metropolis-Hastings ratio.
-data Move m a = Move
+data Move a = Move
   {
     -- ^ Instruction about sampling a new state.
-    mvSample :: PrimMonad m => S a -> Gen (PrimState m) -> m (S a)
-    -- ^ The log-likelihood of going from one state to another.
-  , mvLlh :: S a -> S a -> Log Double
+    mvSample   :: S a -> GenIO -> IO (S a)
+    -- ^ The log-probability of going from one state to another.
+  , mvLogProb  :: S a -> S a -> Log Double
   }
 
 -- | A collection of 'Move's form a 'Cycle'. The state 'S' of the 'Trace' will
 -- be logged after each 'Cycle'.
-newtype Cycle m a = Cycle [Move m a]
+newtype Cycle a = Cycle [Move a]
 
-instance Semigroup (Cycle m a) where
+instance Semigroup (Cycle a) where
   (Cycle l) <> (Cycle r) = Cycle (l <> r)
 
-instance Monoid (Cycle m a) where
+instance Monoid (Cycle a) where
   mempty = Cycle []
 
--- | The log-likelihood function maps a state 'S' to a log-likelihood.
-type LogLikelihoodFunction a = S a -> Log Double
+-- | The log-prior of a state 'S'.
+type LogPrior a = S a -> Log Double
 
--- | The 'Status' of an MCMC run is defined by
---   - the current state in the state space @a@ together with the
---     log-likelihood,
---   - a log-likelihood function,
---   - a set of 'Move's forming a 'Cycle', and
---   - the 'Trace'.
---
--- The wrapper @m@ provides a source of randomness.
-data Status m a = Status
+-- | The log-likelihood of a state 'S'.
+type LogLikelihood a = S a -> Log Double
+
+-- | The unnormalized log-posterior maps a state 'S' to the sum of the
+-- log-likelihood function and the log-prior.
+type LogPosterior a = S a -> Log Double
+
+-- | The 'Status' of an MCMC run.
+data Status a = Status
   {
-    -- ^ The current 'Item' of the chain combines the current state 'S' and
-    -- log-likelihood.
-    mcmcState :: Item a
-    -- ^ The log-likelihood function.
-  , mcmcLlhf  :: LogLikelihoodFunction a
+    -- ^ The current or initial 'Item' of the chain combines the current state
+    -- 'S' and the current log-likelihood.
+    mcmcItem    :: Item a
+    -- ^ The unnormalized log-posterior log-likelihood function.
+  , mcmcLogPost :: LogPosterior a
     -- ^ A set of 'Move's form a 'Cycle'.
-  , mcmcCycle :: Cycle m a
+  , mcmcCycle   :: Cycle a
     -- ^ The 'Trace' of the Markov chain in reverse order, newest first.
-  , mcmcTrace :: Trace a
+  , mcmcTrace   :: Trace a
+    -- ^ The random number generator.
+  , mcmcGen     :: GenIO
   }
-
--- -- | An Mcmc state transformer.
--- --
--- -- TODO: Improve documentation.
--- newtype Mcmc m a = StateT (Status m a)
+-- | An Mcmc state transformer.
+--
+-- TODO: Improve documentation.
+type Mcmc a = StateT (Status a) IO

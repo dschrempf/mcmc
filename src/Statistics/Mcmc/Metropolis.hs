@@ -10,62 +10,72 @@ Portability :  portable
 
 Creation date: Tue May  5 20:11:30 2020.
 
+TODO: Reexport types?
+
 -}
 
 module Statistics.Mcmc.Metropolis
-  (
+  ( mh
   ) where
 
 import Control.Monad
-import Control.Monad.Primitive
+import Control.Monad.IO.Class
+import Control.Monad.Trans.State.Strict
 import Numeric.Log
 import System.Random.MWC
 
 import Statistics.Mcmc.Types
 
+-- import Debug.Trace
+
 {-# INLINE mhRatio #-}
 mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
-mhRatio lX lY qXY qYX = lY + qYX - lX - qXY
+mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
 
-mhMove :: PrimMonad m
-  -- ^ Current state and log-likelihood as well as the log-likelihood function
-  -- and a generator.
-  => (Link a, LogLikelihoodFunction a, Gen (PrimState m))
-  -- ^ Where do we go?
-  -> Move m a
-  -> m (Link a, LogLikelihoodFunction a, Gen (PrimState m))
--- mhMove = undefined
-mhMove ((Link x lX), f, g) (Move p q) = do
+mhMove :: Show a => Move a -> Mcmc a ()
+mhMove (Move p q) = do
+  s <- get
+  let (Item x lX) = mcmcItem s
+      f           = mcmcLogPost s
+      g           = mcmcGen s
   -- 1. Sample new state.
-  y <- p x g
+  y <- liftIO $ p x g
   -- 2. Calculate Metropolis-Hastings ratio.
   let
     lY = f y
     r  = mhRatio lX lY (q x y) (q y x)
   -- 3. Accept or reject.
   -- XXX: Can this be improved in terms of speed?
-  if r >= 0.0
-    then return (Link y lY, f, g)
+  -- if traceShow (lX, lY, q x y, q y x, r) $ r >= 1.0
+  if r >= 1.0
+    then put s{mcmcItem = Item y lY}
     else do b <- uniform g
-            if b < exp (ln r)
-            then return (Link y lY, f, g)
-            else return (Link x lX, f, g)
+            -- Only update the 'Item' after a full cycle.
+            when (b < exp (ln r)) $ put s{mcmcItem = Item y lY}
 
-mhCycle :: PrimMonad m
-  -- ^ Current state and log-likelihood, as well as the log-likelihood function
-  -- and a generator.
-  => (Link a, LogLikelihoodFunction a, Gen (PrimState m))
-  -- ^ Where do we go?
-  -> Cycle m a
-  -> m (Link a)
--- mhCycle = fold moves in cycle
-mhCycle x (Cycle ms) = do
-  (l, _, _) <- foldM mhMove x ms
-  return l
+-- Prepend an 'Item' to a 'Trace'.
+{-# INLINE prepend #-}
+prepend :: Item a -> Trace a -> Trace a
+prepend x (Trace xs) = Trace (x:xs)
+
+mhCycle :: Show a => (Mcmc a) ()
+mhCycle = do
+  (Cycle mvs) <- mcmcCycle <$> get
+  mapM_ mhMove mvs
+  s <- get
+  let i = mcmcItem s
+      t = mcmcTrace s
+      s' = s {mcmcTrace = prepend i t}
+  put s'
+
+-- Run a given number of Metropolis-Hastings cycles.
+mhRun :: Show a => Int -> Mcmc a ()
+mhRun n = replicateM_ n mhCycle
 
 -- | Run a given number of Metropolis-Hastings cycles.
 --
 -- TODO: Improve documentation.
-mh :: PrimMonad m => Int -> Mcmc m a -> Gen (PrimState m) -> m (Chain a)
--- mh n = repeat mhCycle n times
-mh = undefined
+--
+-- TODO: Simplify type for users.
+mh :: Show a => Int -> Status a -> IO (Status a)
+mh n = execStateT (mhRun n)

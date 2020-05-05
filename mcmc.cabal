@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 70116eb12b04a67c45aef8a94375e83a88cf20daba39925a306b9a9279163cba
+-- hash: bc132de5d75dfd31a0a7c8747629a0a40b4c92ac62ca2f31bb96174e0f536a49
 
 name:           mcmc
 version:        0.1.0.0
@@ -39,7 +39,7 @@ library
       base >=4.7 && <5
     , log-domain
     , mwc-random
-    , primitive
+    , statistics
     , transformers
   default-language: Haskell2010
 
@@ -53,5 +53,26 @@ test-suite mcmc-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , log-domain
     , mcmc
+    , mwc-random
+    , statistics
+    , transformers
+  default-language: Haskell2010
+
+benchmark metropolis
+  type: exitcode-stdio-1.0
+  main-is: Metropolis.hs
+  other-modules:
+      Paths_mcmc
+  hs-source-dirs:
+      bench
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , log-domain
+    , mcmc
+    , mwc-random
+    , statistics
+    , transformers
   default-language: Haskell2010
