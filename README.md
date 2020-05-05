@@ -1,1 +1,1 @@
-# mcmc
+# Markov chain Monte Carlo
