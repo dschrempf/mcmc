@@ -1,0 +1,53 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: d537aac72110e821c0cc5fa82ea9b5c10ed4460cc8369420d44dc465ef7190a1
+
+name:           mcmc
+version:        0.1.0.0
+synopsis:       Sample from a posterior using Markov chain Monte Carlo
+description:    Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
+category:       Math, Statistics
+homepage:       https://github.com/dschrempf/mcmc#readme
+bug-reports:    https://github.com/dschrempf/mcmc/issues
+author:         Dominik Schrempf
+maintainer:     dominik.schrempf@gmail.com
+copyright:      Dominik Schrempf (2020)
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/dschrempf/mcmc
+
+library
+  exposed-modules:
+      Statistics.Mcmc.Types
+  other-modules:
+      Paths_mcmc
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , log-domain
+  default-language: Haskell2010
+
+test-suite mcmc-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_mcmc
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , mcmc
+  default-language: Haskell2010
