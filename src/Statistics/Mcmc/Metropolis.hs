@@ -34,8 +34,8 @@ import Statistics.Mcmc.Types
 mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
 
-mhMove :: Show a => Move a -> Mcmc a ()
-mhMove (Move p q) = do
+mhMove :: Show a => Move a -> Mcmc a Bool
+mhMove (Move _ p q) = do
   s <- get
   let (Item x lX) = item s
       f           = logPosteriorF s
@@ -50,19 +50,22 @@ mhMove (Move p q) = do
   -- XXX: Can this be improved in terms of speed?
   -- if traceShow (lX, lY, q x y, q y x, r) $ r >= 1.0
   if ln r >= 0.0
-    then put s{item = Item y lY}
+    then put s{item = Item y lY} >> return True
     else do b <- uniform g
             -- Only update the 'Item' after a full cycle.
-            when (b < exp (ln r)) $ put s{item = Item y lY}
+            if b < exp (ln r)
+            then put s{item = Item y lY} >> return True
+            else return False
 
 mhCycle :: Show a => (Mcmc a) ()
 mhCycle = do
   (Cycle mvs) <- moves <$> get
-  mapM_ mhMove mvs
+  a <- mapM mhMove mvs
   s <- get
   let i = item s
       t = trace s
-      s' = s {trace = prepend i t}
+      as = acceptance s
+      s' = s {trace = prependT i t, acceptance = prependA a as}
   put s'
 
 -- Run a given number of Metropolis-Hastings cycles.

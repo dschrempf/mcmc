@@ -22,7 +22,8 @@ module Statistics.Mcmc.Types
   (
     Item (..)
   , Trace (..)
-  , prepend
+  , prependT
+  , prependA
   , Move (..)
   , Cycle (..)
   , Status (..)
@@ -49,7 +50,7 @@ data Item a = Item
 -- | A 'Trace' passes through a list of states with associated log-likelihoods
 -- which are called 'Item's. New 'Item's are 'prepend'ed to the 'Trace', and the
 -- path of the Markov chain is stored in reversed order.
-newtype Trace a = Trace [Item a]
+newtype Trace a = Trace {fromTrace :: [Item a] }
   deriving (Show, Read)
 
 instance Semigroup (Trace a) where
@@ -59,9 +60,18 @@ instance Monoid (Trace a) where
   mempty = Trace []
 
 -- | Prepend an 'Item' to a 'Trace'.
-{-# INLINE prepend #-}
-prepend :: Item a -> Trace a -> Trace a
-prepend x (Trace xs) = Trace (x:xs)
+{-# INLINE prependT #-}
+prependT :: Item a -> Trace a -> Trace a
+prependT x (Trace xs) = Trace (x:xs)
+
+-- TODO: This is highly confusing. Make this more clear. Probably use a data
+-- type.
+
+-- | Prepend a list of accepted / rejected tries to the list of
+-- accepted / rejected tries.
+{-# INLINE prependA #-}
+prependA :: [Bool] -> [[Bool]] -> [[Bool]]
+prependA as ass = [ x:xs | (x, xs) <- zip as ass]
 
 -- | A 'Move' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability density conditioned on the
@@ -72,12 +82,12 @@ prepend x (Trace xs) = Trace (x:xs)
 -- Metropolis-Hastings ratio.
 data Move a = Move
   {
-    -- TODO: Don't use IO explicitly here.
-    --
+    -- | The name of the move.
+    mvName       :: String
     -- | Instruction about randomly moving to a new state.
-    mvSample   :: a -> GenIO -> IO a
+  , mvSample     :: a -> GenIO -> IO a
     -- | The log-density of going from one state to another.
-  , mvLogDensity  :: a -> a -> Log Double
+  , mvLogDensity :: a -> a -> Log Double
   }
 
 -- | A collection of 'Move's form a 'Cycle'. The state of the 'Trace' will be
@@ -87,7 +97,7 @@ data Move a = Move
 -- the 'Cycle'. One could think of associating weighs with moves, and execute
 -- moves according to their relative weights in the Cycle --- a common practice
 -- in MCMC software packages.
-newtype Cycle a = Cycle [Move a]
+newtype Cycle a = Cycle { fromCycle :: [Move a] }
 
 instance Semigroup (Cycle a) where
   (Cycle l) <> (Cycle r) = Cycle (l <> r)
@@ -109,6 +119,12 @@ data Status a = Status
     -- | The 'Trace' of the Markov chain in reverse order, the most recent state
     -- is at the head of the list.
   , trace         :: Trace a
+    -- TODO: See 'prependA'.
+    --
+    -- | Log of accepted (True) and rejected (False) 'Move's per 'Cycle'; also
+    -- stored in reverse order. @acceptance status !! i@ is the list of
+    -- accepted/rejected tries of the @i@th 'Move' in the 'Cycle'.
+  , acceptance    :: [[Bool]]
     -- | The random number generator.
   , generator     :: GenIO
   }
@@ -124,8 +140,9 @@ start
   -> Status a -- ^ Return the current 'Status' of the Markov chain. Use, for
               -- example, 'Statistics.Mcmc.Metropolis.mh' to run the Markov
               -- chain.
-start x f c = Status i f c (Trace [i])
+start x f c = Status i f c (Trace [i]) (replicate nMoves [])
   where i = Item x (f x)
+        nMoves = length $ fromCycle c
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.

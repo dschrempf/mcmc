@@ -16,26 +16,39 @@ module Main
   ( main
   ) where
 
-import Numeric.Log
+import Control.Monad
+import Numeric.Log as L
 import Statistics.Distribution
 import Statistics.Distribution.Normal
 import System.Random.MWC
 
-import Statistics.Mcmc.Types
 import Statistics.Mcmc.Metropolis
+import Statistics.Mcmc.Tools
+import Statistics.Mcmc.Types
 import Statistics.Mcmc.Move.Normal
 
 type I = Double
 
-posterior :: I -> Log Double
-posterior x = Exp $ log $ density (normalDistr 0 0.3) x
+dDist :: NormalDistribution
+dDist = normalDistr 5 0.3
+
+pDist :: NormalDistribution
+pDist = normalDistr 0 0.8
+
+posterior :: [Double] -> I -> Log Double
+posterior os x = L.sum [Exp $ logDensity pDist (x-o) | o <- os ]
 
 moveCycle :: Cycle Double
-moveCycle = Cycle [moveNormal 0 0.1, moveNormal 0 0.2]
+moveCycle = Cycle [moveNormal "small" 0 0.1, moveNormal "medium" 0 0.2, moveNormal "large" 0 1.0]
+
+-- TODO: This is more of a test, not a benchmark.
 
 main :: IO ()
 main = do
   g <- create
-  s <- mh 5 (start 0 posterior moveCycle g)
-  let (Trace is) = trace s
-  print $ map state is
+  os <- replicateM 60 (genContinuous dDist g)
+  print os
+  s <- mh 10000 (start 0 (posterior os) moveCycle g)
+  print $ map state . fromTrace $ trace s
+  print $ acceptanceRatios s
+  print $ acceptanceRatio s

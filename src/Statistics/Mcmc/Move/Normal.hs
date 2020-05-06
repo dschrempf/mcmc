@@ -35,8 +35,9 @@ logDens d x y = Exp $ logDensity d (y - x)
 
 -- | A symmetric move with normally distributed density.
 moveNormal
-  :: Double -- ^ Mean.
+  :: String -- ^ Name.
+  -> Double -- ^ Mean.
   -> Double -- ^ Standard deviation.
   -> Move Double
-moveNormal m s = Move (delta d) (logDens d)
+moveNormal n m s = Move n (delta d) (logDens d)
   where d = normalDistr m s
