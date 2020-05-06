@@ -28,22 +28,22 @@ import Statistics.Mcmc.Metropolis
 
 type I = Double
 
-post :: LogPosterior I
-post (S x) = Exp $ log $ density (normalDistr 0 0.3) x
+post :: I -> Log Double
+post x = Exp $ log $ density (normalDistr 0 0.3) x
 
 start :: Item I
-start = Item (S 0) (post (S 0))
+start = Item 0 (post 0)
 
 mvDist :: NormalDistribution
 mvDist = normalDistr 0 0.1
 
-mvS :: S I -> GenIO -> IO (S I)
-mvS (S x) g = do
+mvS :: I -> GenIO -> IO I
+mvS x g = do
   d <- genContinuous mvDist g
-  return $ S (x + d)
+  return $ x + d
 
 move :: Move I
-move = Move mvS (\(S x) (S y) -> Exp $ log $ density mvDist (y-x))
+move = Move mvS (\x y -> Exp $ log $ density mvDist (y-x))
 
 status :: GenIO -> Status I
 status = Status start post (Cycle [move]) (Trace [start])
@@ -52,5 +52,5 @@ main :: IO ()
 main = do
   g <- createSystemRandom
   s <- mh 500 (status g)
-  let (Trace is) = mcmcTrace s
-  print $ map (unpack . lnState) is
+  let (Trace is) = trace s
+  print $ map state is

@@ -18,6 +18,8 @@ module Statistics.Mcmc.Metropolis
   ( mh
   ) where
 
+import Prelude hiding (cycle)
+
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State.Strict
@@ -35,9 +37,9 @@ mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
 mhMove :: Show a => Move a -> Mcmc a ()
 mhMove (Move p q) = do
   s <- get
-  let (Item x lX) = mcmcItem s
-      f           = mcmcLogPost s
-      g           = mcmcGen s
+  let (Item x lX) = item s
+      f           = logPosteriorF s
+      g           = generator s
   -- 1. Sample new state.
   y <- liftIO $ p x g
   -- 2. Calculate Metropolis-Hastings ratio.
@@ -47,25 +49,20 @@ mhMove (Move p q) = do
   -- 3. Accept or reject.
   -- XXX: Can this be improved in terms of speed?
   -- if traceShow (lX, lY, q x y, q y x, r) $ r >= 1.0
-  if r >= 1.0
-    then put s{mcmcItem = Item y lY}
+  if ln r >= 0.0
+    then put s{item = Item y lY}
     else do b <- uniform g
             -- Only update the 'Item' after a full cycle.
-            when (b < exp (ln r)) $ put s{mcmcItem = Item y lY}
-
--- Prepend an 'Item' to a 'Trace'.
-{-# INLINE prepend #-}
-prepend :: Item a -> Trace a -> Trace a
-prepend x (Trace xs) = Trace (x:xs)
+            when (b < exp (ln r)) $ put s{item = Item y lY}
 
 mhCycle :: Show a => (Mcmc a) ()
 mhCycle = do
-  (Cycle mvs) <- mcmcCycle <$> get
+  (Cycle mvs) <- cycle <$> get
   mapM_ mhMove mvs
   s <- get
-  let i = mcmcItem s
-      t = mcmcTrace s
-      s' = s {mcmcTrace = prepend i t}
+  let i = item s
+      t = trace s
+      s' = s {trace = prepend i t}
   put s'
 
 -- Run a given number of Metropolis-Hastings cycles.

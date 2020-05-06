@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE RankNTypes #-}
 
 {- |
@@ -20,14 +19,17 @@ to store all the moves and so on.
 -}
 
 module Statistics.Mcmc.Types
-  ( S (..)
-  , Item (..)
+  (
+    -- S (..)
+  -- , Item (..)
+    Item (..)
   , Trace (..)
+  , prepend
   , Move (..)
   , Cycle (..)
-  , LogPrior
-  , LogLikelihood
-  , LogPosterior
+  -- , LogPrior
+  -- , LogLikelihood
+  -- , LogPosterior
   , Status (..)
   , Mcmc
   ) where
@@ -36,18 +38,20 @@ import Control.Monad.Trans.State.Strict
 import Numeric.Log
 import System.Random.MWC
 
--- | A state 'S' in the state space @a@.
-newtype S a = S { unpack :: a }
-  deriving (Eq, Ord, Show, Read, Functor)
+-- Keep it simple.
+-- -- | A state 'S' in the state space @a@.
+-- newtype S a = S { unpack :: a }
+--   deriving (Eq, Ord, Show, Read, Functor)
 
--- | An 'Item' of the 'Trace'. For simplicity, we associate each state 'S' with the
+-- | An 'State' of the 'Trace'. For simplicity, we associate each state 'S' with the
 -- corresponding log-likelihood. A list of 'Item's is just a 'Trace'.
 data Item a = Item
   {
     -- ^ The current state.
-    lnState      :: S a
+    -- lnState      :: S a
+    state        :: a
     -- ^ The current log-posterior.
-  , lnLogPostVal :: Log Double
+  , logPosterior :: Log Double
   }
   deriving (Eq, Ord, Show, Read)
 
@@ -63,6 +67,11 @@ instance Semigroup (Trace a) where
 instance Monoid (Trace a) where
   mempty = Trace []
 
+-- Prepend an 'Item' to a 'Trace'.
+{-# INLINE prepend #-}
+prepend :: Item a -> Trace a -> Trace a
+prepend x (Trace xs) = Trace (x:xs)
+
 -- | A 'Move' is an instruction about how the MCMC will traverse the state
 -- space. Essentially, it is a probability distribution conditioned on the
 -- current state 'S'.
@@ -73,10 +82,12 @@ instance Monoid (Trace a) where
 -- jumping back. They are needed to calculate the Metropolis-Hastings ratio.
 data Move a = Move
   {
+    -- TODO: Don't use IO explicitly here.
+    --
     -- ^ Instruction about sampling a new state.
-    mvSample   :: S a -> GenIO -> IO (S a)
+    mvSample   :: a -> GenIO -> IO a
     -- ^ The log-probability of going from one state to another.
-  , mvLogProb  :: S a -> S a -> Log Double
+  , mvLogProb  :: a -> a -> Log Double
   }
 
 -- | A collection of 'Move's form a 'Cycle'. The state 'S' of the 'Trace' will
@@ -89,30 +100,31 @@ instance Semigroup (Cycle a) where
 instance Monoid (Cycle a) where
   mempty = Cycle []
 
--- | The log-prior of a state 'S'.
-type LogPrior a = S a -> Log Double
+-- Keep it simple.
+-- -- | The log-prior of a state 'S'.
+-- type LogPrior a = S a -> Log Double
 
--- | The log-likelihood of a state 'S'.
-type LogLikelihood a = S a -> Log Double
+-- -- | The log-likelihood of a state 'S'.
+-- type LogLikelihood a = S a -> Log Double
 
--- | The unnormalized log-posterior maps a state 'S' to the sum of the
--- log-likelihood function and the log-prior.
-type LogPosterior a = S a -> Log Double
+-- -- | The unnormalized log-posterior maps a state 'S' to the sum of the
+-- -- log-likelihood function and the log-prior.
+-- type LogPosterior a = S a -> Log Double
 
 -- | The 'Status' of an MCMC run.
 data Status a = Status
   {
     -- ^ The current or initial 'Item' of the chain combines the current state
     -- 'S' and the current log-likelihood.
-    mcmcItem    :: Item a
+    item          :: Item a
     -- ^ The unnormalized log-posterior log-likelihood function.
-  , mcmcLogPost :: LogPosterior a
+  , logPosteriorF :: a -> Log Double
     -- ^ A set of 'Move's form a 'Cycle'.
-  , mcmcCycle   :: Cycle a
+  , cycle         :: Cycle a
     -- ^ The 'Trace' of the Markov chain in reverse order, newest first.
-  , mcmcTrace   :: Trace a
+  , trace         :: Trace a
     -- ^ The random number generator.
-  , mcmcGen     :: GenIO
+  , generator     :: GenIO
   }
 -- | An Mcmc state transformer.
 --

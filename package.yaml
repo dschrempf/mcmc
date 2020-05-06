@@ -14,16 +14,14 @@ synopsis:            Sample from a posterior using Markov chain Monte Carlo
 category:            Math, Statistics
 description:         Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
 
-dependencies:
-  - base >= 4.7 && < 5
-  - log-domain
-  - mwc-random
-  # TODO: Statistics package only needed by benchmark so far.
-  - statistics
-  - transformers
-
 library:
   source-dirs: src
+  dependencies:
+    - base >= 4.7 && < 5
+    - log-domain
+    - mwc-random
+    # - primitive
+    - transformers
 
 benchmarks:
   metropolis:
@@ -34,6 +32,10 @@ benchmarks:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
+      - base >= 4.7 && < 5
+      - log-domain
+      - mwc-random
+      - statistics
       - mcmc
 
 tests:
@@ -46,4 +48,6 @@ tests:
       - -with-rtsopts=-N
     dependencies:
       - base >= 4.7 && < 5
+      - hspec
+      - hspec-discover
       - mcmc
