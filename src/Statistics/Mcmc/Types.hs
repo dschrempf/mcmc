@@ -127,7 +127,6 @@ start
 start x f c = Status i f c (Trace [i])
   where i = Item x (f x)
 
--- | An Mcmc state transformer.
---
--- TODO: Improve documentation.
+-- | An Mcmc state transformer; usually fiddling around with this type is not
+-- required, but it is used by the different inference algorithms.
 type Mcmc a = StateT (Status a) IO
