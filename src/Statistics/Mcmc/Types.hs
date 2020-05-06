@@ -20,28 +20,19 @@ to store all the moves and so on.
 
 module Statistics.Mcmc.Types
   (
-    -- S (..)
-  -- , Item (..)
     Item (..)
   , Trace (..)
   , prepend
   , Move (..)
   , Cycle (..)
-  -- , LogPrior
-  -- , LogLikelihood
-  -- , LogPosterior
   , Status (..)
+  , start
   , Mcmc
   ) where
 
 import Control.Monad.Trans.State.Strict
 import Numeric.Log
 import System.Random.MWC
-
--- Keep it simple.
--- -- | A state 'S' in the state space @a@.
--- newtype S a = S { unpack :: a }
---   deriving (Eq, Ord, Show, Read, Functor)
 
 -- | An 'State' of the 'Trace'. For simplicity, we associate each state 'S' with the
 -- corresponding log-likelihood. A list of 'Item's is just a 'Trace'.
@@ -54,7 +45,6 @@ data Item a = Item
   , logPosterior :: Log Double
   }
   deriving (Eq, Ord, Show, Read)
-
 
 -- | A 'Trace' passes through a list of states 'S' with associated log-likelihoods
 -- called 'Item's.
@@ -100,17 +90,6 @@ instance Semigroup (Cycle a) where
 instance Monoid (Cycle a) where
   mempty = Cycle []
 
--- Keep it simple.
--- -- | The log-prior of a state 'S'.
--- type LogPrior a = S a -> Log Double
-
--- -- | The log-likelihood of a state 'S'.
--- type LogLikelihood a = S a -> Log Double
-
--- -- | The unnormalized log-posterior maps a state 'S' to the sum of the
--- -- log-likelihood function and the log-prior.
--- type LogPosterior a = S a -> Log Double
-
 -- | The 'Status' of an MCMC run.
 data Status a = Status
   {
@@ -120,12 +99,18 @@ data Status a = Status
     -- ^ The unnormalized log-posterior log-likelihood function.
   , logPosteriorF :: a -> Log Double
     -- ^ A set of 'Move's form a 'Cycle'.
-  , cycle         :: Cycle a
+  , moves         :: Cycle a
     -- ^ The 'Trace' of the Markov chain in reverse order, newest first.
   , trace         :: Trace a
     -- ^ The random number generator.
   , generator     :: GenIO
   }
+
+-- | Initialize a Markov chain Monte Carlo run with a specified seed.
+start :: a -> (a -> Log Double) -> Cycle a -> GenIO -> Status a
+start x f c = Status i f c (Trace [i])
+  where i = Item x (f x)
+
 -- | An Mcmc state transformer.
 --
 -- TODO: Improve documentation.

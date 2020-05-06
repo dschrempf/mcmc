@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 13618aa56d6b3ffb32d8633d9093e04c81da8b5d61bd0a9585ec388de37eafb1
+-- hash: b3af06810a04fffb4867d2f13f92319f482212eafa45698c4d1fbef146a6ce28
 
 name:           mcmc
 version:        0.1.0.0
@@ -30,6 +30,7 @@ source-repository head
 library
   exposed-modules:
       Statistics.Mcmc.Metropolis
+      Statistics.Mcmc.Move.Normal
       Statistics.Mcmc.Types
   other-modules:
       Paths_mcmc
@@ -39,6 +40,7 @@ library
       base >=4.7 && <5
     , log-domain
     , mwc-random
+    , statistics
     , transformers
   default-language: Haskell2010
 

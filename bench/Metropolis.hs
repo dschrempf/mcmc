@@ -25,32 +25,19 @@ import System.Random.MWC
 
 import Statistics.Mcmc.Types
 import Statistics.Mcmc.Metropolis
+import Statistics.Mcmc.Move.Normal
 
 type I = Double
 
-post :: I -> Log Double
-post x = Exp $ log $ density (normalDistr 0 0.3) x
+posterior :: I -> Log Double
+posterior x = Exp $ log $ density (normalDistr 0 0.3) x
 
-start :: Item I
-start = Item 0 (post 0)
-
-mvDist :: NormalDistribution
-mvDist = normalDistr 0 0.1
-
-mvS :: I -> GenIO -> IO I
-mvS x g = do
-  d <- genContinuous mvDist g
-  return $ x + d
-
-move :: Move I
-move = Move mvS (\x y -> Exp $ log $ density mvDist (y-x))
-
-status :: GenIO -> Status I
-status = Status start post (Cycle [move]) (Trace [start])
+moveCycle :: Cycle Double
+moveCycle = Cycle [moveNormal 0 0.1, moveNormal 0 0.2]
 
 main :: IO ()
 main = do
-  g <- createSystemRandom
-  s <- mh 500 (status g)
+  g <- create
+  s <- mh 5 (start 0 posterior moveCycle g)
   let (Trace is) = trace s
   print $ map state is

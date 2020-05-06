@@ -57,7 +57,7 @@ mhMove (Move p q) = do
 
 mhCycle :: Show a => (Mcmc a) ()
 mhCycle = do
-  (Cycle mvs) <- cycle <$> get
+  (Cycle mvs) <- moves <$> get
   mapM_ mhMove mvs
   s <- get
   let i = item s

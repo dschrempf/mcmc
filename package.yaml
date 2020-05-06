@@ -20,7 +20,7 @@ library:
     - base >= 4.7 && < 5
     - log-domain
     - mwc-random
-    # - primitive
+    - statistics
     - transformers
 
 benchmarks:
