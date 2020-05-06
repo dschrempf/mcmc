@@ -34,20 +34,21 @@ import Control.Monad.Trans.State.Strict
 import Numeric.Log
 import System.Random.MWC
 
--- | An 'State' of the 'Trace'. For simplicity, we associate each state 'S' with the
--- corresponding log-likelihood. A list of 'Item's is just a 'Trace'.
+-- | An 'Item', or link of the Markov chain. For reasons of computational
+-- efficiency, each state is associated with the corresponding log-likelihood. A
+-- list of 'Item's is called the 'Trace' of the Markov chain.
 data Item a = Item
   {
-    -- ^ The current state.
-    -- lnState      :: S a
+    -- | The current state in the state space @a@.
     state        :: a
-    -- ^ The current log-posterior.
+    -- | The current log-posterior.
   , logPosterior :: Log Double
   }
   deriving (Eq, Ord, Show, Read)
 
--- | A 'Trace' passes through a list of states 'S' with associated log-likelihoods
--- called 'Item's.
+-- | A 'Trace' passes through a list of states with associated log-likelihoods
+-- which are called 'Item's. New 'Item's are 'prepend'ed to the 'Trace', and the
+-- path of the Markov chain is stored in reversed order.
 newtype Trace a = Trace [Item a]
   deriving (Show, Read)
 
@@ -57,31 +58,35 @@ instance Semigroup (Trace a) where
 instance Monoid (Trace a) where
   mempty = Trace []
 
--- Prepend an 'Item' to a 'Trace'.
+-- | Prepend an 'Item' to a 'Trace'.
 {-# INLINE prepend #-}
 prepend :: Item a -> Trace a -> Trace a
 prepend x (Trace xs) = Trace (x:xs)
 
--- | A 'Move' is an instruction about how the MCMC will traverse the state
--- space. Essentially, it is a probability distribution conditioned on the
--- current state 'S'.
+-- | A 'Move' is an instruction about how the Markov chain will traverse the
+-- state space @a@. Essentially, it is a probability density conditioned on the
+-- current state.
 --
--- We need to be able to sample a new state.
---
--- We need to know the probability of jumping forth, but also the probability of
--- jumping back. They are needed to calculate the Metropolis-Hastings ratio.
+-- We need to know the probability density of jumping forth, but also the
+-- probability density of jumping back. They are needed to calculate the
+-- Metropolis-Hastings ratio.
 data Move a = Move
   {
     -- TODO: Don't use IO explicitly here.
     --
-    -- ^ Instruction about sampling a new state.
+    -- | Instruction about randomly moving to a new state.
     mvSample   :: a -> GenIO -> IO a
-    -- ^ The log-probability of going from one state to another.
-  , mvLogProb  :: a -> a -> Log Double
+    -- | The log-density of going from one state to another.
+  , mvLogDensity  :: a -> a -> Log Double
   }
 
--- | A collection of 'Move's form a 'Cycle'. The state 'S' of the 'Trace' will
--- be logged after each 'Cycle'.
+-- | A collection of 'Move's form a 'Cycle'. The state of the 'Trace' will be
+-- logged only after each 'Cycle'.
+--
+-- XXX: At the moment, 'Move's are executed in forward order as they appear in
+-- the 'Cycle'. One could think of associating weighs with moves, and execute
+-- moves according to their relative weights in the Cycle --- a common practice
+-- in MCMC software packages.
 newtype Cycle a = Cycle [Move a]
 
 instance Semigroup (Cycle a) where
@@ -93,21 +98,32 @@ instance Monoid (Cycle a) where
 -- | The 'Status' of an MCMC run.
 data Status a = Status
   {
-    -- ^ The current or initial 'Item' of the chain combines the current state
-    -- 'S' and the current log-likelihood.
+    -- | The current 'Item' of the chain combines the current state and the
+    -- current log-likelihood.
     item          :: Item a
-    -- ^ The unnormalized log-posterior log-likelihood function.
+    -- | The un-normalized log-posterior function. The log-posterior is the sum
+    -- of the log-prior and the log-likelihood.
   , logPosteriorF :: a -> Log Double
-    -- ^ A set of 'Move's form a 'Cycle'.
+    -- | A set of 'Move's form a 'Cycle'.
   , moves         :: Cycle a
-    -- ^ The 'Trace' of the Markov chain in reverse order, newest first.
+    -- | The 'Trace' of the Markov chain in reverse order, the most recent state
+    -- is at the head of the list.
   , trace         :: Trace a
-    -- ^ The random number generator.
+    -- | The random number generator.
   , generator     :: GenIO
   }
 
--- | Initialize a Markov chain Monte Carlo run with a specified seed.
-start :: a -> (a -> Log Double) -> Cycle a -> GenIO -> Status a
+-- | Initialize a Markov chain Monte Carlo run.
+start
+  :: a -- ^ The initial state in the state space @a@.
+  -> (a -> Log Double) -- ^ The un-normalized log-posterior function.
+  -> Cycle a -- ^ A list of 'Move's executed in forward order. The chain will be
+             -- logged after each cycle.
+  -> GenIO -- ^ A source of randomness. For reproducible runs, make sure to use
+           -- a generator with the same seed.
+  -> Status a -- ^ Return the current 'Status' of the Markov chain. Use, for
+              -- example, 'Statistics.Mcmc.Metropolis.mh' to run the Markov
+              -- chain.
 start x f c = Status i f c (Trace [i])
   where i = Item x (f x)
 

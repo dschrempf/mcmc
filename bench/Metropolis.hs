@@ -10,8 +10,6 @@ Portability :  portable
 
 Creation date: Wed May  6 00:10:11 2020.
 
-TODO: Rename and create a main module (but is this necessary?).
-
 -}
 
 module Main
