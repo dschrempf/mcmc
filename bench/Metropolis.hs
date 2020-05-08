@@ -1,5 +1,5 @@
 {- |
-Module      :  Main
+Module      :  Metropolis
 Description :  Benchmark Metropolis-Hastings algorithm
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3
@@ -12,8 +12,8 @@ Creation date: Wed May  6 00:10:11 2020.
 
 -}
 
-module Main
-  ( main
+module Metropolis
+  ( mhBench
   ) where
 
 import qualified Data.Vector.Unboxed as V
@@ -47,12 +47,9 @@ summarize :: [Double] -> (Double, Double)
 summarize xs = (mean v, stdDev v)
   where v = V.fromList xs
 
--- TODO: This is more of a test, not a benchmark; use criterion.
-
-main :: IO ()
-main = do
-  g <- create
-  s <- mh 100000 (start 0 posterior moveCycle g)
+mhBench :: GenIO -> IO ()
+mhBench g = do
+  s <- mh 50000 (start 0 posterior moveCycle g)
   let t = map state . fromTrace $ trace s
   putStrLn "Acceptance ratios:"
   putStrLn $ "Per move: " <> show (map mvName $ fromCycle moveCycle) <> " " <> show (acceptanceRatios s)

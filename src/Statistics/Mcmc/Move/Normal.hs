@@ -48,7 +48,33 @@ moveNormal
 moveNormal l n m s = Move n (delta l d) (logDens l d)
   where d = normalDistr m s
 
+-- Ridiculous.
+lid :: Lens' a a
+lid f = f
+
 -- | A symmetric move with normally distributed density; specialized to a one
 -- dimensional state space of type 'Double'; see 'moveNormal'.
 moveNormalDouble :: String -> Double -> Double -> Move Double
-moveNormalDouble = moveNormal (lens id const)
+moveNormalDouble = moveNormal lid
+
+-- -- It turns out that direct implementation is not faster (or only marginally
+-- -- faster); tested with criterion for 50000 jumps.
+
+-- {-# INLINE deltaDouble #-}
+-- deltaDouble :: NormalDistribution -> Double -> Double -> GenIO -> IO Double
+-- deltaDouble d m x g = do
+--   dx <- genContVar d g
+--   return $ (x + m + dx)
+
+-- {-# INLINE logDensDouble #-}
+-- logDensDouble :: NormalDistribution -> Double -> Double -> Log Double
+-- logDensDouble d x y = Exp $ logDensity d (y - x)
+
+-- -- | A symmetric move with normally distributed density.
+-- moveNormalDoubleFast
+--   :: String             -- ^ Name.
+--   -> Double             -- ^ Mean.
+--   -> Double             -- ^ Standard deviation.
+--   -> Move Double
+-- moveNormalDoubleFast n m s = Move n (deltaDouble d m) (logDensDouble d)
+--   where d = normalDistr 0 s

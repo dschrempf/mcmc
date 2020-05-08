@@ -1,5 +1,5 @@
 {- |
-Module      :  Main
+Module      :  Poisson
 Description :  Poisson regression model for airline fatalities
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3
@@ -14,8 +14,8 @@ See https://revbayes.github.io/tutorials/mcmc/poisson.html.
 
 -}
 
-module Main
-  ( main
+module Poisson
+  ( poissonBench
   ) where
 
 import qualified Data.Vector.Unboxed as V
@@ -68,9 +68,8 @@ summarize xs = ((mean as, stdDev as), (mean bs, stdDev bs))
 
 -- TODO: This is more of a test, not a benchmark; use criterion.
 
-main :: IO ()
-main = do
-  g <- create
+poissonBench :: GenIO -> IO ()
+poissonBench g = do
   s <- mh 10000 (start initial posterior moveCycle g)
   putStrLn "Acceptance ratios:"
   putStrLn $ "Per move: " <> show (map mvName $ fromCycle moveCycle) <> " " <> show (acceptanceRatios s)
