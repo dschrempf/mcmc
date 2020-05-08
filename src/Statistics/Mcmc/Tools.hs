@@ -24,10 +24,13 @@ ratio xs = fromIntegral (length ts) / fromIntegral (length xs)
   where ts = filter (==True) xs
 
 -- TODO: Instead of passing a status, pass an (hypothetical) Acceptance type.
+--
+-- | Acceptance ratios of all 'Move's in the 'Cycle'.
 acceptanceRatios :: Status a -> [Double]
 acceptanceRatios s = map ratio as
   where as = acceptance s
 
+-- | Total acceptance ratio.
 acceptanceRatio :: Status a -> Double
 acceptanceRatio s = sum rs / fromIntegral (length rs)
   where rs = acceptanceRatios s

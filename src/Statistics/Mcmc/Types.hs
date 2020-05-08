@@ -49,8 +49,8 @@ data Item a = Item
   deriving (Eq, Ord, Show, Read)
 
 -- | A 'Trace' passes through a list of states with associated log-likelihoods
--- which are called 'Item's. New 'Item's are 'prepend'ed to the 'Trace', and the
--- path of the Markov chain is stored in reversed order.
+-- which are called 'Item's. New 'Item's are prepended, and the path of the
+-- Markov chain is stored in reversed order.
 newtype Trace a = Trace {fromTrace :: [Item a] }
   deriving (Show, Read)
 
