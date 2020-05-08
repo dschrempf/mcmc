@@ -16,10 +16,11 @@ module Main
   ( main
   ) where
 
-import Control.Monad
+import qualified Data.Vector.Unboxed as V
 import Numeric.Log as L
-import Statistics.Distribution
+import Statistics.Distribution hiding (mean, stdDev)
 import Statistics.Distribution.Normal
+import Statistics.Sample
 import System.Random.MWC
 
 import Statistics.Mcmc.Metropolis
@@ -27,28 +28,35 @@ import Statistics.Mcmc.Tools
 import Statistics.Mcmc.Types
 import Statistics.Mcmc.Move.Normal
 
-type I = Double
+trueMean :: Double
+trueMean = 5
 
-dDist :: NormalDistribution
-dDist = normalDistr 5 0.3
+trueStdDev :: Double
+trueStdDev = 4
 
-pDist :: NormalDistribution
-pDist = normalDistr 0 0.8
-
-posterior :: [Double] -> I -> Log Double
-posterior os x = L.sum [Exp $ logDensity pDist (x-o) | o <- os ]
+posterior :: Double -> Log Double
+posterior = Exp . logDensity (normalDistr trueMean trueStdDev)
 
 moveCycle :: Cycle Double
-moveCycle = Cycle [moveNormal "small" 0 0.1, moveNormal "medium" 0 0.2, moveNormal "large" 0 1.0]
+moveCycle = Cycle [ moveNormalDouble "small" 0 0.1
+                  , moveNormalDouble "medium" 0 1.0
+                  , moveNormalDouble "large" 0 5.0
+                  , moveNormalDouble "skewed" 1.0 4.0 ]
 
--- TODO: This is more of a test, not a benchmark.
+summarize :: [Double] -> (Double, Double)
+summarize xs = (mean v, stdDev v)
+  where v = V.fromList xs
+
+-- TODO: This is more of a test, not a benchmark; use criterion.
 
 main :: IO ()
 main = do
   g <- create
-  os <- replicateM 60 (genContinuous dDist g)
-  print os
-  s <- mh 10000 (start 0 (posterior os) moveCycle g)
-  print $ map state . fromTrace $ trace s
-  print $ acceptanceRatios s
-  print $ acceptanceRatio s
+  s <- mh 100000 (start 0 posterior moveCycle g)
+  let t = map state . fromTrace $ trace s
+  putStrLn "Acceptance ratios:"
+  putStrLn $ "Per move: " <> show (map mvName $ fromCycle moveCycle) <> " " <> show (acceptanceRatios s)
+  putStrLn $ "Total: " <> show (acceptanceRatio s)
+  putStrLn "Mean and standard deviations:"
+  putStrLn $ "True: " ++ show (trueMean, trueStdDev)
+  putStrLn $ "Markov chain: " <> show (summarize t)
