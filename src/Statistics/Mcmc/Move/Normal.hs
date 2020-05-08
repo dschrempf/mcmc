@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 {- |
 Module      :  Statistics.Mcmc.Move.Normal
 Description :  Normally distributed move
@@ -17,6 +19,7 @@ module Statistics.Mcmc.Move.Normal
   , moveNormalDouble
   ) where
 
+import Lens.Micro
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
@@ -25,27 +28,27 @@ import System.Random.MWC
 import Statistics.Mcmc.Types
 
 {-# INLINE delta #-}
-delta :: (a -> Double) -> (Double -> a -> a) -> NormalDistribution -> a -> GenIO -> IO a
-delta get set d x g = do
-  dx <- genContinuous d g
-  return $ set (get x + dx) x
+delta :: Lens' a Double -> NormalDistribution -> a -> GenIO -> IO a
+delta l d x g = do
+  dx <- genContVar d g
+  return $ set l (x^.l + dx) x
 
 {-# INLINE logDens #-}
-logDens :: (a -> Double) -> NormalDistribution -> a -> a -> Log Double
-logDens get d x y = Exp $ logDensity d (get y - get x)
+-- XXX: Technically, only a Getter is needed here.
+logDens :: Lens' a Double -> NormalDistribution -> a -> a -> Log Double
+logDens l d x y = Exp $ logDensity d (y^.l - x^.l)
 
 -- | A symmetric move with normally distributed density.
 moveNormal
-  :: (a -> Double)      -- ^ Getter.
-  -> (Double -> a -> a) -- ^ Setter.
+  :: Lens' a Double     -- ^ Instruction about which parameter to change.
   -> String             -- ^ Name.
   -> Double             -- ^ Mean.
   -> Double             -- ^ Standard deviation.
   -> Move a
-moveNormal get set n m s = Move n (delta get set d) (logDens get d)
+moveNormal l n m s = Move n (delta l d) (logDens l d)
   where d = normalDistr m s
 
 -- | A symmetric move with normally distributed density; specialized to a one
 -- dimensional state space of type 'Double'; see 'moveNormal'.
 moveNormalDouble :: String -> Double -> Double -> Move Double
-moveNormalDouble = moveNormal id const
+moveNormalDouble = moveNormal (lens id const)

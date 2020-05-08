@@ -14,15 +14,12 @@ synopsis:            Sample from a posterior using Markov chain Monte Carlo
 category:            Math, Statistics
 description:         Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
 
-# To be removed.
-dependencies:
-  - vector
-
 library:
   source-dirs: src
   dependencies:
     - base >= 4.7 && < 5
     - log-domain
+    - microlens
     - mwc-random
     - statistics
     - transformers
@@ -55,6 +52,7 @@ benchmarks:
       - base >= 4.7 && < 5
       - log-domain
       - mcmc
+      - microlens
       - mwc-random
       - statistics
       - vector

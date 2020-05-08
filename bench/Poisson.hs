@@ -19,6 +19,7 @@ module Main
   ) where
 
 import qualified Data.Vector.Unboxed as V
+import Lens.Micro
 import Numeric.Log hiding (sum)
 import Statistics.Distribution hiding (mean, stdDev)
 import Statistics.Distribution.Poisson
@@ -35,27 +36,24 @@ type I = (Double, Double)
 fatalities :: [Int]
 fatalities = [24, 25, 31, 31, 22, 21, 26, 20, 16, 22]
 
-years :: [Int]
-years = [1976 .. 1985]
-
 normalizedYears :: [Double]
-normalizedYears = map (subtract m . fromIntegral) years
+normalizedYears = map (subtract m) ys
   where
-    m :: Double
-    m = fromIntegral (sum years) / fromIntegral (length years)
+    ys = [1976.0 .. 1985.0]
+    m = sum ys / fromIntegral (length ys)
 
-pDist :: Int -> Double -> I -> Log Double
-pDist ft yr (alpha, beta) = Exp $ logProbability (poisson l) (fromIntegral ft)
+f :: Int -> Double -> I -> Log Double
+f ft yr (alpha, beta) = Exp $ logProbability (poisson l) (fromIntegral ft)
   where l = exp $ alpha + beta*yr
 
 posterior :: I -> Log Double
-posterior x = product [ pDist ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
+posterior x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
 
 moveAlpha :: Move I
-moveAlpha = moveNormal fst (\a (_, b) -> (a, b)) "alpha" 0.0 1.0
+moveAlpha = moveNormal _1 "alpha" 0.0 1.0
 
 moveBeta :: Move I
-moveBeta = moveNormal snd (\b (a, _) -> (a, b)) "beta" 0.0 1.0
+moveBeta = moveNormal _2 "beta" 0.0 1.0
 
 moveCycle :: Cycle I
 moveCycle = Cycle [moveAlpha, moveBeta]
