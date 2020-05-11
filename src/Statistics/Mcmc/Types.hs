@@ -61,18 +61,18 @@ instance Monoid (Trace a) where
   mempty = Trace []
 
 -- | Prepend an 'Item' to a 'Trace'.
-{-# INLINE prependT #-}
 prependT :: Item a -> Trace a -> Trace a
 prependT x (Trace xs) = Trace (x:xs)
+{-# INLINEABLE prependT #-}
 
 -- TODO: This is highly confusing. Make this more clear. Probably use a data
 -- type.
 
 -- | Prepend a list of accepted / rejected tries to the list of
 -- accepted / rejected tries.
-{-# INLINE prependA #-}
 prependA :: [Bool] -> [[Bool]] -> [[Bool]]
 prependA as ass = [ x:xs | (x, xs) <- zip as ass]
+{-# INLINEABLE prependA #-}
 
 -- | A 'Move' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability density conditioned on the

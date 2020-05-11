@@ -27,16 +27,16 @@ import System.Random.MWC
 
 import Statistics.Mcmc.Types
 
-{-# INLINE delta #-}
 delta :: Lens' a Double -> NormalDistribution -> a -> GenIO -> IO a
 delta l d x g = do
   dx <- genContVar d g
   return $ set l (x^.l + dx) x
+{-# INLINEABLE delta #-}
 
-{-# INLINE logDens #-}
 -- XXX: Technically, only a Getter is needed here.
 logDens :: Lens' a Double -> NormalDistribution -> a -> a -> Log Double
 logDens l d x y = Exp $ logDensity d (y^.l - x^.l)
+{-# INLINEABLE logDens #-}
 
 -- | A symmetric move with normally distributed density.
 moveNormal
@@ -60,15 +60,15 @@ moveNormalDouble = moveNormal lid
 -- -- It turns out that direct implementation is not faster (or only marginally
 -- -- faster); tested with criterion for 50000 jumps.
 
--- {-# INLINE deltaDouble #-}
 -- deltaDouble :: NormalDistribution -> Double -> Double -> GenIO -> IO Double
 -- deltaDouble d m x g = do
 --   dx <- genContVar d g
 --   return $ (x + m + dx)
+-- {-# INLINEABLE deltaDouble #-}
 
--- {-# INLINE logDensDouble #-}
 -- logDensDouble :: NormalDistribution -> Double -> Double -> Log Double
 -- logDensDouble d x y = Exp $ logDensity d (y - x)
+-- {-# INLINEABLE logDensDouble #-}
 
 -- -- | A symmetric move with normally distributed density.
 -- moveNormalDoubleFast

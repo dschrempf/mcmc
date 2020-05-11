@@ -30,9 +30,9 @@ import Statistics.Mcmc.Types
 
 -- import Debug.Trace
 
-{-# INLINE mhRatio #-}
 mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
+{-# INLINE mhRatio #-}
 
 mhMove :: Show a => Move a -> Mcmc a Bool
 mhMove (Move _ p q) = do
