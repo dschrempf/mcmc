@@ -66,8 +66,6 @@ summarize xs = ((mean as, stdDev as), (mean bs, stdDev bs))
   where as = V.fromList $ map fst xs
         bs = V.fromList $ map snd xs
 
--- TODO: This is more of a test, not a benchmark; use criterion.
-
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
   s <- mh 10000 (start initial posterior moveCycle g)
