@@ -35,6 +35,6 @@ slide
 slide l n m s = moveGenericContinuous l n (normalDistr m s) (+) (-)
 
 -- | Additive move with normally distributed density; specialized to a one
--- dimensional state space of type 'Double'; see 'moveNormal'.
+-- dimensional state space of type 'Double'.
 slideDouble :: String -> Double -> Double -> Move Double
 slideDouble = slide id

@@ -28,11 +28,6 @@ variance) (+) ...@. This specification is more involved. Especially, we need to
 know the probability of jumping back, and so we need to know the reverse of the
 operator. However, it also allows specification of new moves with great ease.
 
-TODO: Implement a Common module providing @move distribution operator inverse@
-and rewrite mvSlide to use this operator (check speed with benchmark).
-
-TODO: Scaling move (Gamma distribution with mean 1.0).
-
 TODO: Moves on simplices: SimplexElementScale (?).
 
 TODO: Moves on tree branch lengths.
@@ -52,6 +47,8 @@ Biology, 65(4), 726–736 (2016). http://dx.doi.org/10.1093/sysbio/syw021
 
 module Statistics.Mcmc.Moves
   ( module Statistics.Mcmc.Moves.Slide
+  , module Statistics.Mcmc.Moves.Scale
   ) where
 
 import Statistics.Mcmc.Moves.Slide
+import Statistics.Mcmc.Moves.Scale

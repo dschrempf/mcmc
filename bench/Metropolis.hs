@@ -37,17 +37,11 @@ trueStdDev = 4
 posterior :: Double -> Log Double
 posterior = Exp . logDensity (normalDistr trueMean trueStdDev)
 
--- moveCycle :: Cycle Double
--- moveCycle = Cycle [ slideDouble "small" 0 0.1
---                   , slideDouble "medium" 0 1.0
---                   , slideDouble "large" 0 5.0
---                   , slideDouble "skewed" 1.0 4.0 ]
-
 moveCycle :: Cycle Double
-moveCycle = Cycle [ slideGeneric id "small" 0 0.1
-                  , slideGeneric id "medium" 0 1.0
-                  , slideGeneric id "large" 0 5.0
-                  , slideGeneric id "skewed" 1.0 4.0 ]
+moveCycle = Cycle [ slideDouble "small" 0 0.1
+                  , slideDouble "medium" 0 1.0
+                  , slideDouble "large" 0 5.0
+                  , slideDouble "skewed" 1.0 4.0 ]
 
 summarize :: [Double] -> (Double, Double)
 summarize xs = (mean v, stdDev v)
