@@ -12,21 +12,26 @@ Creation date: Thu May 14 13:51:51 2020.
 
 I decided to provide moves named according to what they do, i.e., how they
 change the state of a Markov chain, and not according to the intrinsically used
-probability distributions. For example, 'moveSlide mean variance' acts on a
-'Double', and uses the normal distribution with given @mean@ and @variance@. The
-sampled variate is added to the current value of the variable (hence, the name
-slide). The same nomenclature is used by RevBayes [1]. The probability
-distributions and intrinsic properties of a specific move are specified in
-detail in the respective help.
+probability distributions. For example, @slideDouble "name" mean variance@ acts
+on a 'Double', and uses the normal distribution with given @mean@ and
+@variance@. The sampled variate is added to the current value of the variable
+(hence, the name slide). The same nomenclature is used by RevBayes [1]. The
+probability distributions and intrinsic properties of a specific move are
+specified in detail in the documentation.
 
-The other method is more systematic, but also a little bit more complicated: we
-differentiate between the proposal distribution and how the state is affected.
-Here, I am not only referring to the accessor (i.e., the lens), but also to the
-operator (addition, multiplication, any other binary operator). In this scheme,
-'mvSlide' would correspond to something like @move (normalDistribution mean
-variance) (+) ...@. This specification is more involved. Especially, we need to
-know the probability of jumping back, and so we need to know the reverse of the
-operator. However, it also allows specification of new moves with great ease.
+The other method, which is used intrinsically, is more systematic, but also a
+little bit more complicated: we separate between the proposal distribution and
+how the state is affected. And here, I am not only referring to the accessor
+(i.e., the lens), but also to the operator (addition, multiplication, any other
+binary operator). For example, the sliding move is implemented as
+
+@
+slide l n m s = moveGenericContinuous l n (normalDistr m s) (+) (-)
+@
+
+This specification is more involved. Especially since we need to know the
+probability of jumping back, and so we need to know the inverse operator.
+However, it also allows specification of new moves with great ease.
 
 TODO: Moves on simplices: SimplexElementScale (?).
 
