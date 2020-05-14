@@ -23,6 +23,11 @@ library:
     - mwc-random
     - statistics
     - transformers
+  exposed-modules:
+    - Statistics.Mcmc.Metropolis
+    - Statistics.Mcmc.Moves
+    - Statistics.Mcmc.Tools
+    - Statistics.Mcmc.Types
 
 benchmarks:
   mcmc-bench:

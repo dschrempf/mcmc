@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 {- |
-Module      :  Statistics.Mcmc.Move.Normal
+Module      :  Statistics.Mcmc.Moves.Normal
 Description :  Normally distributed move
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3
@@ -14,7 +14,7 @@ Creation date: Wed May  6 10:59:13 2020.
 
 -}
 
-module Statistics.Mcmc.Move.Normal
+module Statistics.Mcmc.Moves.Normal
   ( moveNormal
   , moveNormalDouble
   ) where

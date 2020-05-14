@@ -81,6 +81,15 @@ prependA as ass = [ x:xs | (x, xs) <- zip as ass]
 -- We need to know the probability density of jumping forth, but also the
 -- probability density of jumping back. They are needed to calculate the
 -- Metropolis-Hastings ratio.
+--
+-- TODO: Maybe use a different type for 'mvSample', so that 'mvLogDensity' can
+-- be avoided. I.e.,
+-- @
+--   mvSample :: a -> GenIO -> IO (a, Log Double, Log, Double)
+-- @
+-- where the log densities describe the probability of going there and back.
+-- However, we may need more information about the move for other MCMC samplers
+-- different from Metropolis-Hastings.
 data Move a = Move
   {
     -- | The name of the move.
