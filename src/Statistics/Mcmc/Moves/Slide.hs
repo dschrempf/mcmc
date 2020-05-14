@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 {- |
-Module      :  Statistics.Mcmc.Moves.Normal
+Module      :  Statistics.Mcmc.Moves.Slide
 Description :  Normally distributed move
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3
@@ -14,9 +14,10 @@ Creation date: Wed May  6 10:59:13 2020.
 
 -}
 
-module Statistics.Mcmc.Moves.Normal
-  ( moveNormal
-  , moveNormalDouble
+module Statistics.Mcmc.Moves.Slide
+  ( slide
+  , slideDouble
+  , slideGeneric
   ) where
 
 import Lens.Micro
@@ -26,6 +27,7 @@ import Statistics.Distribution.Normal
 import System.Random.MWC
 
 import Statistics.Mcmc.Types
+import Statistics.Mcmc.Moves.Generic
 
 delta :: Lens' a Double -> NormalDistribution -> a -> GenIO -> IO a
 delta l d x g = do
@@ -39,23 +41,27 @@ logDens l d x y = Exp $ logDensity d (y^.l - x^.l)
 {-# INLINEABLE logDens #-}
 
 -- | A symmetric move with normally distributed density.
-moveNormal
+slide
   :: Lens' a Double     -- ^ Instruction about which parameter to change.
   -> String             -- ^ Name.
   -> Double             -- ^ Mean.
   -> Double             -- ^ Standard deviation.
   -> Move a
-moveNormal l n m s = Move n (delta l d) (logDens l d)
+slide l n m s = Move n (delta l d) (logDens l d)
   where d = normalDistr m s
 
--- Ridiculous.
-lid :: Lens' a a
-lid f = f
+slideGeneric
+  :: Lens' a Double     -- ^ Instruction about which parameter to change.
+  -> String             -- ^ Name.
+  -> Double             -- ^ Mean.
+  -> Double             -- ^ Standard deviation.
+  -> Move a
+slideGeneric l n m s = moveGeneric l n (normalDistr m s) (+) (-)
 
 -- | A symmetric move with normally distributed density; specialized to a one
 -- dimensional state space of type 'Double'; see 'moveNormal'.
-moveNormalDouble :: String -> Double -> Double -> Move Double
-moveNormalDouble = moveNormal lid
+slideDouble :: String -> Double -> Double -> Move Double
+slideDouble = slide id
 
 -- -- It turns out that direct implementation is not faster (or only marginally
 -- -- faster); tested with criterion for 50000 jumps.

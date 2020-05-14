@@ -29,7 +29,7 @@ import System.Random.MWC
 import Statistics.Mcmc.Metropolis
 import Statistics.Mcmc.Tools
 import Statistics.Mcmc.Types
-import Statistics.Mcmc.Move.Normal
+import Statistics.Mcmc.Moves
 
 type I = (Double, Double)
 
@@ -50,10 +50,10 @@ posterior :: I -> Log Double
 posterior x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
 
 moveAlpha :: Move I
-moveAlpha = moveNormal _1 "alpha" 0.0 1.0
+moveAlpha = slide _1 "alpha" 0.0 1.0
 
 moveBeta :: Move I
-moveBeta = moveNormal _2 "beta" 0.0 1.0
+moveBeta = slide _2 "beta" 0.0 1.0
 
 moveCycle :: Cycle I
 moveCycle = Cycle [moveAlpha, moveBeta]

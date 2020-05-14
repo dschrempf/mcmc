@@ -26,7 +26,7 @@ import System.Random.MWC
 import Statistics.Mcmc.Metropolis
 import Statistics.Mcmc.Tools
 import Statistics.Mcmc.Types
-import Statistics.Mcmc.Move.Normal
+import Statistics.Mcmc.Moves
 
 trueMean :: Double
 trueMean = 5
@@ -37,11 +37,17 @@ trueStdDev = 4
 posterior :: Double -> Log Double
 posterior = Exp . logDensity (normalDistr trueMean trueStdDev)
 
+-- moveCycle :: Cycle Double
+-- moveCycle = Cycle [ slideDouble "small" 0 0.1
+--                   , slideDouble "medium" 0 1.0
+--                   , slideDouble "large" 0 5.0
+--                   , slideDouble "skewed" 1.0 4.0 ]
+
 moveCycle :: Cycle Double
-moveCycle = Cycle [ moveNormalDouble "small" 0 0.1
-                  , moveNormalDouble "medium" 0 1.0
-                  , moveNormalDouble "large" 0 5.0
-                  , moveNormalDouble "skewed" 1.0 4.0 ]
+moveCycle = Cycle [ slideGeneric id "small" 0 0.1
+                  , slideGeneric id "medium" 0 1.0
+                  , slideGeneric id "large" 0 5.0
+                  , slideGeneric id "skewed" 1.0 4.0 ]
 
 summarize :: [Double] -> (Double, Double)
 summarize xs = (mean v, stdDev v)
