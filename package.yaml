@@ -14,6 +14,10 @@ synopsis:            Sample from a posterior using Markov chain Monte Carlo
 category:            Math, Statistics
 description:         Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
 
+ghc-options:
+  - -Wall
+  - -Werror
+
 library:
   source-dirs: src
   dependencies:
@@ -61,3 +65,4 @@ tests:
       - hspec
       - hspec-discover
       - mcmc
+      - QuickCheck

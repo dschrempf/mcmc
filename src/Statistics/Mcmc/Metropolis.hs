@@ -60,6 +60,7 @@ mhMove (Move _ p q) = do
 mhCycle :: Show a => (Mcmc a) ()
 mhCycle = do
   (Cycle mvs) <- moves <$> get
+  -- TODO: Replicate mvs according to their weights; then shuffle mvs; then execute them.
   a <- mapM mhMove mvs
   s <- get
   let i = item s
@@ -72,10 +73,13 @@ mhCycle = do
 mhRun :: Show a => Int -> Mcmc a ()
 mhRun n = replicateM_ n mhCycle
 
--- | Run a given number of Metropolis-Hastings cycles.
+-- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 --
--- TODO: Improve documentation.
---
--- TODO: Simplify type for users.
-mh :: Show a => Int -> Status a -> IO (Status a)
+-- The initial state of the Markov chain is given in form of the 'Status' type
+-- which includes information about the moves, the trace, acceptance ratios, and
+-- more. Of course, the initial state can also be the result of a paused chain.
+mh :: Show a
+  => Int -- ^ Number of Metropolis-Hastings steps.
+  -> Status a -- ^ Initial state of Markov chain.
+  -> IO (Status a)
 mh n = execStateT (mhRun n)

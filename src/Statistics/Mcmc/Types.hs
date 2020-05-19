@@ -17,6 +17,16 @@ TODO: Think about how to save and restore an MCMC run. It is easy to save and
 restore the current state and likelihood (or the trace), but it seems impossible
 to store all the moves and so on.
 
+TODO: Define monitors like in RevBayes.
+
+TODO: Proper output. RevBayes does the following:
+@
+  Running burn-in phase of Monte Carlo sampler for 10000 iterations.
+  This simulation runs 1 independent replicate.
+  The MCMCMC simulator runs 1 cold chain and 3 heated chains.
+  The simulator uses 42 different moves in a random move schedule with 163 moves per iteration
+@
+
 -}
 
 module Statistics.Mcmc.Types
@@ -108,12 +118,22 @@ data Move a = Move
 -- moves according to their relative weights in the Cycle --- a common practice
 -- in MCMC software packages.
 newtype Cycle a = Cycle { fromCycle :: [Move a] }
+-- TODO: Use NonEmpty?
 
 instance Semigroup (Cycle a) where
   (Cycle l) <> (Cycle r) = Cycle (l <> r)
 
 instance Monoid (Cycle a) where
   mempty = Cycle []
+
+-- TODO: Add possibility to store supplementary information about the chain.
+
+-- TODO: Do not export the 'Status' itself, but use a type abstraction; then one
+-- can save a hash of the state and forbid changes of moves once the status has
+-- been created; maybe this can be done in an easier way using the type
+-- abstraction.
+
+-- TODO: Auto tuning.
 
 -- | The 'Status' of an MCMC run.
 data Status a = Status

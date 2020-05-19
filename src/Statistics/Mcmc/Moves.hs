@@ -33,22 +33,28 @@ This specification is more involved. Especially since we need to know the
 probability of jumping back, and so we need to know the inverse operator.
 However, it also allows specification of new moves with great ease.
 
-TODO: Moves on simplices: SimplexElementScale (?).
-
-TODO: Moves on tree branch lengths.
-- Slide a node on the tree.
-- Scale a tree.
-
-TODO: Moves on tree topologies.
-- NNI
-- Narrow (what is this, see RevBayes)
-- FNPR (dito)
-
 [1] Höhna, S., Landis, M. J., Heath, T. A., Boussau, B., Lartillot, N., Moore,
 B. R., Huelsenbeck, J. P., …, Revbayes: bayesian phylogenetic inference using
 graphical models and an interactive model-specification language, Systematic
 Biology, 65(4), 726–736 (2016). http://dx.doi.org/10.1093/sysbio/syw021
 -}
+
+-- TODO: Moves on simplices: SimplexElementScale (?).
+
+-- TODO: Moves on tree branch lengths.
+-- - Slide a node on the tree.
+-- - Scale a tree.
+
+-- TODO: Moves on tree topologies.
+-- - NNI
+-- - Narrow (what is this, see RevBayes)
+-- - FNPR (dito)
+
+-- TODO: Bactrian moves; https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
+--
+-- slideBactrian
+--
+-- scaleBactrian
 
 module Statistics.Mcmc.Moves
   ( module Statistics.Mcmc.Moves.Slide
