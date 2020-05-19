@@ -17,20 +17,20 @@ module Statistics.Mcmc.Tools
   , acceptanceRatio
   ) where
 
-import Statistics.Mcmc.Types
+import qualified Data.Map.Strict as M
+import Data.Map.Strict (Map)
 
 ratio :: [Bool] -> Double
 ratio xs = fromIntegral (length ts) / fromIntegral (length xs)
   where ts = filter (==True) xs
 
--- TODO: Instead of passing a status, pass an (hypothetical) Acceptance type.
---
--- | Acceptance ratios of all 'Move's in the 'Cycle'.
-acceptanceRatios :: Status a -> [Double]
-acceptanceRatios s = map ratio as
-  where as = acceptance s
+-- | Acceptance ratios averaged over the last @n@ iterations. If less than @n@
+-- iterations are available, only those are used.
+acceptanceRatios :: Int -> Map k [Bool] -> Map k Double
+acceptanceRatios n = M.map (ratio . take n)
 
--- | Total acceptance ratio.
-acceptanceRatio :: Status a -> Double
-acceptanceRatio s = sum rs / fromIntegral (length rs)
-  where rs = acceptanceRatios s
+-- | Total acceptance ratio averaged over the last @n@ iterations. If less than
+-- @n@ iterations are available, only those are used.
+acceptanceRatio :: Int -> Map k [Bool] -> Double
+acceptanceRatio n m = total / fromIntegral (M.size m)
+  where total = sum (acceptanceRatios n m)

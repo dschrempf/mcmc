@@ -22,6 +22,7 @@ library:
   source-dirs: src
   dependencies:
     - base >= 4.7 && < 5
+    - containers
     - log-domain
     - microlens
     - mwc-random

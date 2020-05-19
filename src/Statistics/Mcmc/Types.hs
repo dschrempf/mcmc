@@ -1,5 +1,4 @@
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE DeriveFunctor #-}
 
 {- |
 Module      :  Statistics.Mcmc.Types
@@ -13,36 +12,41 @@ Portability :  portable
 
 Creation date: Tue May  5 18:01:15 2020.
 
-TODO: Think about how to save and restore an MCMC run. It is easy to save and
-restore the current state and likelihood (or the trace), but it seems impossible
-to store all the moves and so on.
-
-TODO: Define monitors like in RevBayes.
-
-TODO: Proper output. RevBayes does the following:
-@
-  Running burn-in phase of Monte Carlo sampler for 10000 iterations.
-  This simulation runs 1 independent replicate.
-  The MCMCMC simulator runs 1 cold chain and 3 heated chains.
-  The simulator uses 42 different moves in a random move schedule with 163 moves per iteration
-@
-
 -}
+
+-- TODO: Think about how to save and restore an MCMC run. It is easy to save and
+-- restore the current state and likelihood (or the trace), but it seems impossible
+-- to store all the moves and so on.
+
+-- TODO: Define monitors like in RevBayes.
+
+-- TODO: Proper output. RevBayes does the following:
+-- @
+--   Running burn-in phase of Monte Carlo sampler for 10000 iterations.
+--   This simulation runs 1 independent replicate.
+--   The MCMCMC simulator runs 1 cold chain and 3 heated chains.
+--   The simulator uses 42 different moves in a random move schedule with 163 moves per iteration
+-- @
 
 module Statistics.Mcmc.Types
   (
-    Item (..)
-  , Trace (..)
+    Item (state, logPosterior)
+  , Trace (fromTrace)
   , prependT
   , prependA
   , Move (..)
-  , Cycle (..)
-  , Status (..)
-  , start
+  , Cycle
+  , buildCycle
+  , addMove
+  , Status (item, logPosteriorF, cycle, iteration, trace, acceptance, generator)
+  , mcmc
   , Mcmc
   ) where
 
 import Control.Monad.Trans.State.Strict
+import qualified Data.Map.Strict as M
+import Data.Function
+import Data.Map.Strict (Map)
 import Numeric.Log
 import System.Random.MWC
 
@@ -75,9 +79,6 @@ prependT :: Item a -> Trace a -> Trace a
 prependT x (Trace xs) = Trace (x:xs)
 {-# INLINEABLE prependT #-}
 
--- TODO: This is highly confusing. Make this more clear. Probably use a data
--- type.
-
 -- | Prepend a list of accepted / rejected tries to the list of
 -- accepted / rejected tries.
 prependA :: [Bool] -> [[Bool]] -> [[Bool]]
@@ -102,23 +103,43 @@ prependA as ass = [ x:xs | (x, xs) <- zip as ass]
 -- different from Metropolis-Hastings.
 data Move a = Move
   {
-    -- | The name of the move.
+    -- | Name (no moves with the same name are allowed in a 'Cycle').
     mvName       :: String
     -- | Instruction about randomly moving to a new state.
   , mvSample     :: a -> GenIO -> IO a
     -- | The log-density of going from one state to another.
   , mvLogDensity :: a -> a -> Log Double
   }
+instance Eq (Move a) where
+  m == n =
+    mvName m == mvName n
 
--- | A collection of 'Move's form a 'Cycle'. The state of the 'Trace' will be
+instance Ord (Move a) where
+  compare = compare `on` mvName
+
+-- | In brief, a 'Cycle' is a list of moves. The state of the 'Trace' will be
 -- logged only after each 'Cycle'.
 --
--- XXX: At the moment, 'Move's are executed in forward order as they appear in
--- the 'Cycle'. One could think of associating weighs with moves, and execute
--- moves according to their relative weights in the Cycle --- a common practice
--- in MCMC software packages.
-newtype Cycle a = Cycle { fromCycle :: [Move a] }
--- TODO: Use NonEmpty?
+-- In detail, a 'Cycle' is list of tuples @(move, weight)@. The weight
+-- determines how often a 'Move' is executed per 'Cycle'.
+--
+-- 'Move's are replicated according to their weights and executed in random
+-- order. That is, they are not executed in the order they appear in the
+-- 'Cycle'.
+--
+-- A classical list is used, and not 'Data.List.NonEmpty' (keep things simple).
+newtype Cycle a = Cycle { fromCycle :: [(Move a, Int)] }
+
+moves :: Cycle a -> [Move a]
+moves = map fst . fromCycle
+
+addMove :: (Move a, Int) -> Cycle a -> Cycle a
+addMove (m, w) c | m `elem` moves c = Cycle $ (m, w) : fromCycle c
+                 | otherwise = error msg
+                 where msg = "addMove: move " <> mvName m <> " already exists in cycle."
+
+buildCycle :: [(Move a, Int)] -> Cycle a
+buildCycle = foldr addMove (Cycle [])
 
 instance Semigroup (Cycle a) where
   (Cycle l) <> (Cycle r) = Cycle (l <> r)
@@ -136,6 +157,8 @@ instance Monoid (Cycle a) where
 -- TODO: Auto tuning.
 
 -- | The 'Status' of an MCMC run.
+--
+-- Type abstraction is used so that the status cannot be changed by hand.
 data Status a = Status
   {
     -- | The current 'Item' of the chain combines the current state and the
@@ -145,22 +168,25 @@ data Status a = Status
     -- of the log-prior and the log-likelihood.
   , logPosteriorF :: a -> Log Double
     -- | A set of 'Move's form a 'Cycle'.
-  , moves         :: Cycle a
+  , cycle         :: Cycle a
+    -- | Number of completed cycles.
+  , iteration     :: Int
     -- | The 'Trace' of the Markov chain in reverse order, the most recent state
     -- is at the head of the list.
   , trace         :: Trace a
-    -- TODO: See 'prependA'.
-    --
-    -- | Log of accepted (True) and rejected (False) 'Move's per 'Cycle'; also
-    -- stored in reverse order. @acceptance status !! i@ is the list of
-    -- accepted/rejected tries of the @i@th 'Move' in the 'Cycle'.
-  , acceptance    :: [[Bool]]
+    -- | For each 'Move', store the list of accepted (True) and rejected (False)
+    -- proposals; for reasons of efficiency, the list is also stored in reverse
+    -- order.
+  , acceptance    :: Map (Move a) [Bool]
+    -- TODO: I am not satisfied because the acceptance type contains a type
+    -- variable 'a' which is not needed at all. But otherwise it should work
+    -- nicely! One could just use 'Map String [Bool]' here.
     -- | The random number generator.
   , generator     :: GenIO
   }
 
 -- | Initialize a Markov chain Monte Carlo run.
-start
+mcmc
   :: a -- ^ The initial state in the state space @a@.
   -> (a -> Log Double) -- ^ The un-normalized log-posterior function.
   -> Cycle a -- ^ A list of 'Move's executed in forward order. The chain will be
@@ -170,9 +196,9 @@ start
   -> Status a -- ^ Return the current 'Status' of the Markov chain. Use, for
               -- example, 'Statistics.Mcmc.Metropolis.mh' to run the Markov
               -- chain.
-start x f c = Status i f c (Trace [i]) (replicate nMoves [])
-  where i = Item x (f x)
-        nMoves = length $ fromCycle c
+mcmc x f c = Status i f c 0 (Trace [i]) as
+  where i   = Item x (f x)
+        as  = M.fromList [ (k, []) | k <- moves c ]
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.
