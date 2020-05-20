@@ -27,7 +27,9 @@ import           Data.Array.ST                  ( newListArray
                                                 , runSTArray
                                                 , writeArray
                                                 )
-import           System.Random.MWC
+import           System.Random.MWC              ( GenIO
+                                                , uniformR
+                                                )
 
 -- | Shuffle a list.
 shuffle :: [a] -> GenIO -> IO [a]
