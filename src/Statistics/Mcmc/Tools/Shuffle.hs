@@ -16,6 +16,7 @@ From https://wiki.haskell.org/Random_shuffle.
 
 module Statistics.Mcmc.Tools.Shuffle
   ( shuffle
+  , shuffleN
   , grabble
   ) where
 
@@ -32,6 +33,10 @@ import           System.Random.MWC
 -- | Shuffle a list.
 shuffle :: PrimMonad m => [a] -> Gen (PrimState m) -> m [a]
 shuffle xs g = head <$> grabble xs 1 (length xs) g
+
+-- | Shuffle a list @n@ times.
+shuffleN :: PrimMonad m => [a] -> Int -> Gen (PrimState m) -> m [[a]]
+shuffleN xs n = grabble xs n (length xs)
 
 -- | @grabble xs m n@ is /O(m*n')/, where @n' = min n (length xs)@. Choose @n'@
 -- elements from @xs@, without replacement, and that @m@ times.

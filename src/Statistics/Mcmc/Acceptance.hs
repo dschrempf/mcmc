@@ -35,12 +35,13 @@ empty :: Ord k => [k] -> Acceptance k
 empty ks = Acceptance $ M.fromList [ (k, []) | k <- ks ]
 
 -- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
-prependA :: Ord k => k -> Bool -> Acceptance k -> Acceptance k
--- XXX: Save update. If this is a bottleneck, remove the key check.
-prependA k v (Acceptance m) | k `M.member` m = Acceptance $ M.adjust (v:) k m
-                            | otherwise = error msg
-  -- XXX: This error message is vague but I don't want to force (Show k).
-  where msg = "prependA: Can not add acceptance value for given key."
+prependA :: (Ord k, Show k) => k -> Bool -> Acceptance k -> Acceptance k
+-- XXX: Unsafe; faster.
+prependA k v (Acceptance m) = Acceptance $ M.adjust (v:) k m
+-- -- XXX: Safe; slower.
+-- prependA k v (Acceptance m) | k `M.member` m = Acceptance $ M.adjust (v:) k m
+--                             | otherwise = error msg
+--   where msg = "prependA: Can not add acceptance value for key: " <> show k <> "."
 
 ratio :: [Bool] -> Double
 ratio xs = fromIntegral (length ts) / fromIntegral (length xs)
