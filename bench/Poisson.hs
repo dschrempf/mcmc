@@ -50,13 +50,13 @@ f ft yr (alpha, beta) = Exp $ logProbability (poisson l) (fromIntegral ft)
 posterior :: I -> Log Double
 posterior x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
 
-moveAlpha :: Move IO I
-moveAlpha = slide _1 "alpha" 0.0 1.0
+moveAlpha :: Move I
+moveAlpha = slide _1 "alpha" 0.0 0.2
 
-moveBeta :: Move IO I
-moveBeta = slide _2 "beta" 0.0 1.0
+moveBeta :: Move I
+moveBeta = slide _2 "beta" 0.0 0.2
 
-moveCycle :: Cycle IO I
+moveCycle :: Cycle I
 moveCycle = fromList [ (moveAlpha, 2)
                      , (moveBeta,  1) ]
 

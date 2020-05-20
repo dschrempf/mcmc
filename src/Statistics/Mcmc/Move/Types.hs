@@ -24,7 +24,6 @@ module Statistics.Mcmc.Move.Types
   , fromList
   ) where
 
-import Control.Monad.Primitive
 import Data.Function
 import Numeric.Log
 import System.Random.MWC
@@ -47,24 +46,24 @@ import System.Random.MWC
 -- where the log densities describe the probability of going there and back.
 -- However, we may need more information about the move for other MCMC samplers
 -- different from Metropolis-Hastings.
-data Move m a = Move
+data Move a = Move
   {
     -- | Name (no moves with the same name are allowed in a 'Cycle').
     mvName       :: String
     -- | Instruction about randomly moving to a new state.
-  , mvSample     :: PrimMonad m => a -> Gen (PrimState m) -> m a
+  , mvSample     :: a -> GenIO -> IO a
     -- | The log-density of going from one state to another.
   , mvLogDensity :: a -> a -> Log Double
   }
 
-instance Show (Move m a) where
+instance Show (Move a) where
   show = mvName
 
-instance Eq (Move m a) where
+instance Eq (Move a) where
   m == n =
     mvName m == mvName n
 
-instance Ord (Move m a) where
+instance Ord (Move a) where
   compare = compare `on` mvName
 
 -- | In brief, a 'Cycle' is a list of moves. The state of the Markov chain will
@@ -79,23 +78,23 @@ instance Ord (Move m a) where
 -- 'Cycle'.
 --
 -- A classical list is used, and not 'Data.List.NonEmpty' (keep things simple).
-newtype Cycle m a = Cycle { fromCycle :: [(Move m a, Int)] }
+newtype Cycle a = Cycle { fromCycle :: [(Move a, Int)] }
 
 -- | Add a 'Move' with weight @w@ to the 'Cycle'. The name of the added 'Move'
 -- must be unique.
-addMove :: Move m a -> Int -> Cycle m a -> Cycle m a
+addMove :: Move a -> Int -> Cycle a -> Cycle a
 addMove m w c | m `notElem` (map fst . fromCycle) c = Cycle $ (m, w) : fromCycle c
               | otherwise = error msg
   where msg = "addMove: Move " <> mvName m <> " already exists in cycle."
 
 -- | Create a 'Cycle' from a list of 'Move's with associated weights.
-fromList :: [(Move m a, Int)] -> Cycle m a
+fromList :: [(Move a, Int)] -> Cycle a
 fromList = foldr (uncurry addMove) mempty
 
 -- Always check that the names are unique, because they are used to identify the
 -- moves.
-instance Semigroup (Cycle m a) where
+instance Semigroup (Cycle a) where
   l <> (Cycle xs) = foldr (uncurry addMove) l xs
 
-instance Monoid (Cycle m a) where
+instance Monoid (Cycle a) where
   mempty = Cycle []

@@ -16,7 +16,6 @@ description:         Please see the README on GitHub at <https://github.com/dsch
 
 ghc-options:
   - -Wall
-  # - -Werror
 
 library:
   source-dirs: src
@@ -27,11 +26,8 @@ library:
     - log-domain
     - microlens
     - mwc-random
-    - primitive
     - statistics
     - transformers
-  # exposed-modules:
-  #   - Statistics.Mcmc
 
 benchmarks:
   mcmc-bench:

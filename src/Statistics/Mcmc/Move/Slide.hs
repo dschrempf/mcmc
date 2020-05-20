@@ -19,7 +19,6 @@ module Statistics.Mcmc.Move.Slide
   , slideDouble
   ) where
 
-import Control.Monad.Primitive
 import Lens.Micro
 import Statistics.Distribution.Normal
 
@@ -28,15 +27,14 @@ import Statistics.Mcmc.Move.Types
 
 -- | Additive move with normally distributed density.
 slide
-  :: PrimMonad m
-  => Lens' a Double     -- ^ Instruction about which parameter to change.
+  :: Lens' a Double     -- ^ Instruction about which parameter to change.
   -> String             -- ^ Name.
   -> Double             -- ^ Mean.
   -> Double             -- ^ Standard deviation.
-  -> Move m a
+  -> Move a
 slide l n m s = moveGenericContinuous l n (normalDistr m s) (+) (-)
 
 -- | Additive move with normally distributed density; specialized to a one
 -- dimensional state space of type 'Double'.
-slideDouble :: PrimMonad m => String -> Double -> Double -> Move m Double
+slideDouble :: String -> Double -> Double -> Move Double
 slideDouble = slide id

@@ -19,7 +19,7 @@ module Statistics.Mcmc.Metropolis
 import Prelude hiding (cycle)
 
 import Control.Monad
-import Control.Monad.Primitive
+import Control.Monad.IO.Class
 import Control.Monad.Trans.State.Strict
 import Numeric.Log
 import System.Random.MWC
@@ -36,7 +36,7 @@ mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
 {-# INLINE mhRatio #-}
 
-mhMove :: PrimBase m => Move m a -> Mcmc m a ()
+mhMove :: Move a -> Mcmc a ()
 mhMove m@(Move _ p q) = do
   s <- get
   let (Item x lX) = item s
@@ -44,7 +44,7 @@ mhMove m@(Move _ p q) = do
       g           = generator s
       a           = acceptance s
   -- 1. Sample new state.
-  y <- liftPrim $ p x g
+  y <- liftIO $ p x g
   -- 2. Calculate Metropolis-Hastings ratio.
   let
     lY = f y
@@ -59,11 +59,11 @@ mhMove m@(Move _ p q) = do
             else put s{acceptance = prependA m False a}
 
 -- Replicate 'Move's according to their weights and shuffle them.
-getCycles :: PrimMonad m => Cycle m a -> Int -> Gen (PrimState m) -> m [[Move m a]]
+getCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
 getCycles c = shuffleN mvs
   where mvs = concat [ replicate w m | (m, w) <- fromCycle c ]
 
-mhCycle :: PrimBase m => [Move m a] -> Mcmc m a ()
+mhCycle :: [Move a] -> Mcmc a ()
 mhCycle mvs = do
   mapM_ mhMove mvs
   s <- get
@@ -74,18 +74,18 @@ mhCycle mvs = do
   put s'
 
 -- Run a given number of Metropolis-Hastings cycles.
-mhRun :: PrimBase m => Int -> Mcmc m a ()
+mhRun :: Int -> Mcmc a ()
 mhRun n = do
   c <- cycle <$> get
   g <- generator <$> get
-  cycles <- liftPrim $ getCycles c n g
+  cycles <- liftIO $ getCycles c n g
   forM_ cycles mhCycle
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 --
 -- Of course, the given status can also be the result of a paused chain.
-mh :: (Show a, PrimBase m)
+mh :: Show a
   => Int -- ^ Number of Metropolis-Hastings steps.
-  -> Status m a -- ^ Initial state of Markov chain.
-  -> m (Status m a)
+  -> Status a -- ^ Initial state of Markov chain.
+  -> IO (Status a)
 mh n = execStateT (mhRun n)

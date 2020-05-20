@@ -12,6 +12,8 @@ Creation date: Wed May  6 12:31:40 2020.
 
 -}
 
+-- XXX: I guess using mutable vectors or something similar would be much faster.
+
 module Statistics.Mcmc.Acceptance
   ( Acceptance
   , empty
@@ -42,6 +44,7 @@ prependA k v (Acceptance m) = Acceptance $ M.adjust (v:) k m
 -- prependA k v (Acceptance m) | k `M.member` m = Acceptance $ M.adjust (v:) k m
 --                             | otherwise = error msg
 --   where msg = "prependA: Can not add acceptance value for key: " <> show k <> "."
+{-# INLINEABLE #-}
 
 ratio :: [Bool] -> Double
 ratio xs = fromIntegral (length ts) / fromIntegral (length xs)

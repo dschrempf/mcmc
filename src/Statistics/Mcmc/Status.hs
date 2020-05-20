@@ -32,7 +32,6 @@ module Statistics.Mcmc.Status
   , Mcmc
   ) where
 
-import Control.Monad.Primitive
 import Control.Monad.Trans.State.Strict
 import Numeric.Log
 import System.Random.MWC
@@ -52,7 +51,7 @@ import Statistics.Mcmc.Trace
 -- TODO: Auto tuning.
 
 -- | The 'Status' of an MCMC run.
-data Status m a = Status
+data Status a = Status
   {
     -- | The current 'Item' of the chain combines the current state and the
     -- current log-likelihood.
@@ -61,7 +60,7 @@ data Status m a = Status
     -- of the log-prior and the log-likelihood.
   , logPosteriorF :: a -> Log Double
     -- | A set of 'Move's form a 'Cycle'.
-  , cycle         :: Cycle m a
+  , cycle         :: Cycle a
     -- | Number of completed cycles.
   , iteration     :: Int
     -- | The 'Trace' of the Markov chain in reverse order, the most recent state
@@ -70,9 +69,9 @@ data Status m a = Status
     -- | For each 'Move', store the list of accepted (True) and rejected (False)
     -- proposals; for reasons of efficiency, the list is also stored in reverse
     -- order.
-  , acceptance    :: Acceptance (Move m a)
+  , acceptance    :: Acceptance (Move a)
     -- | The random number generator.
-  , generator     :: Gen (PrimState m)
+  , generator     :: GenIO
   }
 
 -- | Initialize a Markov chain Monte Carlo run.
@@ -80,18 +79,17 @@ data Status m a = Status
 -- The 'Status' of a Markov chain includes information about the 'Move's, the
 -- 'Trace', 'Acceptance' ratios, and more.
 mcmc
-  :: (PrimMonad m)
-  =>  a -- ^ The initial state in the state space @a@.
+  :: a -- ^ The initial state in the state space @a@.
   -> (a -> Log Double) -- ^ The un-normalized log-posterior function.
-  -> Cycle m a -- ^ A list of 'Move's executed in forward order. The chain will
+  -> Cycle a -- ^ A list of 'Move's executed in forward order. The chain will
                -- be logged after each cycle.
-  -> Gen (PrimState m) -- ^ A source of randomness. For reproducible runs, make
+  -> GenIO -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
-  -> Status m a -- ^ The current 'Status' of the Markov chain.
+  -> Status a -- ^ The current 'Status' of the Markov chain.
 mcmc x f c = Status i f c 0 (Trace [i]) (empty mvs)
   where i   = Item x (f x)
         mvs = map fst $ fromCycle c
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.
-type Mcmc m a = StateT (Status m a) m
+type Mcmc a = StateT (Status a) IO

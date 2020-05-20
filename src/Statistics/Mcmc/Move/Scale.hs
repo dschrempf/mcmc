@@ -20,7 +20,6 @@ module Statistics.Mcmc.Move.Scale
   , scaleNeutral
   ) where
 
-import Control.Monad.Primitive
 import Lens.Micro
 import Statistics.Distribution.Gamma
 
@@ -29,17 +28,16 @@ import Statistics.Mcmc.Move.Types
 
 -- | Multiplicative move with Gamma distributed density.
 scale
-  :: PrimMonad m
-  => Lens' a Double     -- ^ Instruction about which parameter to change.
+  :: Lens' a Double     -- ^ Instruction about which parameter to change.
   -> String             -- ^ Name.
   -> Double             -- ^ Shape.
   -> Double             -- ^ Scale.
-  -> Move m a
+  -> Move a
 scale l n k t = moveGenericContinuous l n (gammaDistr k t) (*) (/)
 
 -- | Multiplicative move with Gamma distributed density; specialized to a one
 -- dimensional state space of type 'Double'.
-scaleDouble :: PrimMonad m => String -> Double -> Double -> Move m Double
+scaleDouble :: String -> Double -> Double -> Move Double
 scaleDouble = scale id
 
 -- | Multiplicative move with Gamma distributed density. The scale of the Gamma
@@ -49,9 +47,8 @@ scaleDouble = scale id
 -- XXX: "Neutral" is probably not the best name, can we think of a better
 -- alternative?.
 scaleNeutral
-  :: PrimMonad m
-  => Lens' a Double     -- ^ Instruction about which parameter to change.
+  :: Lens' a Double     -- ^ Instruction about which parameter to change.
   -> String             -- ^ Name.
   -> Double             -- ^ Shape.
-  -> Move m a
+  -> Move a
 scaleNeutral l n k = moveGenericContinuous l n (gammaDistr k (1/k)) (*) (/)

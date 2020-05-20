@@ -21,7 +21,6 @@ module Statistics.Mcmc.Tools.Shuffle
   ) where
 
 import           Control.Monad
-import           Control.Monad.Primitive
 import           Data.Array                     ( elems )
 import           Data.Array.ST                  ( newListArray
                                                 , readArray
@@ -31,16 +30,16 @@ import           Data.Array.ST                  ( newListArray
 import           System.Random.MWC
 
 -- | Shuffle a list.
-shuffle :: PrimMonad m => [a] -> Gen (PrimState m) -> m [a]
+shuffle :: [a] -> GenIO -> IO [a]
 shuffle xs g = head <$> grabble xs 1 (length xs) g
 
 -- | Shuffle a list @n@ times.
-shuffleN :: PrimMonad m => [a] -> Int -> Gen (PrimState m) -> m [[a]]
+shuffleN :: [a] -> Int -> GenIO -> IO [[a]]
 shuffleN xs n = grabble xs n (length xs)
 
 -- | @grabble xs m n@ is /O(m*n')/, where @n' = min n (length xs)@. Choose @n'@
 -- elements from @xs@, without replacement, and that @m@ times.
-grabble :: PrimMonad m => [a] -> Int -> Int -> Gen (PrimState m) -> m [[a]]
+grabble :: [a] -> Int -> Int -> GenIO -> IO [[a]]
 grabble xs m n gen = do
   swapss <- replicateM m $ forM [0 .. min (maxIx - 1) n] $ \i -> do
     j <- uniformR (i, maxIx) gen

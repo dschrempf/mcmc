@@ -38,7 +38,7 @@ trueStdDev = 4
 posterior :: Double -> Log Double
 posterior = Exp . logDensity (normalDistr trueMean trueStdDev)
 
-moveCycle :: Cycle IO Double
+moveCycle :: Cycle Double
 moveCycle = fromList [ (slideDouble "small" 0 0.1,    5)
                      , (slideDouble "medium" 0 1.0,   2)
                      , (slideDouble "large" 0 5.0,    2)
@@ -48,14 +48,17 @@ summarize :: [Double] -> (Double, Double)
 summarize xs = (mean v, stdDev v)
   where v = V.fromList xs
 
+n :: Int
+n = 50000
+
 mhBench :: GenIO -> IO ()
 mhBench g = do
-  s <- mh 50000 (mcmc 0 posterior moveCycle g)
+  s <- mh n (mcmc 0 posterior moveCycle g)
   let t = map state . fromTrace $ trace s
       a = acceptance s
   putStrLn "Acceptance ratios:"
-  putStrLn $ "Per move: " <> show (acceptanceRatios 50000 a)
-  putStrLn $ "Total: " <> show (acceptanceRatio 50000 a)
+  putStrLn $ "Per move: " <> show (acceptanceRatios n a)
+  putStrLn $ "Total: " <> show (acceptanceRatio n a)
   putStrLn "Mean and standard deviations:"
   putStrLn $ "True: " ++ show (trueMean, trueStdDev)
   putStrLn $ "Markov chain: " <> show (summarize t)
