@@ -16,11 +16,12 @@ description:         Please see the README on GitHub at <https://github.com/dsch
 
 ghc-options:
   - -Wall
-  - -Werror
+  # - -Werror
 
 library:
   source-dirs: src
   dependencies:
+    - array
     - base >= 4.7 && < 5
     - containers
     - log-domain
@@ -29,11 +30,8 @@ library:
     - primitive
     - statistics
     - transformers
-  exposed-modules:
-    - Statistics.Mcmc.Metropolis
-    - Statistics.Mcmc.Moves
-    - Statistics.Mcmc.Tools
-    - Statistics.Mcmc.Types
+  # exposed-modules:
+  #   - Statistics.Mcmc
 
 benchmarks:
   mcmc-bench:

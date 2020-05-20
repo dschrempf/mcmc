@@ -2,15 +2,13 @@
 Module      :  Statistics.Mcmc.Metropolis
 Description :  Metropolis-Hastings at its best
 Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3
+License     :  GPL-3.0-or-later
 
 Maintainer  :  dominik.schrempf@gmail.com
 Stability   :  unstable
 Portability :  portable
 
 Creation date: Tue May  5 20:11:30 2020.
-
-TODO: Reexport types?
 
 -}
 
@@ -21,12 +19,18 @@ module Statistics.Mcmc.Metropolis
 import Prelude hiding (cycle)
 
 import Control.Monad
-import Control.Monad.IO.Class
+import Control.Monad.Primitive
 import Control.Monad.Trans.State.Strict
 import Numeric.Log
 import System.Random.MWC
 
-import Statistics.Mcmc.Types
+import Statistics.Mcmc.Acceptance
+import Statistics.Mcmc.Item
+import Statistics.Mcmc.Move.Types
+import Statistics.Mcmc.Status
+import Statistics.Mcmc.Trace
+
+import Statistics.Mcmc.Tools.Shuffle
 
 -- import Debug.Trace
 
@@ -34,14 +38,15 @@ mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
 {-# INLINE mhRatio #-}
 
-mhMove :: Show a => Move a -> Mcmc a Bool
-mhMove (Move _ p q) = do
+mhMove :: PrimBase m => Move m a -> Mcmc m a ()
+mhMove m@(Move _ p q) = do
   s <- get
   let (Item x lX) = item s
       f           = logPosteriorF s
       g           = generator s
+      a           = acceptance s
   -- 1. Sample new state.
-  y <- liftIO $ p x g
+  y <- liftPrim $ p x g
   -- 2. Calculate Metropolis-Hastings ratio.
   let
     lY = f y
@@ -50,36 +55,39 @@ mhMove (Move _ p q) = do
   -- XXX: Can this be improved in terms of speed?
   -- if traceShow (lX, lY, q x y, q y x, r) $ r >= 1.0
   if ln r >= 0.0
-    then put s{item = Item y lY} >> return True
+    then put s{item = Item y lY, acceptance = prependA m True a}
     else do b <- uniform g
             -- Only update the 'Item' after a full cycle.
             if b < exp (ln r)
-            then put s{item = Item y lY} >> return True
-            else return False
+            then put s{item = Item y lY, acceptance = prependA m True a}
+            else put s{acceptance = prependA m False a}
 
-mhCycle :: Show a => (Mcmc a) ()
+-- Replicate 'Move's according to their weights and shuffle them.
+shuffleCycle :: PrimMonad m => Cycle m a -> Gen (PrimState m) -> m [Move m a]
+shuffleCycle c = shuffle mvs
+  where mvs = concat [ replicate w m | (m, w) <- fromCycle c ]
+
+mhCycle :: PrimBase m => Mcmc m a ()
 mhCycle = do
-  (Cycle mvs) <- moves <$> get
-  -- TODO: Replicate mvs according to their weights; then shuffle mvs; then execute them.
-  a <- mapM mhMove mvs
+  c <- cycle <$> get
+  g <- generator <$> get
+  mvs <- liftPrim $ shuffleCycle c g
+  mapM_ mhMove mvs
   s <- get
   let i = item s
       t = trace s
-      as = acceptance s
-      s' = s {trace = prependT i t, acceptance = prependA a as}
+      s' = s {trace = prependT i t}
   put s'
 
 -- Run a given number of Metropolis-Hastings cycles.
-mhRun :: Show a => Int -> Mcmc a ()
+mhRun :: PrimBase m => Int -> Mcmc m a ()
 mhRun n = replicateM_ n mhCycle
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 --
--- The initial state of the Markov chain is given in form of the 'Status' type
--- which includes information about the moves, the trace, acceptance ratios, and
--- more. Of course, the initial state can also be the result of a paused chain.
-mh :: Show a
+-- Of course, the given status can also be the result of a paused chain.
+mh :: (Show a, PrimBase m)
   => Int -- ^ Number of Metropolis-Hastings steps.
-  -> Status a -- ^ Initial state of Markov chain.
-  -> IO (Status a)
+  -> Status m a -- ^ Initial state of Markov chain.
+  -> m (Status m a)
 mh n = execStateT (mhRun n)

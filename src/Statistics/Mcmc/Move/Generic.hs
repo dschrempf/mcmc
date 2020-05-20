@@ -1,10 +1,10 @@
 {-# LANGUAGE RankNTypes #-}
 
 {- |
-Module      :  Statistics.Mcmc.Moves.Generic
+Module      :  Statistics.Mcmc.Move.Generic
 Description :  Generic interface to create moves
 Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3
+License     :  GPL-3.0-or-later
 
 Maintainer  :  dominik.schrempf@gmail.com
 Stability   :  unstable
@@ -14,26 +14,28 @@ Creation date: Thu May 14 20:26:27 2020.
 
 -}
 
-module Statistics.Mcmc.Moves.Generic
-  ( moveGenericContinuous
+module Statistics.Mcmc.Move.Generic
+  (
+    moveGenericContinuous
   , moveGenericDiscrete
   ) where
 
+import Control.Monad.Primitive
 import Lens.Micro
 import Numeric.Log
 import Statistics.Distribution
 import System.Random.MWC
 
-import Statistics.Mcmc.Types
+import Statistics.Mcmc.Move.Types
 
 jumpCont
-  :: (ContDistr d, ContGen d)
+  :: (ContDistr d, ContGen d, PrimMonad m)
   => Lens' a Double
   -> d
   -> (Double -> Double -> Double)
   -> a
-  -> GenIO
-  -> IO a
+  -> Gen (PrimState m)
+  -> m a
 jumpCont l d f x g = do
   dx <- genContVar d g
   return $ set l ((x^.l) `f` dx) x
@@ -51,23 +53,23 @@ logDensCont l d fInv x y = Exp $ logDensity d ((y^.l) `fInv` (x^.l))
 
 -- | Generic function to create moves for continuous parameters ('Double').
 moveGenericContinuous
-  :: (ContDistr d, ContGen d)
+  :: (ContDistr d, ContGen d, PrimMonad m)
   => Lens' a Double               -- ^ Instruction about which parameter to change.
   -> String                       -- ^ Name of the move.
   -> d                            -- ^ Probability distribution.
   -> (Double -> Double -> Double) -- ^ Forward operator, e.g. (+), so that x + dx = y.
   -> (Double -> Double -> Double) -- ^ Inverse operator, e.g.,(-), so that y - dx = x.
-  -> Move a
+  -> Move m a
 moveGenericContinuous l n d f fInv = Move n (jumpCont l d f) (logDensCont l d fInv)
 
 jumpDiscrete
-  :: (DiscreteDistr d, DiscreteGen d)
+  :: (DiscreteDistr d, DiscreteGen d, PrimMonad m)
   => Lens' a Int
   -> d
   -> (Int -> Int -> Int)
   -> a
-  -> GenIO
-  -> IO a
+  -> Gen (PrimState m)
+  -> m a
 jumpDiscrete l d f x g = do
   dx <- genDiscreteVar d g
   return $ set l ((x^.l) `f` dx) x
@@ -85,11 +87,11 @@ logDensDiscrete l d fInv x y = Exp $ logProbability d ((y^.l) `fInv` (x^.l))
 
 -- | Generic function to create moves for discrete parameters ('Int').
 moveGenericDiscrete
-  :: (DiscreteDistr d, DiscreteGen d)
+  :: (DiscreteDistr d, DiscreteGen d, PrimMonad m)
   => Lens' a Int         -- ^ Instruction about which parameter to change.
   -> String              -- ^ Name of the move.
   -> d                   -- ^ Probability distribution.
   -> (Int -> Int -> Int) -- ^ Forward operator, e.g. (+), so that x + dx = y.
   -> (Int -> Int -> Int) -- ^ Inverse operator, e.g.,(-), so that y - dx = x.
-  -> Move a
+  -> Move m a
 moveGenericDiscrete l n d f fInv = Move n (jumpDiscrete l d f) (logDensDiscrete l d fInv)

@@ -1,8 +1,8 @@
 {- |
-Module      :  Statistics.Mcmc.Moves
+Module      :  Statistics.Mcmc.Move
 Description :  A collection of predefined moves
 Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3
+License     :  GPL-3.0-or-later
 
 Maintainer  :  dominik.schrempf@gmail.com
 Stability   :  unstable
@@ -10,14 +10,14 @@ Portability :  portable
 
 Creation date: Thu May 14 13:51:51 2020.
 
-I decided to provide moves named according to what they do, i.e., how they
-change the state of a Markov chain, and not according to the intrinsically used
-probability distributions. For example, @slideDouble "name" mean variance@ acts
-on a 'Double', and uses the normal distribution with given @mean@ and
-@variance@. The sampled variate is added to the current value of the variable
-(hence, the name slide). The same nomenclature is used by RevBayes [1]. The
-probability distributions and intrinsic properties of a specific move are
-specified in detail in the documentation.
+Moves are named according to what they do, i.e., how they change the state of a
+Markov chain, and not according to the intrinsically used probability
+distributions. For example, 'slideDouble' is a sliding move changing a 'Double'.
+Under the hood, it uses the normal distribution with a given mean and variance.
+The sampled variate is added to the current value of the variable (hence, the
+name slide). The same nomenclature is used by RevBayes [1]. The probability
+distributions and intrinsic properties of a specific move are specified in
+detail in the documentation.
 
 The other method, which is used intrinsically, is more systematic, but also a
 little bit more complicated: we separate between the proposal distribution and
@@ -56,10 +56,16 @@ Biology, 65(4), 726–736 (2016). http://dx.doi.org/10.1093/sysbio/syw021
 --
 -- scaleBactrian
 
-module Statistics.Mcmc.Moves
-  ( module Statistics.Mcmc.Moves.Slide
-  , module Statistics.Mcmc.Moves.Scale
+-- Order of module exports: types, then moves in alphabetical order, then
+-- generic moves.
+module Statistics.Mcmc.Move
+  ( module Statistics.Mcmc.Move.Types
+  , module Statistics.Mcmc.Move.Scale
+  , module Statistics.Mcmc.Move.Slide
+  , module Statistics.Mcmc.Move.Generic
   ) where
 
-import Statistics.Mcmc.Moves.Slide
-import Statistics.Mcmc.Moves.Scale
+import Statistics.Mcmc.Move.Generic
+import Statistics.Mcmc.Move.Scale
+import Statistics.Mcmc.Move.Slide
+import Statistics.Mcmc.Move.Types

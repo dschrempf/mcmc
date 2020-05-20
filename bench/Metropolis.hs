@@ -2,7 +2,7 @@
 Module      :  Metropolis
 Description :  Benchmark Metropolis-Hastings algorithm
 Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3
+License     :  GPL-3.0-or-later
 
 Maintainer  :  dominik.schrempf@gmail.com
 Stability   :  unstable
@@ -23,10 +23,11 @@ import Statistics.Distribution.Normal
 import Statistics.Sample
 import System.Random.MWC
 
-import Statistics.Mcmc.Metropolis
-import Statistics.Mcmc.Tools
-import Statistics.Mcmc.Types
-import Statistics.Mcmc.Moves
+import Statistics.Mcmc
+
+import Statistics.Mcmc.Acceptance
+import Statistics.Mcmc.Item
+import Statistics.Mcmc.Trace
 
 trueMean :: Double
 trueMean = 5
@@ -37,11 +38,11 @@ trueStdDev = 4
 posterior :: Double -> Log Double
 posterior = Exp . logDensity (normalDistr trueMean trueStdDev)
 
-moveCycle :: Cycle Double
-moveCycle = Cycle [ slideDouble "small" 0 0.1
-                  , slideDouble "medium" 0 1.0
-                  , slideDouble "large" 0 5.0
-                  , slideDouble "skewed" 1.0 4.0 ]
+moveCycle :: Cycle IO Double
+moveCycle = fromList [ (slideDouble "small" 0 0.1,    5)
+                     , (slideDouble "medium" 0 1.0,   2)
+                     , (slideDouble "large" 0 5.0,    2)
+                     , (slideDouble "skewed" 1.0 4.0, 1)]
 
 summarize :: [Double] -> (Double, Double)
 summarize xs = (mean v, stdDev v)
@@ -49,11 +50,12 @@ summarize xs = (mean v, stdDev v)
 
 mhBench :: GenIO -> IO ()
 mhBench g = do
-  s <- mh 50000 (start 0 posterior moveCycle g)
+  s <- mh 50000 (mcmc 0 posterior moveCycle g)
   let t = map state . fromTrace $ trace s
+      a = acceptance s
   putStrLn "Acceptance ratios:"
-  putStrLn $ "Per move: " <> show (map mvName $ fromCycle moveCycle) <> " " <> show (acceptanceRatios s)
-  putStrLn $ "Total: " <> show (acceptanceRatio s)
+  putStrLn $ "Per move: " <> show (acceptanceRatios 50000 a)
+  putStrLn $ "Total: " <> show (acceptanceRatio 50000 a)
   putStrLn "Mean and standard deviations:"
   putStrLn $ "True: " ++ show (trueMean, trueStdDev)
   putStrLn $ "Markov chain: " <> show (summarize t)

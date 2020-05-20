@@ -1,10 +1,10 @@
 {-# LANGUAGE RankNTypes #-}
 
 {- |
-Module      :  Statistics.Mcmc.Moves.Scale
+Module      :  Statistics.Mcmc.Move.Scale
 Description :  Scaling move with Gamma distribution
 Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3
+License     :  GPL-3.0-or-later
 
 Maintainer  :  dominik.schrempf@gmail.com
 Stability   :  unstable
@@ -14,30 +14,32 @@ Creation date: Thu May 14 21:49:23 2020.
 
 -}
 
-module Statistics.Mcmc.Moves.Scale
+module Statistics.Mcmc.Move.Scale
   ( scale
   , scaleDouble
   , scaleNeutral
   ) where
 
+import Control.Monad.Primitive
 import Lens.Micro
 import Statistics.Distribution.Gamma
 
-import Statistics.Mcmc.Types
-import Statistics.Mcmc.Moves.Generic
+import Statistics.Mcmc.Move.Generic
+import Statistics.Mcmc.Move.Types
 
 -- | Multiplicative move with Gamma distributed density.
 scale
-  :: Lens' a Double     -- ^ Instruction about which parameter to change.
+  :: PrimMonad m
+  => Lens' a Double     -- ^ Instruction about which parameter to change.
   -> String             -- ^ Name.
   -> Double             -- ^ Shape.
   -> Double             -- ^ Scale.
-  -> Move a
+  -> Move m a
 scale l n k t = moveGenericContinuous l n (gammaDistr k t) (*) (/)
 
 -- | Multiplicative move with Gamma distributed density; specialized to a one
 -- dimensional state space of type 'Double'.
-scaleDouble :: String -> Double -> Double -> Move Double
+scaleDouble :: PrimMonad m => String -> Double -> Double -> Move m Double
 scaleDouble = scale id
 
 -- | Multiplicative move with Gamma distributed density. The scale of the Gamma
@@ -47,8 +49,9 @@ scaleDouble = scale id
 -- XXX: "Neutral" is probably not the best name, can we think of a better
 -- alternative?.
 scaleNeutral
-  :: Lens' a Double     -- ^ Instruction about which parameter to change.
+  :: PrimMonad m
+  => Lens' a Double     -- ^ Instruction about which parameter to change.
   -> String             -- ^ Name.
   -> Double             -- ^ Shape.
-  -> Move a
+  -> Move m a
 scaleNeutral l n k = moveGenericContinuous l n (gammaDistr k (1/k)) (*) (/)

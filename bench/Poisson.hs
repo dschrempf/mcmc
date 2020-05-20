@@ -2,7 +2,7 @@
 Module      :  Poisson
 Description :  Poisson regression model for airline fatalities
 Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3
+License     :  GPL-3.0-or-later
 
 Maintainer  :  dominik.schrempf@gmail.com
 Stability   :  unstable
@@ -26,10 +26,11 @@ import Statistics.Distribution.Poisson
 import Statistics.Sample
 import System.Random.MWC
 
-import Statistics.Mcmc.Metropolis
-import Statistics.Mcmc.Tools
-import Statistics.Mcmc.Types
-import Statistics.Mcmc.Moves
+import Statistics.Mcmc
+
+import Statistics.Mcmc.Acceptance
+import Statistics.Mcmc.Item
+import Statistics.Mcmc.Trace
 
 type I = (Double, Double)
 
@@ -49,14 +50,15 @@ f ft yr (alpha, beta) = Exp $ logProbability (poisson l) (fromIntegral ft)
 posterior :: I -> Log Double
 posterior x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
 
-moveAlpha :: Move I
+moveAlpha :: Move IO I
 moveAlpha = slide _1 "alpha" 0.0 1.0
 
-moveBeta :: Move I
+moveBeta :: Move IO I
 moveBeta = slide _2 "beta" 0.0 1.0
 
-moveCycle :: Cycle I
-moveCycle = Cycle [moveAlpha, moveBeta]
+moveCycle :: Cycle IO I
+moveCycle = fromList [ (moveAlpha, 2)
+                     , (moveBeta,  1) ]
 
 initial :: I
 initial = (0, 0)
@@ -66,12 +68,16 @@ summarize xs = ((mean as, stdDev as), (mean bs, stdDev bs))
   where as = V.fromList $ map fst xs
         bs = V.fromList $ map snd xs
 
+n :: Int
+n = 10000
+
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  s <- mh 10000 (start initial posterior moveCycle g)
+  s <- mh n (mcmc initial posterior moveCycle g)
+  let a = acceptance s
   putStrLn "Acceptance ratios:"
-  putStrLn $ "Per move: " <> show (map mvName $ fromCycle moveCycle) <> " " <> show (acceptanceRatios s)
-  putStrLn $ "Total: " <> show (acceptanceRatio s)
+  putStrLn $ "Per move: " <> show (acceptanceRatios n a)
+  putStrLn $ "Total: " <> show (acceptanceRatio n a)
   putStrLn "Mean and standard deviations:"
   let xs = map state . fromTrace $ trace s
       -- ps = map (ln . logPosterior) . fromTrace $ trace s
