@@ -1,6 +1,8 @@
+{-# LANGUAGE RankNTypes #-}
+
 {- |
 Module      :  Statistics.Mcmc.Move
-Description :  A collection of predefined moves
+Description :  Moves and cycles
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
 
@@ -8,64 +10,116 @@ Maintainer  :  dominik.schrempf@gmail.com
 Stability   :  unstable
 Portability :  portable
 
-Creation date: Thu May 14 13:51:51 2020.
+Creation date: Wed May 20 13:42:53 2020.
 
-Moves are named according to what they do, i.e., how they change the state of a
-Markov chain, and not according to the intrinsically used probability
-distributions. For example, 'slideDouble' is a sliding move changing a 'Double'.
-Under the hood, it uses the normal distribution with a given mean and variance.
-The sampled variate is added to the current value of the variable (hence, the
-name slide). The same nomenclature is used by RevBayes [1]. The probability
-distributions and intrinsic properties of a specific move are specified in
-detail in the documentation.
-
-The other method, which is used intrinsically, is more systematic, but also a
-little bit more complicated: we separate between the proposal distribution and
-how the state is affected. And here, I am not only referring to the accessor
-(i.e., the lens), but also to the operator (addition, multiplication, any other
-binary operator). For example, the sliding move is implemented as
-
-@
-slide l n m s = moveGenericContinuous l n (normalDistr m s) (+) (-)
-@
-
-This specification is more involved. Especially since we need to know the
-probability of jumping back, and so we need to know the inverse operator.
-However, it also allows specification of new moves with great ease.
-
-[1] Höhna, S., Landis, M. J., Heath, T. A., Boussau, B., Lartillot, N., Moore,
-B. R., Huelsenbeck, J. P., …, Revbayes: bayesian phylogenetic inference using
-graphical models and an interactive model-specification language, Systematic
-Biology, 65(4), 726–736 (2016). http://dx.doi.org/10.1093/sysbio/syw021
 -}
 
--- TODO: Moves on simplices: SimplexElementScale (?).
-
--- TODO: Moves on tree branch lengths.
--- - Slide a node on the tree.
--- - Scale a tree.
-
--- TODO: Moves on tree topologies.
--- - NNI
--- - Narrow (what is this, see RevBayes)
--- - FNPR (dito)
-
--- TODO: Bactrian moves; https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
---
--- slideBactrian
---
--- scaleBactrian
-
--- Order of module exports: types, then moves in alphabetical order, then
--- generic moves.
 module Statistics.Mcmc.Move
-  ( module Statistics.Mcmc.Move.Types
-  , module Statistics.Mcmc.Move.Scale
-  , module Statistics.Mcmc.Move.Slide
-  , module Statistics.Mcmc.Move.Generic
+  (
+    -- * Move
+    Move (..)
+  , tune
+    -- * Cycle
+  , Cycle (fromCycle)
+  , addMove
+  , fromList
   ) where
 
-import Statistics.Mcmc.Move.Generic
-import Statistics.Mcmc.Move.Scale
-import Statistics.Mcmc.Move.Slide
-import Statistics.Mcmc.Move.Types
+import Data.Function
+import Numeric.Log
+import System.Random.MWC
+
+-- | A 'Move' is an instruction about how the Markov chain will traverse the
+-- state space @a@. Essentially, it is a probability density conditioned on the
+-- current state.
+--
+-- We need to know the probability density of jumping forth, but also the
+-- probability density of jumping back. They are needed to calculate the
+-- Metropolis-Hastings ratio.
+--
+-- One could also use a different type for 'mvSample', so that 'mvLogDensity' can
+-- be avoided. In detail,
+--
+-- @
+--   mvSample :: a -> GenIO -> IO (a, Log Double, Log, Double)
+-- @
+--
+-- where the log densities describe the probability of going there and back.
+-- However, we may need more information about the move for other MCMC samplers
+-- different from Metropolis-Hastings.
+data Move a = Move
+  {
+    -- | Name (no moves with the same name are allowed in a 'Cycle').
+    mvName       :: String
+    -- | Instruction about randomly moving from the current state to a new
+    -- state, given some source of randomness.
+  , mvSample     :: a
+                 -> GenIO
+                 -> IO a
+    -- | The log-density of going from one state to another.
+  , mvLogDensity :: a
+                 -> a
+                 -> Log Double
+    -- | Tuning parameter; used to tune the acceptance ratio of the 'Move'.
+    -- Tuning is disabled if set to 'Nothing'.
+  , mvTuneParam  :: Maybe Double
+    -- | Tune the 'Move'.
+  , mvTune       :: Maybe (Double -> Move a)
+  }
+
+-- | Tune a move. Return 'Nothing' if 'Move' is not tunable. If the tuning
+--   parameter @t@ is larger than 1.0, the 'Move' is enlarged, if @0<t<1.0@, it
+--   is shrunk. Negative tuning parameters are not allowed.
+tune
+  :: Double
+  -> Move a
+  -> Maybe (Move a)
+tune t m | t <= 0 =
+           error $ "tune: Tuning parameter not positive: " <> show t <> "."
+         | otherwise = do
+  cur <- mvTuneParam m
+  ft  <- mvTune m
+  return $ ft (cur*t)
+
+instance Show (Move a) where
+  show = mvName
+
+instance Eq (Move a) where
+  m == n =
+    mvName m == mvName n
+
+instance Ord (Move a) where
+  compare = compare `on` mvName
+
+-- | In brief, a 'Cycle' is a list of moves. The state of the Markov chain will
+-- be logged only after each 'Cycle'. __Moves must have unique names__, so that
+-- they can be identified.
+--
+-- In detail, a 'Cycle' is list of tuples @(move, weight)@. The weight
+-- determines how often a 'Move' is executed per 'Cycle'.
+--
+-- 'Move's are replicated according to their weights and executed in random
+-- order. That is, they are not executed in the order they appear in the
+-- 'Cycle'.
+--
+-- A classical list is used, and not 'Data.List.NonEmpty' (keep things simple).
+newtype Cycle a = Cycle { fromCycle :: [(Move a, Int)] }
+
+-- | Add a 'Move' with weight @w@ to the 'Cycle'. The name of the added 'Move'
+-- must be unique.
+addMove :: Move a -> Int -> Cycle a -> Cycle a
+addMove m w c | m `notElem` (map fst . fromCycle) c = Cycle $ (m, w) : fromCycle c
+              | otherwise = error msg
+  where msg = "addMove: Move " <> mvName m <> " already exists in cycle."
+
+-- | Create a 'Cycle' from a list of 'Move's with associated weights.
+fromList :: [(Move a, Int)] -> Cycle a
+fromList = foldr (uncurry addMove) mempty
+
+-- Always check that the names are unique, because they are used to identify the
+-- moves.
+instance Semigroup (Cycle a) where
+  l <> (Cycle xs) = foldr (uncurry addMove) l xs
+
+instance Monoid (Cycle a) where
+  mempty = Cycle []

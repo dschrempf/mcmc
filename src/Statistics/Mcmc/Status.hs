@@ -38,7 +38,7 @@ import System.Random.MWC
 
 import Statistics.Mcmc.Acceptance
 import Statistics.Mcmc.Item
-import Statistics.Mcmc.Move.Types
+import Statistics.Mcmc.Move
 import Statistics.Mcmc.Trace
 
 -- TODO: Add possibility to store supplementary information about the chain.

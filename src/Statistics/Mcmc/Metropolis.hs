@@ -26,7 +26,7 @@ import System.Random.MWC
 
 import Statistics.Mcmc.Acceptance
 import Statistics.Mcmc.Item
-import Statistics.Mcmc.Move.Types
+import Statistics.Mcmc.Move
 import Statistics.Mcmc.Status
 import Statistics.Mcmc.Trace
 
@@ -37,7 +37,9 @@ mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
 {-# INLINE mhRatio #-}
 
 mhMove :: Move a -> Mcmc a ()
-mhMove m@(Move _ p q) = do
+mhMove m = do
+  let p = mvSample m
+      q = mvLogDensity m
   s <- get
   let (Item x lX) = item s
       f           = logPosteriorF s
@@ -72,6 +74,10 @@ mhCycle mvs = do
       n = iteration s
       s' = s {trace = prependT i t, iteration = succ n}
   put s'
+
+-- TODO: Burn in.
+
+-- TODO: Tune.
 
 -- Run a given number of Metropolis-Hastings cycles.
 mhRun :: Int -> Mcmc a ()

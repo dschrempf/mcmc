@@ -23,7 +23,7 @@ import Lens.Micro
 import Statistics.Distribution.Normal
 
 import Statistics.Mcmc.Move.Generic
-import Statistics.Mcmc.Move.Types
+import Statistics.Mcmc.Move
 
 -- | Additive move with normally distributed density.
 slide
@@ -31,10 +31,19 @@ slide
   -> String             -- ^ Name.
   -> Double             -- ^ Mean.
   -> Double             -- ^ Standard deviation.
+  -> Bool               -- ^ Enable tuning.
   -> Move a
-slide l n m s = moveGenericContinuous l n (normalDistr m s) (+) (-)
+slide l n m s True  = moveGenericContinuous l n (normalDistr m s) (+) (-)
+                      (Just 1.0) $ Just (\t -> slide l n m (t*s) True)
+slide l n m s False = moveGenericContinuous l n (normalDistr m s) (+) (-)
+                      Nothing Nothing
 
 -- | Additive move with normally distributed density; specialized to a one
 -- dimensional state space of type 'Double'.
-slideDouble :: String -> Double -> Double -> Move Double
+slideDouble
+  :: String -- ^ Name.
+  -> Double -- ^ Mean.
+  -> Double -- ^ Standard deviation.
+  -> Bool   -- ^ Enable tuning.
+  -> Move Double
 slideDouble = slide id

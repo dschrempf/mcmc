@@ -51,10 +51,10 @@ posterior :: I -> Log Double
 posterior x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
 
 moveAlpha :: Move I
-moveAlpha = slide _1 "alpha" 0.0 0.2
+moveAlpha = slide _1 "alpha" 0.0 0.2 False
 
 moveBeta :: Move I
-moveBeta = slide _2 "beta" 0.0 0.2
+moveBeta = slide _2 "beta" 0.0 0.2 False
 
 moveCycle :: Cycle I
 moveCycle = fromList [ (moveAlpha, 2)
@@ -80,10 +80,7 @@ poissonBench g = do
   putStrLn $ "Total: " <> show (acceptanceRatio n a)
   putStrLn "Mean and standard deviations:"
   let xs = map state . fromTrace $ trace s
-      -- ps = map (ln . logPosterior) . fromTrace $ trace s
       (ra, rb) = summarize xs
-  -- print xs
-  -- print ps
   putStrLn $ "Alpha: " <> show ra
   putStrLn $ "Beta: " <> show rb
 
