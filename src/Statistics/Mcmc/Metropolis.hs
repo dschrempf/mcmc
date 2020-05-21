@@ -61,10 +61,11 @@ mhMove m = do
             else put s{acceptance = prependA m False a}
 
 -- Replicate 'Move's according to their weights and shuffle them.
-getCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
-getCycles c = shuffleN mvs
+getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
+getNCycles c = shuffleN mvs
   where mvs = concat [ replicate w m | (m, w) <- fromCycle c ]
 
+-- Run a cycle.
 mhCycle :: [Move a] -> Mcmc a ()
 mhCycle mvs = do
   mapM_ mhMove mvs
@@ -75,25 +76,50 @@ mhCycle mvs = do
       s' = s {trace = prependT i t, iteration = succ n}
   put s'
 
--- TODO: Burn in.
-
--- TODO: Tune.
-
--- TODO: Monitoring.
-
--- Run a given number of Metropolis-Hastings cycles.
-mhRun :: Int -> Mcmc a ()
-mhRun n = do
+-- Run N cycles with tuning frequency T.
+mhNCycles :: Int -> Mcmc a ()
+mhNCycles n = do
   c <- cycle <$> get
   g <- generator <$> get
-  cycles <- liftIO $ getCycles c n g
+  cycles <- liftIO $ getNCycles c n g
   forM_ cycles mhCycle
+
+-- TODO: Tune the moves; check acceptance ratio of the last n moves.
+mhTune :: Int -> Mcmc a ()
+mhTune _ = undefined
+
+-- TODO: Monitoring; screen log should be active during burn in and normal
+-- sampling, but file logs should only be executed during the normal MCMC
+-- sampling phase.
+
+-- Run N Metropolis-Hastings cycles with a burn in of B, and a tuning frequency of T.
+mhRun :: Maybe Int -> Maybe Int -> Int -> Mcmc a ()
+-- Burn in with auto tuning.
+mhRun (Just b) (Just t) n | b > t = do
+                              mhNCycles t
+                              mhTune t
+                              mhRun (Just (b-t)) (Just t) n
+                          | b <= t = mhRun (Just b) Nothing n
+                          | otherwise = error "mhRun: Please contact maintainer; this should never happen."
+-- Burn in without auto tuning.
+mhRun (Just b) Nothing n = do mhNCycles b
+                              -- TODO: Reset chain.
+                              -- TODO: Activate monitoring
+                              mhRun Nothing Nothing n
+-- Run without auto tuning.
+mhRun Nothing Nothing n = mhNCycles n
+mhRun Nothing (Just _) _ = error "mhRun: Cannot auto tune during normal MCMC sampling phase; please use burn in."
+
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 --
 -- Of course, the given status can also be the result of a paused chain.
 mh :: Show a
-  => Int -- ^ Number of Metropolis-Hastings steps.
-  -> Status a -- ^ Initial state of Markov chain.
+  => Maybe Int -- ^ Number of burn in cycles; deactivate burn in with 'Nothing';
+               -- be careful, after burn in, the chain will be reset.
+  -> Maybe Int -- ^ Auto tune period (only during burn in); deactivate auto
+               -- tuning completely with 'Nothing'.
+  -> Int       -- ^ Number of Metropolis-Hastings cycles (without auto tuning).
+  -> Status a  -- ^ Initial state of Markov chain.
   -> IO (Status a)
-mh n = execStateT (mhRun n)
+mh b t n = execStateT (mhRun b t n)

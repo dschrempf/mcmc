@@ -27,54 +27,52 @@ import qualified Data.ByteString.Char8 as B
 import Data.ByteString (ByteString)
 import System.IO
 
--- | Either log to file or handle.
-data Out = OutFile FilePath | OutHandle Handle
+-- | Either log to file (which will be opened using 'WriteMode' to yield a
+-- handle), or standard output.
+data Out = File FilePath | StdOut
+  deriving (Show)
 
-outOpen :: Out -> IO Out
-outOpen (OutFile   f) = OutHandle <$> openFile f WriteMode
-outOpen (OutHandle h) = error $ "outOpen: Cannot open a handle: " <> show h <> "."
-
-out :: Out -> ByteString -> IO ()
-out (OutHandle h) = B.hPutStrLn h
-out (OutFile   f) = error $ "out: No handle provided for file " <> f <> "."
-
--- TODO: Do not close stdout!
-outClose :: Out -> IO ()
-outClose (OutHandle h) = hClose h
-outClose (OutFile   f) = error $ "outClose: Cannot close a file: " <> f <> "."
+getHandle :: Out -> IO Handle
+getHandle (File f) = openFile f WriteMode
+getHandle StdOut   = pure stdout
 
 -- | Monitor a variable of the state space.
 data Monitor a = Monitor
   {
-    mOut  :: Out               -- ^ Log to file or handle ('stdout' can be used).
-  , mShow :: a -> ByteString   -- ^ Instruction about what to log.
-  , mFreq :: Int               -- ^ Logging frequency.
+    mOut    :: Out               -- ^ Log to file or standard output.
+  , mHandle :: Maybe Handle      -- ^ Handle to use.
+  , mShow   :: a -> ByteString   -- ^ Instruction about what to log.
+  , mFreq   :: Int               -- ^ Logging period.
   }
 
 mOpen :: Monitor a -> IO (Monitor a)
 mOpen m = do
-  h <- outOpen (mOut m)
-  return $ m { mOut = h }
+  h <- getHandle (mOut m)
+  return $ m { mHandle = Just h }
 
--- Execute monitor.
 mLog :: Int -> a -> Monitor a -> IO ()
 mLog i x m | i `mod` mFreq m /= 0 = return ()
-           | otherwise = out (mOut m) (mShow m x)
+           | otherwise = case mHandle m of
+               Just h  -> B.hPutStrLn h (mShow m x)
+               Nothing -> error $ "mLog: No handle available for monitor " <> show (mOut m) <> "."
 
 mClose :: Monitor a -> IO ()
-mClose m = do
-  h <- outClose (mOut m)
-  return ()
-
--- TODO: Write functions such as (open, print, close).
+mClose m = case (mOut m, mHandle m) of
+  (File _, Just h ) -> hClose h
+  (StdOut, _      ) -> pure ()
+  (File f, Nothing) -> error $ "mClose: File was not opened: " <> f <> "."
 
 -- | Log to file.
-monitorFile :: FilePath -> (a -> ByteString) -> Int -> Monitor a
-monitorFile fp = Monitor (OutFile fp)
+monitorFile
+  :: FilePath          -- ^ File path; file will be overwritten!
+  -> (a -> ByteString) -- ^ Instruction about what to log.
+  -> Int               -- ^ Logging period.
+  -> Monitor a
+monitorFile fp = Monitor (File fp) Nothing
 
--- | Log variable to screen.
+-- | Log to screen; see 'monitorFile'.
 monitorScreen :: (a -> ByteString) -> Int -> Monitor a
-monitorScreen = Monitor (OutHandle stdout)
+monitorScreen = Monitor StdOut Nothing
 
 -- TODO: Create monitors for specific types or type classes, such as Tree, or 'Num'.
 
