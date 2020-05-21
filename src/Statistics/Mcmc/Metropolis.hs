@@ -79,6 +79,8 @@ mhCycle mvs = do
 
 -- TODO: Tune.
 
+-- TODO: Monitoring.
+
 -- Run a given number of Metropolis-Hastings cycles.
 mhRun :: Int -> Mcmc a ()
 mhRun n = do
