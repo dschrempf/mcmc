@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 {- |
 Module      :  Statistics.Mcmc.Monitor
 Description :  Monitor a Markov chain
@@ -12,15 +14,20 @@ Creation date: Thu May 21 14:35:11 2020.
 
 -}
 
+-- TODO: Improvements necessary.
+-- Something like: one monitor prints a set of parameters.
+
+-- TODO: Use builders.
+
 module Statistics.Mcmc.Monitor
   ( Out
   , Monitor
   , monitorFile
   , monitorStdOut
-  , Control (..)
-  , cOpen
-  , cLog
-  , cClose
+  , Monitors (..)
+  , msOpen
+  , msExec
+  , msClose
   ) where
 
 import qualified Data.ByteString.Char8 as B
@@ -52,11 +59,11 @@ mOpen m = do
   h <- getHandle (mOut m)
   return $ m { mHandle = Just h }
 
-mLog :: Int -> a -> Monitor a -> IO ()
-mLog i x m | i `mod` mFreq m /= 0 = return ()
-           | otherwise = case mHandle m of
-               Just h  -> B.hPutStrLn h (mShow m x)
-               Nothing -> error $ "mLog: No handle available for monitor " <> show (mOut m) <> "."
+mExec :: Int -> a -> Monitor a -> IO ()
+mExec i x m | i `mod` mFreq m /= 0 = return ()
+            | otherwise = case mHandle m of
+                Just h  -> B.hPutStrLn h $ B.pack (show i) <> "\t" <> mShow m x
+                Nothing -> error $ "mLog: No handle available for monitor " <> show (mOut m) <> "."
 
 mClose :: Monitor a -> IO ()
 mClose m = case (mOut m, mHandle m) of
@@ -79,22 +86,22 @@ monitorStdOut = Monitor (OHandle stdout) Nothing
 -- TODO: Create monitors for specific types or type classes, such as Tree, or 'Num'.
 
 -- | List of monitors.
-newtype Control a = Control { fromControl :: [Monitor a] }
+newtype Monitors a = Monitors { fromMonitors :: [Monitor a] }
 
-instance Semigroup (Control a) where
-  (Control l) <> (Control r) = Control (l <> r)
+instance Semigroup (Monitors a) where
+  (Monitors l) <> (Monitors r) = Monitors (l <> r)
 
-instance Monoid (Control a)where
-  mempty = Control []
+instance Monoid (Monitors a) where
+  mempty = Monitors []
 
--- | Open the files associated with the 'Control'.
-cOpen :: Control a -> IO (Control a)
-cOpen c = Control <$> mapM mOpen (fromControl c)
+-- | Open the files associated with the 'Monitors'.
+msOpen :: Monitors a -> IO (Monitors a)
+msOpen c = Monitors <$> mapM mOpen (fromMonitors c)
 
 -- | Print logs for given iteration.
-cLog :: Int -> a -> Control a -> IO ()
-cLog i x = mapM_ (mLog i x) . fromControl
+msExec :: Int -> a -> Monitors a -> IO ()
+msExec i x = mapM_ (mExec i x) . fromMonitors
 
--- | Close the files associated with the 'Control'.
-cClose :: Control a -> IO ()
-cClose c = mapM_ mClose (fromControl c)
+-- | Close the files associated with the 'Monitors'.
+msClose :: Monitors a -> IO ()
+msClose c = mapM_ mClose (fromMonitors c)

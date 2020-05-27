@@ -14,6 +14,8 @@ Creation date: Wed May 20 13:42:53 2020.
 
 -}
 
+-- TODO: Report moves; report tuning parameter and acceptance ratio.
+
 module Statistics.Mcmc.Move
   (
     -- * Move

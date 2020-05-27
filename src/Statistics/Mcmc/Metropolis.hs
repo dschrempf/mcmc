@@ -53,12 +53,12 @@ mhMove m = do
     r  = mhRatio lX lY (q x y) (q y x)
   -- 3. Accept or reject.
   if ln r >= 0.0
-    then put s{item = Item y lY, acceptance = prependA m True a}
+    then put s { item = Item y lY, acceptance = prependA m True a }
     else do b <- uniform g
             -- Only update the 'Item' after a full cycle.
             if b < exp (ln r)
-            then put s{item = Item y lY, acceptance = prependA m True a}
-            else put s{acceptance = prependA m False a}
+            then put s { item = Item y lY, acceptance = prependA m True a }
+            else put s { acceptance = prependA m False a }
 
 -- Replicate 'Move's according to their weights and shuffle them.
 getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
@@ -73,42 +73,34 @@ mhCycle mvs = do
   let i = item s
       t = trace s
       n = iteration s
-      s' = s {trace = prependT i t, iteration = succ n}
+      s' = s { trace = prependT i t, iteration = succ n }
   put s'
+  mcmcExecMonitors
 
--- Run N cycles with tuning frequency T.
+-- Run N cycles.
 mhNCycles :: Int -> Mcmc a ()
 mhNCycles n = do
-  c <- cycle <$> get
-  g <- generator <$> get
+  c <- gets cycle
+  g <- gets generator
   cycles <- liftIO $ getNCycles c n g
   forM_ cycles mhCycle
 
--- TODO: Monitoring; screen log should be active during burn in and normal
--- sampling, but file logs should only be executed during the normal MCMC
--- sampling phase.
+-- TODO: Ad @modify' reset@. Think about what to save, and when. Should the burn
+-- in be included in the log files. If yes, how can we interpret auto tune? If
+-- no, valuable information is lost.
 
-mhTune :: Int -> Mcmc a ()
-mhTune t = do
-  liftIO $ putStrLn "Acceptance ratios before auto tune:"
-  a <- acceptance <$> get
-  let ars = acceptanceRatios t a
-  liftIO $ print ars
-  modify' (autotuneS t)
-
--- Run N Metropolis-Hastings cycles with a burn in of B, and a tuning frequency of T.
+-- Run N Metropolis-Hastings cycles with a burn in of B, and a tuning period of T.
 mhRun :: Maybe Int -> Maybe Int -> Int -> Mcmc a ()
 -- Burn in with auto tuning.
 mhRun (Just b) (Just t) n | b > t = do
                               mhNCycles t
-                              mhTune t
+                              mcmcTune t
                               mhRun (Just (b-t)) (Just t) n
                           | b <= t = mhRun (Just b) Nothing n
                           | otherwise = error "mhRun: Please contact maintainer; this should never happen."
--- Burn in without auto tuning.
+-- Burn in without auto tuning or last step of burn in with auto tuning.
 mhRun (Just b) Nothing n = do mhNCycles b
-                              modify' reset
-                              -- TODO: Activate monitoring
+                              -- modify' reset
                               mhRun Nothing Nothing n
 -- Run without auto tuning.
 mhRun Nothing Nothing n = mhNCycles n
@@ -126,4 +118,8 @@ mh :: Show a
   -> Int       -- ^ Number of Metropolis-Hastings cycles (without auto tuning).
   -> Status a  -- ^ Initial state of Markov chain.
   -> IO (Status a)
-mh b t n = execStateT (mhRun b t n)
+-- TODO: Opening and closing monitors has to be improved. At the moment, there
+-- is no distinction between burn in and actual sampling.
+mh b t n = execStateT (mcmcOpenMonitors >>
+                       mcmcExecMonitors >>
+                       mhRun b t n >> mcmcCloseMonitors)

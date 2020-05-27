@@ -50,11 +50,13 @@ module Statistics.Mcmc
   , module Statistics.Mcmc.Move.Scale
     -- * Initialization
   , module Statistics.Mcmc.Status
+  , module Statistics.Mcmc.Monitor
     -- * Algorithms
   , module Statistics.Mcmc.Metropolis
   ) where
 
 import Statistics.Mcmc.Metropolis
+import Statistics.Mcmc.Monitor
 import Statistics.Mcmc.Move
 import Statistics.Mcmc.Move.Scale
 import Statistics.Mcmc.Move.Slide

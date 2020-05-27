@@ -12,6 +12,8 @@ Creation date: Tue May  5 18:01:15 2020.
 
 -}
 
+-- TODO: Rename this module, Status is really bad ;).
+
 -- TODO: Think about how to save and restore an MCMC run. It is easy to save and
 -- restore the current state and likelihood (or the trace), but it seems impossible
 -- to store all the moves and so on.
@@ -28,15 +30,20 @@ Creation date: Tue May  5 18:01:15 2020.
 
 module Statistics.Mcmc.Status
   ( Status (..)
+  , getState
   , mcmc
   , reset
-  , autotuneS
   , Mcmc
+  , mcmcTune
+  , mcmcOpenMonitors
+  , mcmcCloseMonitors
+  , mcmcExecMonitors
   ) where
 
 import Prelude hiding (cycle)
 
-import Control.Monad.Trans.State.Strict
+import Control.Monad.IO.Class
+import Control.Monad.Trans.State.Strict hiding (state)
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import Numeric.Log
@@ -44,6 +51,7 @@ import System.Random.MWC
 
 import Statistics.Mcmc.Acceptance
 import Statistics.Mcmc.Item
+import Statistics.Mcmc.Monitor
 import Statistics.Mcmc.Move
 import Statistics.Mcmc.Trace
 
@@ -60,6 +68,8 @@ data Status a = Status
   , logPosteriorF :: a -> Log Double
     -- | A set of 'Move's form a 'Cycle'.
   , cycle         :: Cycle a
+    -- | A set of 'Monitor's to observe the chain.
+  , monitors      :: Monitors a
     -- | Number of completed cycles.
   , iteration     :: Int
     -- | The 'Trace' of the Markov chain in reverse order, the most recent state
@@ -73,19 +83,24 @@ data Status a = Status
   , generator     :: GenIO
   }
 
+-- | Get current state of Markov chain.
+getState :: Status a -> a
+getState = state . item
+
 -- | Initialize a Markov chain Monte Carlo run.
 --
 -- The 'Status' of a Markov chain includes information about the 'Move's, the
 -- 'Trace', 'Acceptance' ratios, and more.
 mcmc
-  :: a -- ^ The initial state in the state space @a@.
+  :: a                 -- ^ The initial state in the state space @a@.
   -> (a -> Log Double) -- ^ The un-normalized log-posterior function.
-  -> Cycle a -- ^ A list of 'Move's executed in forward order. The chain will
-               -- be logged after each cycle.
-  -> GenIO -- ^ A source of randomness. For reproducible runs, make
+  -> Cycle a           -- ^ A list of 'Move's executed in forward order. The
+                       -- chain will be logged after each cycle.
+  -> Monitors a        -- ^ A list of 'Monitor's tracing the chain.
+  -> GenIO             -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
-  -> Status a -- ^ The current 'Status' of the Markov chain.
-mcmc x f c = Status i f c 0 (Trace [i]) (empty $ moves c)
+  -> Status a          -- ^ The current 'Status' of the Markov chain.
+mcmc x f c m = Status i f c m 0 (Trace [i]) (empty $ moves c)
   where i   = Item x (f x)
 
 -- | Reset a chain. Delete trace, acceptance ratios, and set the iteration to 0.
@@ -108,3 +123,36 @@ autotuneS n s = s {cycle = mapC tuneF (cycle s)}
 -- required, but it is used by the different inference algorithms.
 type Mcmc a = StateT (Status a) IO
 
+-- TODO: Monitoring; screen log should be active during burn in and normal
+-- sampling, but file logs should only be executed during the normal MCMC
+-- sampling phase.
+
+mcmcTune :: Int -> Mcmc a ()
+mcmcTune t = do
+  liftIO $ putStrLn "Auto tune; current acceptance ratios are:"
+  a <- gets acceptance
+  let ars = acceptanceRatios t a
+  liftIO $ print ars
+  modify' (autotuneS t)
+
+mcmcOpenMonitors :: Mcmc a ()
+mcmcOpenMonitors = do
+  liftIO $ putStrLn "Open monitors."
+  s   <- get
+  ms  <- gets monitors
+  ms' <- liftIO $ msOpen ms
+  put s { monitors = ms' }
+
+mcmcCloseMonitors :: Mcmc a ()
+mcmcCloseMonitors = do
+  liftIO $ putStrLn "Close monitors."
+  ms <- gets monitors
+  liftIO $ msClose ms
+
+mcmcExecMonitors :: Mcmc a ()
+mcmcExecMonitors = do
+  s <- get
+  let i = iteration s
+      x = getState s
+      m = monitors s
+  liftIO $ msExec i x m

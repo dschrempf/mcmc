@@ -1,5 +1,5 @@
 {- |
-Module      :  Metropolis
+Module      :  Normal
 Description :  Benchmark Metropolis-Hastings algorithm
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -12,8 +12,8 @@ Creation date: Wed May  6 00:10:11 2020.
 
 -}
 
-module Metropolis
-  ( mhBench
+module Normal
+  ( normalBench
   ) where
 
 import qualified Data.Vector.Unboxed as V
@@ -25,7 +25,6 @@ import System.Random.MWC
 
 import Statistics.Mcmc
 
-import Statistics.Mcmc.Acceptance
 import Statistics.Mcmc.Item
 import Statistics.Mcmc.Trace
 
@@ -57,14 +56,10 @@ nAutoTune = Just 200
 nIter :: Int
 nIter = 20000
 
-mhBench :: GenIO -> IO ()
-mhBench g = do
-  s <- mh nBurn nAutoTune nIter (mcmc 0 posterior moveCycle g)
+normalBench :: GenIO -> IO ()
+normalBench g = do
+  s <- mh nBurn nAutoTune nIter (mcmc 0 posterior moveCycle mempty g)
   let t = map state . fromTrace $ trace s
-      a = acceptance s
-  putStrLn "Acceptance ratios:"
-  putStrLn $ "Per move: " <> show (acceptanceRatios nIter a)
-  putStrLn $ "Total: " <> show (acceptanceRatio nIter a)
   putStrLn "Mean and standard deviations:"
   putStrLn $ "True: " ++ show (trueMean, trueStdDev)
   putStrLn $ "Markov chain: " <> show (summarize t)

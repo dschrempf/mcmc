@@ -19,12 +19,12 @@ module Main
 import Criterion.Main
 import System.Random.MWC
 
-import Metropolis
+import Normal
 import Poisson
 
 main :: IO ()
 main = do
   g <- create
   defaultMain
-    [ bench "mh" $ nfIO (mhBench g)
+    [ bench "Normal" $ nfIO (normalBench g)
     , bench "Poisson" $ nfIO (poissonBench g) ]

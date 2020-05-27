@@ -28,7 +28,6 @@ import System.Random.MWC
 
 import Statistics.Mcmc
 
-import Statistics.Mcmc.Acceptance
 import Statistics.Mcmc.Item
 import Statistics.Mcmc.Trace
 
@@ -51,10 +50,10 @@ posterior :: I -> Log Double
 posterior x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
 
 moveAlpha :: Move I
-moveAlpha = slide "alpha" _1 0.0 0.2 True
+moveAlpha = slide "alpha" _1 0.0 0.2 False
 
 moveBeta :: Move I
-moveBeta = slide "beta" _2 0.0 0.2 True
+moveBeta = slide "beta" _2 0.0 0.2 False
 
 moveCycle :: Cycle I
 moveCycle = fromList [ (moveAlpha, 2)
@@ -79,12 +78,8 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  s <- mh nBurn nAutoTune nIter (mcmc initial posterior moveCycle g)
-  let a = acceptance s
-  putStrLn "Acceptance ratios:"
-  putStrLn $ "Per move: " <> show (acceptanceRatios nIter a)
-  putStrLn $ "Total: " <> show (acceptanceRatio nIter a)
-  putStrLn "Mean and standard deviations:"
+  s <- mh nBurn nAutoTune nIter (mcmc initial posterior moveCycle mempty g)
+  putStrLn "Mean and standard deviations of:"
   let xs = map state . fromTrace $ trace s
       (ra, rb) = summarize xs
   putStrLn $ "Alpha: " <> show ra
