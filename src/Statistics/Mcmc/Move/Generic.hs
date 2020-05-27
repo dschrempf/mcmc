@@ -54,15 +54,11 @@ logDensCont l d fInv x y = Exp $ logDensity d ((y^.l) `fInv` (x^.l))
 moveGenericContinuous
   :: (ContDistr d, ContGen d)
   => Lens' a Double               -- ^ Instruction about which parameter to change.
-  -> String                       -- ^ Name of the move.
   -> d                            -- ^ Probability distribution
   -> (Double -> Double -> Double) -- ^ Forward operator, e.g. (+), so that x + dx = y.
   -> (Double -> Double -> Double) -- ^ Inverse operator, e.g.,(-), so that y - dx = x.
-  -> Maybe Double                 -- ^ Tuning parameter; set to 'Nothing' to
-                                  -- disable tuning.
-  -> Maybe (Double -> Move a)     -- ^ Tune the 'Move'.
-  -> Move a
-moveGenericContinuous l n d f fInv = Move n (jumpCont l d f) (logDensCont l d fInv)
+  -> MoveSimple a
+moveGenericContinuous l d f fInv = MoveSimple (jumpCont l d f) (logDensCont l d fInv)
 
 jumpDiscrete
   :: (DiscreteDistr d, DiscreteGen d)
@@ -90,13 +86,9 @@ logDensDiscrete l d fInv x y = Exp $ logProbability d ((y^.l) `fInv` (x^.l))
 -- | Generic function to create moves for discrete parameters ('Int').
 moveGenericDiscrete
   :: (DiscreteDistr d, DiscreteGen d)
-  => Lens' a Int              -- ^ Instruction about which parameter to change.
-  -> String                   -- ^ Name of the move.
-  -> d                        -- ^ Probability distribution.
-  -> (Int -> Int -> Int)      -- ^ Forward operator, e.g. (+), so that x + dx = y.
-  -> (Int -> Int -> Int)      -- ^ Inverse operator, e.g.,(-), so that y - dx = x.
-  -> Maybe Double             -- ^ Tuning parameter; set to 'Nothing' to disable
-                              -- tuning.
-  -> Maybe (Double -> Move a) -- ^ Tune the 'Move'.
-  -> Move a
-moveGenericDiscrete l n fd f fInv = Move n (jumpDiscrete l fd f) (logDensDiscrete l fd fInv)
+  => Lens' a Int         -- ^ Instruction about which parameter to change.
+  -> d                   -- ^ Probability distribution.
+  -> (Int -> Int -> Int) -- ^ Forward operator, e.g. (+), so that x + dx = y.
+  -> (Int -> Int -> Int) -- ^ Inverse operator, e.g.,(-), so that y - dx = x.
+  -> MoveSimple a
+moveGenericDiscrete l fd f fInv = MoveSimple (jumpDiscrete l fd f) (logDensDiscrete l fd fInv)

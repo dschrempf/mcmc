@@ -51,10 +51,10 @@ posterior :: I -> Log Double
 posterior x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
 
 moveAlpha :: Move I
-moveAlpha = slide _1 "alpha" 0.0 0.2 False
+moveAlpha = slide "alpha" _1 0.0 0.2 True
 
 moveBeta :: Move I
-moveBeta = slide _2 "beta" 0.0 0.2 False
+moveBeta = slide "beta" _2 0.0 0.2 True
 
 moveCycle :: Cycle I
 moveCycle = fromList [ (moveAlpha, 2)
@@ -68,16 +68,22 @@ summarize xs = ((mean as, stdDev as), (mean bs, stdDev bs))
   where as = V.fromList $ map fst xs
         bs = V.fromList $ map snd xs
 
-n :: Int
-n = 10000
+nBurn :: Maybe Int
+nBurn = Just 2000
+
+nAutoTune :: Maybe Int
+nAutoTune = Just 200
+
+nIter :: Int
+nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  s <- mh n (mcmc initial posterior moveCycle g)
+  s <- mh nBurn nAutoTune nIter (mcmc initial posterior moveCycle g)
   let a = acceptance s
   putStrLn "Acceptance ratios:"
-  putStrLn $ "Per move: " <> show (acceptanceRatios n a)
-  putStrLn $ "Total: " <> show (acceptanceRatio n a)
+  putStrLn $ "Per move: " <> show (acceptanceRatios nIter a)
+  putStrLn $ "Total: " <> show (acceptanceRatio nIter a)
   putStrLn "Mean and standard deviations:"
   let xs = map state . fromTrace $ trace s
       (ra, rb) = summarize xs

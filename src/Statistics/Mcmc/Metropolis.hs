@@ -38,8 +38,8 @@ mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
 
 mhMove :: Move a -> Mcmc a ()
 mhMove m = do
-  let p = mvSample m
-      q = mvLogDensity m
+  let p = mvSample $ mvSimple m
+      q = mvLogDensity $ mvSimple m
   s <- get
   let (Item x lX) = item s
       f           = logPosteriorF s
@@ -84,13 +84,17 @@ mhNCycles n = do
   cycles <- liftIO $ getNCycles c n g
   forM_ cycles mhCycle
 
--- TODO: Tune the moves; check acceptance ratio of the last n moves.
-mhTune :: Int -> Mcmc a ()
-mhTune _ = undefined
-
 -- TODO: Monitoring; screen log should be active during burn in and normal
 -- sampling, but file logs should only be executed during the normal MCMC
 -- sampling phase.
+
+mhTune :: Int -> Mcmc a ()
+mhTune t = do
+  liftIO $ putStrLn "Acceptance ratios before auto tune:"
+  a <- acceptance <$> get
+  let ars = acceptanceRatios t a
+  liftIO $ print ars
+  modify' (autotuneS t)
 
 -- Run N Metropolis-Hastings cycles with a burn in of B, and a tuning frequency of T.
 mhRun :: Maybe Int -> Maybe Int -> Int -> Mcmc a ()
@@ -103,7 +107,7 @@ mhRun (Just b) (Just t) n | b > t = do
                           | otherwise = error "mhRun: Please contact maintainer; this should never happen."
 -- Burn in without auto tuning.
 mhRun (Just b) Nothing n = do mhNCycles b
-                              -- TODO: Reset chain.
+                              modify' reset
                               -- TODO: Activate monitoring
                               mhRun Nothing Nothing n
 -- Run without auto tuning.

@@ -25,18 +25,25 @@ import Statistics.Distribution.Normal
 import Statistics.Mcmc.Move.Generic
 import Statistics.Mcmc.Move
 
+-- The actual move with tuning parameter.
+slideSimple
+  :: Lens' a Double
+  -> Double
+  -> Double
+  -> Double
+  -> MoveSimple a
+slideSimple l m s t = moveGenericContinuous l (normalDistr m (s*t)) (+) (-)
+
 -- | Additive move with normally distributed density.
 slide
-  :: Lens' a Double     -- ^ Instruction about which parameter to change.
-  -> String             -- ^ Name.
+  :: String             -- ^ Name.
+  -> Lens' a Double     -- ^ Instruction about which parameter to change.
   -> Double             -- ^ Mean.
   -> Double             -- ^ Standard deviation.
   -> Bool               -- ^ Enable tuning.
   -> Move a
-slide l n m s True  = moveGenericContinuous l n (normalDistr m s) (+) (-)
-                      (Just 1.0) $ Just (\t -> slide l n m (t*s) True)
-slide l n m s False = moveGenericContinuous l n (normalDistr m s) (+) (-)
-                      Nothing Nothing
+slide n l m s True  = Move n (slideSimple l m s 1.0) (Just $ tuner (slideSimple l m s))
+slide n l m s False = Move n (slideSimple l m s 1.0)  Nothing
 
 -- | Additive move with normally distributed density; specialized to a one
 -- dimensional state space of type 'Double'.
@@ -46,4 +53,4 @@ slideDouble
   -> Double -- ^ Standard deviation.
   -> Bool   -- ^ Enable tuning.
   -> Move Double
-slideDouble = slide id
+slideDouble n = slide n id

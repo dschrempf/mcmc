@@ -29,10 +29,16 @@ Creation date: Tue May  5 18:01:15 2020.
 module Statistics.Mcmc.Status
   ( Status (..)
   , mcmc
+  , reset
+  , autotuneS
   , Mcmc
   ) where
 
+import Prelude hiding (cycle)
+
 import Control.Monad.Trans.State.Strict
+import qualified Data.Map.Strict as M
+import Data.Maybe
 import Numeric.Log
 import System.Random.MWC
 
@@ -86,10 +92,26 @@ mcmc
   -> GenIO -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
   -> Status a -- ^ The current 'Status' of the Markov chain.
-mcmc x f c = Status i f c 0 (Trace [i]) (empty mvs)
+mcmc x f c = Status i f c 0 (Trace [i]) (empty $ moves c)
   where i   = Item x (f x)
-        mvs = map fst $ fromCycle c
+
+-- | Reset a chain. Delete trace, acceptance ratios, and set the iteration to 0.
+-- Used, for example, to reset a chain after burn in.
+reset :: Status a -> Status a
+reset s = s { iteration = 0, trace = Trace [i], acceptance = resetA a}
+  where i = item s
+        a = acceptance s
+
+-- | Tune the 'Move's in the 'Cycle' of the Markov chain 'Status'; check
+-- acceptance ratio of the last n moves. Tuning has no effect on 'Move's that
+-- cannot be tuned. See 'autotune'.
+autotuneS :: Int -> Status a -> Status a
+autotuneS n s = s {cycle = mapC tuneF (cycle s)}
+  where
+    ars  = acceptanceRatios n $ acceptance s
+    tuneF m = fromMaybe m (autotune (ars M.! m) m)
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.
 type Mcmc a = StateT (Status a) IO
+

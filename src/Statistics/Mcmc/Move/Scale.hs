@@ -26,18 +26,25 @@ import Statistics.Distribution.Gamma
 import Statistics.Mcmc.Move.Generic
 import Statistics.Mcmc.Move
 
+-- The actual move with tuning parameter.
+scaleSimple
+  :: Lens' a Double
+  -> Double
+  -> Double
+  -> Double
+  -> MoveSimple a
+scaleSimple l k th t = moveGenericContinuous l (gammaDistr k (t*th)) (*) (/)
+
 -- | Multiplicative move with Gamma distributed density.
 scale
-  :: Lens' a Double     -- ^ Instruction about which parameter to change.
-  -> String             -- ^ Name.
+  :: String             -- ^ Name.
+  -> Lens' a Double     -- ^ Instruction about which parameter to change.
   -> Double             -- ^ Shape.
   -> Double             -- ^ Scale.
   -> Bool               -- ^ Enable tuning.
   -> Move a
-scale l n k th True  = moveGenericContinuous l n (gammaDistr k th) (*) (/)
-                       (Just 1.0) $ Just (\t -> scale l n k (t*th) True)
-scale l n k th False = moveGenericContinuous l n (gammaDistr k th) (*) (/)
-                       Nothing Nothing
+scale n l k th True  = Move n (scaleSimple l k th 1.0) (Just $ tuner $ scaleSimple l k th)
+scale n l k th False = Move n (scaleSimple l k th 1.0)  Nothing
 
 -- | Multiplicative move with Gamma distributed density; specialized to a one
 -- dimensional state space of type 'Double'.
@@ -47,18 +54,16 @@ scaleDouble
   -> Double             -- ^ Scale.
   -> Bool               -- ^ Enable tuning.
   -> Move Double
-scaleDouble = scale id
+scaleDouble n = scale n id
 
 -- | Multiplicative move with Gamma distributed density. The scale of the Gamma
 -- distributions is set to (shape)^{-1}, so that the mean of the Gamma
 -- distribution is 1.0.
 scaleUnbiased
-  :: Lens' a Double     -- ^ Instruction about which parameter to change.
-  -> String             -- ^ Name.
+  :: String             -- ^ Name.
+  -> Lens' a Double     -- ^ Instruction about which parameter to change.
   -> Double             -- ^ Shape.
   -> Bool               -- ^ Enable tuning.
   -> Move a
-scaleUnbiased l n k True  = moveGenericContinuous l n (gammaDistr k (1/k)) (*) (/)
-                            (Just 1.0) $ Just (\t -> scaleUnbiased l n (k/t) True)
-scaleUnbiased l n k False = moveGenericContinuous l n (gammaDistr k (1/k)) (*) (/)
-                            Nothing Nothing
+scaleUnbiased n l k True  = Move n (scaleSimple l k (1/k) 1.0) (Just $ tuner $ scaleSimple l k (1/k))
+scaleUnbiased n l k False = Move n (scaleSimple l k (1/k) 1.0)  Nothing

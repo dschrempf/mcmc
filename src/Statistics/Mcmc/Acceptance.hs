@@ -18,6 +18,7 @@ module Statistics.Mcmc.Acceptance
   ( Acceptance
   , empty
   , prependA
+  , resetA
   , acceptanceRatios
   , acceptanceRatio
   ) where
@@ -45,6 +46,10 @@ prependA k v (Acceptance m) = Acceptance $ M.adjust (v:) k m
 --                             | otherwise = error msg
 --   where msg = "prependA: Can not add acceptance value for key: " <> show k <> "."
 {-# INLINEABLE prependA #-}
+
+-- | Reset acceptance storage.
+resetA :: Acceptance k -> Acceptance k
+resetA = Acceptance . M.map (\_ -> []) . fromAcceptance
 
 ratio :: [Bool] -> Double
 ratio xs = fromIntegral (length ts) / fromIntegral (length xs)

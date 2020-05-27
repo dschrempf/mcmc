@@ -16,7 +16,7 @@ module Statistics.Mcmc.Monitor
   ( Out
   , Monitor
   , monitorFile
-  , monitorScreen
+  , monitorStdOut
   , Control (..)
   , cOpen
   , cLog
@@ -27,14 +27,16 @@ import qualified Data.ByteString.Char8 as B
 import Data.ByteString (ByteString)
 import System.IO
 
--- | Either log to file (which will be opened using 'WriteMode' to yield a
--- handle), or standard output.
-data Out = File FilePath | StdOut
+-- | Either log to file, or to a handle. Before the analysis, the given file
+-- will be opened using 'WriteMode' to yield a handle; the handle will be closed
+-- at the end. If a handle is given, this handle will be used for output. In
+-- this case, the handle will not be closed at the end.
+data Out = OFile FilePath | OHandle Handle
   deriving (Show)
 
 getHandle :: Out -> IO Handle
-getHandle (File f) = openFile f WriteMode
-getHandle StdOut   = pure stdout
+getHandle (OFile   f) = openFile f WriteMode
+getHandle (OHandle h) = pure h
 
 -- | Monitor a variable of the state space.
 data Monitor a = Monitor
@@ -58,9 +60,9 @@ mLog i x m | i `mod` mFreq m /= 0 = return ()
 
 mClose :: Monitor a -> IO ()
 mClose m = case (mOut m, mHandle m) of
-  (File _, Just h ) -> hClose h
-  (StdOut, _      ) -> pure ()
-  (File f, Nothing) -> error $ "mClose: File was not opened: " <> f <> "."
+  (OFile   _, Just h ) -> hClose h
+  (OFile   f, Nothing) -> error $ "mClose: File was not opened: " <> f <> "."
+  (OHandle _, _      ) -> pure ()
 
 -- | Log to file.
 monitorFile
@@ -68,11 +70,11 @@ monitorFile
   -> (a -> ByteString) -- ^ Instruction about what to log.
   -> Int               -- ^ Logging period.
   -> Monitor a
-monitorFile fp = Monitor (File fp) Nothing
+monitorFile fp = Monitor (OFile fp) Nothing
 
--- | Log to screen; see 'monitorFile'.
-monitorScreen :: (a -> ByteString) -> Int -> Monitor a
-monitorScreen = Monitor StdOut Nothing
+-- | Log to 'stdout'; see 'monitorFile'.
+monitorStdOut :: (a -> ByteString) -> Int -> Monitor a
+monitorStdOut = Monitor (OHandle stdout) Nothing
 
 -- TODO: Create monitors for specific types or type classes, such as Tree, or 'Num'.
 
