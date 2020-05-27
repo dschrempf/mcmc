@@ -49,13 +49,6 @@ import Statistics.Mcmc.Trace
 
 -- TODO: Add possibility to store supplementary information about the chain.
 
--- TODO: Do not export the 'Status' itself, but use a type abstraction; then one
--- can save a hash of the state and forbid changes of moves once the status has
--- been created; maybe this can be done in an easier way using the type
--- abstraction.
-
--- TODO: Auto tuning.
-
 -- | The 'Status' of an MCMC run.
 data Status a = Status
   {

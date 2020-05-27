@@ -65,8 +65,7 @@ data MoveSimple a = MoveSimple
                  -> Log Double
   }
 
--- | Tune a 'Move'; used to tune the acceptance ratio of a 'Move'; see 'tune',
--- 'autotune'.
+-- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
 data Tuner a = Tuner
   {
     tParam :: Double                 -- ^ Tuning parameter.
