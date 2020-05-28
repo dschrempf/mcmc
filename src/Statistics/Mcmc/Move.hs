@@ -12,6 +12,12 @@ Portability :  portable
 
 Creation date: Wed May 20 13:42:53 2020.
 
+'Move's specify how the chain traverses the state space. A set of 'Move's is
+called a 'Cycle'. The chain advances after the completion of each 'Cycle', and
+the iteration counter is increased by one. It is important that the given
+'Cycle' enables traversal of the complete state space. Otherwise, the Markov
+chain will not converge to the correct stationary posterior distribution.
+
 -}
 
 -- TODO: Report moves; report tuning parameter and acceptance ratio.
@@ -19,10 +25,10 @@ Creation date: Wed May 20 13:42:53 2020.
 module Statistics.Mcmc.Move
   (
     -- * Move
-    MoveSimple (..)
-  , Tuner (tParam, tFunct)
+    Move (..)
+  , MoveSimple (..)
+  , Tuner
   , tuner
-  , Move (..)
   , tune
   , autotune
     -- * Cycle
@@ -30,7 +36,7 @@ module Statistics.Mcmc.Move
   , addMove
   , fromList
   , moves
-  , mapC
+  , mapCycle
   ) where
 
 import Data.Bifunctor
@@ -38,52 +44,12 @@ import Data.Function
 import Numeric.Log
 import System.Random.MWC
 
--- | Simple move without tuning information.
---
--- We need to know the probability density of jumping forth, but also the
--- probability density of jumping back. They are needed to calculate the
--- Metropolis-Hastings ratio.
---
--- One could also use a different type for 'mvSample', so that 'mvLogDensity'
--- can be avoided. In detail,
---
--- @
---   mvSample :: a -> GenIO -> IO (a, Log Double, Log, Double)
--- @
---
--- where the log densities describe the probability of going there and back.
--- However, we may need more information about the move for other MCMC samplers
--- different from Metropolis-Hastings.
-data MoveSimple a = MoveSimple
-  {
-    -- | Instruction about randomly moving from the current state to a new
-    -- state, given some source of randomness.
-    mvSample     :: a
-                 -> GenIO
-                 -> IO a
-    -- | The log-density of going from one state to another.
-  , mvLogDensity :: a
-                 -> a
-                 -> Log Double
-  }
-
--- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
-data Tuner a = Tuner
-  {
-    tParam :: Double                 -- ^ Tuning parameter.
-  , tFunct :: Double -> MoveSimple a -- ^ Tuning function; get a simple move for
-                                     -- a specific tuning parameter.
-  }
-
--- | Create a 'Tuner'.
-tuner :: (Double -> MoveSimple a) -> Tuner a
-tuner = Tuner 1.0
-
 -- | A 'Move' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability density conditioned on the
 -- current state.
 --
--- A 'Move' contains information about whether it is tuneable or not.
+-- A 'Move' may be tuneable in that it contains information about how to enlarge
+-- or shrink the step size to tune the acceptance ratio.
 data Move a = Move
   {
     -- | Name (no moves with the same name are allowed in a 'Cycle').
@@ -103,6 +69,44 @@ instance Eq (Move a) where
 
 instance Ord (Move a) where
   compare = compare `on` mvName
+
+-- XXX: One could also use a different type for 'mvSample', so that
+-- 'mvLogDensity' can be avoided. In detail,
+--
+-- @
+--   mvSample :: a -> GenIO -> IO (a, Log Double, Log, Double)
+-- @
+--
+-- where the log densities describe the probability of going there and back.
+-- However, we may need more information about the move for other MCMC samplers
+-- different from Metropolis-Hastings.
+
+-- | Simple move without tuning information.
+--
+-- In order to calculate the Metropolis-Hastings ratio, we need to know the
+-- probability (density) of jumping forth, and the probability (density) of
+-- jumping back.
+data MoveSimple a = MoveSimple
+  {
+    -- | Instruction about randomly moving from the current state to a new
+    -- state, given some source of randomness.
+    mvSample     :: a
+                 -> GenIO
+                 -> IO a
+    -- | The log-density of going from one state to another.
+  , mvLogDensity :: a
+                 -> a
+                 -> Log Double
+  }
+
+-- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
+data Tuner a = Tuner Double (Double -> MoveSimple a)
+
+-- | Create a 'Tuner'. The tuning function accepts a tuning parameter, and
+-- returns a corresponding 'MoveSimple'. The larger the tuning parameter, the
+-- larger the 'Move', and vice versa.
+tuner :: (Double -> MoveSimple a) -> Tuner a
+tuner = Tuner 1.0
 
 -- | Tune a 'Move'. Return 'Nothing' if 'Move' is not tuneable. If the parameter
 --   @dt@ is larger than 1.0, the 'Move' is enlarged, if @0<dt<1.0@, it is
@@ -139,17 +143,17 @@ autotune a = tune (a / ratioOpt)
 -- be logged only after each 'Cycle'. __Moves must have unique names__, so that
 -- they can be identified.
 --
--- In detail, a 'Cycle' is list of tuples @(move, weight)@. The weight
+-- In detail, a 'Cycle' is a list of tuples @(move, weight)@. The weight
 -- determines how often a 'Move' is executed per 'Cycle'.
 --
 -- 'Move's are replicated according to their weights and executed in random
 -- order. That is, they are not executed in the order they appear in the
 -- 'Cycle'.
---
--- A classical list is used, and not 'Data.List.NonEmpty' (keep things simple).
 newtype Cycle a = Cycle { fromCycle :: [(Move a, Int)] }
+-- XXX: A classical list is used, and not 'Data.List.NonEmpty' (keep things
+-- simple).
 
--- | Add a 'Move' with weight @w@ to the 'Cycle'. The name of the added 'Move'
+-- | Add a 'Move' with given weight to the 'Cycle'. The name of the added 'Move'
 -- must be unique.
 addMove :: Move a -> Int -> Cycle a -> Cycle a
 addMove m w c | m `notElem` moves c = Cycle $ (m, w) : fromCycle c
@@ -173,5 +177,5 @@ moves :: Cycle a -> [Move a]
 moves = map fst . fromCycle
 
 -- | Change 'Move's in 'Cycle'.
-mapC :: (Move a -> Move a) -> Cycle a -> Cycle a
-mapC f = Cycle . map (first f) . fromCycle
+mapCycle :: (Move a -> Move a) -> Cycle a -> Cycle a
+mapCycle f = Cycle . map (first f) . fromCycle

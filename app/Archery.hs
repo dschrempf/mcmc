@@ -79,8 +79,8 @@ moveCycle = fromList [(slideUniformDouble "mu" 1.0 False, 1)]
 monFile :: Monitor I
 monFile = monitorFile "Archery.log" (B.toStrict . B.toLazyByteString . B.doubleDec) 5
 
-mons :: Monitors I
-mons = Monitors [monFile]
+mons :: [Monitor I]
+mons = [monFile]
 
 nBurn :: Maybe Int
 nBurn = Just 2000

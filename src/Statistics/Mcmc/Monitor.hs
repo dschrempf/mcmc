@@ -3,7 +3,7 @@
 {- |
 Module      :  Statistics.Mcmc.Monitor
 Description :  Monitor a Markov chain
-Copyright   :  (c) Dominik Schrempf 2020
+Copyright   :  (c) Dominik Schrempf, 2020
 License     :  GPL-3.0-or-later
 
 Maintainer  :  dominik.schrempf@gmail.com
@@ -11,6 +11,17 @@ Stability   :  unstable
 Portability :  portable
 
 Creation date: Thu May 21 14:35:11 2020.
+
+'Monitor's describe which part of the Markov chain should be logged. Further,
+they allow output of summary statistics per iteration in a flexible way. The key
+part is the function
+
+@
+  a -> ByteString
+@
+
+which describes what should be logged. Several monitors for standard types are
+provided.
 
 -}
 
@@ -20,11 +31,14 @@ Creation date: Thu May 21 14:35:11 2020.
 -- TODO: Use builders.
 
 module Statistics.Mcmc.Monitor
-  ( Out
-  , Monitor
-  , monitorFile
+  (
+    -- * Create monitors
+    monitorFile
   , monitorStdOut
-  , Monitors (..)
+    -- * Data types
+  , Monitor
+  , Out
+    -- * Use monitors
   , msOpen
   , msExec
   , msClose
@@ -33,6 +47,27 @@ module Statistics.Mcmc.Monitor
 import qualified Data.ByteString.Char8 as B
 import Data.ByteString (ByteString)
 import System.IO
+
+-- | Log to file.
+monitorFile
+  :: FilePath          -- ^ File path; file will be overwritten!
+  -> (a -> ByteString) -- ^ Instruction about what to log.
+  -> Int               -- ^ Logging period.
+  -> Monitor a
+monitorFile fp = Monitor (OFile fp) Nothing
+
+-- | Log to 'stdout'; see 'monitorFile'.
+monitorStdOut :: (a -> ByteString) -> Int -> Monitor a
+monitorStdOut = Monitor (OHandle stdout) Nothing
+
+-- | Monitor a variable of the state space.
+data Monitor a = Monitor
+  {
+    mOut    :: Out               -- ^ Log to file or standard output.
+  , mHandle :: Maybe Handle      -- ^ Handle to use.
+  , mShow   :: a -> ByteString   -- ^ Instruction about what to log.
+  , mFreq   :: Int               -- ^ Logging period.
+  }
 
 -- | Either log to file, or to a handle. Before the analysis, the given file
 -- will be opened using 'WriteMode' to yield a handle; the handle will be closed
@@ -44,15 +79,6 @@ data Out = OFile FilePath | OHandle Handle
 getHandle :: Out -> IO Handle
 getHandle (OFile   f) = openFile f WriteMode
 getHandle (OHandle h) = pure h
-
--- | Monitor a variable of the state space.
-data Monitor a = Monitor
-  {
-    mOut    :: Out               -- ^ Log to file or standard output.
-  , mHandle :: Maybe Handle      -- ^ Handle to use.
-  , mShow   :: a -> ByteString   -- ^ Instruction about what to log.
-  , mFreq   :: Int               -- ^ Logging period.
-  }
 
 mOpen :: Monitor a -> IO (Monitor a)
 mOpen m = do
@@ -71,37 +97,16 @@ mClose m = case (mOut m, mHandle m) of
   (OFile   f, Nothing) -> error $ "mClose: File was not opened: " <> f <> "."
   (OHandle _, _      ) -> pure ()
 
--- | Log to file.
-monitorFile
-  :: FilePath          -- ^ File path; file will be overwritten!
-  -> (a -> ByteString) -- ^ Instruction about what to log.
-  -> Int               -- ^ Logging period.
-  -> Monitor a
-monitorFile fp = Monitor (OFile fp) Nothing
-
--- | Log to 'stdout'; see 'monitorFile'.
-monitorStdOut :: (a -> ByteString) -> Int -> Monitor a
-monitorStdOut = Monitor (OHandle stdout) Nothing
-
 -- TODO: Create monitors for specific types or type classes, such as Tree, or 'Num'.
 
--- | List of monitors.
-newtype Monitors a = Monitors { fromMonitors :: [Monitor a] }
-
-instance Semigroup (Monitors a) where
-  (Monitors l) <> (Monitors r) = Monitors (l <> r)
-
-instance Monoid (Monitors a) where
-  mempty = Monitors []
-
--- | Open the files associated with the 'Monitors'.
-msOpen :: Monitors a -> IO (Monitors a)
-msOpen c = Monitors <$> mapM mOpen (fromMonitors c)
+-- | Open the files associated with the 'Monitor's.
+msOpen :: [Monitor a] -> IO [Monitor a]
+msOpen = mapM mOpen
 
 -- | Print logs for given iteration.
-msExec :: Int -> a -> Monitors a -> IO ()
-msExec i x = mapM_ (mExec i x) . fromMonitors
+msExec :: Int -> a -> [Monitor a] -> IO ()
+msExec i x = mapM_ (mExec i x)
 
--- | Close the files associated with the 'Monitors'.
-msClose :: Monitors a -> IO ()
-msClose c = mapM_ mClose (fromMonitors c)
+-- | Close the files associated with the 'Monitor's.
+msClose :: [Monitor a] -> IO ()
+msClose = mapM_ mClose

@@ -15,18 +15,10 @@ Creation date: Tue May  5 18:01:15 2020.
 -- TODO: Rename this module, Status is really bad ;).
 
 -- TODO: Think about how to save and restore an MCMC run. It is easy to save and
--- restore the current state and likelihood (or the trace), but it seems impossible
--- to store all the moves and so on.
-
--- TODO: Define monitors like in RevBayes.
-
--- TODO: Proper output. RevBayes does the following:
--- @
---   Running burn-in phase of Monte Carlo sampler for 10000 iterations.
---   This simulation runs 1 independent replicate.
---   The MCMCMC simulator runs 1 cold chain and 3 heated chains.
---   The simulator uses 42 different moves in a random move schedule with 163 moves per iteration
--- @
+-- restore the current state and likelihood (or the trace), but it seems
+-- impossible to store all the moves and so on. This means, that one should
+-- allow restart of a chain only with the same executable (which contains the
+-- moves etc). See https://hackage.haskell.org/package/executable-hash.
 
 module Statistics.Mcmc.Status
   ( Status (..)
@@ -68,12 +60,12 @@ data Status a = Status
   , logPosteriorF :: a -> Log Double
     -- | A set of 'Move's form a 'Cycle'.
   , cycle         :: Cycle a
-    -- | A set of 'Monitor's to observe the chain.
-  , monitors      :: Monitors a
+    -- | A list of 'Monitor's to observe the chain.
+  , monitors      :: [Monitor a]
     -- | Number of completed cycles.
   , iteration     :: Int
-    -- | The 'Trace' of the Markov chain in reverse order, the most recent state
-    -- is at the head of the list.
+    -- | The 'Trace' of the Markov chain in reverse order, the most recent
+    -- 'Item' is at the head of the list.
   , trace         :: Trace a
     -- | For each 'Move', store the list of accepted (True) and rejected (False)
     -- proposals; for reasons of efficiency, the list is also stored in reverse
@@ -96,7 +88,7 @@ mcmc
   -> (a -> Log Double) -- ^ The un-normalized log-posterior function.
   -> Cycle a           -- ^ A list of 'Move's executed in forward order. The
                        -- chain will be logged after each cycle.
-  -> Monitors a        -- ^ A list of 'Monitor's tracing the chain.
+  -> [Monitor a]       -- ^ A list of 'Monitor's observing the chain.
   -> GenIO             -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
   -> Status a          -- ^ The current 'Status' of the Markov chain.
@@ -110,11 +102,11 @@ reset s = s { iteration = 0, trace = Trace [i], acceptance = resetA a}
   where i = item s
         a = acceptance s
 
--- | Tune the 'Move's in the 'Cycle' of the Markov chain 'Status'; check
+-- Tune the 'Move's in the 'Cycle' of the Markov chain 'Status'; check
 -- acceptance ratio of the last n moves. Tuning has no effect on 'Move's that
 -- cannot be tuned. See 'autotune'.
 autotuneS :: Int -> Status a -> Status a
-autotuneS n s = s {cycle = mapC tuneF (cycle s)}
+autotuneS n s = s {cycle = mapCycle tuneF (cycle s)}
   where
     ars  = acceptanceRatios n $ acceptance s
     tuneF m = fromMaybe m (autotune (ars M.! m) m)
@@ -127,6 +119,7 @@ type Mcmc a = StateT (Status a) IO
 -- sampling, but file logs should only be executed during the normal MCMC
 -- sampling phase.
 
+-- | Auto tune the 'Move's in the 'Cycle' of the chain. See 'autotune'.
 mcmcTune :: Int -> Mcmc a ()
 mcmcTune t = do
   liftIO $ putStrLn "Auto tune; current acceptance ratios are:"
@@ -135,6 +128,7 @@ mcmcTune t = do
   liftIO $ print ars
   modify' (autotuneS t)
 
+-- | Open the 'Monitor's of the chain. See 'msOpen'.
 mcmcOpenMonitors :: Mcmc a ()
 mcmcOpenMonitors = do
   liftIO $ putStrLn "Open monitors."
@@ -143,12 +137,14 @@ mcmcOpenMonitors = do
   ms' <- liftIO $ msOpen ms
   put s { monitors = ms' }
 
+-- | Close the 'Monitor's of the chain. See 'msClose'.
 mcmcCloseMonitors :: Mcmc a ()
 mcmcCloseMonitors = do
   liftIO $ putStrLn "Close monitors."
   ms <- gets monitors
   liftIO $ msClose ms
 
+-- | Execute the 'Monitor's of the chain. See 'msExec'.
 mcmcExecMonitors :: Mcmc a ()
 mcmcExecMonitors = do
   s <- get
@@ -156,3 +152,11 @@ mcmcExecMonitors = do
       x = getState s
       m = monitors s
   liftIO $ msExec i x m
+
+-- TODO: Proper output. RevBayes does the following:
+-- @
+--   Running burn-in phase of Monte Carlo sampler for 10000 iterations.
+--   This simulation runs 1 independent replicate.
+--   The MCMCMC simulator runs 1 cold chain and 3 heated chains.
+--   The simulator uses 42 different moves in a random move schedule with 163 moves per iteration
+-- @
