@@ -50,14 +50,14 @@ posterior :: I -> Log Double
 posterior x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
 
 moveAlpha :: Move I
-moveAlpha = slide "alpha" _1 0.0 0.2 False
+moveAlpha = slide "alpha" 2 _1 0.0 0.2 False
 
 moveBeta :: Move I
-moveBeta = slide "beta" _2 0.0 0.2 False
+moveBeta = slide "beta" 1 _2 0.0 0.2 False
 
 moveCycle :: Cycle I
-moveCycle = fromList [ (moveAlpha, 2)
-                     , (moveBeta,  1) ]
+moveCycle = fromList [ moveAlpha
+                     , moveBeta ]
 
 initial :: I
 initial = (0, 0)

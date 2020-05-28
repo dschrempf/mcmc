@@ -49,7 +49,7 @@ prependA k v (Acceptance m) = Acceptance $ M.adjust (v:) k m
 
 -- | Reset acceptance storage.
 resetA :: Acceptance k -> Acceptance k
-resetA = Acceptance . M.map (\_ -> []) . fromAcceptance
+resetA = Acceptance . M.map (const []) . fromAcceptance
 
 ratio :: [Bool] -> Double
 ratio xs = fromIntegral (length ts) / fromIntegral (length xs)

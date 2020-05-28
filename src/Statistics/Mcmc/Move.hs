@@ -20,14 +20,12 @@ chain will not converge to the correct stationary posterior distribution.
 
 -}
 
--- TODO: Report moves; report tuning parameter and acceptance ratio.
-
 module Statistics.Mcmc.Move
   (
     -- * Move
     Move (..)
   , MoveSimple (..)
-  , Tuner
+  , Tuner (tParam, tFunc)
   , tuner
   , tune
   , autotune
@@ -35,13 +33,20 @@ module Statistics.Mcmc.Move
   , Cycle (fromCycle)
   , addMove
   , fromList
-  , moves
   , mapCycle
+  , summarizeCycle
+    -- * Acceptance
+  , Acceptance
+  , empty
+  , prependA
+  , resetA
+  , acceptanceRatios
   ) where
 
-import Data.Bifunctor
 import Data.Function
-import Numeric.Log
+import qualified Data.Map.Strict as M
+import Data.Map.Strict (Map)
+import Numeric.Log hiding (sum)
 import System.Random.MWC
 
 -- | A 'Move' is an instruction about how the Markov chain will traverse the
@@ -54,6 +59,8 @@ data Move a = Move
   {
     -- | Name (no moves with the same name are allowed in a 'Cycle').
     mvName   :: String
+    -- | The weight determines how often a 'Move' is executed per 'Cycle'.
+  , mvWeight :: Int
     -- | Simple move without tuning information.
   , mvSimple :: MoveSimple a
     -- | Tuning is disabled if set to 'Nothing'.
@@ -100,7 +107,11 @@ data MoveSimple a = MoveSimple
   }
 
 -- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
-data Tuner a = Tuner Double (Double -> MoveSimple a)
+data Tuner a = Tuner
+  {
+    tParam :: Double
+  , tFunc  :: Double -> MoveSimple a
+  }
 
 -- | Create a 'Tuner'. The tuning function accepts a tuning parameter, and
 -- returns a corresponding 'MoveSimple'. The larger the tuning parameter, the
@@ -143,39 +154,103 @@ autotune a = tune (a / ratioOpt)
 -- be logged only after each 'Cycle'. __Moves must have unique names__, so that
 -- they can be identified.
 --
--- In detail, a 'Cycle' is a list of tuples @(move, weight)@. The weight
--- determines how often a 'Move' is executed per 'Cycle'.
---
 -- 'Move's are replicated according to their weights and executed in random
 -- order. That is, they are not executed in the order they appear in the
 -- 'Cycle'.
-newtype Cycle a = Cycle { fromCycle :: [(Move a, Int)] }
+newtype Cycle a = Cycle { fromCycle :: [Move a] }
 -- XXX: A classical list is used, and not 'Data.List.NonEmpty' (keep things
 -- simple).
 
--- | Add a 'Move' with given weight to the 'Cycle'. The name of the added 'Move'
--- must be unique.
-addMove :: Move a -> Int -> Cycle a -> Cycle a
-addMove m w c | m `notElem` moves c = Cycle $ (m, w) : fromCycle c
-              | otherwise = error msg
+-- | Add a 'Move' to the 'Cycle'. The name of the added 'Move' must be unique.
+addMove :: Move a -> Cycle a -> Cycle a
+addMove m c | m `notElem` fromCycle c = Cycle $ m : fromCycle c
+            | otherwise = error msg
   where msg = "addMove: Move " <> mvName m <> " already exists in cycle."
 
--- | Create a 'Cycle' from a list of 'Move's with associated weights.
-fromList :: [(Move a, Int)] -> Cycle a
-fromList = foldr (uncurry addMove) mempty
+-- | Create a 'Cycle' from a list of 'Move's.
+fromList :: [Move a] -> Cycle a
+fromList = foldr addMove mempty
 
 -- Always check that the names are unique, because they are used to identify the
 -- moves.
 instance Semigroup (Cycle a) where
-  l <> (Cycle xs) = foldr (uncurry addMove) l xs
+  l <> (Cycle xs) = foldr addMove l xs
 
 instance Monoid (Cycle a) where
   mempty = Cycle []
 
--- | Extract 'Move's from 'Cycle'.
-moves :: Cycle a -> [Move a]
-moves = map fst . fromCycle
-
 -- | Change 'Move's in 'Cycle'.
 mapCycle :: (Move a -> Move a) -> Cycle a -> Cycle a
-mapCycle f = Cycle . map (first f) . fromCycle
+mapCycle f = Cycle . map f . fromCycle
+
+left :: Int -> String -> String
+left n s = take n s ++ replicate (n - l) ' '
+  where l = length s
+
+right :: Int -> String -> String
+right n s = replicate (n - l) ' ' ++ take n s
+  where l = length s
+
+renderRow :: String -> String -> String -> String -> String
+renderRow name weight acceptRatio tuneParam = nB ++ wB ++ rB ++ tB
+  where nB = left  25 name
+        wB = right 8 weight
+        rB = right 20 acceptRatio
+        tB = right 20 tuneParam
+
+moveHeader :: String
+moveHeader = renderRow "Name" "Weight" "Acceptance ratio" "Tuning parameter"
+
+-- TODO: Use printf.
+summarizeMove :: Move a -> Double -> String
+summarizeMove m r = renderRow name weight acceptRatio tuneParamStr
+  where name         = mvName m
+        weight       = show $ mvWeight m
+        acceptRatio  = show r
+        tuneParamStr = maybe "" show (tParam <$> mvTune m)
+
+-- | Summarize the 'Move's in the 'Cycle' for the given number of last iterations.
+summarizeCycle :: Int -> Cycle a -> Acceptance (Move a) -> String
+summarizeCycle n c a = unlines $
+  [
+    "Summary of moves; acceptance ratio(s) calculated over " ++ show n ++ " iterations."
+  , moveHeader
+  , replicate (length moveHeader) '-'
+  ] ++
+  [ summarizeMove m (ars M.! m) | m <- mvs ]
+  where mvs = fromCycle c
+        ars = acceptanceRatios n a
+
+-- | For each key @k@, store the list of accepted (True) and rejected (False)
+-- proposals. For reasons of efficiency, the lists are stored in reverse order;
+-- latest first.
+newtype Acceptance k = Acceptance { fromAcceptance :: Map k [Bool] }
+
+-- | In the beginning there was the Word.
+--
+-- Initialize an empty storage of accepted/rejected values.
+empty :: Ord k => [k] -> Acceptance k
+empty ks = Acceptance $ M.fromList [ (k, []) | k <- ks ]
+
+-- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
+prependA :: (Ord k, Show k) => k -> Bool -> Acceptance k -> Acceptance k
+-- XXX: Unsafe; faster.
+prependA k v (Acceptance m) = Acceptance $ M.adjust (v:) k m
+-- -- XXX: Safe; slower.
+-- prependA k v (Acceptance m) | k `M.member` m = Acceptance $ M.adjust (v:) k m
+--                             | otherwise = error msg
+--   where msg = "prependA: Can not add acceptance value for key: " <> show k <> "."
+{-# INLINEABLE prependA #-}
+
+-- | Reset acceptance storage.
+resetA :: Acceptance k -> Acceptance k
+resetA = Acceptance . M.map (const []) . fromAcceptance
+
+ratio :: [Bool] -> Double
+ratio xs = fromIntegral (length ts) / fromIntegral (length xs)
+  where ts = filter (==True) xs
+
+-- | Acceptance ratios averaged over the given number of last iterations. If
+-- less than @n@ iterations are available, only those are used.
+acceptanceRatios :: Int -> Acceptance k -> Map k Double
+acceptanceRatios n (Acceptance m)= M.map (ratio . take n) m

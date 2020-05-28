@@ -40,22 +40,24 @@ slideSimple l m s t = moveGenericContinuous l (normalDistr m (s*t)) (+) (-)
 -- | Additive move with normally distributed density.
 slide
   :: String             -- ^ Name.
+  -> Int                -- ^ Weight.
   -> Lens' a Double     -- ^ Instruction about which parameter to change.
   -> Double             -- ^ Mean.
   -> Double             -- ^ Standard deviation.
   -> Bool               -- ^ Enable tuning.
   -> Move a
-slide n l m s True  = Move n (slideSimple l m s 1.0) (Just $ tuner (slideSimple l m s))
-slide n l m s False = Move n (slideSimple l m s 1.0)  Nothing
+slide n w l m s True  = Move n w (slideSimple l m s 1.0) (Just $ tuner (slideSimple l m s))
+slide n w l m s False = Move n w (slideSimple l m s 1.0)  Nothing
 
 -- | See 'slide'; specialized to a one dimensional state space of type 'Double'.
 slideDouble
   :: String -- ^ Name.
+  -> Int    -- ^ Weight.
   -> Double -- ^ Mean.
   -> Double -- ^ Standard deviation.
   -> Bool   -- ^ Enable tuning.
   -> Move Double
-slideDouble n = slide n id
+slideDouble n w = slide n w id
 
 -- The actual move with tuning parameter.
 slideUniformSimple
@@ -68,19 +70,21 @@ slideUniformSimple l d t = moveGenericContinuous l (uniformDistr (-t*d) (t*d)) (
 -- | Additive move with uniformly distributed density.
 slideUniform
   :: String             -- ^ Name.
+  -> Int                -- ^ Weight.
   -> Lens' a Double     -- ^ Instruction about which parameter to change.
   -> Double             -- ^ Delta.
   -> Bool               -- ^ Enable tuning.
   -> Move a
-slideUniform n l d True  = Move n (slideUniformSimple l d 1.0)
+slideUniform n w l d True  = Move n w (slideUniformSimple l d 1.0)
                            (Just $ tuner (slideUniformSimple l d))
-slideUniform n l d False = Move n (slideUniformSimple l d 1.0)  Nothing
+slideUniform n w l d False = Move n w (slideUniformSimple l d 1.0)  Nothing
 
 -- | See 'slideUniform'; specialized to a one dimensional state space of type
 -- 'Double'.
 slideUniformDouble
   :: String -- ^ Name.
+  -> Int    -- ^ Weight.
   -> Double -- ^ Delta.
   -> Bool   -- ^ Enable tuning.
   -> Move Double
-slideUniformDouble n = slideUniform n id
+slideUniformDouble n w = slideUniform n w id

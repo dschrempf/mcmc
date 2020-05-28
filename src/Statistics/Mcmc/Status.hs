@@ -41,7 +41,6 @@ import Data.Maybe
 import Numeric.Log
 import System.Random.MWC
 
-import Statistics.Mcmc.Acceptance
 import Statistics.Mcmc.Item
 import Statistics.Mcmc.Monitor
 import Statistics.Mcmc.Move
@@ -92,7 +91,7 @@ mcmc
   -> GenIO             -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
   -> Status a          -- ^ The current 'Status' of the Markov chain.
-mcmc x f c m = Status i f c m 0 (Trace [i]) (empty $ moves c)
+mcmc x f c m = Status i f c m 0 (Trace [i]) (empty $ fromCycle c)
   where i   = Item x (f x)
 
 -- | Reset a chain. Delete trace, acceptance ratios, and set the iteration to 0.
@@ -122,16 +121,16 @@ type Mcmc a = StateT (Status a) IO
 -- | Auto tune the 'Move's in the 'Cycle' of the chain. See 'autotune'.
 mcmcTune :: Int -> Mcmc a ()
 mcmcTune t = do
-  liftIO $ putStrLn "Auto tune; current acceptance ratios are:"
+  liftIO $ putStrLn "-- Auto tune."
   a <- gets acceptance
-  let ars = acceptanceRatios t a
-  liftIO $ print ars
+  c <- gets cycle
   modify' (autotuneS t)
+  liftIO $ putStr $ summarizeCycle t c a
 
 -- | Open the 'Monitor's of the chain. See 'msOpen'.
 mcmcOpenMonitors :: Mcmc a ()
 mcmcOpenMonitors = do
-  liftIO $ putStrLn "Open monitors."
+  liftIO $ putStrLn "-- Open monitors."
   s   <- get
   ms  <- gets monitors
   ms' <- liftIO $ msOpen ms
@@ -140,7 +139,7 @@ mcmcOpenMonitors = do
 -- | Close the 'Monitor's of the chain. See 'msClose'.
 mcmcCloseMonitors :: Mcmc a ()
 mcmcCloseMonitors = do
-  liftIO $ putStrLn "Close monitors."
+  liftIO $ putStrLn "-- Close monitors."
   ms <- gets monitors
   liftIO $ msClose ms
 

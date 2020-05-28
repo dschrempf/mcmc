@@ -71,7 +71,7 @@ posterior :: I -> I -> Log Double
 posterior mu x = prior x * likelihood mu x
 
 moveCycle :: Cycle I
-moveCycle = fromList [(slideUniformDouble "mu" 1.0 False, 1)]
+moveCycle = fromList [slideUniformDouble "mu" 1 1.0 True]
 
 -- monStd :: Monitor I
 -- monStd = monitorStdOut (B.toStrict . B.toLazyByteString . B.doubleDec) 100

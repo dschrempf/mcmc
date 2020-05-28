@@ -24,7 +24,6 @@ import Control.Monad.Trans.State.Strict
 import Numeric.Log
 import System.Random.MWC
 
-import Statistics.Mcmc.Acceptance
 import Statistics.Mcmc.Item
 import Statistics.Mcmc.Move
 import Statistics.Mcmc.Status
@@ -63,7 +62,7 @@ mhMove m = do
 -- Replicate 'Move's according to their weights and shuffle them.
 getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
 getNCycles c = shuffleN mvs
-  where mvs = concat [ replicate w m | (m, w) <- fromCycle c ]
+  where mvs = concat [ replicate (mvWeight m) m | m <- fromCycle c ]
 
 -- Run a cycle.
 mhCycle :: [Move a] -> Mcmc a ()
