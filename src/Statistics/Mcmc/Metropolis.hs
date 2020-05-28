@@ -67,6 +67,7 @@ getNCycles c = shuffleN mvs
 -- Run a cycle.
 mhCycle :: [Move a] -> Mcmc a ()
 mhCycle mvs = do
+  mcmcMonitorExec
   mapM_ mhMove mvs
   s <- get
   let i = item s
@@ -74,7 +75,6 @@ mhCycle mvs = do
       n = iteration s
       s' = s { trace = prependT i t, iteration = succ n }
   put s'
-  mcmcExecMonitors
 
 -- Run N cycles.
 mhNCycles :: Int -> Mcmc a ()
@@ -103,12 +103,28 @@ mhRun (Just b) t n
   | b <= 0    = error "mhBurnIn: Number of burn in cycles smaller equal 0."
   | otherwise = do
       liftIO $ putStrLn $ "-- Burn in for " <> show b <> " cycles."
+      mcmcMonitorHeader
       mhBurnIn b t
       liftIO $ putStrLn   "-- Burn in finished."
+      case t of
+        Nothing -> return ()
+        Just _  -> mcmcSummarizeCycle t
       mhRun Nothing Nothing n
 mhRun Nothing _ n = do
-  liftIO $ putStrLn $ "-- Start run with " <> show n <> " cycles."
+  liftIO $ putStrLn $ "-- Run chain for " <> show n <> " cycles."
+  mcmcMonitorHeader
   mhNCycles n
+
+mhReport :: Maybe Int -> Maybe Int -> Int -> IO ()
+mhReport b t n = do
+  putStrLn "-- Start of Metropolis-Hastings sampler."
+  case b of
+    Just b' -> putStrLn $ "-- Burn in for " <> show b' <> " cycles."
+    Nothing -> return ()
+  case t of
+    Just t' -> putStrLn $ "-- Auto tune every " <> show t' <> " cycles (during burn in only)."
+    Nothing -> return ()
+  putStrLn $ "-- Run chain for " <> show n <> " cycles."
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 --
@@ -120,12 +136,12 @@ mh :: Show a
   -> Int       -- ^ Number of Metropolis-Hastings cycles (without auto tuning).
   -> Status a  -- ^ Initial state of Markov chain.
   -> IO (Status a)
-mh b t n s =
-  execStateT (do liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
-                 liftIO $ putStr $ summarizeCycle (cycle s)
-                 mcmcOpenMonitors
-                 liftIO $ putStrLn "-- Initial state of chain."
-                 mcmcExecMonitors
+mh b t n =
+  execStateT (do liftIO $ mhReport b t n
+                 mcmcSummarizeCycle Nothing
+                 mcmcMonitorOpen
                  mhRun b t n
-                 mcmcCloseMonitors
-                 liftIO $ putStrLn "-- Metropolis-Hastings sampler finished.") s
+                 mcmcMonitorExec
+                 mcmcSummarizeCycle (Just n)
+                 mcmcMonitorClose
+                 liftIO $ putStrLn "-- Metropolis-Hastings sampler finished.")

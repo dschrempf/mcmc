@@ -31,9 +31,11 @@ module Statistics.Mcmc.Status
   , reset
   , Mcmc
   , mcmcAutotune
-  , mcmcOpenMonitors
-  , mcmcExecMonitors
-  , mcmcCloseMonitors
+  , mcmcSummarizeCycle
+  , mcmcMonitorOpen
+  , mcmcMonitorHeader
+  , mcmcMonitorExec
+  , mcmcMonitorClose
   ) where
 
 import Prelude hiding (cycle)
@@ -120,26 +122,38 @@ type Mcmc a = StateT (Status a) IO
 
 -- | Auto tune the 'Move's in the 'Cycle' of the chain. See 'autotune'.
 mcmcAutotune :: Int -> Mcmc a ()
-mcmcAutotune t = do
-  liftIO $ putStrLn "-- Auto tune moves."
-  modify' (autotuneS t)
+mcmcAutotune t = modify' (autotuneS t)
+
+mcmcSummarizeCycle :: Maybe Int -> Mcmc a ()
+mcmcSummarizeCycle Nothing = do
+  liftIO $ putStrLn ""
+  c <- gets cycle
+  liftIO $ putStr $ summarizeCycle c
+  liftIO $ putStrLn ""
+mcmcSummarizeCycle (Just n) = do
+  liftIO $ putStrLn ""
   a <- gets acceptance
   c <- gets cycle
-  liftIO $ putStr $ summarizeCycleA t a c
+  liftIO $ putStr $ summarizeCycleA n a c
+  liftIO $ putStrLn ""
 
 -- | Open the 'Monitor's of the chain. See 'msOpen'.
-mcmcOpenMonitors :: Mcmc a ()
-mcmcOpenMonitors = do
-  liftIO $ putStrLn "-- Open monitors."
+mcmcMonitorOpen :: Mcmc a ()
+mcmcMonitorOpen = do
   s  <- get
   m  <- gets monitor
   m' <- liftIO $ mOpen m
-  liftIO $ mHeader m'
   put s { monitor = m' }
 
+-- | Print header of 'Monitor' of the chain (only standard output).
+mcmcMonitorHeader :: Mcmc a ()
+mcmcMonitorHeader = do
+  m <- gets monitor
+  liftIO $ mHeader m
+
 -- | Execute the 'Monitor's of the chain. See 'msExec'.
-mcmcExecMonitors :: Mcmc a ()
-mcmcExecMonitors = do
+mcmcMonitorExec :: Mcmc a ()
+mcmcMonitorExec = do
   s <- get
   let i = iteration s
       x = getState s
@@ -147,8 +161,7 @@ mcmcExecMonitors = do
   liftIO $ mExec i x m
 
 -- | Close the 'Monitor's of the chain. See 'msClose'.
-mcmcCloseMonitors :: Mcmc a ()
-mcmcCloseMonitors = do
-  liftIO $ putStrLn "-- Close monitors."
+mcmcMonitorClose :: Mcmc a ()
+mcmcMonitorClose = do
   m <- gets monitor
   liftIO $ mClose m

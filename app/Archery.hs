@@ -79,8 +79,8 @@ moveCycle = fromList [slideUniformDouble "mu; slide uniform" 1 1.0 True]
 monRealFloat :: RealFloat a => MonitorParameter a
 monRealFloat = MonitorParameter "Mu" (T.toStrict . T.toLazyText . T.formatRealFloat T.Fixed (Just 4))
 
-monStd :: MonitorSimple I
-monStd = MonitorSimple [monRealFloat] 1000
+monStd :: MonitorStdOut I
+monStd = monitorStdOut [monRealFloat] 50
 
 monFile :: MonitorFile I
 monFile = monitorFile "Archery.log" [monRealFloat] 5
@@ -95,12 +95,12 @@ nAutoTune :: Maybe Int
 nAutoTune = Just 400
 
 nIter :: Int
-nIter = 20000
+nIter = 4000
 
 main :: IO ()
 main = do
   g <- create
   mu_observed <- arrowMean g
-  putStrLn $ "True parameter: " <> show mu_observed
+  -- putStrLn $ "True parameter: " <> show mu_observed
   let chain = mcmc 0 (posterior mu_observed) moveCycle mons g
   void $ mh nBurn nAutoTune nIter chain

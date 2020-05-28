@@ -203,7 +203,7 @@ renderRow name weight acceptRatio tuneParam = nB ++ wB ++ rB ++ tB
         tB = right 20 tuneParam
 
 moveHeader :: String
-moveHeader = renderRow "Name" "Weight" "Acceptance ratio" "Tuning parameter"
+moveHeader = renderRow "Move name" "Weight" "Acceptance ratio" "Tuning parameter"
 
 summarizeMove :: Move a -> Maybe Double -> String
 summarizeMove m r = renderRow name weight acceptRatio tuneParamStr
@@ -217,13 +217,13 @@ summarizeMove m r = renderRow name weight acceptRatio tuneParamStr
 summarizeCycle :: Cycle a -> String
 summarizeCycle c = unlines $
   [
-    show mpc ++ " moves per cycle."
-  , replicate (length moveHeader) '─'
+    replicate (length moveHeader) '─'
   , moveHeader
   , replicate (length moveHeader) '─'
   ] ++
   [ summarizeMove m Nothing | m <- mvs ] ++
-  [replicate (length moveHeader) '─']
+  [ replicate (length moveHeader) '─'
+  , show mpc ++ " move(s) per cycle." ]
   where mvs   = fromCycle c
         mpc   = sum $ map mvWeight mvs
 
@@ -232,13 +232,13 @@ summarizeCycle c = unlines $
 summarizeCycleA :: Int -> Acceptance (Move a) -> Cycle a -> String
 summarizeCycleA n a c = unlines $
   [
-    show mpc ++ " move(s) per cycle." ++ arStr
-  , replicate (length moveHeader) '─'
+    replicate (length moveHeader) '─'
   , moveHeader
   , replicate (length moveHeader) '─'
   ] ++
   [ summarizeMove m (ars M.!? m) | m <- mvs ] ++
-  [replicate (length moveHeader) '─']
+  [ replicate (length moveHeader) '─'
+  , show mpc ++ " move(s) per cycle." ++ arStr ]
   where mvs   = fromCycle c
         mpc   = sum $ map mvWeight mvs
         arStr = " Acceptance ratio(s) calculated over " ++ show n ++ " iterations."

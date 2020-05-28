@@ -14,14 +14,13 @@ Creation date: Thu May 21 14:35:11 2020.
 
 -}
 
--- TODO: Separate burn in with auto tune, list of moves, and monitors.
-
 module Statistics.Mcmc.Monitor
   (
     -- * Create monitors
     Monitor (..)
   , MonitorParameter (..)
-  , MonitorSimple (..)
+  , MonitorStdOut
+  , monitorStdOut
   , MonitorFile
   , monitorFile
     -- * Use monitor
@@ -43,7 +42,7 @@ import System.IO
 -- flexible way.
 data Monitor a = Monitor
  {
-   mStdOut :: MonitorSimple a -- ^ Monitor writing to standard output.
+   mStdOut :: MonitorStdOut a -- ^ Monitor writing to standard output.
  , mFiles  :: [MonitorFile a] -- ^ Monitors writing to files.
  }
 
@@ -55,43 +54,54 @@ data MonitorParameter a = MonitorParameter
                         -- the state.
   }
 
--- | Monitor a variable of the state space. The key part is the function 'mShow'
--- which describes what should be logged. Several monitors for standard types
--- are provided.
-data MonitorSimple a = MonitorSimple
+-- | Monitor to standard output.
+data MonitorStdOut a = MonitorStdOut
   {
-    msParams :: [MonitorParameter a] -- ^ Parameters to monitor.
-  , msFreq   :: Int                  -- ^ Logging period.
+    msParams :: [MonitorParameter a]
+  , msPeriod :: Int
   }
 
-renderRow :: NonEmpty Text -> Text
-renderRow xs = T.justifyRight 6 ' ' (N.head xs) <> T.concat vals
+-- | Monitor to standard output.
+monitorStdOut
+  :: [MonitorParameter a] -- ^ Instructions about which parameters to log.
+  -> Int                  -- ^ Logging period.
+  -> MonitorStdOut a
+monitorStdOut = MonitorStdOut
+
+msRenderRow :: NonEmpty Text -> Text
+msRenderRow xs = T.justifyRight 6 ' ' (N.head xs) <> T.concat vals
   where vals = map (T.justifyRight 10 ' ') (N.tail xs)
 
-msHeader :: MonitorSimple a -> Handle -> IO ()
-msHeader m h = T.hPutStr h $ T.unlines [row, T.replicate (T.length row) "─"]
-  where row = renderRow $ T.pack "Cycle" N.:| [ mpName p | p <- msParams m ]
+msHeader :: MonitorStdOut a -> IO ()
+msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
+  where row = msRenderRow $ T.pack "Cycle" N.:| [ mpName p | p <- msParams m ]
+        sep = T.replicate (T.length row) "─"
 
-msExec :: Int -> a -> MonitorSimple a -> Handle -> IO ()
-msExec i x m h
-  | i `mod` msFreq m /= 0 = return ()
-  | otherwise = T.hPutStrLn h $ renderRow $ T.pack (show i) N.:| [ mpFunc p x | p <- msParams m ]
+msExec :: Int -> a -> MonitorStdOut a -> IO ()
+msExec i x m
+  | i `mod` msPeriod m /= 0        = return ()
+  | otherwise                    = row
+  where row = T.hPutStrLn stdout $ msRenderRow $ T.pack (show i) N.:| [ mpFunc p x | p <- msParams m ]
 
 -- | Monitor to a file.
 data MonitorFile a = MonitorFile
   {
     mfFile   :: FilePath
   , mfHandle :: Maybe Handle
-  , mfSimple :: MonitorSimple a
+  , mfParams :: [MonitorParameter a]
+  , mfPeriod :: Int
   }
 
 -- | Monitor writing to a file.
 monitorFile
-  :: FilePath          -- ^ File path; file will be overwritten!
-  -> [MonitorParameter a]       -- ^ Instructions about which parameters to log.
-  -> Int               -- ^ Logging period.
+  :: FilePath             -- ^ File path; file will be overwritten!
+  -> [MonitorParameter a] -- ^ Instructions about which parameters to log.
+  -> Int                  -- ^ Logging period.
   -> MonitorFile a
-monitorFile f bs p = MonitorFile f Nothing (MonitorSimple bs p)
+monitorFile f = MonitorFile f Nothing
+
+mfRenderRow :: [Text] -> Text
+mfRenderRow = T.intercalate "\t"
 
 mfOpen :: MonitorFile a -> IO (MonitorFile a)
 mfOpen m = do
@@ -99,14 +109,20 @@ mfOpen m = do
   return $ m { mfHandle = Just h }
 
 mfHeader :: MonitorFile a -> IO ()
-mfHeader m = case mfHandle m of
-                 Nothing -> error $ "mfExec: No handle available for monitor with file " <> mfFile m <> "."
-                 Just h  -> msHeader (mfSimple m) h
+mfHeader m =
+  case mfHandle m of
+    Nothing -> error $ "mfHeader: No handle available for monitor with file " <> mfFile m <> "."
+    Just h  -> T.hPutStrLn h row
+  where
+    row = mfRenderRow $ T.pack "Cycle" : [ mpName p | p <- mfParams m ]
 
 mfExec :: Int -> a -> MonitorFile a -> IO ()
-mfExec i x m = case mfHandle m of
-                 Nothing -> error $ "mfExec: No handle available for monitor with file " <> mfFile m <> "."
-                 Just h  -> msExec i x (mfSimple m) h
+mfExec i x m
+  | i `mod` mfPeriod m /= 0 = return ()
+  | otherwise =
+    case mfHandle m of
+      Nothing -> error $ "mfExec: No handle available for monitor with file " <> mfFile m <> "."
+      Just h  -> T.hPutStrLn h $ mfRenderRow $ T.pack (show i) : [ mpFunc p x | p <- mfParams m ]
 
 mfClose :: MonitorFile a -> IO ()
 mfClose m = case mfHandle m of
@@ -117,15 +133,16 @@ mfClose m = case mfHandle m of
 mOpen :: Monitor a -> IO (Monitor a)
 mOpen (Monitor s fs) = do
   fs' <- mapM mfOpen fs
+  mapM_ mfHeader fs'
   return $ Monitor s fs'
 
--- | Print header lines of 'Monitor'.
+-- | Print header line of 'Monitor' (standard output only).
 mHeader :: Monitor a -> IO ()
-mHeader (Monitor s fs) = msHeader s stdout >> mapM_ mfHeader fs
+mHeader (Monitor s _) = msHeader s
 
 -- | Print logs for given iteration.
 mExec :: Int -> a -> Monitor a -> IO ()
-mExec i x (Monitor s fs) = msExec i x s stdout >> mapM_ (mfExec i x) fs
+mExec i x (Monitor s fs) = msExec i x s >> mapM_ (mfExec i x) fs
 
 -- | Close the files associated with the 'Monitor'.
 mClose :: Monitor a -> IO ()
