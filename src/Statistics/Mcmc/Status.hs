@@ -20,10 +20,6 @@ Creation date: Tue May  5 18:01:15 2020.
 -- allow restart of a chain only with the same executable (which contains the
 -- moves etc). See https://hackage.haskell.org/package/executable-hash.
 
--- TODO: Output ETA; time.
-
--- TODO: Output prior, likelihood, posterior.
-
 module Statistics.Mcmc.Status
   ( Status (..)
   , getState
@@ -145,7 +141,7 @@ mcmcMonitorOpen = do
   m' <- liftIO $ mOpen m
   put s { monitor = m' }
 
--- | Print header of 'Monitor' of the chain (only standard output).
+-- | Print header line of 'Monitor' (only standard output).
 mcmcMonitorHeader :: Mcmc a ()
 mcmcMonitorHeader = do
   m <- gets monitor

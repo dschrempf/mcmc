@@ -30,6 +30,8 @@ module Statistics.Mcmc.Monitor
   , mClose
   ) where
 
+-- TODO: Use builders (easier for users).
+
 import qualified Data.List.NonEmpty as N
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Text          as T
@@ -139,6 +141,10 @@ mOpen (Monitor s fs) = do
 -- | Print header line of 'Monitor' (standard output only).
 mHeader :: Monitor a -> IO ()
 mHeader (Monitor s _) = msHeader s
+
+-- TODO: Provide and monitor prior, likelihood, posterior.
+
+-- TODO: Provide and monitor run time and ETA.
 
 -- | Print logs for given iteration.
 mExec :: Int -> a -> Monitor a -> IO ()
