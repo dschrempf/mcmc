@@ -120,6 +120,7 @@ type Mcmc a = StateT (Status a) IO
 mcmcAutotune :: Int -> Mcmc a ()
 mcmcAutotune t = modify' (autotuneS t)
 
+-- | Print short summary of 'Move's in 'Cycle'. See 'summarizeCycle'.
 mcmcSummarizeCycle :: Maybe Int -> Mcmc a ()
 mcmcSummarizeCycle Nothing = do
   liftIO $ putStrLn ""
@@ -133,7 +134,7 @@ mcmcSummarizeCycle (Just n) = do
   liftIO $ putStr $ summarizeCycleA n a c
   liftIO $ putStrLn ""
 
--- | Open the 'Monitor's of the chain. See 'msOpen'.
+-- | Open the 'Monitor's of the chain. See 'mOpen'.
 mcmcMonitorOpen :: Mcmc a ()
 mcmcMonitorOpen = do
   s  <- get
@@ -147,7 +148,7 @@ mcmcMonitorHeader = do
   m <- gets monitor
   liftIO $ mHeader m
 
--- | Execute the 'Monitor's of the chain. See 'msExec'.
+-- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: Mcmc a ()
 mcmcMonitorExec = do
   s <- get
@@ -156,7 +157,7 @@ mcmcMonitorExec = do
       m = monitor s
   liftIO $ mExec i x m
 
--- | Close the 'Monitor's of the chain. See 'msClose'.
+-- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcMonitorClose :: Mcmc a ()
 mcmcMonitorClose = do
   m <- gets monitor

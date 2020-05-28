@@ -22,7 +22,6 @@ library:
   dependencies:
     - array
     - base >= 4.7 && < 5
-    - boxes
     - containers
     - log-domain
     - microlens
@@ -47,6 +46,7 @@ benchmarks:
       - microlens
       - mwc-random
       - statistics
+      - text
       - vector
 
 tests:

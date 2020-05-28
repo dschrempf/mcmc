@@ -85,8 +85,8 @@ monStd = monitorStdOut [monRealFloat] 50
 monFile :: MonitorFile I
 monFile = monitorFile "Archery.log" [monRealFloat] 5
 
-mons :: Monitor I
-mons = Monitor monStd [monFile]
+mon :: Monitor I
+mon = Monitor monStd [monFile]
 
 nBurn :: Maybe Int
 nBurn = Just 2000
@@ -102,5 +102,5 @@ main = do
   g <- create
   mu_observed <- arrowMean g
   -- putStrLn $ "True parameter: " <> show mu_observed
-  let chain = mcmc 0 (posterior mu_observed) moveCycle mons g
+  let chain = mcmc 0 (posterior mu_observed) moveCycle mon g
   void $ mh nBurn nAutoTune nIter chain

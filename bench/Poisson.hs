@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 {- |
 Module      :  Poisson
 Description :  Poisson regression model for airline fatalities
@@ -18,6 +20,10 @@ module Poisson
   ( poissonBench
   ) where
 
+import Data.Text (Text)
+import qualified Data.Text.Lazy         as T
+import qualified Data.Text.Lazy.Builder as T
+import qualified Data.Text.Lazy.Builder.RealFloat as T
 import qualified Data.Vector.Unboxed as V
 import Lens.Micro
 import Numeric.Log hiding (sum)
@@ -67,6 +73,21 @@ summarize xs = ((mean as, stdDev as), (mean bs, stdDev bs))
   where as = V.fromList $ map fst xs
         bs = V.fromList $ map snd xs
 
+monRealFloat :: RealFloat a => a -> Text
+monRealFloat = T.toStrict . T.toLazyText . T.formatRealFloat T.Fixed (Just 4)
+
+monAlpha :: MonitorParameter I
+monAlpha = MonitorParameter "Alpha" (monRealFloat . fst)
+
+monBeta :: MonitorParameter I
+monBeta = MonitorParameter "Beta" (monRealFloat . snd)
+
+monStd :: MonitorStdOut I
+monStd = monitorStdOut [monAlpha, monBeta] 50
+
+mon :: Monitor I
+mon = Monitor monStd []
+
 nBurn :: Maybe Int
 nBurn = Just 2000
 
@@ -78,7 +99,7 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  s <- mh nBurn nAutoTune nIter (mcmc initial posterior moveCycle mempty g)
+  s <- mh nBurn nAutoTune nIter (mcmc initial posterior moveCycle mon g)
   putStrLn "Mean and standard deviations of:"
   let xs = map state . fromTrace $ trace s
       (ra, rb) = summarize xs

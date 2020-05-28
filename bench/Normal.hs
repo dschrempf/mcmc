@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 {- |
 Module      :  Normal
 Description :  Benchmark Metropolis-Hastings algorithm
@@ -16,6 +18,9 @@ module Normal
   ( normalBench
   ) where
 
+import qualified Data.Text.Lazy         as T
+import qualified Data.Text.Lazy.Builder as T
+import qualified Data.Text.Lazy.Builder.RealFloat as T
 import qualified Data.Vector.Unboxed as V
 import Numeric.Log as L
 import Statistics.Distribution hiding (mean, stdDev)
@@ -47,6 +52,15 @@ summarize :: [Double] -> (Double, Double)
 summarize xs = (mean v, stdDev v)
   where v = V.fromList xs
 
+monRealFloat :: RealFloat a => MonitorParameter a
+monRealFloat = MonitorParameter "Mu" (T.toStrict . T.toLazyText . T.formatRealFloat T.Fixed (Just 4))
+
+monStd :: MonitorStdOut Double
+monStd = monitorStdOut [monRealFloat] 50
+
+mon :: Monitor Double
+mon = Monitor monStd []
+
 nBurn :: Maybe Int
 nBurn = Just 2000
 
@@ -58,7 +72,7 @@ nIter = 20000
 
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  s <- mh nBurn nAutoTune nIter (mcmc 0 posterior moveCycle mempty g)
+  s <- mh nBurn nAutoTune nIter (mcmc 0 posterior moveCycle mon g)
   let t = map state . fromTrace $ trace s
   putStrLn "Mean and standard deviations:"
   putStrLn $ "True: " ++ show (trueMean, trueStdDev)
