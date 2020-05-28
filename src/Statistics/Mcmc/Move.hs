@@ -20,6 +20,8 @@ chain will not converge to the correct stationary posterior distribution.
 
 -}
 
+-- TODO: Iteration -> cycle.
+
 module Statistics.Mcmc.Move
   (
     -- * Move
@@ -35,6 +37,7 @@ module Statistics.Mcmc.Move
   , fromList
   , mapCycle
   , summarizeCycle
+  , summarizeCycleA
     -- * Acceptance
   , Acceptance
   , empty
@@ -48,6 +51,7 @@ import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map)
 import Numeric.Log hiding (sum)
 import System.Random.MWC
+import Text.Printf
 
 -- | A 'Move' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability density conditioned on the
@@ -201,25 +205,44 @@ renderRow name weight acceptRatio tuneParam = nB ++ wB ++ rB ++ tB
 moveHeader :: String
 moveHeader = renderRow "Name" "Weight" "Acceptance ratio" "Tuning parameter"
 
--- TODO: Use printf.
-summarizeMove :: Move a -> Double -> String
+summarizeMove :: Move a -> Maybe Double -> String
 summarizeMove m r = renderRow name weight acceptRatio tuneParamStr
   where name         = mvName m
         weight       = show $ mvWeight m
-        acceptRatio  = show r
-        tuneParamStr = maybe "" show (tParam <$> mvTune m)
+        acceptRatio  = maybe "" (printf "%.3f") r
+        tuneParamStr = maybe "" (printf "%.3f") (tParam <$> mvTune m)
 
--- | Summarize the 'Move's in the 'Cycle' for the given number of last iterations.
-summarizeCycle :: Int -> Cycle a -> Acceptance (Move a) -> String
-summarizeCycle n c a = unlines $
+-- | Summarize the 'Move's in the 'Cycle'. Also report acceptance ratios for the
+-- given number of last cycles.
+summarizeCycle :: Cycle a -> String
+summarizeCycle c = unlines $
   [
-    "Summary of moves; acceptance ratio(s) calculated over " ++ show n ++ " iterations."
+    show mpc ++ " moves per cycle."
+  , replicate (length moveHeader) '─'
   , moveHeader
-  , replicate (length moveHeader) '-'
+  , replicate (length moveHeader) '─'
   ] ++
-  [ summarizeMove m (ars M.! m) | m <- mvs ]
-  where mvs = fromCycle c
-        ars = acceptanceRatios n a
+  [ summarizeMove m Nothing | m <- mvs ] ++
+  [replicate (length moveHeader) '─']
+  where mvs   = fromCycle c
+        mpc   = sum $ map mvWeight mvs
+
+-- | See 'summarizeCycle'. Also report acceptance ratios for the given number of
+-- last cycles.
+summarizeCycleA :: Int -> Acceptance (Move a) -> Cycle a -> String
+summarizeCycleA n a c = unlines $
+  [
+    show mpc ++ " move(s) per cycle." ++ arStr
+  , replicate (length moveHeader) '─'
+  , moveHeader
+  , replicate (length moveHeader) '─'
+  ] ++
+  [ summarizeMove m (ars M.!? m) | m <- mvs ] ++
+  [replicate (length moveHeader) '─']
+  where mvs   = fromCycle c
+        mpc   = sum $ map mvWeight mvs
+        arStr = " Acceptance ratio(s) calculated over " ++ show n ++ " iterations."
+        ars   = acceptanceRatios n a
 
 -- | For each key @k@, store the list of accepted (True) and rejected (False)
 -- proposals. For reasons of efficiency, the lists are stored in reverse order;

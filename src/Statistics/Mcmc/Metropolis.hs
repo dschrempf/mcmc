@@ -84,41 +84,48 @@ mhNCycles n = do
   cycles <- liftIO $ getNCycles c n g
   forM_ cycles mhCycle
 
--- TODO: Ad @modify' reset@. Think about what to save, and when. Should the burn
--- in be included in the log files. If yes, how can we interpret auto tune? If
--- no, valuable information is lost.
+mhBurn :: Int -> Mcmc a ()
+mhBurn n = do
+  mhNCycles n
+  mcmcAutotune n
 
--- Run N Metropolis-Hastings cycles with a burn in of B, and a tuning period of T.
+-- Burn in with or without auto tuning.
+mhBurnIn :: Int -> Maybe Int -> Mcmc a ()
+mhBurnIn b (Just t)
+  | t <= 0    = error "mhBurnIn: Auto tune period smaller equal 0."
+  | b >  t    = mhBurn t >> mhBurnIn (b-t) (Just t)
+  | b <= t    = mhBurn b
+  | otherwise = error "mhRun: Please contact maintainer."
+mhBurnIn b  Nothing = mhNCycles b
+
 mhRun :: Maybe Int -> Maybe Int -> Int -> Mcmc a ()
--- Burn in with auto tuning.
-mhRun (Just b) (Just t) n | b > t = do
-                              mhNCycles t
-                              mcmcTune t
-                              mhRun (Just (b-t)) (Just t) n
-                          | b <= t = mhRun (Just b) Nothing n
-                          | otherwise = error "mhRun: Please contact maintainer; this should never happen."
--- Burn in without auto tuning or last step of burn in with auto tuning.
-mhRun (Just b) Nothing n = do mhNCycles b
-                              -- modify' reset
-                              mhRun Nothing Nothing n
--- Run without auto tuning.
-mhRun Nothing Nothing n = mhNCycles n
-mhRun Nothing (Just _) _ = error "mhRun: Cannot auto tune during normal MCMC sampling phase; please use burn in."
-
+mhRun (Just b) t n
+  | b <= 0    = error "mhBurnIn: Number of burn in cycles smaller equal 0."
+  | otherwise = do
+      liftIO $ putStrLn $ "-- Burn in for " <> show b <> " cycles."
+      mhBurnIn b t
+      liftIO $ putStrLn   "-- Burn in finished."
+      mhRun Nothing Nothing n
+mhRun Nothing _ n = do
+  liftIO $ putStrLn $ "-- Start run with " <> show n <> " cycles."
+  mhNCycles n
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 --
 -- Of course, the given status can also be the result of a paused chain.
 mh :: Show a
-  => Maybe Int -- ^ Number of burn in cycles; deactivate burn in with 'Nothing';
-               -- be careful, after burn in, the chain will be reset.
+  => Maybe Int -- ^ Number of burn in cycles.
   -> Maybe Int -- ^ Auto tune period (only during burn in); deactivate auto
                -- tuning completely with 'Nothing'.
   -> Int       -- ^ Number of Metropolis-Hastings cycles (without auto tuning).
   -> Status a  -- ^ Initial state of Markov chain.
   -> IO (Status a)
--- TODO: Opening and closing monitors has to be improved. At the moment, there
--- is no distinction between burn in and actual sampling.
-mh b t n = execStateT (mcmcOpenMonitors >>
-                       mcmcExecMonitors >>
-                       mhRun b t n >> mcmcCloseMonitors)
+mh b t n s =
+  execStateT (do liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
+                 liftIO $ putStr $ summarizeCycle (cycle s)
+                 mcmcOpenMonitors
+                 liftIO $ putStrLn "-- Initial state of chain."
+                 mcmcExecMonitors
+                 mhRun b t n
+                 mcmcCloseMonitors
+                 liftIO $ putStrLn "-- Metropolis-Hastings sampler finished.") s

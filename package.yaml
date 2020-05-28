@@ -23,12 +23,12 @@ library:
     - array
     - base >= 4.7 && < 5
     - boxes
-    - bytestring
     - containers
     - log-domain
     - microlens
     - mwc-random
     - statistics
+    - text
     - transformers
 
 benchmarks:
@@ -74,8 +74,8 @@ executables:
       - -with-rtsopts=-N
     dependencies:
       - base >= 4.7 && < 5
-      - bytestring
       - log-domain
       - mcmc
       - mwc-random
       - statistics
+      - text

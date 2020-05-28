@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 {- |
 Module      :  Archery
 Description :  Modeling shots of an archer shots on a circular target
@@ -20,8 +22,9 @@ module Main
   ) where
 
 import Control.Monad
-import qualified Data.ByteString.Lazy    as B
-import qualified Data.ByteString.Builder as B
+import qualified Data.Text.Lazy         as T
+import qualified Data.Text.Lazy.Builder as T
+import qualified Data.Text.Lazy.Builder.RealFloat as T
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Exponential
@@ -71,22 +74,25 @@ posterior :: I -> I -> Log Double
 posterior mu x = prior x * likelihood mu x
 
 moveCycle :: Cycle I
-moveCycle = fromList [slideUniformDouble "mu" 1 1.0 True]
+moveCycle = fromList [slideUniformDouble "mu; slide uniform" 1 1.0 True]
 
--- monStd :: Monitor I
--- monStd = monitorStdOut (B.toStrict . B.toLazyByteString . B.doubleDec) 100
+monRealFloat :: RealFloat a => MonitorParameter a
+monRealFloat = MonitorParameter "Mu" (T.toStrict . T.toLazyText . T.formatRealFloat T.Fixed (Just 4))
 
-monFile :: Monitor I
-monFile = monitorFile "Archery.log" (B.toStrict . B.toLazyByteString . B.doubleDec) 5
+monStd :: MonitorSimple I
+monStd = MonitorSimple [monRealFloat] 1000
 
-mons :: [Monitor I]
-mons = [monFile]
+monFile :: MonitorFile I
+monFile = monitorFile "Archery.log" [monRealFloat] 5
+
+mons :: Monitor I
+mons = Monitor monStd [monFile]
 
 nBurn :: Maybe Int
 nBurn = Just 2000
 
 nAutoTune :: Maybe Int
-nAutoTune = Just 200
+nAutoTune = Just 400
 
 nIter :: Int
 nIter = 20000

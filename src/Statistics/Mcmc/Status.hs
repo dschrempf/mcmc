@@ -20,16 +20,20 @@ Creation date: Tue May  5 18:01:15 2020.
 -- allow restart of a chain only with the same executable (which contains the
 -- moves etc). See https://hackage.haskell.org/package/executable-hash.
 
+-- TODO: Output ETA; time.
+
+-- TODO: Output prior, likelihood, posterior.
+
 module Statistics.Mcmc.Status
   ( Status (..)
   , getState
   , mcmc
   , reset
   , Mcmc
-  , mcmcTune
+  , mcmcAutotune
   , mcmcOpenMonitors
-  , mcmcCloseMonitors
   , mcmcExecMonitors
+  , mcmcCloseMonitors
   ) where
 
 import Prelude hiding (cycle)
@@ -59,8 +63,8 @@ data Status a = Status
   , logPosteriorF :: a -> Log Double
     -- | A set of 'Move's form a 'Cycle'.
   , cycle         :: Cycle a
-    -- | A list of 'Monitor's to observe the chain.
-  , monitors      :: [Monitor a]
+    -- | A 'Monitor' observing the chain.
+  , monitor       :: Monitor a
     -- | Number of completed cycles.
   , iteration     :: Int
     -- | The 'Trace' of the Markov chain in reverse order, the most recent
@@ -87,7 +91,7 @@ mcmc
   -> (a -> Log Double) -- ^ The un-normalized log-posterior function.
   -> Cycle a           -- ^ A list of 'Move's executed in forward order. The
                        -- chain will be logged after each cycle.
-  -> [Monitor a]       -- ^ A list of 'Monitor's observing the chain.
+  -> Monitor a         -- ^ A 'Monitor' observing the chain.
   -> GenIO             -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
   -> Status a          -- ^ The current 'Status' of the Markov chain.
@@ -114,34 +118,24 @@ autotuneS n s = s {cycle = mapCycle tuneF (cycle s)}
 -- required, but it is used by the different inference algorithms.
 type Mcmc a = StateT (Status a) IO
 
--- TODO: Monitoring; screen log should be active during burn in and normal
--- sampling, but file logs should only be executed during the normal MCMC
--- sampling phase.
-
 -- | Auto tune the 'Move's in the 'Cycle' of the chain. See 'autotune'.
-mcmcTune :: Int -> Mcmc a ()
-mcmcTune t = do
-  liftIO $ putStrLn "-- Auto tune."
+mcmcAutotune :: Int -> Mcmc a ()
+mcmcAutotune t = do
+  liftIO $ putStrLn "-- Auto tune moves."
+  modify' (autotuneS t)
   a <- gets acceptance
   c <- gets cycle
-  modify' (autotuneS t)
-  liftIO $ putStr $ summarizeCycle t c a
+  liftIO $ putStr $ summarizeCycleA t a c
 
 -- | Open the 'Monitor's of the chain. See 'msOpen'.
 mcmcOpenMonitors :: Mcmc a ()
 mcmcOpenMonitors = do
   liftIO $ putStrLn "-- Open monitors."
-  s   <- get
-  ms  <- gets monitors
-  ms' <- liftIO $ msOpen ms
-  put s { monitors = ms' }
-
--- | Close the 'Monitor's of the chain. See 'msClose'.
-mcmcCloseMonitors :: Mcmc a ()
-mcmcCloseMonitors = do
-  liftIO $ putStrLn "-- Close monitors."
-  ms <- gets monitors
-  liftIO $ msClose ms
+  s  <- get
+  m  <- gets monitor
+  m' <- liftIO $ mOpen m
+  liftIO $ mHeader m'
+  put s { monitor = m' }
 
 -- | Execute the 'Monitor's of the chain. See 'msExec'.
 mcmcExecMonitors :: Mcmc a ()
@@ -149,13 +143,12 @@ mcmcExecMonitors = do
   s <- get
   let i = iteration s
       x = getState s
-      m = monitors s
-  liftIO $ msExec i x m
+      m = monitor s
+  liftIO $ mExec i x m
 
--- TODO: Proper output. RevBayes does the following:
--- @
---   Running burn-in phase of Monte Carlo sampler for 10000 iterations.
---   This simulation runs 1 independent replicate.
---   The MCMCMC simulator runs 1 cold chain and 3 heated chains.
---   The simulator uses 42 different moves in a random move schedule with 163 moves per iteration
--- @
+-- | Close the 'Monitor's of the chain. See 'msClose'.
+mcmcCloseMonitors :: Mcmc a ()
+mcmcCloseMonitors = do
+  liftIO $ putStrLn "-- Close monitors."
+  m <- gets monitor
+  liftIO $ mClose m
