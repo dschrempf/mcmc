@@ -81,7 +81,8 @@ msRenderRow xs = T.justifyRight msIWidth ' ' (head xs) <> T.concat vals
 msHeader :: MonitorStdOut a -> IO ()
 msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
   where row = msRenderRow $ T.pack
-              "Iteration" : "Prior" : "Likelihood" : "Posterior" : [ mpName p | p <- msParams m ]
+              "Iteration" : "Log-Prior" : "Log-Likelihood" : "Log-Posterior"
+              : [ mpName p | p <- msParams m ]
         sep = T.replicate (T.length row) "─"
 
 msExec :: Int -> Log Double -> Log Double -> Log Double -> a -> MonitorStdOut a -> IO ()
@@ -125,7 +126,7 @@ mfHeader m =
   case mfHandle m of
     Nothing -> error $ "mfHeader: No handle available for monitor with file " <> mfFile m <> "."
     Just h  -> T.hPutStrLn h $
-      mfRenderRow $ T.pack "Iteration" : "Prior" : "Likelihood" : "Posterior" :
+      mfRenderRow $ T.pack "Iteration" : "Log-Prior" : "Log-Likelihood" : "Log-Posterior" :
       [ mpName p | p <- mfParams m ]
 
 mfExec :: Int -> Log Double -> Log Double -> Log Double -> a -> MonitorFile a -> IO ()
