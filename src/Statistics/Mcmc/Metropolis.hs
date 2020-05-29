@@ -140,11 +140,13 @@ mh :: Show a
   -> Status a  -- ^ Initial 'Status' of Markov chain.
   -> IO (Status a)
 mh b t n =
-  execStateT (do liftIO $ mhReport b t n
+  execStateT (do
+                 mcmcInit (maybe n (+n) b)
+                 liftIO $ mhReport b t n
                  mcmcSummarizeCycle Nothing
-                 mcmcMonitorOpen
                  mhRun b t n
                  mcmcMonitorExec
                  mcmcSummarizeCycle (Just n)
-                 mcmcMonitorClose
-                 liftIO $ putStrLn "-- Metropolis-Hastings sampler finished.")
+                 liftIO $ putStrLn "-- Metropolis-Hastings sampler finished."
+                 mcmcClose
+             )

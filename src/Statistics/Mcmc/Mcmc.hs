@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 {- |
 Module      :  Statistics.Mcmc.Mcmc
 Description :  Mcmc helpers
@@ -17,10 +19,10 @@ module Statistics.Mcmc.Mcmc
     Mcmc
   , mcmcAutotune
   , mcmcSummarizeCycle
-  , mcmcMonitorOpen
+  , mcmcInit
   , mcmcMonitorHeader
   , mcmcMonitorExec
-  , mcmcMonitorClose
+  , mcmcClose
   ) where
 
 import Prelude hiding (cycle)
@@ -29,10 +31,14 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.State.Strict hiding (state)
 import qualified Data.Map.Strict as M
 import Data.Maybe
+import qualified Data.Text.Lazy.IO as T
+import Data.Time.Clock
+import Data.Time.Format
 
 import Statistics.Mcmc.Item
 import Statistics.Mcmc.Status
 import Statistics.Mcmc.Monitor
+import Statistics.Mcmc.Monitor.Time
 import Statistics.Mcmc.Move
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
@@ -66,13 +72,21 @@ mcmcSummarizeCycle (Just n) = do
   liftIO $ putStr $ summarizeCycle (Just (n, a)) c
   liftIO $ putStrLn ""
 
--- | Open the 'Monitor's of the chain. See 'mOpen'.
-mcmcMonitorOpen :: Mcmc a ()
-mcmcMonitorOpen = do
+fTime :: FormatTime t => t -> String
+fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
+
+-- | Set the total number of iterations, the current time and open the
+-- 'Monitor's of the chain. See 'mOpen'.
+mcmcInit :: Int -> Mcmc a ()
+mcmcInit n = do
+  t  <- liftIO getCurrentTime
+  liftIO $ putStrLn $ "-- Start time: " <> fTime t
   s  <- get
   m  <- gets monitor
   m' <- liftIO $ mOpen m
-  put s { monitor = m' }
+  put s { monitor = m'
+        , starttime = Just t
+        , totalIterations = Just n }
 
 -- | Print header line of 'Monitor' (only standard output).
 mcmcMonitorHeader :: Mcmc a ()
@@ -84,13 +98,28 @@ mcmcMonitorHeader = do
 mcmcMonitorExec :: Mcmc a ()
 mcmcMonitorExec = do
   s <- get
+  ct <- liftIO getCurrentTime
   let i            = iteration s
+      j            = fromMaybe
+                     (error "mcmcMonitorExec: Total number of iterations not set.")
+                     (totalIterations s)
       (Item x p l) = item s
       m            = monitor s
-  liftIO $ mExec i p l x m
+      mst          = starttime s
+      t            = case mst of
+        Nothing -> error "mcmcMonitorExec: Start time not set."
+        Just st -> ct `diffUTCTime` st
+  liftIO $ mExec i p l t x j m
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
-mcmcMonitorClose :: Mcmc a ()
-mcmcMonitorClose = do
-  m <- gets monitor
+mcmcClose :: Mcmc a ()
+mcmcClose = do
+  s <- get
+  let m = monitor s
   liftIO $ mClose m
+  t <- liftIO getCurrentTime
+  let rt = case starttime s of
+        Nothing -> error "mcmcClose: Start time not set."
+        Just st -> t `diffUTCTime` st
+  liftIO $ T.putStrLn $ "-- Wall clock run time: " <> renderDuration rt <> "."
+  liftIO $ putStrLn $ "-- End time: " <> fTime t

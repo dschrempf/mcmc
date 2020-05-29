@@ -73,22 +73,22 @@ monMu :: MonitorParameter I
 monMu = monitorRealFloat "Mu" id
 
 monStd :: MonitorStdOut I
-monStd = monitorStdOut [monMu] 50
+monStd = monitorStdOut [monMu] 5000
 
 monFile :: MonitorFile I
-monFile = monitorFile "Archery.log" [monMu] 5
+monFile = monitorFile "Archery.log" [monMu] 500
 
 mon :: Monitor I
 mon = Monitor monStd [monFile]
 
 nBurn :: Maybe Int
-nBurn = Just 2000
+nBurn = Just 200000
 
 nAutoTune :: Maybe Int
-nAutoTune = Just 400
+nAutoTune = Just 10000
 
 nIter :: Int
-nIter = 4000
+nIter = 1000000
 
 main :: IO ()
 main = do
