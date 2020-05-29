@@ -84,10 +84,10 @@ mcmcMonitorHeader = do
 mcmcMonitorExec :: Mcmc a ()
 mcmcMonitorExec = do
   s <- get
-  let i = iteration s
-      x = state $ item s
-      m = monitor s
-  liftIO $ mExec i x m
+  let i            = iteration s
+      (Item x p l) = item s
+      m            = monitor s
+  liftIO $ mExec i p l x m
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcMonitorClose :: Mcmc a ()

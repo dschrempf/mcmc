@@ -46,7 +46,6 @@ alpha = 1.0
 
 -- Likelihood function.
 meanDistribution :: I -> GammaDistribution
--- meanDistribution x = gammaDistr (fromIntegral n) (fromIntegral n / x)
 meanDistribution x = gammaDistr (fromIntegral n) (x / fromIntegral n)
 
 -- Simulated mean distance from center.
@@ -67,14 +66,11 @@ likelihood :: I -> I -> Log Double
 likelihood mu x | x <= 0    = Exp negInf
                 | otherwise = Exp $ logDensity (meanDistribution mu) x
 
-posterior :: I -> I -> Log Double
-posterior mu x = prior x * likelihood mu x
-
 moveCycle :: Cycle I
 moveCycle = fromList [slideUniformDouble "mu; slide uniform" 1 1.0 True]
 
 monMu :: MonitorParameter I
-monMu = realFloatMonitor "Mu" id
+monMu = monitorRealFloat "Mu" id
 
 monStd :: MonitorStdOut I
 monStd = monitorStdOut [monMu] 50
@@ -99,5 +95,5 @@ main = do
   g <- create
   mu_observed <- arrowMean g
   -- putStrLn $ "True parameter: " <> show mu_observed
-  let s = status 0 (posterior mu_observed) moveCycle mon g
+  let s = status 0  prior (likelihood mu_observed) moveCycle mon g
   void $ mh nBurn nAutoTune nIter s

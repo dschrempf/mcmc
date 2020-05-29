@@ -29,18 +29,20 @@ module Statistics.Mcmc.Monitor
   , mClose
   ) where
 
--- TODO: Use builders (easier for users).
+-- TODO: Provide and monitor run time and ETA.
 
 import Data.Int
-import qualified Data.List.NonEmpty     as N
-import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Text.Lazy         as T
 import qualified Data.Text.Lazy.IO      as T
 import qualified Data.Text.Lazy.Builder as T
 import Data.Text.Lazy (Text)
+-- import Data.Time.Clock
+import Numeric.Log
 import System.IO
 
+import Statistics.Mcmc.Monitor.Log
 import Statistics.Mcmc.Monitor.Parameter
+-- import Statistics.Mcmc.Monitor.Time
 
 -- | A 'Monitor' describes which part of the Markov chain should be logged and
 -- where. Further, they allow output of summary statistics per iteration in a
@@ -66,27 +68,28 @@ monitorStdOut
 monitorStdOut = MonitorStdOut
 
 msIWidth :: Int64
-msIWidth = 14
+msIWidth = 10
 
 msWidth :: Int64
 msWidth = 22
 
-msRenderRow :: NonEmpty Text -> Text
-msRenderRow xs = T.justifyRight msIWidth ' ' (N.head xs) <> T.concat vals
+msRenderRow :: [Text] -> Text
+msRenderRow xs = T.justifyRight msIWidth ' ' (head xs) <> T.concat vals
   where
-    vals = map (T.justifyRight msWidth ' ') (N.tail xs)
+    vals = map (T.justifyRight msWidth ' ') (tail xs)
 
 msHeader :: MonitorStdOut a -> IO ()
 msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
-  where row = msRenderRow $ T.pack "Iteration" N.:| [ mpName p | p <- msParams m ]
+  where row = msRenderRow $ T.pack
+              "Iteration" : "Prior" : "Likelihood" : "Posterior" : [ mpName p | p <- msParams m ]
         sep = T.replicate (T.length row) "─"
 
-msExec :: Int -> a -> MonitorStdOut a -> IO ()
-msExec i x m
-  | i `mod` msPeriod m /= 0        = return ()
-  | otherwise                    = row
-  where row = T.hPutStrLn stdout $ msRenderRow $
-          T.pack (show i) N.:| [ T.toLazyText $ mpFunc p x | p <- msParams m ]
+msExec :: Int -> Log Double -> Log Double -> Log Double -> a -> MonitorStdOut a -> IO ()
+msExec i p l o x m
+  | i `mod` msPeriod m /= 0 = return ()
+  | otherwise               = T.hPutStrLn stdout $ msRenderRow $
+    T.pack (show i) : renderLog p : renderLog l : renderLog o :
+    [ T.toLazyText $ mpFunc mp x | mp <- msParams m ]
 
 -- | Monitor to a file.
 data MonitorFile a = MonitorFile
@@ -96,6 +99,10 @@ data MonitorFile a = MonitorFile
   , mfParams :: [MonitorParameter a]
   , mfPeriod :: Int
   }
+
+-- TODO: This monitor also includes iteration, prior, likelihood, and posterior.
+-- What if I want to log trees; or other complex objects? In this case, we need
+-- a simpler monitor to a file.
 
 -- | Monitor writing to a file.
 monitorFile
@@ -117,18 +124,19 @@ mfHeader :: MonitorFile a -> IO ()
 mfHeader m =
   case mfHandle m of
     Nothing -> error $ "mfHeader: No handle available for monitor with file " <> mfFile m <> "."
-    Just h  -> T.hPutStrLn h row
-  where
-    row = mfRenderRow $ T.pack "Iteration" : [ mpName p | p <- mfParams m ]
+    Just h  -> T.hPutStrLn h $
+      mfRenderRow $ T.pack "Iteration" : "Prior" : "Likelihood" : "Posterior" :
+      [ mpName p | p <- mfParams m ]
 
-mfExec :: Int -> a -> MonitorFile a -> IO ()
-mfExec i x m
+mfExec :: Int -> Log Double -> Log Double -> Log Double -> a -> MonitorFile a -> IO ()
+mfExec i p l o x m
   | i `mod` mfPeriod m /= 0 = return ()
   | otherwise =
     case mfHandle m of
       Nothing -> error $ "mfExec: No handle available for monitor with file " <> mfFile m <> "."
       Just h  -> T.hPutStrLn h $ mfRenderRow $
-        T.pack (show i) : [T.toLazyText $ mpFunc p x | p <- mfParams m ]
+        T.pack (show i) : renderLog p : renderLog l : renderLog o :
+        [T.toLazyText $ mpFunc mp x | mp <- mfParams m ]
 
 mfClose :: MonitorFile a -> IO ()
 mfClose m = case mfHandle m of
@@ -146,13 +154,18 @@ mOpen (Monitor s fs) = do
 mHeader :: Monitor a -> IO ()
 mHeader (Monitor s _) = msHeader s
 
--- TODO: Provide and monitor prior, likelihood, posterior.
-
--- TODO: Provide and monitor run time and ETA.
-
--- | Print logs for given iteration.
-mExec :: Int -> a -> Monitor a -> IO ()
-mExec i x (Monitor s fs) = msExec i x s >> mapM_ (mfExec i x) fs
+-- | Execute monitors; print status information to standard output and files.
+mExec
+  :: Int -- ^ Iteration.
+  -> Log Double -- ^ Prior.
+  -> Log Double -- ^ Likelihood.
+  -- -> NominalDiffTime -- ^ Run time.
+  -- -> Maybe Int -- ^ Total number of iterations; to calculate ETA.
+  -> a -- ^ State of Markov chain.
+  -> Monitor a -- ^ The monitor.
+  -> IO ()
+-- mExec i p l t j x (Monitor s fs) = msExec i p l (p*l) x s >> mapM_ (mfExec i x) fs
+mExec i p l x (Monitor s fs) = msExec i p l (p*l) x s >> mapM_ (mfExec i p l (p*l) x) fs
 
 -- | Close the files associated with the 'Monitor'.
 mClose :: Monitor a -> IO ()

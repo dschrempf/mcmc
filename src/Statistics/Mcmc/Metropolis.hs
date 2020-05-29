@@ -41,22 +41,24 @@ mhMove m = do
   let p = mvSample $ mvSimple m
       q = mvLogDensity $ mvSimple m
   s <- get
-  let (Item x lX) = item s
-      f           = logPosteriorF s
-      g           = generator s
+  let (Item x pX lX) = item s
+      pF          = logPriorF s
+      lF          = logLikelihoodF s
       a           = acceptance s
+      g           = generator s
   -- 1. Sample new state.
   y <- liftIO $ p x g
   -- 2. Calculate Metropolis-Hastings ratio.
   let
-    lY = f y
-    r  = mhRatio lX lY (q x y) (q y x)
+    pY = pF y
+    lY = lF y
+    r  = mhRatio (pX*lX) (pY*lY) (q x y) (q y x)
   -- 3. Accept or reject.
   if ln r >= 0.0
-    then put s { item = Item y lY, acceptance = prependA m True a }
+    then put s { item = Item y pY lY, acceptance = prependA m True a }
     else do b <- uniform g
             if b < exp (ln r)
-            then put s { item = Item y lY, acceptance = prependA m True a }
+            then put s { item = Item y pY lY, acceptance = prependA m True a }
             else put s { acceptance = prependA m False a }
 
 -- Replicate 'Move's according to their weights and shuffle them.

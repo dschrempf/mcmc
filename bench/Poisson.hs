@@ -20,10 +20,6 @@ module Poisson
   ( poissonBench
   ) where
 
-import Data.Text (Text)
-import qualified Data.Text.Lazy         as T
-import qualified Data.Text.Lazy.Builder as T
-import qualified Data.Text.Lazy.Builder.RealFloat as T
 import qualified Data.Vector.Unboxed as V
 import Lens.Micro
 import Numeric.Log hiding (sum)
@@ -52,8 +48,8 @@ f :: Int -> Double -> I -> Log Double
 f ft yr (alpha, beta) = Exp $ logProbability (poisson l) (fromIntegral ft)
   where l = exp $ alpha + beta*yr
 
-posterior :: I -> Log Double
-posterior x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
+likelihood :: I -> Log Double
+likelihood x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
 
 moveAlpha :: Move I
 moveAlpha = slide "alpha" 2 _1 0.0 0.2 False
@@ -73,14 +69,11 @@ summarize xs = ((mean as, stdDev as), (mean bs, stdDev bs))
   where as = V.fromList $ map fst xs
         bs = V.fromList $ map snd xs
 
-monRealFloat :: RealFloat a => a -> Text
-monRealFloat = T.toStrict . T.toLazyText . T.formatRealFloat T.Fixed (Just 4)
-
 monAlpha :: MonitorParameter I
-monAlpha = MonitorParameter "Alpha" (monRealFloat . fst)
+monAlpha = monitorRealFloat "alpha" _1
 
 monBeta :: MonitorParameter I
-monBeta = MonitorParameter "Beta" (monRealFloat . snd)
+monBeta = monitorRealFloat "beta" _2
 
 monStd :: MonitorStdOut I
 monStd = monitorStdOut [monAlpha, monBeta] 150
@@ -99,7 +92,7 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  s <- mh nBurn nAutoTune nIter (status initial posterior moveCycle mon g)
+  s <- mh nBurn nAutoTune nIter (status initial (const 1) likelihood moveCycle mon g)
   putStrLn "Mean and standard deviations of:"
   let xs = map state . fromTrace $ trace s
       (ra, rb) = summarize xs

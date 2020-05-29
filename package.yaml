@@ -28,6 +28,7 @@ library:
     - mwc-random
     - statistics
     - text
+    - time
     - transformers
 
 benchmarks:

@@ -21,6 +21,10 @@ posterior distribution.
 
 -}
 
+-- TODO: Moves and monitors both use lenses and names for what they move and
+-- monitor. Should a data structure be used combining the lens and the name, so
+-- that things are cohesive?
+
 -- TODO: Moves on simplices: SimplexElementScale (?).
 
 -- TODO: Moves on tree branch lengths.

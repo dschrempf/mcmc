@@ -20,12 +20,15 @@ module Statistics.Mcmc.Item
 import Numeric.Log
 
 -- | An 'Item', or link of the Markov chain. For reasons of computational
--- efficiency, each state is associated with the corresponding log-likelihood.
+-- efficiency, each state is associated with the corresponding log-prior and
+-- log-likelihood.
 data Item a = Item
   {
     -- | The current state in the state space @a@.
-    state        :: a
-    -- | The current log-posterior.
-  , logPosterior :: Log Double
+    state         :: a
+    -- | The current log-prior.
+  , logPrior      :: Log Double
+    -- | The current log-likelihood.
+  , logLikelihood :: Log Double
   }
   deriving (Eq, Ord, Show, Read)
