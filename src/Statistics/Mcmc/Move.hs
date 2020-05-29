@@ -13,14 +13,30 @@ Portability :  portable
 Creation date: Wed May 20 13:42:53 2020.
 
 'Move's specify how the chain traverses the state space. A set of 'Move's is
-called a 'Cycle'. The chain advances after the completion of each 'Cycle', and
-the iteration counter is increased by one. It is important that the given
-'Cycle' enables traversal of the complete state space. Otherwise, the Markov
-chain will not converge to the correct stationary posterior distribution.
+called a 'Cycle'. The chain advances after the completion of each 'Cycle', which
+is called an iteration, and the iteration counter is increased by one. It is
+important that the given 'Cycle' enables traversal of the complete state space.
+Otherwise, the Markov chain will not converge to the correct stationary
+posterior distribution.
 
 -}
 
--- TODO: Iteration -> cycle.
+-- TODO: Moves on simplices: SimplexElementScale (?).
+
+-- TODO: Moves on tree branch lengths.
+-- - Slide a node on the tree.
+-- - Scale a tree.
+
+-- TODO: Moves on tree topologies.
+-- - NNI
+-- - Narrow (what is this, see RevBayes)
+-- - FNPR (dito)
+
+-- TODO: Bactrian moves; https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
+--
+-- slideBactrian
+--
+-- scaleBactrian
 
 module Statistics.Mcmc.Move
   (
@@ -37,7 +53,6 @@ module Statistics.Mcmc.Move
   , fromList
   , mapCycle
   , summarizeCycle
-  , summarizeCycleA
     -- * Acceptance
   , Acceptance
   , empty
@@ -63,7 +78,8 @@ data Move a = Move
   {
     -- | Name (no moves with the same name are allowed in a 'Cycle').
     mvName   :: String
-    -- | The weight determines how often a 'Move' is executed per 'Cycle'.
+    -- | The weight determines how often a 'Move' is executed per iteration of
+    -- the Markov chain.
   , mvWeight :: Int
     -- | Simple move without tuning information.
   , mvSimple :: MoveSimple a
@@ -155,12 +171,14 @@ autotune :: Double -> Move a -> Maybe (Move a)
 autotune a = tune (a / ratioOpt)
 
 -- | In brief, a 'Cycle' is a list of moves. The state of the Markov chain will
--- be logged only after each 'Cycle'. __Moves must have unique names__, so that
--- they can be identified.
+-- be logged only after each 'Cycle', and the iteration counter will be
+-- increased by one. __Moves must have unique names__, so that they can be
+-- identified.
 --
 -- 'Move's are replicated according to their weights and executed in random
 -- order. That is, they are not executed in the order they appear in the
--- 'Cycle'.
+-- 'Cycle'. However, if a 'Move' has weight @w@, it is executed exactly @w@
+-- times per iteration.
 newtype Cycle a = Cycle { fromCycle :: [Move a] }
 -- XXX: A classical list is used, and not 'Data.List.NonEmpty' (keep things
 -- simple).
@@ -197,7 +215,7 @@ right n s = replicate (n - l) ' ' ++ take n s
 
 renderRow :: String -> String -> String -> String -> String
 renderRow name weight acceptRatio tuneParam = nB ++ wB ++ rB ++ tB
-  where nB = left  25 name
+  where nB = left  30 name
         wB = right 8 weight
         rB = right 20 acceptRatio
         tB = right 20 tuneParam
@@ -213,36 +231,43 @@ summarizeMove m r = renderRow name weight acceptRatio tuneParamStr
         tuneParamStr = maybe "" (printf "%.3f") (tParam <$> mvTune m)
 
 -- | Summarize the 'Move's in the 'Cycle'. Also report acceptance ratios for the
--- given number of last cycles.
-summarizeCycle :: Cycle a -> String
-summarizeCycle c = unlines $
-  [
-    replicate (length moveHeader) '─'
+-- given number of last iterations.
+summarizeCycle :: Maybe (Int, Acceptance (Move a)) -> Cycle a -> String
+summarizeCycle acc c = unlines $
+  [ "Summary of move(s) in cycle:"
+  , replicate (length moveHeader) '─'
   , moveHeader
   , replicate (length moveHeader) '─'
   ] ++
-  [ summarizeMove m Nothing | m <- mvs ] ++
+  [ summarizeMove m (ar m) | m <- mvs ] ++
   [ replicate (length moveHeader) '─'
-  , show mpc ++ " move(s) per cycle." ]
+  , show mpi ++ " move(s) per iteration." ++ arStr ]
   where mvs   = fromCycle c
-        mpc   = sum $ map mvWeight mvs
+        mpi   = sum $ map mvWeight mvs
+        arStr = case acc of
+          Nothing     -> ""
+          Just (n, _) -> " Acceptance ratio(s) calculated over " ++ show n ++ " iterations."
+        ars   = case acc of
+          Nothing     -> M.empty
+          Just (n, a) -> acceptanceRatios n a
+        ar m  = ars M.!? m
 
--- | See 'summarizeCycle'. Also report acceptance ratios for the given number of
--- last cycles.
-summarizeCycleA :: Int -> Acceptance (Move a) -> Cycle a -> String
-summarizeCycleA n a c = unlines $
-  [
-    replicate (length moveHeader) '─'
-  , moveHeader
-  , replicate (length moveHeader) '─'
-  ] ++
-  [ summarizeMove m (ars M.!? m) | m <- mvs ] ++
-  [ replicate (length moveHeader) '─'
-  , show mpc ++ " move(s) per cycle." ++ arStr ]
-  where mvs   = fromCycle c
-        mpc   = sum $ map mvWeight mvs
-        arStr = " Acceptance ratio(s) calculated over " ++ show n ++ " iterations."
-        ars   = acceptanceRatios n a
+-- -- | See 'summarizeCycle'. Also report acceptance ratios for the given number of
+-- -- last cycles.
+-- summarizeCycleA :: Int -> Acceptance (Move a) -> Cycle a -> String
+-- summarizeCycleA n a c = unlines $
+--   [
+--     replicate (length moveHeader) '─'
+--   , moveHeader
+--   , replicate (length moveHeader) '─'
+--   ] ++
+--   [ summarizeMove m (ars M.!? m) | m <- mvs ] ++
+--   [ replicate (length moveHeader) '─'
+--   , show mpc ++ " move(s) per iteration." ++ arStr ]
+--   where mvs   = fromCycle c
+--         mpc   = sum $ map mvWeight mvs
+--         arStr = " Acceptance ratio(s) calculated over " ++ show n ++ " iterations."
+--         ars   = acceptanceRatios n a
 
 -- | For each key @k@, store the list of accepted (True) and rejected (False)
 -- proposals. For reasons of efficiency, the lists are stored in reverse order;

@@ -51,30 +51,15 @@ module Statistics.Mcmc
     -- * Initialization
   , module Statistics.Mcmc.Status
   , module Statistics.Mcmc.Monitor
+  , module Statistics.Mcmc.Monitor.Parameter
     -- * Algorithms
   , module Statistics.Mcmc.Metropolis
   ) where
 
 import Statistics.Mcmc.Metropolis
 import Statistics.Mcmc.Monitor
+import Statistics.Mcmc.Monitor.Parameter
 import Statistics.Mcmc.Move
 import Statistics.Mcmc.Move.Scale
 import Statistics.Mcmc.Move.Slide
 import Statistics.Mcmc.Status
-
--- TODO: Moves on simplices: SimplexElementScale (?).
-
--- TODO: Moves on tree branch lengths.
--- - Slide a node on the tree.
--- - Scale a tree.
-
--- TODO: Moves on tree topologies.
--- - NNI
--- - Narrow (what is this, see RevBayes)
--- - FNPR (dito)
-
--- TODO: Bactrian moves; https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
---
--- slideBactrian
---
--- scaleBactrian

@@ -25,6 +25,7 @@ import Numeric.Log
 import System.Random.MWC
 
 import Statistics.Mcmc.Item
+import Statistics.Mcmc.Mcmc
 import Statistics.Mcmc.Move
 import Statistics.Mcmc.Status
 import Statistics.Mcmc.Trace
@@ -54,7 +55,6 @@ mhMove m = do
   if ln r >= 0.0
     then put s { item = Item y lY, acceptance = prependA m True a }
     else do b <- uniform g
-            -- Only update the 'Item' after a full cycle.
             if b < exp (ln r)
             then put s { item = Item y lY, acceptance = prependA m True a }
             else put s { acceptance = prependA m False a }
@@ -64,9 +64,9 @@ getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
 getNCycles c = shuffleN mvs
   where mvs = concat [ replicate (mvWeight m) m | m <- fromCycle c ]
 
--- Run a cycle.
-mhCycle :: [Move a] -> Mcmc a ()
-mhCycle mvs = do
+-- Run one iterations; perform all moves in a Cycle.
+mhIter :: [Move a] -> Mcmc a ()
+mhIter mvs = do
   mcmcMonitorExec
   mapM_ mhMove mvs
   s <- get
@@ -76,31 +76,31 @@ mhCycle mvs = do
       s' = s { trace = prependT i t, iteration = succ n }
   put s'
 
--- Run N cycles.
-mhNCycles :: Int -> Mcmc a ()
-mhNCycles n = do
+-- Run N iterations.
+mhNIter :: Int -> Mcmc a ()
+mhNIter n = do
   c <- gets cycle
   g <- gets generator
   cycles <- liftIO $ getNCycles c n g
-  forM_ cycles mhCycle
+  forM_ cycles mhIter
 
 mhBurn :: Int -> Mcmc a ()
 mhBurn n = do
-  mhNCycles n
+  mhNIter n
   mcmcAutotune n
 
 -- Burn in with or without auto tuning.
 mhBurnIn :: Int -> Maybe Int -> Mcmc a ()
 mhBurnIn b (Just t)
-  | t <= 0    = error "mhBurnIn: Auto tune period smaller equal 0."
+  | t <= 0    = error "mhBurnIn: Auto tuning period smaller equal 0."
   | b >  t    = mhBurn t >> mhBurnIn (b-t) (Just t)
   | b <= t    = mhBurn b
   | otherwise = error "mhRun: Please contact maintainer."
-mhBurnIn b  Nothing = mhNCycles b
+mhBurnIn b  Nothing = mhNIter b
 
 mhRun :: Maybe Int -> Maybe Int -> Int -> Mcmc a ()
 mhRun (Just b) t n
-  | b <= 0    = error "mhBurnIn: Number of burn in cycles smaller equal 0."
+  | b <= 0    = error "mhBurnIn: Number of burn in iterations smaller equal 0."
   | otherwise = do
       liftIO $ putStrLn $ "-- Burn in for " <> show b <> " cycles."
       mcmcMonitorHeader
@@ -111,30 +111,31 @@ mhRun (Just b) t n
         Just _  -> mcmcSummarizeCycle t
       mhRun Nothing Nothing n
 mhRun Nothing _ n = do
-  liftIO $ putStrLn $ "-- Run chain for " <> show n <> " cycles."
+  liftIO $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
   mcmcMonitorHeader
-  mhNCycles n
+  mhNIter n
 
 mhReport :: Maybe Int -> Maybe Int -> Int -> IO ()
 mhReport b t n = do
   putStrLn "-- Start of Metropolis-Hastings sampler."
   case b of
-    Just b' -> putStrLn $ "-- Burn in for " <> show b' <> " cycles."
+    Just b' -> putStrLn $ "-- Burn in for " <> show b' <> " iterations."
     Nothing -> return ()
   case t of
-    Just t' -> putStrLn $ "-- Auto tune every " <> show t' <> " cycles (during burn in only)."
+    Just t' -> putStrLn $ "-- Auto tune every " <> show t' <> " iterations (during burn in only)."
     Nothing -> return ()
-  putStrLn $ "-- Run chain for " <> show n <> " cycles."
+  putStrLn $ "-- Run chain for " <> show n <> " iterations."
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 --
 -- Of course, the given status can also be the result of a paused chain.
 mh :: Show a
-  => Maybe Int -- ^ Number of burn in cycles.
-  -> Maybe Int -- ^ Auto tune period (only during burn in); deactivate auto
-               -- tuning completely with 'Nothing'.
-  -> Int       -- ^ Number of Metropolis-Hastings cycles (without auto tuning).
-  -> Status a  -- ^ Initial state of Markov chain.
+  => Maybe Int -- ^ Number of iterations to complete during burn in; deactivate
+               -- burn in with 'Nothing'.
+  -> Maybe Int -- ^ Auto tuning period (only during burn in); deactivate auto tuning
+               -- completely with 'Nothing'.
+  -> Int       -- ^ Number of Metropolis-Hastings iterations (without auto tuning).
+  -> Status a  -- ^ Initial 'Status' of Markov chain.
   -> IO (Status a)
 mh b t n =
   execStateT (do liftIO $ mhReport b t n

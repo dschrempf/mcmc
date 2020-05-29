@@ -22,9 +22,6 @@ module Main
   ) where
 
 import Control.Monad
-import qualified Data.Text.Lazy         as T
-import qualified Data.Text.Lazy.Builder as T
-import qualified Data.Text.Lazy.Builder.RealFloat as T
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Exponential
@@ -76,14 +73,14 @@ posterior mu x = prior x * likelihood mu x
 moveCycle :: Cycle I
 moveCycle = fromList [slideUniformDouble "mu; slide uniform" 1 1.0 True]
 
-monRealFloat :: RealFloat a => MonitorParameter a
-monRealFloat = MonitorParameter "Mu" (T.toStrict . T.toLazyText . T.formatRealFloat T.Fixed (Just 4))
+monMu :: MonitorParameter I
+monMu = realFloatMonitor "Mu" id
 
 monStd :: MonitorStdOut I
-monStd = monitorStdOut [monRealFloat] 50
+monStd = monitorStdOut [monMu] 50
 
 monFile :: MonitorFile I
-monFile = monitorFile "Archery.log" [monRealFloat] 5
+monFile = monitorFile "Archery.log" [monMu] 5
 
 mon :: Monitor I
 mon = Monitor monStd [monFile]
@@ -102,5 +99,5 @@ main = do
   g <- create
   mu_observed <- arrowMean g
   -- putStrLn $ "True parameter: " <> show mu_observed
-  let chain = mcmc 0 (posterior mu_observed) moveCycle mon g
-  void $ mh nBurn nAutoTune nIter chain
+  let s = status 0 (posterior mu_observed) moveCycle mon g
+  void $ mh nBurn nAutoTune nIter s

@@ -12,8 +12,6 @@ Creation date: Tue May  5 18:01:15 2020.
 
 -}
 
--- TODO: Rename this module, Status is really bad ;).
-
 -- TODO: Think about how to save and restore an MCMC run. It is easy to save and
 -- restore the current state and likelihood (or the trace), but it seems
 -- impossible to store all the moves and so on. This means, that one should
@@ -22,24 +20,11 @@ Creation date: Tue May  5 18:01:15 2020.
 
 module Statistics.Mcmc.Status
   ( Status (..)
-  , getState
-  , mcmc
-  , reset
-  , Mcmc
-  , mcmcAutotune
-  , mcmcSummarizeCycle
-  , mcmcMonitorOpen
-  , mcmcMonitorHeader
-  , mcmcMonitorExec
-  , mcmcMonitorClose
+  , status
   ) where
 
 import Prelude hiding (cycle)
 
-import Control.Monad.IO.Class
-import Control.Monad.Trans.State.Strict hiding (state)
-import qualified Data.Map.Strict as M
-import Data.Maybe
 import Numeric.Log
 import System.Random.MWC
 
@@ -50,7 +35,7 @@ import Statistics.Mcmc.Trace
 
 -- TODO: Add possibility to store supplementary information about the chain.
 
--- | The 'Status' of an MCMC run.
+-- | The 'Status' of an MCMC run; see 'status' for creation.
 data Status a = Status
   {
     -- | The current 'Item' of the chain combines the current state and the
@@ -63,7 +48,7 @@ data Status a = Status
   , cycle         :: Cycle a
     -- | A 'Monitor' observing the chain.
   , monitor       :: Monitor a
-    -- | Number of completed cycles.
+    -- | The iteration is the number of completed cycles.
   , iteration     :: Int
     -- | The 'Trace' of the Markov chain in reverse order, the most recent
     -- 'Item' is at the head of the list.
@@ -76,15 +61,11 @@ data Status a = Status
   , generator     :: GenIO
   }
 
--- | Get current state of Markov chain.
-getState :: Status a -> a
-getState = state . item
-
--- | Initialize a Markov chain Monte Carlo run.
+-- | Initialize the status of a Markov chain Monte Carlo run.
 --
 -- The 'Status' of a Markov chain includes information about the 'Move's, the
 -- 'Trace', 'Acceptance' ratios, and more.
-mcmc
+status
   :: a                 -- ^ The initial state in the state space @a@.
   -> (a -> Log Double) -- ^ The un-normalized log-posterior function.
   -> Cycle a           -- ^ A list of 'Move's executed in forward order. The
@@ -93,72 +74,16 @@ mcmc
   -> GenIO             -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
   -> Status a          -- ^ The current 'Status' of the Markov chain.
-mcmc x f c m = Status i f c m 0 (Trace [i]) (empty $ fromCycle c)
+status x f c m = Status i f c m 0 (Trace [i]) (empty $ fromCycle c)
   where i   = Item x (f x)
 
--- | Reset a chain. Delete trace, acceptance ratios, and set the iteration to 0.
--- Used, for example, to reset a chain after burn in.
-reset :: Status a -> Status a
-reset s = s { iteration = 0, trace = Trace [i], acceptance = resetA a}
-  where i = item s
-        a = acceptance s
+-- -- | Get current state of Markov chain.
+-- getState :: Status a -> a
+-- getState = state . item
 
--- Tune the 'Move's in the 'Cycle' of the Markov chain 'Status'; check
--- acceptance ratio of the last n moves. Tuning has no effect on 'Move's that
--- cannot be tuned. See 'autotune'.
-autotuneS :: Int -> Status a -> Status a
-autotuneS n s = s {cycle = mapCycle tuneF (cycle s)}
-  where
-    ars  = acceptanceRatios n $ acceptance s
-    tuneF m = fromMaybe m (autotune (ars M.! m) m)
-
--- | An Mcmc state transformer; usually fiddling around with this type is not
--- required, but it is used by the different inference algorithms.
-type Mcmc a = StateT (Status a) IO
-
--- | Auto tune the 'Move's in the 'Cycle' of the chain. See 'autotune'.
-mcmcAutotune :: Int -> Mcmc a ()
-mcmcAutotune t = modify' (autotuneS t)
-
--- | Print short summary of 'Move's in 'Cycle'. See 'summarizeCycle'.
-mcmcSummarizeCycle :: Maybe Int -> Mcmc a ()
-mcmcSummarizeCycle Nothing = do
-  liftIO $ putStrLn ""
-  c <- gets cycle
-  liftIO $ putStr $ summarizeCycle c
-  liftIO $ putStrLn ""
-mcmcSummarizeCycle (Just n) = do
-  liftIO $ putStrLn ""
-  a <- gets acceptance
-  c <- gets cycle
-  liftIO $ putStr $ summarizeCycleA n a c
-  liftIO $ putStrLn ""
-
--- | Open the 'Monitor's of the chain. See 'mOpen'.
-mcmcMonitorOpen :: Mcmc a ()
-mcmcMonitorOpen = do
-  s  <- get
-  m  <- gets monitor
-  m' <- liftIO $ mOpen m
-  put s { monitor = m' }
-
--- | Print header line of 'Monitor' (only standard output).
-mcmcMonitorHeader :: Mcmc a ()
-mcmcMonitorHeader = do
-  m <- gets monitor
-  liftIO $ mHeader m
-
--- | Execute the 'Monitor's of the chain. See 'mExec'.
-mcmcMonitorExec :: Mcmc a ()
-mcmcMonitorExec = do
-  s <- get
-  let i = iteration s
-      x = getState s
-      m = monitor s
-  liftIO $ mExec i x m
-
--- | Close the 'Monitor's of the chain. See 'mClose'.
-mcmcMonitorClose :: Mcmc a ()
-mcmcMonitorClose = do
-  m <- gets monitor
-  liftIO $ mClose m
+-- -- | Reset a chain. Delete trace, acceptance ratios, and set the iteration to 0.
+-- -- Used, for example, to reset a chain after burn in.
+-- reset :: Status a -> Status a
+-- reset s = s { iteration = 0, trace = Trace [i], acceptance = resetA a}
+--   where i = item s
+--         a = acceptance s

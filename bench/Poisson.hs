@@ -83,7 +83,7 @@ monBeta :: MonitorParameter I
 monBeta = MonitorParameter "Beta" (monRealFloat . snd)
 
 monStd :: MonitorStdOut I
-monStd = monitorStdOut [monAlpha, monBeta] 50
+monStd = monitorStdOut [monAlpha, monBeta] 150
 
 mon :: Monitor I
 mon = Monitor monStd []
@@ -99,7 +99,7 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  s <- mh nBurn nAutoTune nIter (mcmc initial posterior moveCycle mon g)
+  s <- mh nBurn nAutoTune nIter (status initial posterior moveCycle mon g)
   putStrLn "Mean and standard deviations of:"
   let xs = map state . fromTrace $ trace s
       (ra, rb) = summarize xs

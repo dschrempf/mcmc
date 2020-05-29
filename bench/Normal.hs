@@ -56,7 +56,7 @@ monRealFloat :: RealFloat a => MonitorParameter a
 monRealFloat = MonitorParameter "Mu" (T.toStrict . T.toLazyText . T.formatRealFloat T.Fixed (Just 4))
 
 monStd :: MonitorStdOut Double
-monStd = monitorStdOut [monRealFloat] 50
+monStd = monitorStdOut [monRealFloat] 200
 
 mon :: Monitor Double
 mon = Monitor monStd []
@@ -72,7 +72,7 @@ nIter = 20000
 
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  s <- mh nBurn nAutoTune nIter (mcmc 0 posterior moveCycle mon g)
+  s <- mh nBurn nAutoTune nIter (status 0 posterior moveCycle mon g)
   let t = map state . fromTrace $ trace s
   putStrLn "Mean and standard deviations:"
   putStrLn $ "True: " ++ show (trueMean, trueStdDev)

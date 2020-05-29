@@ -18,7 +18,6 @@ module Statistics.Mcmc.Monitor
   (
     -- * Create monitors
     Monitor (..)
-  , MonitorParameter (..)
   , MonitorStdOut
   , monitorStdOut
   , MonitorFile
@@ -32,12 +31,16 @@ module Statistics.Mcmc.Monitor
 
 -- TODO: Use builders (easier for users).
 
-import qualified Data.List.NonEmpty as N
+import Data.Int
+import qualified Data.List.NonEmpty     as N
 import Data.List.NonEmpty (NonEmpty)
-import qualified Data.Text          as T
-import qualified Data.Text.IO       as T
-import Data.Text (Text)
+import qualified Data.Text.Lazy         as T
+import qualified Data.Text.Lazy.IO      as T
+import qualified Data.Text.Lazy.Builder as T
+import Data.Text.Lazy (Text)
 import System.IO
+
+import Statistics.Mcmc.Monitor.Parameter
 
 -- | A 'Monitor' describes which part of the Markov chain should be logged and
 -- where. Further, they allow output of summary statistics per iteration in a
@@ -47,14 +50,6 @@ data Monitor a = Monitor
    mStdOut :: MonitorStdOut a -- ^ Monitor writing to standard output.
  , mFiles  :: [MonitorFile a] -- ^ Monitors writing to files.
  }
-
--- | Instruction about a parameter to monitor.
-data MonitorParameter a = MonitorParameter
-  {
-    mpName :: Text      -- ^ Name of parameter.
-  , mpFunc :: a -> Text -- ^ Instruction about how to extract the parameter from
-                        -- the state.
-  }
 
 -- | Monitor to standard output.
 data MonitorStdOut a = MonitorStdOut
@@ -70,20 +65,28 @@ monitorStdOut
   -> MonitorStdOut a
 monitorStdOut = MonitorStdOut
 
+msIWidth :: Int64
+msIWidth = 14
+
+msWidth :: Int64
+msWidth = 22
+
 msRenderRow :: NonEmpty Text -> Text
-msRenderRow xs = T.justifyRight 6 ' ' (N.head xs) <> T.concat vals
-  where vals = map (T.justifyRight 10 ' ') (N.tail xs)
+msRenderRow xs = T.justifyRight msIWidth ' ' (N.head xs) <> T.concat vals
+  where
+    vals = map (T.justifyRight msWidth ' ') (N.tail xs)
 
 msHeader :: MonitorStdOut a -> IO ()
 msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
-  where row = msRenderRow $ T.pack "Cycle" N.:| [ mpName p | p <- msParams m ]
+  where row = msRenderRow $ T.pack "Iteration" N.:| [ mpName p | p <- msParams m ]
         sep = T.replicate (T.length row) "─"
 
 msExec :: Int -> a -> MonitorStdOut a -> IO ()
 msExec i x m
   | i `mod` msPeriod m /= 0        = return ()
   | otherwise                    = row
-  where row = T.hPutStrLn stdout $ msRenderRow $ T.pack (show i) N.:| [ mpFunc p x | p <- msParams m ]
+  where row = T.hPutStrLn stdout $ msRenderRow $
+          T.pack (show i) N.:| [ T.toLazyText $ mpFunc p x | p <- msParams m ]
 
 -- | Monitor to a file.
 data MonitorFile a = MonitorFile
@@ -116,7 +119,7 @@ mfHeader m =
     Nothing -> error $ "mfHeader: No handle available for monitor with file " <> mfFile m <> "."
     Just h  -> T.hPutStrLn h row
   where
-    row = mfRenderRow $ T.pack "Cycle" : [ mpName p | p <- mfParams m ]
+    row = mfRenderRow $ T.pack "Iteration" : [ mpName p | p <- mfParams m ]
 
 mfExec :: Int -> a -> MonitorFile a -> IO ()
 mfExec i x m
@@ -124,7 +127,8 @@ mfExec i x m
   | otherwise =
     case mfHandle m of
       Nothing -> error $ "mfExec: No handle available for monitor with file " <> mfFile m <> "."
-      Just h  -> T.hPutStrLn h $ mfRenderRow $ T.pack (show i) : [ mpFunc p x | p <- mfParams m ]
+      Just h  -> T.hPutStrLn h $ mfRenderRow $
+        T.pack (show i) : [T.toLazyText $ mpFunc p x | p <- mfParams m ]
 
 mfClose :: MonitorFile a -> IO ()
 mfClose m = case mfHandle m of
