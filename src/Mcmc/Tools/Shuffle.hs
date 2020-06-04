@@ -1,5 +1,5 @@
 {- |
-Module      :  Statistics.Mcmc.Tools.Shuffle
+Module      :  Mcmc.Tools.Shuffle
 Description :  Shuffle a list
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -14,7 +14,7 @@ From https://wiki.haskell.org/Random_shuffle.
 
 -}
 
-module Statistics.Mcmc.Tools.Shuffle
+module Mcmc.Tools.Shuffle
   ( shuffle
   , shuffleN
   , grabble

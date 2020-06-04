@@ -28,7 +28,7 @@ import Statistics.Distribution.Exponential
 import Statistics.Distribution.Gamma
 import System.Random.MWC
 
-import Statistics.Mcmc
+import Mcmc
 
 type I = Double
 

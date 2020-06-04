@@ -1,5 +1,5 @@
 {- |
-Module      :  Statistics.Mcmc.Item
+Module      :  Mcmc.Item
 Description :  Links of Markov chains
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -12,7 +12,7 @@ Creation date: Wed May 20 09:10:27 2020.
 
 -}
 
-module Statistics.Mcmc.Item
+module Mcmc.Item
   (
     Item (..)
   ) where

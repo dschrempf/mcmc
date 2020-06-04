@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 {- |
-Module      :  Statistics.Mcmc.Move.Scale
+Module      :  Mcmc.Move.Scale
 Description :  Scaling move with Gamma distribution
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -14,7 +14,7 @@ Creation date: Thu May 14 21:49:23 2020.
 
 -}
 
-module Statistics.Mcmc.Move.Scale
+module Mcmc.Move.Scale
   ( scale
   , scaleDouble
   , scaleUnbiased
@@ -23,8 +23,8 @@ module Statistics.Mcmc.Move.Scale
 import Lens.Micro
 import Statistics.Distribution.Gamma
 
-import Statistics.Mcmc.Move.Generic
-import Statistics.Mcmc.Move
+import Mcmc.Move.Generic
+import Mcmc.Move
 
 -- The actual move with tuning parameter.
 scaleSimple

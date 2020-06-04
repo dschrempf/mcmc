@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 {- |
-Module      :  Statistics.Mcmc.Monitor.Parameter
+Module      :  Mcmc.Monitor.Parameter
 Description :  Monitor parameters
 Copyright   :  (c) Dominik Schrempf, 2020
 License     :  GPL-3.0-or-later
@@ -14,7 +14,7 @@ Creation date: Fri May 29 11:11:49 2020.
 
 -}
 
-module Statistics.Mcmc.Monitor.Parameter
+module Mcmc.Monitor.Parameter
   ( MonitorParameter (..)
   , monitorInt
   , monitorRealFloat

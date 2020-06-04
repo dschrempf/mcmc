@@ -28,10 +28,10 @@ import Statistics.Distribution.Poisson
 import Statistics.Sample
 import System.Random.MWC
 
-import Statistics.Mcmc
+import Mcmc
 
-import Statistics.Mcmc.Item
-import Statistics.Mcmc.Trace
+import Mcmc.Item
+import Mcmc.Trace
 
 type I = (Double, Double)
 

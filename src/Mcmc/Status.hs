@@ -1,5 +1,5 @@
 {- |
-Module      :  Statistics.Mcmc.Status
+Module      :  Mcmc.Status
 Description :  What is an MCMC?
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -18,7 +18,7 @@ Creation date: Tue May  5 18:01:15 2020.
 -- allow restart of a chain only with the same executable (which contains the
 -- moves etc). See https://hackage.haskell.org/package/executable-hash.
 
-module Statistics.Mcmc.Status
+module Mcmc.Status
   ( Status (..)
   , status
   ) where
@@ -29,10 +29,10 @@ import Data.Time.Clock
 import Numeric.Log
 import System.Random.MWC
 
-import Statistics.Mcmc.Item
-import Statistics.Mcmc.Monitor
-import Statistics.Mcmc.Move
-import Statistics.Mcmc.Trace
+import Mcmc.Item
+import Mcmc.Monitor
+import Mcmc.Move
+import Mcmc.Trace
 
 -- TODO: Add possibility to store supplementary information about the chain.
 

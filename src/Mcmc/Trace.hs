@@ -1,5 +1,5 @@
 {- |
-Module      :  Statistics.Mcmc.Trace
+Module      :  Mcmc.Trace
 Description :  Trace of a Markov chain
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -12,13 +12,13 @@ Creation date: Wed May 20 09:11:25 2020.
 
 -}
 
-module Statistics.Mcmc.Trace
+module Mcmc.Trace
   (
     Trace (..)
   , prependT
   ) where
 
-import Statistics.Mcmc.Item
+import Mcmc.Item
 
 -- | A 'Trace' passes through a list of states with associated log-likelihoods
 -- which are called 'Item's. New 'Item's are prepended, and the path of the

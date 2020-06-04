@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 {- |
-Module      :  Statistics.Mcmc.Move.Generic
+Module      :  Mcmc.Move.Generic
 Description :  Generic interface to create moves
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -14,7 +14,7 @@ Creation date: Thu May 14 20:26:27 2020.
 
 -}
 
-module Statistics.Mcmc.Move.Generic
+module Mcmc.Move.Generic
   (
     moveGenericContinuous
   , moveGenericDiscrete
@@ -25,7 +25,7 @@ import Numeric.Log
 import Statistics.Distribution
 import System.Random.MWC
 
-import Statistics.Mcmc.Move
+import Mcmc.Move
 
 jumpCont
   :: (ContDistr d, ContGen d)

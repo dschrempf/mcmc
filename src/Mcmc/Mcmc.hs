@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 {- |
-Module      :  Statistics.Mcmc.Mcmc
+Module      :  Mcmc.Mcmc
 Description :  Mcmc helpers
 Copyright   :  (c) Dominik Schrempf, 2020
 License     :  GPL-3.0-or-later
@@ -14,7 +14,7 @@ Creation date: Fri May 29 10:19:45 2020.
 
 -}
 
-module Statistics.Mcmc.Mcmc
+module Mcmc.Mcmc
   (
     Mcmc
   , mcmcAutotune
@@ -35,11 +35,11 @@ import qualified Data.Text.Lazy.IO as T
 import Data.Time.Clock
 import Data.Time.Format
 
-import Statistics.Mcmc.Item
-import Statistics.Mcmc.Status
-import Statistics.Mcmc.Monitor
-import Statistics.Mcmc.Monitor.Time
-import Statistics.Mcmc.Move
+import Mcmc.Item
+import Mcmc.Status
+import Mcmc.Monitor
+import Mcmc.Monitor.Time
+import Mcmc.Move
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.

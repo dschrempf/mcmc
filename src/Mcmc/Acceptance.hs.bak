@@ -1,5 +1,5 @@
 {- |
-Module      :  Statistics.Mcmc.Acceptance
+Module      :  Mcmc.Acceptance
 Description :  Miscellaneous functions
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -14,7 +14,7 @@ Creation date: Wed May  6 12:31:40 2020.
 
 -- XXX: I guess using mutable vectors or something similar would be much faster.
 
-module Statistics.Mcmc.Acceptance
+module Mcmc.Acceptance
   ( Acceptance
   , empty
   , prependA

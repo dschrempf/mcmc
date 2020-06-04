@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 {- |
-Module      :  Statistics.Mcmc.Monitor.Time
+Module      :  Mcmc.Monitor.Time
 Description :  Print time related values
 Copyright   :  (c) Dominik Schrempf, 2020
 License     :  GPL-3.0-or-later
@@ -14,7 +14,7 @@ Creation date: Fri May 29 12:36:43 2020.
 
 -}
 
-module Statistics.Mcmc.Monitor.Time
+module Mcmc.Monitor.Time
   ( renderDuration
   ) where
 

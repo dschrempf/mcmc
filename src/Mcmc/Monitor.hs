@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 {- |
-Module      :  Statistics.Mcmc.Monitor
+Module      :  Mcmc.Monitor
 Description :  Monitor a Markov chain
 Copyright   :  (c) Dominik Schrempf, 2020
 License     :  GPL-3.0-or-later
@@ -14,7 +14,12 @@ Creation date: Thu May 21 14:35:11 2020.
 
 -}
 
-module Statistics.Mcmc.Monitor
+-- TODO Monitor every iteration by default and note that subsampling is
+-- disadvantageous with reference to Geyer.
+
+-- TODO Allow batch mean monitors. Allow custom function to calculate the means.
+
+module Mcmc.Monitor
   (
     -- * Create monitors
     Monitor (..)
@@ -38,9 +43,9 @@ import Data.Time.Clock
 import Numeric.Log
 import System.IO
 
-import Statistics.Mcmc.Monitor.Log
-import Statistics.Mcmc.Monitor.Parameter
-import Statistics.Mcmc.Monitor.Time
+import Mcmc.Monitor.Log
+import Mcmc.Monitor.Parameter
+import Mcmc.Monitor.Time
 
 -- | A 'Monitor' describes which part of the Markov chain should be logged and
 -- where. Further, they allow output of summary statistics per iteration in a

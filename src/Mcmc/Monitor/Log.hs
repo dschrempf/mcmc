@@ -1,5 +1,5 @@
 {- |
-Module      :  Statistics.Mcmc.Monitor.Log
+Module      :  Mcmc.Monitor.Log
 Description :  Monitor logarithmic values
 Copyright   :  (c) Dominik Schrempf, 2020
 License     :  GPL-3.0-or-later
@@ -12,7 +12,7 @@ Creation date: Fri May 29 12:30:03 2020.
 
 -}
 
-module Statistics.Mcmc.Monitor.Log
+module Mcmc.Monitor.Log
   ( renderLog
   ) where
 

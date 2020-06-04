@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 {- |
-Module      :  Statistics.Mcmc.Move.Slide
+Module      :  Mcmc.Move.Slide
 Description :  Normally distributed move
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -14,7 +14,7 @@ Creation date: Wed May  6 10:59:13 2020.
 
 -}
 
-module Statistics.Mcmc.Move.Slide
+module Mcmc.Move.Slide
   ( slide
   , slideDouble
   , slideUniform
@@ -25,8 +25,8 @@ import Lens.Micro
 import Statistics.Distribution.Normal
 import Statistics.Distribution.Uniform
 
-import Statistics.Mcmc.Move.Generic
-import Statistics.Mcmc.Move
+import Mcmc.Move.Generic
+import Mcmc.Move
 
 -- The actual move with tuning parameter.
 slideSimple

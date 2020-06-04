@@ -1,5 +1,5 @@
 {- |
-Module      :  Statistics.Mcmc.Metropolis
+Module      :  Mcmc.Metropolis
 Description :  Metropolis-Hastings at its best
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -12,7 +12,7 @@ Creation date: Tue May  5 20:11:30 2020.
 
 -}
 
-module Statistics.Mcmc.Metropolis
+module Mcmc.Metropolis
   ( mh
   ) where
 
@@ -24,13 +24,13 @@ import Control.Monad.Trans.State.Strict
 import Numeric.Log
 import System.Random.MWC
 
-import Statistics.Mcmc.Item
-import Statistics.Mcmc.Mcmc
-import Statistics.Mcmc.Move
-import Statistics.Mcmc.Status
-import Statistics.Mcmc.Trace
+import Mcmc.Item
+import Mcmc.Mcmc
+import Mcmc.Move
+import Mcmc.Status
+import Mcmc.Trace
 
-import Statistics.Mcmc.Tools.Shuffle
+import Mcmc.Tools.Shuffle
 
 mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 mhRatio lX lY qXY qYX = lY * qYX / lX / qXY

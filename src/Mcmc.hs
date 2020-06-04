@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 {- |
-Module      :  Statistics.Mcmc
+Module      :  Mcmc
 Description :  Markov chain Monte Carlo algorithms, batteries included
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -14,7 +14,7 @@ Creation date: Tue May  5 18:01:15 2020.
 
 -}
 
-module Statistics.Mcmc
+module Mcmc
   (
     -- * Moves
     --
@@ -45,21 +45,21 @@ module Statistics.Mcmc
     -- B. R., Huelsenbeck, J. P., …, Revbayes: bayesian phylogenetic inference using
     -- graphical models and an interactive model-specification language, Systematic
     -- Biology, 65(4), 726–736 (2016). http://dx.doi.org/10.1093/sysbio/syw021
-    module Statistics.Mcmc.Move
-  , module Statistics.Mcmc.Move.Slide
-  , module Statistics.Mcmc.Move.Scale
+    module Mcmc.Move
+  , module Mcmc.Move.Slide
+  , module Mcmc.Move.Scale
     -- * Initialization
-  , module Statistics.Mcmc.Status
-  , module Statistics.Mcmc.Monitor
-  , module Statistics.Mcmc.Monitor.Parameter
+  , module Mcmc.Status
+  , module Mcmc.Monitor
+  , module Mcmc.Monitor.Parameter
     -- * Algorithms
-  , module Statistics.Mcmc.Metropolis
+  , module Mcmc.Metropolis
   ) where
 
-import Statistics.Mcmc.Metropolis
-import Statistics.Mcmc.Monitor
-import Statistics.Mcmc.Monitor.Parameter
-import Statistics.Mcmc.Move
-import Statistics.Mcmc.Move.Scale
-import Statistics.Mcmc.Move.Slide
-import Statistics.Mcmc.Status
+import Mcmc.Metropolis
+import Mcmc.Monitor
+import Mcmc.Monitor.Parameter
+import Mcmc.Move
+import Mcmc.Move.Scale
+import Mcmc.Move.Slide
+import Mcmc.Status

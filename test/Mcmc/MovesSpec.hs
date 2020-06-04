@@ -1,6 +1,6 @@
 {- |
-Module      :  Statistics.Mcmc.MovesSpec
-Description :  Unit tests for Statistics.Mcmc.MovesSpec
+Module      :  Mcmc.MovesSpec
+Description :  Unit tests for Mcmc.MovesSpec
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
 
@@ -12,7 +12,7 @@ Creation date: Tue May 19 12:07:43 2020.
 
 -}
 
-module Statistics.Mcmc.MovesSpec
+module Mcmc.MovesSpec
   ( spec
   ) where
 
@@ -20,8 +20,8 @@ import           Test.Hspec
 import           Test.QuickCheck
 
 
-import Statistics.Mcmc.Moves
-import Statistics.Mcmc.Types
+import Mcmc.Moves
+import Mcmc.Types
 
 prop_sym :: Eq b => (a -> a -> b) -> a -> a -> Bool
 prop_sym f x y = f x y == f y x
