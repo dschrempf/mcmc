@@ -65,6 +65,7 @@ tests:
       - hspec-discover
       - mcmc
       - QuickCheck
+      - vector
 
 executables:
   archery:
