@@ -30,6 +30,7 @@ library:
     - text
     - time
     - transformers
+    - vector
 
 benchmarks:
   mcmc-bench:
