@@ -1,7 +1,7 @@
 name:                mcmc
 version:             0.1.0.0
 github:              "dschrempf/mcmc"
-license:             BSD3
+license:             GPL-3.0-or-later
 author:              "Dominik Schrempf"
 maintainer:          "dominik.schrempf@gmail.com"
 copyright:           "Dominik Schrempf (2020)"
