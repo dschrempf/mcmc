@@ -26,6 +26,7 @@ library:
     - log-domain
     - microlens
     - mwc-random
+    - pava
     - statistics
     - text
     - time
