@@ -19,20 +19,21 @@ Creation date: Tue May  5 18:01:15 2020.
 -- moves etc). See https://hackage.haskell.org/package/executable-hash.
 
 module Mcmc.Status
-  ( Status (..)
+  ( Status(..)
   , status
-  ) where
+  )
+where
 
-import Prelude hiding (cycle)
+import           Prelude                 hiding ( cycle )
 
-import Data.Time.Clock
-import Numeric.Log
-import System.Random.MWC
+import           Data.Time.Clock
+import           Numeric.Log
+import           System.Random.MWC
 
-import Mcmc.Item
-import Mcmc.Monitor
-import Mcmc.Move
-import Mcmc.Trace
+import           Mcmc.Item
+import           Mcmc.Monitor
+import           Mcmc.Move
+import           Mcmc.Trace
 
 -- TODO: Add possibility to store supplementary information about the chain.
 
@@ -83,8 +84,17 @@ status
   -> GenIO             -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
   -> Status a          -- ^ The current 'Status' of the Markov chain.
-status x p l c m = Status i p l c m 0 (Trace [i]) (empty $ fromCycle c) Nothing Nothing
-  where i   = Item x (p x) (l x)
+status x p l c m = Status i
+                          p
+                          l
+                          c
+                          m
+                          0
+                          (Trace [i])
+                          (empty $ fromCycle c)
+                          Nothing
+                          Nothing
+  where i = Item x (p x) (l x)
 
 -- -- | Get current state of Markov chain.
 -- getState :: Status a -> a

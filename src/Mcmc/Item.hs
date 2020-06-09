@@ -13,11 +13,11 @@ Creation date: Wed May 20 09:10:27 2020.
 -}
 
 module Mcmc.Item
-  (
-    Item (..)
-  ) where
+  ( Item(..)
+  )
+where
 
-import Numeric.Log
+import           Numeric.Log
 
 -- | An 'Item', or link of the Markov chain. For reasons of computational
 -- efficiency, each state is associated with the corresponding log-prior and

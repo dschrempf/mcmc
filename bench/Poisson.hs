@@ -18,20 +18,23 @@ See https://revbayes.github.io/tutorials/mcmc/poisson.html.
 
 module Poisson
   ( poissonBench
-  ) where
+  )
+where
 
-import qualified Data.Vector.Unboxed as V
-import Lens.Micro
-import Numeric.Log hiding (sum)
-import Statistics.Distribution hiding (mean, stdDev)
-import Statistics.Distribution.Poisson
-import Statistics.Sample
-import System.Random.MWC
+import qualified Data.Vector.Unboxed           as V
+import           Lens.Micro
+import           Numeric.Log             hiding ( sum )
+import           Statistics.Distribution hiding ( mean
+                                                , stdDev
+                                                )
+import           Statistics.Distribution.Poisson
+import           Statistics.Sample
+import           System.Random.MWC
 
-import Mcmc
+import           Mcmc
 
-import Mcmc.Item
-import Mcmc.Trace
+import           Mcmc.Item
+import           Mcmc.Trace
 
 type I = (Double, Double)
 
@@ -40,16 +43,17 @@ fatalities = [24, 25, 31, 31, 22, 21, 26, 20, 16, 22]
 
 normalizedYears :: [Double]
 normalizedYears = map (subtract m) ys
-  where
-    ys = [1976.0 .. 1985.0]
-    m = sum ys / fromIntegral (length ys)
+ where
+  ys = [1976.0 .. 1985.0]
+  m  = sum ys / fromIntegral (length ys)
 
 f :: Int -> Double -> I -> Log Double
 f ft yr (alpha, beta) = Exp $ logProbability (poisson l) (fromIntegral ft)
-  where l = exp $ alpha + beta*yr
+  where l = exp $ alpha + beta * yr
 
 likelihood :: I -> Log Double
-likelihood x = product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
+likelihood x =
+  product [ f ft yr x | (ft, yr) <- zip fatalities normalizedYears ]
 
 moveAlpha :: Move I
 moveAlpha = slide "alpha" 2 _1 0.0 0.2 False
@@ -58,16 +62,16 @@ moveBeta :: Move I
 moveBeta = slide "beta" 1 _2 0.0 0.2 False
 
 moveCycle :: Cycle I
-moveCycle = fromList [ moveAlpha
-                     , moveBeta ]
+moveCycle = fromList [moveAlpha, moveBeta]
 
 initial :: I
 initial = (0, 0)
 
 summarize :: [I] -> ((Double, Double), (Double, Double))
 summarize xs = ((mean as, stdDev as), (mean bs, stdDev bs))
-  where as = V.fromList $ map fst xs
-        bs = V.fromList $ map snd xs
+ where
+  as = V.fromList $ map fst xs
+  bs = V.fromList $ map snd xs
 
 monAlpha :: MonitorParameter I
 monAlpha = monitorRealFloat "alpha" _1
@@ -92,9 +96,12 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  s <- mh nBurn nAutoTune nIter (status initial (const 1) likelihood moveCycle mon g)
+  s <- mh nBurn
+          nAutoTune
+          nIter
+          (status initial (const 1) likelihood moveCycle mon g)
   putStrLn "Mean and standard deviations of:"
-  let xs = map state . fromTrace $ trace s
+  let xs       = map state . fromTrace $ trace s
       (ra, rb) = summarize xs
   putStrLn $ "Alpha: " <> show ra
   putStrLn $ "Beta: " <> show rb

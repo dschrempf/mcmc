@@ -16,19 +16,22 @@ Creation date: Wed May  6 00:10:11 2020.
 
 module Normal
   ( normalBench
-  ) where
+  )
+where
 
-import qualified Data.Vector.Unboxed as V
-import Numeric.Log as L
-import Statistics.Distribution hiding (mean, stdDev)
-import Statistics.Distribution.Normal
-import Statistics.Sample
-import System.Random.MWC
+import qualified Data.Vector.Unboxed           as V
+import           Numeric.Log                   as L
+import           Statistics.Distribution hiding ( mean
+                                                , stdDev
+                                                )
+import           Statistics.Distribution.Normal
+import           Statistics.Sample
+import           System.Random.MWC
 
-import Mcmc
+import           Mcmc
 
-import Mcmc.Item
-import Mcmc.Trace
+import           Mcmc.Item
+import           Mcmc.Trace
 
 trueMean :: Double
 trueMean = 5
@@ -40,14 +43,15 @@ posterior :: Double -> Log Double
 posterior = Exp . logDensity (normalDistr trueMean trueStdDev)
 
 moveCycle :: Cycle Double
-moveCycle = fromList [ slideDouble "small"  5 0   0.1 True
-                     , slideDouble "medium" 2 0   1.0 True
-                     , slideDouble "large"  2 0   5.0 True
-                     , slideDouble "skewed" 1 1.0 4.0 True ]
+moveCycle = fromList
+  [ slideDouble "small"  5 0   0.1 True
+  , slideDouble "medium" 2 0   1.0 True
+  , slideDouble "large"  2 0   5.0 True
+  , slideDouble "skewed" 1 1.0 4.0 True
+  ]
 
 summarize :: [Double] -> (Double, Double)
-summarize xs = (mean v, stdDev v)
-  where v = V.fromList xs
+summarize xs = (mean v, stdDev v) where v = V.fromList xs
 
 monStd :: MonitorStdOut Double
 monStd = monitorStdOut [monitorRealFloat "mu" id] 200

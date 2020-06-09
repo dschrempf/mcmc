@@ -14,14 +14,16 @@ Creation date: Fri May 29 12:30:03 2020.
 
 module Mcmc.Monitor.Log
   ( renderLog
-  ) where
+  )
+where
 
-import qualified Data.Text.Lazy.Builder           as T
-import qualified Data.Text.Lazy.Builder.RealFloat as T
-import Data.Text.Lazy (Text)
-import Numeric.Log
+import qualified Data.Text.Lazy.Builder        as T
+import qualified Data.Text.Lazy.Builder.RealFloat
+                                               as T
+import           Data.Text.Lazy                 ( Text )
+import           Numeric.Log
 
 -- | Print a log value.
 renderLog :: Log Double -> Text
 renderLog = T.toLazyText . T.formatRealFloat T.Fixed (Just 8) . ln
-{-# INLINEABLE renderLog  #-}
+{-# INLINABLE renderLog #-}

@@ -13,17 +13,19 @@ Creation date: Fri May  8 17:27:03 2020.
 
 module Main
   ( main
-  ) where
+  )
+where
 
-import Criterion.Main
-import System.Random.MWC
+import           Criterion.Main
+import           System.Random.MWC
 
-import Normal
-import Poisson
+import           Normal
+import           Poisson
 
 main :: IO ()
 main = do
   g <- create
   defaultMain
     [ bench "Normal" $ nfIO (normalBench g)
-    , bench "Poisson" $ nfIO (poissonBench g) ]
+    , bench "Poisson" $ nfIO (poissonBench g)
+    ]

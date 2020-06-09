@@ -54,12 +54,13 @@ module Mcmc
   , module Mcmc.Monitor.Parameter
     -- * Algorithms
   , module Mcmc.Metropolis
-  ) where
+  )
+where
 
-import Mcmc.Metropolis
-import Mcmc.Monitor
-import Mcmc.Monitor.Parameter
-import Mcmc.Move
-import Mcmc.Move.Scale
-import Mcmc.Move.Slide
-import Mcmc.Status
+import           Mcmc.Metropolis
+import           Mcmc.Monitor
+import           Mcmc.Monitor.Parameter
+import           Mcmc.Move
+import           Mcmc.Move.Scale
+import           Mcmc.Move.Slide
+import           Mcmc.Status

@@ -18,7 +18,8 @@ module Mcmc.Tools.Shuffle
   ( shuffle
   , shuffleN
   , grabble
-  ) where
+  )
+where
 
 import           Control.Monad
 import           Data.Array                     ( elems )

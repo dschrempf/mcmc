@@ -13,12 +13,12 @@ Creation date: Wed May 20 09:11:25 2020.
 -}
 
 module Mcmc.Trace
-  (
-    Trace (..)
+  ( Trace(..)
   , prependT
-  ) where
+  )
+where
 
-import Mcmc.Item
+import           Mcmc.Item
 
 -- | A 'Trace' passes through a list of states with associated log-likelihoods
 -- which are called 'Item's. New 'Item's are prepended, and the path of the
@@ -34,6 +34,6 @@ instance Monoid (Trace a) where
 
 -- | Prepend an 'Item' to a 'Trace'.
 prependT :: Item a -> Trace a -> Trace a
-prependT x (Trace xs) = Trace (x:xs)
-{-# INLINEABLE prependT #-}
+prependT x (Trace xs) = Trace (x : xs)
+{-# INLINABLE prependT #-}
 

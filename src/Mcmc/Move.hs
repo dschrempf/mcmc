@@ -72,14 +72,14 @@ correct stationary posterior distribution.
 module Mcmc.Move
   (
     -- * Move
-    Move (..)
-  , MoveSimple (..)
-  , Tuner (tParam, tFunc)
+    Move(..)
+  , MoveSimple(..)
+  , Tuner(tParam, tFunc)
   , tuner
   , tune
   , autotune
     -- * Cycle
-  , Cycle (fromCycle)
+  , Cycle(fromCycle)
   , addMove
   , fromList
   , mapCycle
@@ -90,14 +90,15 @@ module Mcmc.Move
   , prependA
   , resetA
   , acceptanceRatios
-  ) where
+  )
+where
 
-import Data.Function
-import qualified Data.Map.Strict as M
-import Data.Map.Strict (Map)
-import Numeric.Log hiding (sum)
-import System.Random.MWC
-import Text.Printf
+import           Data.Function
+import qualified Data.Map.Strict               as M
+import           Data.Map.Strict                ( Map )
+import           Numeric.Log             hiding ( sum )
+import           System.Random.MWC
+import           Text.Printf
 
 -- | A 'Move' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability density conditioned on the
@@ -122,8 +123,7 @@ instance Show (Move a) where
   show = mvName
 
 instance Eq (Move a) where
-  m == n =
-    mvName m == mvName n
+  m == n = mvName m == mvName n
 
 instance Ord (Move a) where
   compare = compare `on` mvName
@@ -173,17 +173,13 @@ tuner = Tuner 1.0
 -- | Tune a 'Move'. Return 'Nothing' if 'Move' is not tuneable. If the parameter
 --   @dt@ is larger than 1.0, the 'Move' is enlarged, if @0<dt<1.0@, it is
 --   shrunk. Negative tuning parameters are not allowed.
-tune
-  :: Double
-  -> Move a
-  -> Maybe (Move a)
+tune :: Double -> Move a -> Maybe (Move a)
 tune dt tm
-  | dt <= 0   = error $ "tune: Tuning parameter not positive: " <> show dt <> "."
+  | dt <= 0 = error $ "tune: Tuning parameter not positive: " <> show dt <> "."
   | otherwise = do
-      (Tuner t f) <- mvTune tm
-      let t' = t*dt
-      return $ tm { mvSimple = f t'
-                  , mvTune = Just $ Tuner t' f }
+    (Tuner t f) <- mvTune tm
+    let t' = t * dt
+    return $ tm { mvSimple = f t', mvTune = Just $ Tuner t' f }
 
 ratioOpt :: Double
 ratioOpt = 0.44
@@ -217,7 +213,7 @@ newtype Cycle a = Cycle { fromCycle :: [Move a] }
 -- | Add a 'Move' to the 'Cycle'. The name of the added 'Move' must be unique.
 addMove :: Move a -> Cycle a -> Cycle a
 addMove m c | m `notElem` fromCycle c = Cycle $ m : fromCycle c
-            | otherwise = error msg
+            | otherwise               = error msg
   where msg = "addMove: Move " <> mvName m <> " already exists in cycle."
 
 -- | Create a 'Cycle' from a list of 'Move's.
@@ -237,51 +233,56 @@ mapCycle :: (Move a -> Move a) -> Cycle a -> Cycle a
 mapCycle f = Cycle . map f . fromCycle
 
 left :: Int -> String -> String
-left n s = take n s ++ replicate (n - l) ' '
-  where l = length s
+left n s = take n s ++ replicate (n - l) ' ' where l = length s
 
 right :: Int -> String -> String
-right n s = replicate (n - l) ' ' ++ take n s
-  where l = length s
+right n s = replicate (n - l) ' ' ++ take n s where l = length s
 
 renderRow :: String -> String -> String -> String -> String
 renderRow name weight acceptRatio tuneParam = nB ++ wB ++ rB ++ tB
-  where nB = left  30 name
-        wB = right 8 weight
-        rB = right 20 acceptRatio
-        tB = right 20 tuneParam
+ where
+  nB = left 30 name
+  wB = right 8 weight
+  rB = right 20 acceptRatio
+  tB = right 20 tuneParam
 
 moveHeader :: String
-moveHeader = renderRow "Move name" "Weight" "Acceptance ratio" "Tuning parameter"
+moveHeader =
+  renderRow "Move name" "Weight" "Acceptance ratio" "Tuning parameter"
 
 summarizeMove :: Move a -> Maybe Double -> String
 summarizeMove m r = renderRow name weight acceptRatio tuneParamStr
-  where name         = mvName m
-        weight       = show $ mvWeight m
-        acceptRatio  = maybe "" (printf "%.3f") r
-        tuneParamStr = maybe "" (printf "%.3f") (tParam <$> mvTune m)
+ where
+  name         = mvName m
+  weight       = show $ mvWeight m
+  acceptRatio  = maybe "" (printf "%.3f") r
+  tuneParamStr = maybe "" (printf "%.3f") (tParam <$> mvTune m)
 
 -- | Summarize the 'Move's in the 'Cycle'. Also report acceptance ratios for the
 -- given number of last iterations.
 summarizeCycle :: Maybe (Int, Acceptance (Move a)) -> Cycle a -> String
-summarizeCycle acc c = unlines $
-  [ "Summary of move(s) in cycle:"
-  , replicate (length moveHeader) '─'
-  , moveHeader
-  , replicate (length moveHeader) '─'
-  ] ++
-  [ summarizeMove m (ar m) | m <- mvs ] ++
-  [ replicate (length moveHeader) '─'
-  , show mpi ++ " move(s) per iteration." ++ arStr ]
-  where mvs   = fromCycle c
-        mpi   = sum $ map mvWeight mvs
-        arStr = case acc of
-          Nothing     -> ""
-          Just (n, _) -> " Acceptance ratio(s) calculated over " ++ show n ++ " iterations."
-        ars   = case acc of
-          Nothing     -> M.empty
-          Just (n, a) -> acceptanceRatios n a
-        ar m  = ars M.!? m
+summarizeCycle acc c =
+  unlines
+    $  [ "Summary of move(s) in cycle:"
+       , replicate (length moveHeader) '─'
+       , moveHeader
+       , replicate (length moveHeader) '─'
+       ]
+    ++ [ summarizeMove m (ar m) | m <- mvs ]
+    ++ [ replicate (length moveHeader) '─'
+       , show mpi ++ " move(s) per iteration." ++ arStr
+       ]
+ where
+  mvs   = fromCycle c
+  mpi   = sum $ map mvWeight mvs
+  arStr = case acc of
+    Nothing -> ""
+    Just (n, _) ->
+      " Acceptance ratio(s) calculated over " ++ show n ++ " iterations."
+  ars = case acc of
+    Nothing     -> M.empty
+    Just (n, a) -> acceptanceRatios n a
+  ar m = ars M.!? m
 
 -- -- | See 'summarizeCycle'. Also report acceptance ratios for the given number of
 -- -- last cycles.
@@ -314,12 +315,12 @@ empty ks = Acceptance $ M.fromList [ (k, []) | k <- ks ]
 -- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
 prependA :: (Ord k, Show k) => k -> Bool -> Acceptance k -> Acceptance k
 -- XXX: Unsafe; faster.
-prependA k v (Acceptance m) = Acceptance $ M.adjust (v:) k m
+prependA k v (Acceptance m) = Acceptance $ M.adjust (v :) k m
 -- -- XXX: Safe; slower.
 -- prependA k v (Acceptance m) | k `M.member` m = Acceptance $ M.adjust (v:) k m
 --                             | otherwise = error msg
 --   where msg = "prependA: Can not add acceptance value for key: " <> show k <> "."
-{-# INLINEABLE prependA #-}
+{-# INLINABLE prependA #-}
 
 -- | Reset acceptance storage.
 resetA :: Acceptance k -> Acceptance k
@@ -327,9 +328,9 @@ resetA = Acceptance . M.map (const []) . fromAcceptance
 
 ratio :: [Bool] -> Double
 ratio xs = fromIntegral (length ts) / fromIntegral (length xs)
-  where ts = filter (==True) xs
+  where ts = filter (== True) xs
 
 -- | Acceptance ratios averaged over the given number of last iterations. If
 -- less than @n@ iterations are available, only those are used.
 acceptanceRatios :: Int -> Acceptance k -> Map k Double
-acceptanceRatios n (Acceptance m)= M.map (ratio . take n) m
+acceptanceRatios n (Acceptance m) = M.map (ratio . take n) m

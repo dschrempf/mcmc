@@ -19,23 +19,19 @@ module Mcmc.Move.Slide
   , slideDouble
   , slideUniform
   , slideUniformDouble
-  ) where
+  )
+where
 
-import Lens.Micro
-import Statistics.Distribution.Normal
-import Statistics.Distribution.Uniform
+import           Lens.Micro
+import           Statistics.Distribution.Normal
+import           Statistics.Distribution.Uniform
 
-import Mcmc.Move.Generic
-import Mcmc.Move
+import           Mcmc.Move.Generic
+import           Mcmc.Move
 
 -- The actual move with tuning parameter.
-slideSimple
-  :: Lens' a Double
-  -> Double
-  -> Double
-  -> Double
-  -> MoveSimple a
-slideSimple l m s t = moveGenericContinuous l (normalDistr m (s*t)) (+) (-)
+slideSimple :: Lens' a Double -> Double -> Double -> Double -> MoveSimple a
+slideSimple l m s t = moveGenericContinuous l (normalDistr m (s * t)) (+) (-)
 
 -- | Additive move with normally distributed density.
 slide
@@ -46,8 +42,9 @@ slide
   -> Double             -- ^ Standard deviation.
   -> Bool               -- ^ Enable tuning.
   -> Move a
-slide n w l m s True  = Move n w (slideSimple l m s 1.0) (Just $ tuner (slideSimple l m s))
-slide n w l m s False = Move n w (slideSimple l m s 1.0)  Nothing
+slide n w l m s True =
+  Move n w (slideSimple l m s 1.0) (Just $ tuner (slideSimple l m s))
+slide n w l m s False = Move n w (slideSimple l m s 1.0) Nothing
 
 -- | See 'slide'; specialized to a one dimensional state space of type 'Double'.
 slideDouble
@@ -60,12 +57,9 @@ slideDouble
 slideDouble n w = slide n w id
 
 -- The actual move with tuning parameter.
-slideUniformSimple
-  :: Lens' a Double
-  -> Double
-  -> Double
-  -> MoveSimple a
-slideUniformSimple l d t = moveGenericContinuous l (uniformDistr (-t*d) (t*d)) (+) (-)
+slideUniformSimple :: Lens' a Double -> Double -> Double -> MoveSimple a
+slideUniformSimple l d t =
+  moveGenericContinuous l (uniformDistr (-t * d) (t * d)) (+) (-)
 
 -- | Additive move with uniformly distributed density.
 slideUniform
@@ -75,9 +69,9 @@ slideUniform
   -> Double             -- ^ Delta.
   -> Bool               -- ^ Enable tuning.
   -> Move a
-slideUniform n w l d True  = Move n w (slideUniformSimple l d 1.0)
-                           (Just $ tuner (slideUniformSimple l d))
-slideUniform n w l d False = Move n w (slideUniformSimple l d 1.0)  Nothing
+slideUniform n w l d True =
+  Move n w (slideUniformSimple l d 1.0) (Just $ tuner (slideUniformSimple l d))
+slideUniform n w l d False = Move n w (slideUniformSimple l d 1.0) Nothing
 
 -- | See 'slideUniform'; specialized to a one dimensional state space of type
 -- 'Double'.

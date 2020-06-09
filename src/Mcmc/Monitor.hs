@@ -22,7 +22,7 @@ Creation date: Thu May 21 14:35:11 2020.
 module Mcmc.Monitor
   (
     -- * Create monitors
-    Monitor (..)
+    Monitor(..)
   , MonitorStdOut
   , monitorStdOut
   , MonitorFile
@@ -32,20 +32,21 @@ module Mcmc.Monitor
   , mHeader
   , mExec
   , mClose
-  ) where
+  )
+where
 
-import Data.Int
-import qualified Data.Text.Lazy         as T
-import qualified Data.Text.Lazy.IO      as T
-import qualified Data.Text.Lazy.Builder as T
-import Data.Text.Lazy (Text)
-import Data.Time.Clock
-import Numeric.Log
-import System.IO
+import           Data.Int
+import qualified Data.Text.Lazy                as T
+import qualified Data.Text.Lazy.IO             as T
+import qualified Data.Text.Lazy.Builder        as T
+import           Data.Text.Lazy                 ( Text )
+import           Data.Time.Clock
+import           Numeric.Log
+import           System.IO
 
-import Mcmc.Monitor.Log
-import Mcmc.Monitor.Parameter
-import Mcmc.Monitor.Time
+import           Mcmc.Monitor.Log
+import           Mcmc.Monitor.Parameter
+import           Mcmc.Monitor.Time
 
 -- | A 'Monitor' describes which part of the Markov chain should be logged and
 -- where. Further, they allow output of summary statistics per iteration in a
@@ -78,36 +79,42 @@ msWidth = 22
 
 msRenderRow :: [Text] -> Text
 msRenderRow xs = T.justifyRight msIWidth ' ' (head xs) <> T.concat vals
-  where
-    vals = map (T.justifyRight msWidth ' ') (tail xs)
+  where vals = map (T.justifyRight msWidth ' ') (tail xs)
 
 msHeader :: MonitorStdOut a -> IO ()
 msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
-  where row = msRenderRow $
-              [ "Iteration"
-              , "Log-Prior"
-              , "Log-Likelihood"
-              , "Log-Posterior" ] ++
-              nms ++
-              [ "Runtime"
-              , "ETA" ]
-        sep = T.replicate (T.length row) "─"
-        nms = [ mpName p | p <- msParams m ]
+ where
+  row =
+    msRenderRow
+      $  ["Iteration", "Log-Prior", "Log-Likelihood", "Log-Posterior"]
+      ++ nms
+      ++ ["Runtime", "ETA"]
+  sep = T.replicate (T.length row) "─"
+  nms = [ mpName p | p <- msParams m ]
 
-msExec :: Int -> Log Double -> Log Double -> Log Double -> NominalDiffTime -> a -> Int -> MonitorStdOut a -> IO ()
+msExec
+  :: Int
+  -> Log Double
+  -> Log Double
+  -> Log Double
+  -> NominalDiffTime
+  -> a
+  -> Int
+  -> MonitorStdOut a
+  -> IO ()
 msExec i p l o t x j m
-  | i `mod` msPeriod m /= 0 = return ()
-  | otherwise               = T.hPutStrLn stdout $ msRenderRow $
-    [ T.pack (show i)
-    , renderLog p
-    , renderLog l
-    , renderLog o ] ++
-    [ T.toLazyText $ mpFunc mp x | mp <- msParams m ] ++
-    [ renderDuration t, eta]
-  where eta = if i < 10
-              then ""
-              else renderDuration $ timePerIter * fromIntegral (j-i)
-        timePerIter = t / fromIntegral i
+  | i `mod` msPeriod m /= 0
+  = return ()
+  | otherwise
+  = T.hPutStrLn stdout
+    $  msRenderRow
+    $  [T.pack (show i), renderLog p, renderLog l, renderLog o]
+    ++ [ T.toLazyText $ mpFunc mp x | mp <- msParams m ]
+    ++ [renderDuration t, eta]
+ where
+  eta =
+    if i < 10 then "" else renderDuration $ timePerIter * fromIntegral (j - i)
+  timePerIter = t / fromIntegral i
 
 -- | Monitor to a file.
 data MonitorFile a = MonitorFile
@@ -139,26 +146,42 @@ mfOpen m = do
   return $ m { mfHandle = Just h }
 
 mfHeader :: MonitorFile a -> IO ()
-mfHeader m =
-  case mfHandle m of
-    Nothing -> error $ "mfHeader: No handle available for monitor with file " <> mfFile m <> "."
-    Just h  -> T.hPutStrLn h $
-      mfRenderRow $
-      [ "Iteration"
-      , "Log-Prior"
-      , "Log-Likelihood"
-      , "Log-Posterior" ] ++
-      [ mpName p | p <- mfParams m ]
+mfHeader m = case mfHandle m of
+  Nothing ->
+    error
+      $  "mfHeader: No handle available for monitor with file "
+      <> mfFile m
+      <> "."
+  Just h ->
+    T.hPutStrLn h
+      $  mfRenderRow
+      $  ["Iteration", "Log-Prior", "Log-Likelihood", "Log-Posterior"]
+      ++ [ mpName p | p <- mfParams m ]
 
-mfExec :: Int -> Log Double -> Log Double -> Log Double -> a -> MonitorFile a -> IO ()
+mfExec
+  :: Int
+  -> Log Double
+  -> Log Double
+  -> Log Double
+  -> a
+  -> MonitorFile a
+  -> IO ()
 mfExec i p l o x m
   | i `mod` mfPeriod m /= 0 = return ()
-  | otherwise =
-    case mfHandle m of
-      Nothing -> error $ "mfExec: No handle available for monitor with file " <> mfFile m <> "."
-      Just h  -> T.hPutStrLn h $ mfRenderRow $
-        T.pack (show i) : renderLog p : renderLog l : renderLog o :
-        [T.toLazyText $ mpFunc mp x | mp <- mfParams m ]
+  | otherwise = case mfHandle m of
+    Nothing ->
+      error
+        $  "mfExec: No handle available for monitor with file "
+        <> mfFile m
+        <> "."
+    Just h ->
+      T.hPutStrLn h
+        $ mfRenderRow
+        $ T.pack (show i)
+        : renderLog p
+        : renderLog l
+        : renderLog o
+        : [ T.toLazyText $ mpFunc mp x | mp <- mfParams m ]
 
 mfClose :: MonitorFile a -> IO ()
 mfClose m = case mfHandle m of
@@ -186,7 +209,8 @@ mExec
   -> Int -- ^ Total number of iterations; to calculate ETA.
   -> Monitor a -- ^ The monitor.
   -> IO ()
-mExec i p l t x j (Monitor s fs) = msExec i p l (p*l) t x j s >> mapM_ (mfExec i p l (p*l) x) fs
+mExec i p l t x j (Monitor s fs) =
+  msExec i p l (p * l) t x j s >> mapM_ (mfExec i p l (p * l) x) fs
 
 -- | Close the files associated with the 'Monitor'.
 mClose :: Monitor a -> IO ()

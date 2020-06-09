@@ -15,31 +15,32 @@ Creation date: Fri May 29 10:19:45 2020.
 -}
 
 module Mcmc.Mcmc
-  (
-    Mcmc
+  ( Mcmc
   , mcmcAutotune
   , mcmcSummarizeCycle
   , mcmcInit
   , mcmcMonitorHeader
   , mcmcMonitorExec
   , mcmcClose
-  ) where
+  )
+where
 
-import Prelude hiding (cycle)
+import           Prelude                 hiding ( cycle )
 
-import Control.Monad.IO.Class
-import Control.Monad.Trans.State.Strict hiding (state)
-import qualified Data.Map.Strict as M
-import Data.Maybe
-import qualified Data.Text.Lazy.IO as T
-import Data.Time.Clock
-import Data.Time.Format
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.State.Strict
+                                         hiding ( state )
+import qualified Data.Map.Strict               as M
+import           Data.Maybe
+import qualified Data.Text.Lazy.IO             as T
+import           Data.Time.Clock
+import           Data.Time.Format
 
-import Mcmc.Item
-import Mcmc.Status
-import Mcmc.Monitor
-import Mcmc.Monitor.Time
-import Mcmc.Move
+import           Mcmc.Item
+import           Mcmc.Status
+import           Mcmc.Monitor
+import           Mcmc.Monitor.Time
+import           Mcmc.Move
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.
@@ -49,10 +50,10 @@ type Mcmc a = StateT (Status a) IO
 -- acceptance ratio of the last n moves. Tuning has no effect on 'Move's that
 -- cannot be tuned. See 'autotune'.
 autotuneS :: Int -> Status a -> Status a
-autotuneS n s = s {cycle = mapCycle tuneF (cycle s)}
-  where
-    ars  = acceptanceRatios n $ acceptance s
-    tuneF m = fromMaybe m (autotune (ars M.! m) m)
+autotuneS n s = s { cycle = mapCycle tuneF (cycle s) }
+ where
+  ars = acceptanceRatios n $ acceptance s
+  tuneF m = fromMaybe m (autotune (ars M.! m) m)
 
 -- | Auto tune the 'Move's in the 'Cycle' of the chain. See 'autotune'.
 mcmcAutotune :: Int -> Mcmc a ()
@@ -79,14 +80,12 @@ fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
 -- 'Monitor's of the chain. See 'mOpen'.
 mcmcInit :: Int -> Mcmc a ()
 mcmcInit n = do
-  t  <- liftIO getCurrentTime
+  t <- liftIO getCurrentTime
   liftIO $ putStrLn $ "-- Start time: " <> fTime t
   s  <- get
   m  <- gets monitor
   m' <- liftIO $ mOpen m
-  put s { monitor = m'
-        , starttime = Just t
-        , totalIterations = Just n }
+  put s { monitor = m', starttime = Just t, totalIterations = Just n }
 
 -- | Print header line of 'Monitor' (only standard output).
 mcmcMonitorHeader :: Mcmc a ()
@@ -97,12 +96,12 @@ mcmcMonitorHeader = do
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: Mcmc a ()
 mcmcMonitorExec = do
-  s <- get
+  s  <- get
   ct <- liftIO getCurrentTime
-  let i            = iteration s
-      j            = fromMaybe
-                     (error "mcmcMonitorExec: Total number of iterations not set.")
-                     (totalIterations s)
+  let i = iteration s
+      j = fromMaybe
+        (error "mcmcMonitorExec: Total number of iterations not set.")
+        (totalIterations s)
       (Item x p l) = item s
       m            = monitor s
       mst          = starttime s

@@ -15,19 +15,21 @@ Creation date: Fri May 29 11:11:49 2020.
 -}
 
 module Mcmc.Monitor.Parameter
-  ( MonitorParameter (..)
+  ( MonitorParameter(..)
   , monitorInt
   , monitorRealFloat
   , monitorRealFloatF
   , monitorRealFloatS
-  ) where
+  )
+where
 
 -- import qualified Data.Text.Lazy         as T
-import qualified Data.Text.Lazy.Builder.Int       as T
-import qualified Data.Text.Lazy.Builder.RealFloat as T
-import Data.Text.Lazy (Text)
-import Data.Text.Lazy.Builder (Builder)
-import Lens.Micro
+import qualified Data.Text.Lazy.Builder.Int    as T
+import qualified Data.Text.Lazy.Builder.RealFloat
+                                               as T
+import           Data.Text.Lazy                 ( Text )
+import           Data.Text.Lazy.Builder         ( Builder )
+import           Lens.Micro
 
 -- | Instruction about a parameter to monitor.
 data MonitorParameter a = MonitorParameter
@@ -38,30 +40,37 @@ data MonitorParameter a = MonitorParameter
   }
 
 -- | Monitor integral parameters such as 'Int'.
-monitorInt :: Integral b
-           => Text -- ^ Name of monitor.
-           -> Lens' a b -> MonitorParameter a
-monitorInt n l = MonitorParameter n (\x -> T.decimal $ x^.l)
+monitorInt
+  :: Integral b
+  => Text -- ^ Name of monitor.
+  -> Lens' a b
+  -> MonitorParameter a
+monitorInt n l = MonitorParameter n (\x -> T.decimal $ x ^. l)
 
 -- | Monitor real float parameters such as 'Double' with eight decimal places
 -- (half precision).
-monitorRealFloat :: RealFloat b
-                  => Text -- ^ Name of monitor.
-                  -> Lens' a b
-                  -> MonitorParameter a
-monitorRealFloat n l = MonitorParameter n (\x -> T.formatRealFloat T.Fixed (Just 8) $ x^.l)
+monitorRealFloat
+  :: RealFloat b
+  => Text -- ^ Name of monitor.
+  -> Lens' a b
+  -> MonitorParameter a
+monitorRealFloat n l =
+  MonitorParameter n (\x -> T.formatRealFloat T.Fixed (Just 8) $ x ^. l)
 
 -- | Monitor real float parameters such as 'Double' with full precision.
-monitorRealFloatF :: RealFloat b
-                 => Text -- ^ Name of monitor.
-                 -> Lens' a b
-                 -> MonitorParameter a
-monitorRealFloatF n l = MonitorParameter n (\x -> T.realFloat $ x^.l)
+monitorRealFloatF
+  :: RealFloat b
+  => Text -- ^ Name of monitor.
+  -> Lens' a b
+  -> MonitorParameter a
+monitorRealFloatF n l = MonitorParameter n (\x -> T.realFloat $ x ^. l)
 
 -- | Monitor real float parameters such as 'Double' with scientific notation and
 -- eight decimal places.
-monitorRealFloatS :: RealFloat b
-                  => Text -- ^ Name of monitor.
-                  -> Lens' a b
-                  -> MonitorParameter a
-monitorRealFloatS n l = MonitorParameter n (\x -> T.formatRealFloat T.Exponent (Just 8) $ x^.l)
+monitorRealFloatS
+  :: RealFloat b
+  => Text -- ^ Name of monitor.
+  -> Lens' a b
+  -> MonitorParameter a
+monitorRealFloatS n l =
+  MonitorParameter n (\x -> T.formatRealFloat T.Exponent (Just 8) $ x ^. l)

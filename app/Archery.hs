@@ -19,16 +19,17 @@ tutorial](https://revbayes.github.io/tutorials/mcmc/archery.html).
 
 module Main
   ( main
-  ) where
+  )
+where
 
-import Control.Monad
-import Numeric.Log
-import Statistics.Distribution
-import Statistics.Distribution.Exponential
-import Statistics.Distribution.Gamma
-import System.Random.MWC
+import           Control.Monad
+import           Numeric.Log
+import           Statistics.Distribution
+import           Statistics.Distribution.Exponential
+import           Statistics.Distribution.Gamma
+import           System.Random.MWC
 
-import Mcmc
+import           Mcmc
 
 type I = Double
 
@@ -56,7 +57,7 @@ priorDistribution :: ExponentialDistribution
 priorDistribution = exponential alpha
 
 negInf :: Fractional a => a
-negInf = -(1/0)
+negInf = -(1 / 0)
 
 prior :: I -> Log Double
 prior x | x <= 0    = Exp negInf
@@ -92,8 +93,8 @@ nIter = 1000000
 
 main :: IO ()
 main = do
-  g <- create
+  g           <- create
   mu_observed <- arrowMean g
   -- putStrLn $ "True parameter: " <> show mu_observed
-  let s = status 0.01  prior (likelihood mu_observed) moveCycle mon g
+  let s = status 0.01 prior (likelihood mu_observed) moveCycle mon g
   void $ mh nBurn nAutoTune nIter s
