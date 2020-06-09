@@ -32,6 +32,7 @@ library:
     - time
     - transformers
     - vector
+  generated-other-modules: Paths_mcmc
 
 benchmarks:
   mcmc-bench:
