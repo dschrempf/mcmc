@@ -30,8 +30,6 @@ import Statistics.Autocorrelation
 import Statistics.Gcm
 import Statistics.Pava.Common
 
--- TODO: Test and check these functions.
-
 -- Sum of two consecutive elements.
 sum2 :: Int -> Vector Double -> Double
 sum2 i = V.sum . V.slice (2*i) 2

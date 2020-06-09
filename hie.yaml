@@ -1,0 +1,14 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "mcmc:lib"
+
+    - path: "./app"
+      component: "mcmc:exe:archery"
+
+    - path: "./test"
+      component: "mcmc:test:mcmc-test"
+
+    - path: "./bench"
+      component: "mcmc:bench:mcmc-bench"
+
