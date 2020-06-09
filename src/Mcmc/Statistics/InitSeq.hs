@@ -23,33 +23,35 @@ module Mcmc.Statistics.InitSeq
     initSeq
   ) where
 
-import qualified Data.Vector.Generic as V
-import Data.Vector.Generic (Vector)
+import qualified Data.Vector.Unboxed as V
+import Data.Vector.Unboxed (Vector, Unbox)
 
-import Statistics.Gcm
 import Statistics.Autocorrelation
+import Statistics.Gcm
+import Statistics.Pava.Common
 
 -- TODO: Test and check these functions.
 
 -- Sum of two consecutive elements.
-sum2 :: Vector v Double => Int -> v Double -> Double
+sum2 :: Int -> Vector Double -> Double
 sum2 i = V.sum . V.slice (2*i) 2
 
 -- Takes the vector of autocovariances and computes the vector Gamma_k; Eq.
 -- (1.18), page 16.
-gamma :: (Vector v Double, Vector v Int) => v Double -> v Double
+gamma :: Vector Double -> Vector Double
 gamma c = V.generate l (`sum2` c)
-  -- TODO: +1?
-  where l = (V.length c + 1) `quot` 2
-
--- TODO: Use mutable vector so that not the complete gamma vector needs to be created.
+  where l = V.length c `quot` 2
 
 -- Truncated Gamma function; not numbered.
-gammaTruncated :: (Vector v Double, Vector v Int) => v Double -> v Double
+gammaTruncated :: Vector Double -> Vector Double
+-- XXX: Use mutable vector so that not the complete gamma vector needs to be created.
 gammaTruncated c = V.takeWhile (>0) (gamma c) `V.snoc` 0
 
 -- | Initial convex sequence estimator of the asymptotic variance. Eq. (1.19),
 -- page 16.
-initSeq :: (Vector v Double, Vector v Int) => v Double -> Double
-initSeq v = V.head c + 2 * V.sum (uncurry smooth . gcm . gammaTruncated $ c)
-  where c = autocovariance v
+initSeq :: (Real a, Unbox a) => Vector a -> Double
+initSeq v = (- V.head c) + 2 * V.sum (smooth (V.fromList gcmIs) (V.fromList gcmVals))
+  where c = autocovariance (V.map realToFrac v)
+        gs = gammaTruncated c
+        is = V.fromList [1 .. V.length gs]
+        (gcmIs, gcmVals, _) = gcm is gs
