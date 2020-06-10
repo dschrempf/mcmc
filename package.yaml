@@ -43,6 +43,7 @@ benchmarks:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
+      - algebraic-graphs
       - base >= 4.7 && < 5
       - criterion
       - log-domain

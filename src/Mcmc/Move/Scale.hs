@@ -24,7 +24,7 @@ where
 import           Lens.Micro
 import           Statistics.Distribution.Gamma
 
-import           Mcmc.Move.Generic
+import           Mcmc.Move.GenericLens
 import           Mcmc.Move
 
 -- The actual move with tuning parameter.

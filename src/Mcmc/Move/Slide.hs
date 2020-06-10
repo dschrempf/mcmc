@@ -26,7 +26,7 @@ import           Lens.Micro
 import           Statistics.Distribution.Normal
 import           Statistics.Distribution.Uniform
 
-import           Mcmc.Move.Generic
+import           Mcmc.Move.GenericLens
 import           Mcmc.Move
 
 -- The actual move with tuning parameter.
