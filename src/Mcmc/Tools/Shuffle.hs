@@ -50,6 +50,7 @@ grabble xs m n gen = do
   return $ map (take n . swapElems xs) swapss
   where maxIx = length xs - 1
 
+-- TODO: Remove array dependency. Vector should work equally well.
 swapElems :: [a] -> [(Int, Int)] -> [a]
 swapElems xs swaps = elems $ runSTArray
   (do

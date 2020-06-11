@@ -17,6 +17,7 @@ Creation date: Wed May  6 10:59:13 2020.
 module Mcmc.Move.Slide
   ( slide
   , slideDouble
+  , slideStandard
   , slideUniform
   , slideUniformDouble
   )
@@ -55,6 +56,18 @@ slideDouble
   -> Bool   -- ^ Enable tuning.
   -> Move Double
 slideDouble n w = slide n w id
+
+-- | Additive move with normally distributed density with a mean of 0.0 and a
+-- standard deviation of 1.0.
+slideStandard
+  :: String             -- ^ Name.
+  -> Int                -- ^ Weight.
+  -> Lens' a Double     -- ^ Instruction about which parameter to change.
+  -> Bool               -- ^ Enable tuning.
+  -> Move a
+slideStandard n w l True =
+  Move n w (slideSimple l 0.0 1.0 1.0) (Just $ tuner (slideSimple l 0.0 1.0))
+slideStandard n w l False = Move n w (slideSimple l 0.0 1.0 1.0) Nothing
 
 -- The actual move with tuning parameter.
 slideUniformSimple :: Lens' a Double -> Double -> Double -> MoveSimple a

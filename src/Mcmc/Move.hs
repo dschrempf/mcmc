@@ -74,6 +74,7 @@ module Mcmc.Move
     -- * Move
     Move(..)
   , MoveSimple(..)
+  , negInf
   , Tuner(tParam, tFunc)
   , tuner
   , tune
@@ -157,6 +158,13 @@ data MoveSimple a = MoveSimple
                  -> Log Double
   }
 
+-- XXX: I am not happy about the position of the definition of negInf; but I
+-- didn't find any better.
+
+-- | Because we need negative infinity for likelihoods of really bad moves :).
+negInf :: Fractional a => Log a
+negInf = Exp $ -(1 / 0)
+
 -- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
 data Tuner a = Tuner
   {
@@ -181,6 +189,7 @@ tune dt tm
     let t' = t * dt
     return $ tm { mvSimple = f t', mvTune = Just $ Tuner t' f }
 
+-- TODO: Implement optimal acceptance rations for higher dimensional moves.
 ratioOpt :: Double
 ratioOpt = 0.44
 
@@ -283,23 +292,6 @@ summarizeCycle acc c =
     Nothing     -> M.empty
     Just (n, a) -> acceptanceRatios n a
   ar m = ars M.!? m
-
--- -- | See 'summarizeCycle'. Also report acceptance ratios for the given number of
--- -- last cycles.
--- summarizeCycleA :: Int -> Acceptance (Move a) -> Cycle a -> String
--- summarizeCycleA n a c = unlines $
---   [
---     replicate (length moveHeader) '─'
---   , moveHeader
---   , replicate (length moveHeader) '─'
---   ] ++
---   [ summarizeMove m (ars M.!? m) | m <- mvs ] ++
---   [ replicate (length moveHeader) '─'
---   , show mpc ++ " move(s) per iteration." ++ arStr ]
---   where mvs   = fromCycle c
---         mpc   = sum $ map mvWeight mvs
---         arStr = " Acceptance ratio(s) calculated over " ++ show n ++ " iterations."
---         ars   = acceptanceRatios n a
 
 -- | For each key @k@, store the list of accepted (True) and rejected (False)
 -- proposals. For reasons of efficiency, the lists are stored in reverse order;

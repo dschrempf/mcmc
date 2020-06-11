@@ -31,7 +31,6 @@ import           Statistics.Distribution.Normal
 import           System.Random.MWC
 
 import           Mcmc
-import           Mcmc.Move.Generic
 
 type Length = Double
 type Mean = Double
@@ -50,15 +49,19 @@ type VTree = AdjacencyMap (Distance StdDev) Node
 type LTree = AdjacencyMap (Distance Length) Node
 type I = LTree
 
+getLens
+  :: (Num e, Ord e, Ord a) => a -> a -> Lens' (AdjacencyMap (Distance e) a) e
+getLens x y = lens (g x y) (s x y)
+ where
+  g n m = fromD . edgeLabel n m
+  s n m gr e = replaceEdge (toD e) n m gr
+
 -- For now, use a completely uninformative prior.
 prior :: a -> Log Double
 prior = const 1
 
-negInf :: Fractional a => a
-negInf = -(1 / 0)
-
 llhBranch :: Mean -> StdDev -> Length -> Log Double
-llhBranch m v l | l <= 0    = Exp negInf
+llhBranch m v l | l <= 0    = negInf
                 | otherwise = Exp $ logDensity (normalDistr m v) l
 
 llh :: MTree -> VTree -> I -> Log Double
@@ -71,18 +74,10 @@ llh mt vt lt = product $ zipWith3 llhBranch ms vs ls
 allEdges :: (Eq e, Monoid e, Ord a) => AdjacencyMap e a -> [(a, a)]
 allEdges = map (\(_, x, y) -> (x, y)) . edgeList
 
-getLens
-  :: (Num e, Ord e, Ord a) => a -> a -> Lens' (AdjacencyMap (Distance e) a) e
-getLens x y = lens (g x y) (s x y)
- where
-  g n m = fromD . edgeLabel n m
-  s n m gr e = replaceEdge (toD e) n m gr
-
 slideBr :: Node -> Node -> Move I
-slideBr x y = Move n 1 slideSimple Nothing
+slideBr x y = slideStandard n 1 (getLens x y) True
  where
-  n           = show (x, y)
-  slideSimple = moveGenericContinuous (getLens x y) (normalDistr 0 2.0) (+) (-)
+  n           = "Slide edge " <> show (x, y)
 
 moveCycle :: Cycle I
 moveCycle = fromList $ map (uncurry slideBr) (allEdges lTree)
@@ -107,19 +102,19 @@ mons = [ monitorRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree ]
   where n x y = T.pack $ show (x, y)
 
 monStd :: MonitorStdOut I
-monStd = monitorStdOut mons 99999999
+monStd = monitorStdOut mons 100
 
 monFile :: MonitorFile I
-monFile = monitorFile "ApproximatePhylogeneticLikelihood.log" mons 999999999
+monFile = monitorFile "ApproximatePhylogeneticLikelihood.log" mons 10
 
 mon :: Monitor I
 mon = Monitor monStd [monFile]
 
 nBurn :: Maybe Int
-nBurn = Just 200000
+nBurn = Just 2000
 
 nIter :: Int
-nIter = 1000000
+nIter = 10000
 
 main :: IO ()
 main = do

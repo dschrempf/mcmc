@@ -56,15 +56,12 @@ arrowMean = genContVar (meanDistribution muTrue)
 priorDistribution :: ExponentialDistribution
 priorDistribution = exponential alpha
 
-negInf :: Fractional a => a
-negInf = -(1 / 0)
-
 prior :: I -> Log Double
-prior x | x <= 0    = Exp negInf
+prior x | x <= 0    = negInf
         | otherwise = Exp $ logDensity priorDistribution x
 
 likelihood :: I -> I -> Log Double
-likelihood mu x | x <= 0    = Exp negInf
+likelihood mu x | x <= 0    = negInf
                 | otherwise = Exp $ logDensity (meanDistribution mu) x
 
 moveCycle :: Cycle I
