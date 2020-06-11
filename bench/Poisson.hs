@@ -105,4 +105,3 @@ poissonBench g = do
       (ra, rb) = summarize xs
   putStrLn $ "Alpha: " <> show ra
   putStrLn $ "Beta: " <> show rb
-

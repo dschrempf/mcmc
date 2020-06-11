@@ -14,6 +14,12 @@ Creation date: Thu May 14 20:26:27 2020.
 
 -}
 
+-- Technically, only a Getter is needed when calculating the log density of the
+-- move ('logDensCont', and similar functions). I tried splitting the lens into
+-- a getter and a setter. However, speed improvements were marginal, and some
+-- times not even measurable. Using a 'Lens'' is just easier, and has no real
+-- drawbacks.
+
 module Mcmc.Move.Generic
   ( moveGenericContinuous
   , moveGenericDiscrete
@@ -40,7 +46,6 @@ jumpCont l d f x g = do
   return $ set l ((x ^. l) `f` dx) x
 {-# INLINABLE jumpCont #-}
 
--- XXX: Technically, only a Getter is needed here.
 logDensCont
   :: (ContDistr d, ContGen d)
   => Lens' a Double
@@ -76,7 +81,6 @@ jumpDiscrete l d f x g = do
   return $ set l ((x ^. l) `f` dx) x
 {-# INLINABLE jumpDiscrete #-}
 
--- XXX: Technically, only a Getter is needed here.
 logDensDiscrete
   :: (DiscreteDistr d, DiscreteGen d)
   => Lens' a Int

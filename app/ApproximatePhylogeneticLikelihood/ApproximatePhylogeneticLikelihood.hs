@@ -20,7 +20,6 @@ module Main
 where
 
 import           Algebra.Graph.Label
--- import           Algebra.Graph.Labelled
 import           Algebra.Graph.Labelled.AdjacencyMap
 import           Control.Monad
 import           Data.Maybe
@@ -108,19 +107,19 @@ mons = [ monitorRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree ]
   where n x y = T.pack $ show (x, y)
 
 monStd :: MonitorStdOut I
-monStd = monitorStdOut mons 10
+monStd = monitorStdOut mons 99999999
 
 monFile :: MonitorFile I
-monFile = monitorFile "ApproximatePhylogeneticLikelihood.log" mons 10
+monFile = monitorFile "ApproximatePhylogeneticLikelihood.log" mons 999999999
 
 mon :: Monitor I
 mon = Monitor monStd [monFile]
 
 nBurn :: Maybe Int
-nBurn = Just 2000
+nBurn = Just 200000
 
 nIter :: Int
-nIter = 10000
+nIter = 1000000
 
 main :: IO ()
 main = do
