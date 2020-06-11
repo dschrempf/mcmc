@@ -3,10 +3,17 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: pava-0.1.0.0@sha256:a069338665384de1f85541c3b881a187d755a7e4f8b5d75833d0491c352ac474,1805
+    pantry-tree:
+      size: 757
+      sha256: 61973d78425ef6da9f4a1acbc4e0d46d14baf4b6a8335c30e85d746fdcbbc6e7
+  original:
+    hackage: pava-0.1.0.0
 snapshots:
 - completed:
-    size: 494638
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/15/11.yaml
-    sha256: 5747328cdcbb8fe9c96fc048b5566167c80dd176a41b52d3b363058e3cc1dc5d
-  original: lts-15.11
+    size: 531662
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2020/6/10.yaml
+    sha256: 3f0c6f4389c12730cb0a4bfb6d50da0ef8f725993410e0b4502dc2c3529221c0
+  original: nightly-2020-06-10
