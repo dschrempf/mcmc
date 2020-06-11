@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 {- |
-Module      :  Archery
+Module      :  Main
 Description :  Modeling shots of an archer shots on a circular target
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later

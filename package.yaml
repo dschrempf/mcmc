@@ -71,7 +71,7 @@ tests:
 
 executables:
   archery:
-    main:        Main.hs
+    main:        Archery.hs
     source-dirs: app/Archery
     ghc-options:
       - -threaded
@@ -85,13 +85,12 @@ executables:
       - statistics
       - text
   approx-plh:
-    main:        Main.hs
+    main:        ApproximatePhylogeneticLikelihood.hs
     source-dirs: app/ApproximatePhylogeneticLikelihood
     ghc-options:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
-      - -O1
     dependencies:
       - algebraic-graphs
       - base >= 4.7 && < 5

@@ -1,5 +1,7 @@
+{-# LANGUAGE RankNTypes #-}
+
 {- |
-Module      :  ApproximatePhylogeneticLikelihood
+Module      :  Main
 Description :  Approximate phylogenetic likelihood
 Copyright   :  (c) Dominik Schrempf, 2020
 License     :  GPL-3.0-or-later
@@ -22,7 +24,7 @@ import           Algebra.Graph.Label
 import           Algebra.Graph.Labelled.AdjacencyMap
 import           Control.Monad
 import           Data.Maybe
-import qualified Data.Text.Lazy             as T
+import qualified Data.Text.Lazy                as T
 import           Lens.Micro
 import           Numeric.Log
 import           Statistics.Distribution hiding ( Mean )
@@ -67,24 +69,21 @@ llh mt vt lt = product $ zipWith3 llhBranch ms vs ls
   vs = map (fromD . (^. _1)) $ edgeList vt
   ls = map (fromD . (^. _1)) $ edgeList lt
 
-setter :: (Monoid e, Eq e, Ord a) => a -> a -> e -> AdjacencyMap e a -> AdjacencyMap e a
-setter x y e = replaceEdge e x y
-
-getter :: (Monoid e, Eq a, Ord a) => a -> a -> AdjacencyMap e a -> e
-getter = edgeLabel
-
 allEdges :: (Eq e, Monoid e, Ord a) => AdjacencyMap e a -> [(a, a)]
 allEdges = map (\(_, x, y) -> (x, y)) . edgeList
+
+getLens
+  :: (Num e, Ord e, Ord a) => a -> a -> Lens' (AdjacencyMap (Distance e) a) e
+getLens x y = lens (g x y) (s x y)
+ where
+  g n m = fromD . edgeLabel n m
+  s n m gr e = replaceEdge (toD e) n m gr
 
 slideBr :: Node -> Node -> Move I
 slideBr x y = Move n 1 slideSimple Nothing
  where
   n           = show (x, y)
-  slideSimple = moveGenericContinuous (setter x y . toD)
-                                      (fromD . getter x y)
-                                      (normalDistr 0 2.0)
-                                      (+)
-                                      (-)
+  slideSimple = moveGenericContinuous (getLens x y) (normalDistr 0 2.0) (+) (-)
 
 moveCycle :: Cycle I
 moveCycle = fromList $ map (uncurry slideBr) (allEdges lTree)
@@ -93,7 +92,7 @@ toD :: a -> Distance a
 toD = distance . unsafeFinite
 
 fromD :: Distance a -> a
-fromD = fromJust. getFinite . getDistance
+fromD = fromJust . getFinite . getDistance
 
 lTree :: LTree
 lTree = (0 -< toD 1.0 >- 1) + (0 -< toD 2.0 >- 2)
@@ -105,11 +104,8 @@ vTree :: MTree
 vTree = (0 -< toD 2.0 >- 1) + (0 -< toD 2.0 >- 2)
 
 mons :: [MonitorParameter I]
-mons = [ monitorRealFloat (n x y) (l x y) | (x, y) <- allEdges lTree ]
-         where n x y = T.pack $ show (x, y)
-               g x y = fromD . getter x y
-               s x y gr e = replaceEdge (toD e) x y gr
-               l x y = lens (g x y) (s x y)
+mons = [ monitorRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree ]
+  where n x y = T.pack $ show (x, y)
 
 monStd :: MonitorStdOut I
 monStd = monitorStdOut mons 10
@@ -128,6 +124,6 @@ nIter = 10000
 
 main :: IO ()
 main = do
-  g           <- create
+  g <- create
   let s = status lTree prior (llh mTree vTree) moveCycle mon g
   void $ mh nBurn Nothing nIter s

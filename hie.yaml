@@ -1,14 +1,16 @@
 cradle:
   stack:
-    - path: "./src"
+    - path: "src"
       component: "mcmc:lib"
 
-    - path: "./app"
-      component: "mcmc:exe:archery"
-
-    - path: "./test"
+    - path: "test"
       component: "mcmc:test:mcmc-test"
 
-    - path: "./bench"
+    - path: "bench"
       component: "mcmc:bench:mcmc-bench"
 
+    - path: "app/ApproximatePhylogeneticLikelihood"
+      component: "mcmc:exe:approx-plh"
+
+    - path: "app/Archery"
+      component: "mcmc:exe:archery"
