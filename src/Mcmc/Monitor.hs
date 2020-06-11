@@ -69,7 +69,8 @@ monitorStdOut
   :: [MonitorParameter a] -- ^ Instructions about which parameters to log.
   -> Int                  -- ^ Logging period.
   -> MonitorStdOut a
-monitorStdOut = MonitorStdOut
+monitorStdOut ps p | p < 1    = error "monitorStdOut: Monitor period has to be 1 or larger."
+                   | otherwise = MonitorStdOut ps p
 
 msIWidth :: Int64
 msIWidth = 10
@@ -135,7 +136,8 @@ monitorFile
   -> [MonitorParameter a] -- ^ Instructions about which parameters to log.
   -> Int                  -- ^ Logging period.
   -> MonitorFile a
-monitorFile f = MonitorFile f Nothing
+monitorFile f ps p | p <= 1    = error "monitorFile: Monitor period has to be 1 or larger."
+                   | otherwise = MonitorFile f Nothing ps p
 
 mfRenderRow :: [Text] -> Text
 mfRenderRow = T.intercalate "\t"
