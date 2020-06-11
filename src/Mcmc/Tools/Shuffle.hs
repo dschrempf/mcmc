@@ -22,12 +22,10 @@ module Mcmc.Tools.Shuffle
 where
 
 import           Control.Monad
-import           Data.Array                     ( elems )
-import           Data.Array.ST                  ( newListArray
-                                                , readArray
-                                                , runSTArray
-                                                , writeArray
-                                                )
+import           Control.Monad.ST
+import qualified Data.Vector                   as V
+import qualified Data.Vector.Mutable           as M
+import           Data.Vector                    ( Vector )
 import           System.Random.MWC              ( GenIO
                                                 , uniformR
                                                 )
@@ -44,24 +42,14 @@ shuffleN xs n = grabble xs n (length xs)
 -- elements from @xs@, without replacement, and that @m@ times.
 grabble :: [a] -> Int -> Int -> GenIO -> IO [[a]]
 grabble xs m n gen = do
-  swapss <- replicateM m $ forM [0 .. min (maxIx - 1) n] $ \i -> do
-    j <- uniformR (i, maxIx) gen
+  swapss <- replicateM m $ forM [0 .. min (l - 1) n] $ \i -> do
+    j <- uniformR (i, l) gen
     return (i, j)
-  return $ map (take n . swapElems xs) swapss
-  where maxIx = length xs - 1
+  return $ map (V.toList . V.take n . swapElems (V.fromList xs)) swapss
+  where l = length xs - 1
 
--- TODO: Remove array dependency. Vector should work equally well.
-swapElems :: [a] -> [(Int, Int)] -> [a]
-swapElems xs swaps = elems $ runSTArray
-  (do
-    arr <- newListArray (0, maxIx) xs
-    mapM_ (swap arr) swaps
-    return arr
-  )
- where
-  maxIx = length xs - 1
-  swap arr (i, j) = do
-    vi <- readArray arr i
-    vj <- readArray arr j
-    writeArray arr i vj
-    writeArray arr j vi
+swapElems :: Vector a -> [(Int, Int)] -> Vector a
+swapElems xs swaps = runST $ do
+  mxs <- V.unsafeThaw xs
+  mapM_ (uncurry $ M.unsafeSwap mxs) swaps
+  V.unsafeFreeze mxs
