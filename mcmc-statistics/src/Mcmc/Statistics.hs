@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 {- |
-Module      :  Mcmc.Statistics.InitSeq
+Module      :  Mcmc.Statistics
 Description :  Initial convex sequence estimator of asymptotic variance
 Copyright   :  (c) Dominik Schrempf, 2020
 License     :  GPL-3.0-or-later
@@ -18,7 +18,7 @@ Markov Chain Monte Carlo (pp. 45) (2011). Chapman \& Hall/CRC.
 
 -}
 
-module Mcmc.Statistics.InitSeq
+module Mcmc.Statistics
   ( initSeq
   )
 where

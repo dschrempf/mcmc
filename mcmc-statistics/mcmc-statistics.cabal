@@ -1,0 +1,42 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.34.2.
+--
+-- see: https://github.com/sol/hpack
+
+name:           mcmc-statistics
+version:        0.1.1
+synopsis:       Analyze Markov chain Monte Carlo runs
+description:    Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
+category:       Math, Statistics
+homepage:       https://github.com/dschrempf/mcmc#readme
+bug-reports:    https://github.com/dschrempf/mcmc/issues
+author:         Dominik Schrempf
+maintainer:     dominik.schrempf@gmail.com
+copyright:      Dominik Schrempf (2020)
+license:        GPL-3.0-or-later
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/dschrempf/mcmc
+
+library
+  exposed-modules:
+      Mcmc.Statistics
+  other-modules:
+      Paths_mcmc_statistics
+  autogen-modules:
+      Paths_mcmc_statistics
+  hs-source-dirs:
+      src
+  ghc-options: -Wall
+  build-depends:
+      base >=4.7 && <5
+    , pava
+    , statistics
+    , vector
+  default-language: Haskell2010
