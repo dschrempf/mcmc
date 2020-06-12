@@ -32,6 +32,7 @@ executables:
       - mwc-random
       - statistics
       - text
+    generated-other-modules: Paths_mcmc_examples
   approx-plh:
     main:        ApproximatePhylogeneticLikelihood.hs
     source-dirs: ApproximatePhylogeneticLikelihood
@@ -48,3 +49,4 @@ executables:
       - mwc-random
       - statistics
       - text
+    generated-other-modules: Paths_mcmc_examples
