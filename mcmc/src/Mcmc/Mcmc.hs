@@ -15,7 +15,8 @@ Creation date: Fri May 29 10:19:45 2020.
 -}
 
 module Mcmc.Mcmc
-  ( Mcmc
+  ( McmcData(..)
+  , Mcmc
   , mcmcAutotune
   , mcmcSummarizeCycle
   , mcmcInit
@@ -29,12 +30,13 @@ import           Prelude                 hiding ( cycle )
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.State.Strict
-                                         hiding ( state )
 import qualified Data.Map.Strict               as M
 import           Data.Maybe
 import qualified Data.Text.Lazy.IO             as T
 import           Data.Time.Clock
 import           Data.Time.Format
+
+import           Lens.Micro
 
 import           Mcmc.Item
 import           Mcmc.Status
@@ -42,34 +44,51 @@ import           Mcmc.Monitor
 import           Mcmc.Monitor.Time
 import           Mcmc.Move
 
+data McmcData a = McmcData
+  {
+    mcmcStatus :: Status a
+  , mcmcSpec   :: Spec a
+  }
+
+lst :: Lens' (McmcData a) (Status a)
+lst = lens mcmcStatus (\m s' -> m { mcmcStatus = s' })
+
+lsp :: Lens' (McmcData a) (Spec a)
+lsp = lens mcmcSpec (\m s' -> m { mcmcSpec = s' })
+
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.
-type Mcmc a = StateT (Status a) IO
+type Mcmc a = StateT (McmcData a) IO
 
 -- Tune the 'Move's in the 'Cycle' of the Markov chain 'Status'; check
 -- acceptance ratio of the last n moves. Tuning has no effect on 'Move's that
 -- cannot be tuned. See 'autotune'.
-autotuneS :: Int -> Status a -> Status a
-autotuneS n s = s { cycle = mapCycle tuneF (cycle s) }
+autotuneS :: Int -> Status a -> Spec a -> Spec a
+autotuneS n st sp = sp { cycle = mapCycle tuneF (cycle sp) }
  where
-  ars = acceptanceRatios n $ acceptance s
+  ars = acceptanceRatios n $ acceptance st
   tuneF m = fromMaybe m (autotune (ars M.! m) m)
 
 -- | Auto tune the 'Move's in the 'Cycle' of the chain. See 'autotune'.
 mcmcAutotune :: Int -> Mcmc a ()
-mcmcAutotune t = modify' (autotuneS t)
+mcmcAutotune t = do
+  d <- get
+  let
+    st = d^.lst
+    sp = d^.lsp
+  put $ lsp .~ autotuneS t st sp $ d
 
 -- | Print short summary of 'Move's in 'Cycle'. See 'summarizeCycle'.
 mcmcSummarizeCycle :: Maybe Int -> Mcmc a ()
 mcmcSummarizeCycle Nothing = do
   liftIO $ putStrLn ""
-  c <- gets cycle
+  c <- gets $ cycle . mcmcSpec
   liftIO $ putStr $ summarizeCycle Nothing c
   liftIO $ putStrLn ""
 mcmcSummarizeCycle (Just n) = do
   liftIO $ putStrLn ""
-  a <- gets acceptance
-  c <- gets cycle
+  a <- gets $ acceptance . mcmcStatus
+  c <- gets $ cycle . mcmcSpec
   liftIO $ putStr $ summarizeCycle (Just (n, a)) c
   liftIO $ putStrLn ""
 
@@ -82,42 +101,44 @@ mcmcInit :: Int -> Mcmc a ()
 mcmcInit n = do
   t <- liftIO getCurrentTime
   liftIO $ putStrLn $ "-- Start time: " <> fTime t
-  s  <- get
-  m  <- gets monitor
+  d  <- get
+  let m = monitor $ d^.lsp
   m' <- liftIO $ mOpen m
-  put s { monitor = m', starttime = Just t, totalIterations = Just n }
+  put $ lsp %~ (\sp -> sp { monitor = m', starttime = Just t, totalIterations = Just n }) $ d
 
 -- | Print header line of 'Monitor' (only standard output).
 mcmcMonitorHeader :: Mcmc a ()
 mcmcMonitorHeader = do
-  m <- gets monitor
+  m <- gets $ monitor . mcmcSpec
   liftIO $ mHeader m
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: Mcmc a ()
 mcmcMonitorExec = do
-  s  <- get
+  d  <- get
   ct <- liftIO getCurrentTime
-  let i = iteration s
+  let sp = mcmcSpec d
+      st = mcmcStatus d
+      i = iteration st
       j = fromMaybe
         (error "mcmcMonitorExec: Total number of iterations not set.")
-        (totalIterations s)
-      (Item x p l) = item s
-      m            = monitor s
-      mst          = starttime s
-      t            = case mst of
+        (totalIterations sp)
+      (Item x p l) = item st
+      m            = monitor sp
+      mst          = starttime sp
+      dt            = case mst of
         Nothing -> error "mcmcMonitorExec: Start time not set."
-        Just st -> ct `diffUTCTime` st
-  liftIO $ mExec i p l t x j m
+        Just t -> ct `diffUTCTime` t
+  liftIO $ mExec i p l dt x j m
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: Mcmc a ()
 mcmcClose = do
-  s <- get
-  let m = monitor s
+  sp <- gets mcmcSpec
+  let m = monitor sp
   liftIO $ mClose m
   t <- liftIO getCurrentTime
-  let rt = case starttime s of
+  let rt = case starttime sp of
         Nothing -> error "mcmcClose: Start time not set."
         Just st -> t `diffUTCTime` st
   liftIO $ T.putStrLn $ "-- Wall clock run time: " <> renderDuration rt <> "."
