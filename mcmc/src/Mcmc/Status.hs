@@ -17,6 +17,17 @@ Creation date: Tue May  5 18:01:15 2020.
 -- impossible to store all the moves and so on. This means, that one should
 -- allow restart of a chain only with the same executable (which contains the
 -- moves etc). See https://hackage.haskell.org/package/executable-hash.
+--
+-- Idea: Separate Status into information stored on disk, and retrieved upon
+-- continuing an analysis (item, trace, acceptance, generator, iteration;
+-- something else?). Possibly limit the length of the trace to the maximum batch
+-- size.
+--
+-- The moves, the posterior, and so on, have to be provided again for the next
+-- analysis. Recompute and check the posterior for the last state because the
+-- posterior function may have changed. Of course, we cannot test for the same
+-- function, but having the same posterior at the last state is already a good
+-- indicator.
 
 module Mcmc.Status
   ( Status(..)
@@ -36,6 +47,7 @@ import           Mcmc.Move
 import           Mcmc.Trace
 
 -- TODO: Add possibility to store supplementary information about the chain.
+
 
 -- | The 'Status' of an MCMC run; see 'status' for creation.
 data Status a = Status
