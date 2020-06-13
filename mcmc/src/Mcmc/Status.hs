@@ -28,6 +28,14 @@ Creation date: Tue May  5 18:01:15 2020.
 -- posterior function may have changed. Of course, we cannot test for the same
 -- function, but having the same posterior at the last state is already a good
 -- indicator.
+--
+-- Results: I tried this, and it is slow, too slow. The reason is that the
+-- compound state, which I called McmcData, has to be unpacked and repacked all
+-- the time.
+--
+-- The next idea is: write a function of type 'Status a -> Save a'; and a
+-- continue function, something like 'Save a -> auxiliary information -> Status
+-- a', where 'Save a' is a data type combining all the information to be stored.
 
 module Mcmc.Status
   ( Status(..)
@@ -48,13 +56,27 @@ import           Mcmc.Trace
 
 -- TODO: Add possibility to store supplementary information about the chain.
 
-
 -- | The 'Status' of an MCMC run; see 'status' for creation.
 data Status a = Status
   {
+    -- Information stored at each generation.
     -- | The current 'Item' of the chain combines the current state and the
     -- current log-likelihood.
     item            :: Item a
+    -- | The iteration is the number of completed cycles.
+  , iteration       :: Int
+    -- | For each 'Move', store the list of accepted (True) and rejected (False)
+    -- proposals; for reasons of efficiency, the list is also stored in reverse
+    -- order.
+  , acceptance      :: Acceptance (Move a)
+    -- | The 'Trace' of the Markov chain in reverse order, the most recent
+    -- 'Item' is at the head of the list.
+  , trace           :: Trace a
+    -- | The random number generator.
+  , generator       :: GenIO
+
+    -- Auxiliary information about the chain, which has to be provided again
+    -- upon restart or continuation.
     -- | The log-prior function. The un-normalized log-posterior is the sum of
     -- the log-prior and the log-likelihood.
   , logPriorF       :: a -> Log Double
@@ -65,21 +87,10 @@ data Status a = Status
   , cycle           :: Cycle a
     -- | A 'Monitor' observing the chain.
   , monitor         :: Monitor a
-    -- | The iteration is the number of completed cycles.
-  , iteration       :: Int
-    -- | The 'Trace' of the Markov chain in reverse order, the most recent
-    -- 'Item' is at the head of the list.
-  , trace           :: Trace a
-    -- | For each 'Move', store the list of accepted (True) and rejected (False)
-    -- proposals; for reasons of efficiency, the list is also stored in reverse
-    -- order.
-  , acceptance      :: Acceptance (Move a)
-    -- | Starting time of chain; used to calculate run time and ETA.
-  , starttime       :: Maybe UTCTime
     -- | Total number of iterations.
   , totalIterations :: Maybe Int
-    -- | The random number generator.
-  , generator       :: GenIO
+    -- | Starting time of chain; used to calculate run time and ETA.
+  , starttime       :: Maybe UTCTime
   }
 
 -- | Initialize the status of a Markov chain Monte Carlo run.
@@ -96,25 +107,15 @@ status
   -> GenIO             -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
   -> Status a          -- ^ The current 'Status' of the Markov chain.
-status x p l c m = Status i
-                          p
-                          l
-                          c
-                          m
-                          0
-                          (Trace [i])
-                          (empty $ fromCycle c)
-                          Nothing
-                          Nothing
+status x p l c m g = Status i
+                            0
+                            (empty $ fromCycle c)
+                            (Trace [i])
+                            g
+                            p
+                            l
+                            c
+                            m
+                            Nothing
+                            Nothing
   where i = Item x (p x) (l x)
-
--- -- | Get current state of Markov chain.
--- getState :: Status a -> a
--- getState = state . item
-
--- -- | Reset a chain. Delete trace, acceptance ratios, and set the iteration to 0.
--- -- Used, for example, to reset a chain after burn in.
--- reset :: Status a -> Status a
--- reset s = s { iteration = 0, trace = Trace [i], acceptance = resetA a}
---   where i = item s
---         a = acceptance s
