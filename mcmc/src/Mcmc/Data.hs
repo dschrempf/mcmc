@@ -131,8 +131,9 @@ data Status a = Status
   }
 
 -- TODO.
---
--- instance (JSON a) => JSON (Status a)
+-- instance (ToJSON a) => ToJSON (Status a) where
+--   toJSON = undefined
+--   toEncoding = undefined
 
 -- | Initialize the 'Status' of a Markov chain Monte Carlo run.
 --

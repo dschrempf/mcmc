@@ -1,3 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 {- |
 Module      :  Mcmc.Item
 Description :  Links of Markov chains
@@ -17,7 +21,14 @@ module Mcmc.Item
   )
 where
 
+import           Data.Aeson
 import           Numeric.Log
+
+instance ToJSON a => ToJSON (Log a) where
+  toJSON (Exp x) = toJSON x
+  toEncoding (Exp x) = toEncoding x
+instance FromJSON a => FromJSON (Log a) where
+  parseJSON v = Exp <$> parseJSON v
 
 -- | An 'Item', or link of the Markov chain. For reasons of computational
 -- efficiency, each state is associated with the corresponding log-prior and
@@ -32,3 +43,14 @@ data Item a = Item
   , logLikelihood :: Log Double
   }
   deriving (Eq, Ord, Show, Read)
+
+instance ToJSON a => ToJSON (Item a) where
+  toJSON (Item x p l) = object [ "s" .= x, "p" .= p, "l" .= l ]
+  toEncoding (Item x p l) = pairs ( "s" .= x <> "p" .= p <> "l" .= l )
+
+instance FromJSON a => FromJSON (Item a) where
+  parseJSON = withObject "Item" $
+              \v -> Item
+                    <$> v .: "s"
+                    <*> v .: "p"
+                    <*> v .: "l"
