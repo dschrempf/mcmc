@@ -90,8 +90,8 @@ nIter = 1000000
 
 main :: IO ()
 main = do
-  g           <- create
-  mu_observed <- arrowMean g
+  g  <- create
+  mu <- arrowMean g
   -- putStrLn $ "True parameter: " <> show mu_observed
-  let s = status 0.01 prior (likelihood mu_observed) moveCycle mon g
-  void $ mh nBurn nAutoTune nIter s
+  let d = mcmc prior (likelihood mu) moveCycle mon 0.01 g
+  void $ mh nBurn nAutoTune nIter d

@@ -31,7 +31,6 @@ import           System.Random.MWC
 import           Mcmc
 
 import           Mcmc.Item
-import           Mcmc.Mcmc
 import           Mcmc.Trace
 
 trueMean :: Double
@@ -71,9 +70,8 @@ nIter = 20000
 
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  let sp = spec (const 1) likelihood moveCycle mon
-      st = status sp 0 g
-  s <- mh nBurn nAutoTune nIter (McmcData st sp)
+  let d = mcmc (const 1) likelihood moveCycle mon 0 g
+  s <- mh nBurn nAutoTune nIter d
   let t = map state . fromTrace . trace $ mcmcStatus s
   putStrLn "Mean and standard deviations:"
   putStrLn $ "True: " ++ show (trueMean, trueStdDev)

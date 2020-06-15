@@ -215,5 +215,9 @@ mExec i p l t x j (Monitor s fs) =
   msExec i p l (p * l) t x j s >> mapM_ (mfExec i p l (p * l) x) fs
 
 -- | Close the files associated with the 'Monitor'.
-mClose :: Monitor a -> IO ()
-mClose (Monitor _ fs) = mapM_ mfClose fs
+mClose :: Monitor a -> IO (Monitor a)
+mClose m@(Monitor _ fms) = do
+  mapM_ mfClose fms
+  let fms' = map (\fm -> fm { mfHandle = Nothing }) fms
+  return m { mFiles = fms' }
+

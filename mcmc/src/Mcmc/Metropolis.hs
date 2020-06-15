@@ -30,7 +30,7 @@ import           System.Random.MWC
 import           Mcmc.Item
 import           Mcmc.Mcmc
 import           Mcmc.Move
-import           Mcmc.Status
+import           Mcmc.Data
 import           Mcmc.Trace
 
 import           Mcmc.Tools.Shuffle
@@ -104,12 +104,12 @@ mhBurnIn b (Just t)
   | t <= 0    = error "mhBurnIn: Auto tuning period smaller equal 0."
   | b > t     = mhBurn t >> mhBurnIn (b - t) (Just t)
   | b <= t    = mhBurn b
-  | otherwise = error "mhRun: Please contact maintainer."
+  | otherwise = error "mhBurnIn: Please contact maintainer."
 mhBurnIn b Nothing = mhNIter b
 
 mhRun :: Maybe Int -> Maybe Int -> Int -> Mcmc a ()
 mhRun (Just b) t n
-  | b <= 0 = error "mhBurnIn: Number of burn in iterations smaller equal 0."
+  | b <= 0 = error "mhRun: Number of burn in iterations smaller equal 0."
   | otherwise = do
     liftIO $ putStrLn $ "-- Burn in for " <> show b <> " cycles."
     mcmcMonitorHeader

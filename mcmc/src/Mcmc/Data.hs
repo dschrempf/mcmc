@@ -1,5 +1,5 @@
 {- |
-Module      :  Mcmc.Status
+Module      :  Mcmc.Data
 Description :  What is an MCMC?
 Copyright   :  (c) Dominik Schrempf 2020
 License     :  GPL-3.0-or-later
@@ -12,25 +12,21 @@ Creation date: Tue May  5 18:01:15 2020.
 
 -}
 
--- TODO: Think about how to save and restore an MCMC run. It is easy to save and
--- restore the current state and likelihood (or the trace), but it seems
--- impossible to store all the moves and so on. This means, that one should
--- allow restart of a chain only with the same executable (which contains the
--- moves etc). See https://hackage.haskell.org/package/executable-hash.
---
--- Idea: Separate Status into information stored on disk, and retrieved upon
--- continuing an analysis (item, trace, acceptance, generator, iteration;
--- something else?). Possibly limit the length of the trace to the maximum batch
--- size.
---
--- The moves, the posterior, and so on, have to be provided again for the next
--- analysis. Recompute and check the posterior for the last state because the
--- posterior function may have changed. Of course, we cannot test for the same
--- function, but having the same posterior at the last state is already a good
--- indicator.
+-- TODO: Continue an MCMC run. It is easy to save and restore the current state
+-- and likelihood (or the trace), but it is not feasible to store all the moves
+-- and so on, so they have to be provided again ('Spec' data type).
 
-module Mcmc.Status
-  ( Spec(..)
+-- TODO: upon continuation: recompute and check the posterior for the last state
+-- because the posterior function may have changed. Of course, we cannot test
+-- for the same function, but having the same posterior at the last state is
+-- already a good indicator.
+
+-- TODO: Possibly limit the length of the trace to the maximum batch size.
+
+module Mcmc.Data
+  ( McmcData(..)
+  , mcmc
+  , Spec(..)
   , spec
   , Status(..)
   , status
@@ -48,7 +44,29 @@ import           Mcmc.Monitor
 import           Mcmc.Move
 import           Mcmc.Trace
 
--- TODO: Give Spec its own module?
+-- | All we need to run a chain combined in one data type. 'Status' and 'Spec'
+-- are separated such that storable information can be written to disc and
+-- restored to continue a Markov chain run.
+data McmcData a = McmcData
+  {
+    mcmcStatus :: Status a
+  , mcmcSpec   :: Spec a
+  }
+
+-- | All we need to run a chain combined in one data type.
+mcmc
+  :: (a -> Log Double) -- ^ The log-prior function.
+  -> (a -> Log Double) -- ^ The log-likelihood function.
+  -> Cycle a           -- ^ A list of 'Move's executed in forward order. The
+                       -- chain will be logged after each cycle.
+  -> Monitor a         -- ^ A 'Monitor' observing the chain.
+  -> a                 -- ^ The initial state in the state space @a@.
+  -> GenIO             -- ^ A source of randomness. For reproducible runs, make
+                       -- sure to use a generator with the same seed.
+  -> McmcData a
+mcmc p l c m x g = McmcData st sp
+  where sp = spec p l c m
+        st = status sp x g
 
 -- | The 'Spec'ification of an MCMC run. The 'Spec' includes the log prior and
 -- log likelihood functions, instructions to move around the state space and to
@@ -72,6 +90,11 @@ data Spec a = Spec
   , totalIterations :: Maybe Int
   }
 
+-- | Initialize the 'Spec'ification of a Markov chain Monte Carlo run.
+--
+-- The 'Spec' of a Markov chain includes instructions about how to calculate the
+-- prior, and the likelihood, about how to 'Move' around the state space, and
+-- what should be monitored, as well as other auxiliary information.
 spec
   :: (a -> Log Double) -- ^ The log-prior function.
   -> (a -> Log Double) -- ^ The log-likelihood function.
@@ -83,6 +106,9 @@ spec p l c m = Spec p l c m Nothing Nothing
 
 -- TODO: Add possibility to store supplementary information about the chain.
 -- Should I put the information into Spec or Status?
+--
+-- Maybe something like Trace b; and give a function a -> b to extract
+-- supplementary info.
 
 -- | The 'Status' of an MCMC run. Information that can be saved to disc, so that
 -- a chain can be continued. See 'status' for creation.
@@ -110,8 +136,9 @@ data Status a = Status
 
 -- | Initialize the 'Status' of a Markov chain Monte Carlo run.
 --
--- The 'Status' of a Markov chain includes information about the 'Move's, the
--- 'Trace', 'Acceptance' ratios, and more.
+-- The 'Status' of a Markov chain includes information about current state
+-- ('Item'), the 'Trace', the 'Acceptance' ratios, and the random number
+-- generator.
 status
   :: Spec a
   -> a                 -- ^ The initial state in the state space @a@.

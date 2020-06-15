@@ -33,7 +33,6 @@ import           System.Random.MWC
 
 import           Mcmc
 
-import Mcmc.Mcmc
 import           Mcmc.Item
 import           Mcmc.Trace
 
@@ -97,12 +96,8 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  let sp = spec (const 1) likelihood moveCycle mon
-      st = status sp initial g
-  s <- mh nBurn
-          nAutoTune
-          nIter
-          (McmcData st sp)
+  let d = mcmc (const 1) likelihood moveCycle mon initial g
+  s <- mh nBurn nAutoTune nIter d
   putStrLn "Mean and standard deviations of:"
   let xs       = map state . fromTrace . trace $ mcmcStatus s
       (ra, rb) = summarize xs
