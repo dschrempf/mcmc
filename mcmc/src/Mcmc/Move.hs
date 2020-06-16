@@ -94,6 +94,7 @@ module Mcmc.Move
   )
 where
 
+import           Data.Aeson
 import           Data.Function
 import qualified Data.Map.Strict               as M
 import           Data.Map.Strict                ( Map )
@@ -300,6 +301,13 @@ summarizeCycle acc c =
 -- proposals. For reasons of efficiency, the lists are stored in reverse order;
 -- latest first.
 newtype Acceptance k = Acceptance { fromAcceptance :: Map k [Bool] }
+
+instance ToJSONKey k => ToJSON (Acceptance k) where
+  toJSON (Acceptance m) = toJSON m
+  toEncoding (Acceptance m) = toEncoding m
+
+instance (Ord k, FromJSONKey k) => FromJSON (Acceptance k) where
+  parseJSON v = Acceptance <$> parseJSON v
 
 -- | In the beginning there was the Word.
 --

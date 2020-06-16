@@ -12,8 +12,6 @@ Creation date: Tue May  5 18:01:15 2020.
 
 -}
 
--- TODO: Possibly limit the length of the trace to the maximum batch size.
-
 -- TODO: Add possibility to store supplementary information about the chain.
 --
 -- Maybe something like Trace b; and give a function a -> b to extract

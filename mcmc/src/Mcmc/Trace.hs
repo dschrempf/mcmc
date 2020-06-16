@@ -12,6 +12,12 @@ Creation date: Wed May 20 09:11:25 2020.
 
 -}
 
+-- TODO: Possibly limit the length of the trace to the maximum batch size.
+--
+-- This could be achieved with a special data structure storing a fixed sized
+-- vector together with the current index. However, I couldn't find such a
+-- structure on Hackage.
+
 module Mcmc.Trace
   ( Trace(..)
   , prependT
@@ -19,7 +25,6 @@ module Mcmc.Trace
 where
 
 import           Data.Aeson
--- import           Data.Aeson.TH
 
 import           Mcmc.Item
 
@@ -38,6 +43,7 @@ instance Monoid (Trace a) where
 instance ToJSON a => ToJSON (Trace a) where
   toJSON (Trace xs) = toJSON xs
   toEncoding (Trace xs) = toEncoding xs
+
 instance FromJSON a => FromJSON (Trace a)  where
   parseJSON v = Trace <$> parseJSONList v
 

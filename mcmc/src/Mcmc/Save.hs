@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 {- |
 Module      :  Mcmc.Save
 Description :  Save the state of a Markov chain
@@ -23,28 +25,40 @@ Creation date: Tue Jun 16 10:18:54 2020.
 
 
 module Mcmc.Save
-  (
-  ) where
+  ()
+where
 
--- import           Data.Aeson
+import           Data.Aeson
+import qualified Data.Vector.Unboxed           as V
+import           Data.Vector.Unboxed            ( Vector )
+import           Data.Word
 
--- data Save = Save (Item a) Int (Trace a) ACCEPTANCE GEN
+import           Numeric.Log
 
--- TODO THIS DOES NOT WORK! AN INTERMEDIATE DATA STRUCTURE IS NECESSARY. THIS
--- AGAIN, RAISES THE QUESTION; SHOULD I COMBINE THE TWO AGAIN??
---
---
---
--- instance (ToJSON a) => ToJSON (Status a) where
---   toJSON (Status s i t a g) = object
---     [
---       "s" .= s
---     , "i" .= i
---     , "t" .= t
---     , "a" .= a
---     , "g" .= g -- TODO
---     ]
---   toEncoding = undefined
+import           Mcmc.Item
+import           Mcmc.Monitor
+import           Mcmc.Move
+import           Mcmc.Status
+import           Mcmc.Trace
 
--- instance (FromJSON a) => FromJSON (Status a) where
---   parseJSON = undefined
+import           System.Random.MWC
+
+-- | Information about a Markov chain run, which can be (and is) stored on disk.
+data Save a = Save (Item a) Int (Trace a) (Acceptance Int) (Vector Word32)
+
+instance (ToJSON a) => ToJSON (Save a) where
+  toJSON (Save s i t a g) =
+    object ["s" .= s, "i" .= i, "t" .= t, "a" .= a, "g" .= g]
+  toEncoding (Save s i t a g) =
+    pairs ("s" .= s <> "i" .= i <> "t" .= t <> "a" .= a <> "g" .= g)
+
+instance (FromJSON a) => FromJSON (Save a) where
+  parseJSON = withObject "Save" $ \v ->
+    Save <$> v .: "s" <*> v .: "i" <*> v .: "t" <*> v .: "a" <*> v .: "g"
+
+toSave :: Status a -> Save a
+toSave = undefined
+
+-- fromSav logprior logllh cycle monitor save
+fromSave :: (a -> Log Double) -> (a -> Log Double) -> Cycle a -> Monitor a -> Save a -> Status a
+fromSave = undefined
