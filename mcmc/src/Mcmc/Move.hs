@@ -86,7 +86,7 @@ module Mcmc.Move
   , mapCycle
   , summarizeCycle
     -- * Acceptance
-  , Acceptance
+  , Acceptance(..)
   , empty
   , prependA
   , resetA
@@ -230,8 +230,9 @@ addMove m c | m `notElem` fromCycle c = Cycle $ m : fromCycle c
 
 -- | Create a 'Cycle' from a list of 'Move's.
 fromList :: [Move a] -> Cycle a
-fromList []     = error "fromList: Received an empty list but cannot create an empty Cycle."
-fromList (x:xs) = foldr addMove (Cycle [x]) xs
+fromList [] =
+  error "fromList: Received an empty list but cannot create an empty Cycle."
+fromList (x : xs) = foldr addMove (Cycle [x]) xs
 
 -- Always check that the names are unique, because they are used to identify the
 -- moves.

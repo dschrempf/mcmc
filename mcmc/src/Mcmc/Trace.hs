@@ -19,8 +19,11 @@ Creation date: Wed May 20 09:11:25 2020.
 -- structure on Hackage.
 
 module Mcmc.Trace
-  ( Trace(..)
+  ( Trace (fromTrace)
+  , singleton
   , prependT
+  , pop
+  , takeN
   )
 where
 
@@ -49,7 +52,19 @@ instance FromJSON a => FromJSON (Trace a)  where
 
 -- $(deriveJSON defaultOptions 'Trace)
 
+-- | The empty trace.
+singleton :: Item a -> Trace a
+singleton i = Trace [i]
+
 -- | Prepend an 'Item' to a 'Trace'.
 prependT :: Item a -> Trace a -> Trace a
 prependT x (Trace xs) = Trace (x : xs)
 {-# INLINABLE prependT #-}
+
+-- | Get the most recent item of the trace.
+pop :: Trace a -> Item a
+pop = head . fromTrace
+
+-- | Get the N most recent item of the trace.
+takeN :: Int -> Trace a -> Trace a
+takeN n = Trace . take n . fromTrace

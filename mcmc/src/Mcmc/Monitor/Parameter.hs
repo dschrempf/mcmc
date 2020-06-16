@@ -20,10 +20,13 @@ module Mcmc.Monitor.Parameter
   , monitorRealFloat
   , monitorRealFloatF
   , monitorRealFloatS
+  -- , monitorBatchInt
+  -- , monitorBatchRealFloat
+  -- , monitorBatchRealFloatF
+  -- , monitorBatchRealFloatS
   )
 where
 
--- import qualified Data.Text.Lazy         as T
 import qualified Data.Text.Lazy.Builder.Int    as T
 import qualified Data.Text.Lazy.Builder.RealFloat
                                                as T
@@ -35,15 +38,14 @@ import           Lens.Micro
 data MonitorParameter a = MonitorParameter
   {
     mpName :: Text         -- ^ Name of parameter.
-  , mpFunc :: a -> Builder -- ^ Instruction about how to extract the parameter
-                           -- from the state.
+  , mpFunc :: a -> Builder -- ^ Instruction about how to extract the parameter from the state.
   }
 
 -- | Monitor integral parameters such as 'Int'.
 monitorInt
   :: Integral b
-  => Text -- ^ Name of monitor.
-  -> Lens' a b
+  => Text      -- ^ Name of monitor.
+  -> Lens' a b -- ^ Instruction about which parameter to monitor.
   -> MonitorParameter a
 monitorInt n l = MonitorParameter n (\x -> T.decimal $ x ^. l)
 
@@ -51,8 +53,8 @@ monitorInt n l = MonitorParameter n (\x -> T.decimal $ x ^. l)
 -- (half precision).
 monitorRealFloat
   :: RealFloat b
-  => Text -- ^ Name of monitor.
-  -> Lens' a b
+  => Text      -- ^ Name of monitor.
+  -> Lens' a b -- ^ Instruction about which parameter to monitor.
   -> MonitorParameter a
 monitorRealFloat n l =
   MonitorParameter n (\x -> T.formatRealFloat T.Fixed (Just 8) $ x ^. l)
@@ -60,8 +62,8 @@ monitorRealFloat n l =
 -- | Monitor real float parameters such as 'Double' with full precision.
 monitorRealFloatF
   :: RealFloat b
-  => Text -- ^ Name of monitor.
-  -> Lens' a b
+  => Text      -- ^ Name of monitor.
+  -> Lens' a b -- ^ Instruction about which parameter to monitor.
   -> MonitorParameter a
 monitorRealFloatF n l = MonitorParameter n (\x -> T.realFloat $ x ^. l)
 
@@ -69,8 +71,52 @@ monitorRealFloatF n l = MonitorParameter n (\x -> T.realFloat $ x ^. l)
 -- eight decimal places.
 monitorRealFloatS
   :: RealFloat b
-  => Text -- ^ Name of monitor.
-  -> Lens' a b
+  => Text      -- ^ Name of monitor.
+  -> Lens' a b -- ^ Instruction about which parameter to monitor.
   -> MonitorParameter a
-monitorRealFloatS n l =
-  MonitorParameter n (\x -> T.formatRealFloat T.Exponent (Just 8) $ x ^. l)
+monitorRealFloatS n l = MonitorParameter
+  n
+  (\x -> T.formatRealFloat T.Exponent (Just 8) $ x ^. l)
+
+-- TODO: Create separate data structure. For batch monitors.
+
+-- -- | Batch monitor integral parameters such as 'Int'.
+-- monitorBatchInt
+--   :: Integral b
+--   => Text       -- ^ Name of monitor.
+--   -> Lens' a b  -- ^ Instruction about which parameter to monitor.
+--   -> ([b] -> b) -- ^ Function to calculate batch mean.
+--   -> MonitorParameter a
+-- monitorBatchInt n l f = MonitorParameter n (T.decimal . f . map (^. l))
+
+-- -- | Batch monitor real float parameters such as 'Double' with eight decimal
+-- -- places (half precision).
+-- monitorBatchRealFloat
+--   :: RealFloat b
+--   => Text       -- ^ Name of monitor.
+--   -> Lens' a b  -- ^ Instruction about which parameter to monitor.
+--   -> ([b] -> b) -- ^ Function to calculate batch mean.
+--   -> MonitorParameter a
+-- monitorBatchRealFloat n l f =
+--   MonitorParameter n (T.formatRealFloat T.Fixed (Just 8) . f . map (^. l))
+
+-- -- | Batch monitor real float parameters such as 'Double' with full precision.
+-- monitorBatchRealFloatF
+--   :: RealFloat b
+--   => Text       -- ^ Name of monitor.
+--   -> Lens' a b  -- ^ Instruction about which parameter to monitor.
+--   -> ([b] -> b) -- ^ Function to calculate batch mean.
+--   -> MonitorParameter a
+-- monitorBatchRealFloatF n l f =
+--   MonitorParameter n (T.realFloat . f . map (^. l))
+
+-- -- | Batch monitor real float parameters such as 'Double' with scientific
+-- -- notation and eight decimal places.
+-- monitorBatchRealFloatS
+--   :: RealFloat b
+--   => Text       -- ^ Name of monitor.
+--   -> Lens' a b  -- ^ Instruction about which parameter to monitor.
+--   -> ([b] -> b) -- ^ Function to calculate batch mean.
+--   -> MonitorParameter a
+-- monitorBatchRealFloatS n l f =
+--   MonitorParameter n (T.formatRealFloat T.Exponent (Just 8) . f . map (^. l))

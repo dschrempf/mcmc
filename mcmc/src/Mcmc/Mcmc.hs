@@ -15,8 +15,7 @@ Creation date: Fri May 29 10:19:45 2020.
 -}
 
 module Mcmc.Mcmc
-  (
-    Mcmc
+  ( Mcmc
   , mcmcAutotune
   , mcmcSummarizeCycle
   , mcmcInit
@@ -36,7 +35,6 @@ import qualified Data.Text.Lazy.IO             as T
 import           Data.Time.Clock
 import           Data.Time.Format
 
-import           Mcmc.Item
 import           Mcmc.Monitor
 import           Mcmc.Monitor.Time
 import           Mcmc.Move
@@ -83,7 +81,7 @@ mcmcInit n = do
   t <- liftIO getCurrentTime
   liftIO $ putStrLn $ "-- Start time: " <> fTime t
   s <- get
-  let m  = monitor s
+  let m = monitor s
   m' <- liftIO $ mOpen m
   put $ s { monitor = m', starttime = Just t, totalIterations = Just n }
 
@@ -98,23 +96,23 @@ mcmcMonitorExec :: Mcmc a ()
 mcmcMonitorExec = do
   s  <- get
   ct <- liftIO getCurrentTime
-  let i  = iteration s
-      j  = fromMaybe
+  let i = iteration s
+      j = fromMaybe
         (error "mcmcMonitorExec: Total number of iterations not set.")
         (totalIterations s)
-      (Item x p l) = item s
-      m            = monitor s
-      mst          = starttime s
-      dt           = case mst of
+      m   = monitor s
+      mst = starttime s
+      dt  = case mst of
         Nothing -> error "mcmcMonitorExec: Start time not set."
-        Just st  -> ct `diffUTCTime` st
-  liftIO $ mExec i p l dt x j m
+        Just st -> ct `diffUTCTime` st
+      tr = trace s
+  liftIO $ mExec i dt tr j m
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: Mcmc a ()
 mcmcClose = do
   s <- get
-  let m  = monitor s
+  let m = monitor s
   m' <- liftIO $ mClose m
   put $ s { monitor = m' }
   t <- liftIO getCurrentTime
