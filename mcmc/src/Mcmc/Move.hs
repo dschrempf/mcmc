@@ -206,8 +206,6 @@ ratioOpt = 0.44
 -- 'Move' and tune towards an acceptance ratio accounting for the number of
 -- dimensions.
 autotune :: Double -> Move a -> Maybe (Move a)
--- XXX: The tuning parameter is experimental; other distributions could be
--- tried.
 autotune a = tune (a / ratioOpt)
 
 -- | In brief, a 'Cycle' is a list of moves. The state of the Markov chain will
@@ -220,7 +218,8 @@ autotune a = tune (a / ratioOpt)
 -- 'Cycle'. However, if a 'Move' has weight @w@, it is executed exactly @w@
 -- times per iteration.
 newtype Cycle a = Cycle { fromCycle :: [Move a] }
--- XXX: A classical list is used, and not 'Data.List.NonEmpty' (keep things
+-- A classical list is used, and not 'Data.List.NonEmpty'; however, cycles can
+-- only be created with 'fromList', and the empty list is rejected (keep things
 -- simple).
 
 -- | Add a 'Move' to the 'Cycle'. The name of the added 'Move' must be unique.
@@ -231,15 +230,13 @@ addMove m c | m `notElem` fromCycle c = Cycle $ m : fromCycle c
 
 -- | Create a 'Cycle' from a list of 'Move's.
 fromList :: [Move a] -> Cycle a
-fromList = foldr addMove mempty
+fromList []     = error "fromList: Received an empty list but cannot create an empty Cycle."
+fromList (x:xs) = foldr addMove (Cycle [x]) xs
 
 -- Always check that the names are unique, because they are used to identify the
 -- moves.
 instance Semigroup (Cycle a) where
   l <> (Cycle xs) = foldr addMove l xs
-
-instance Monoid (Cycle a) where
-  mempty = Cycle []
 
 -- | Change 'Move's in 'Cycle'.
 mapCycle :: (Move a -> Move a) -> Cycle a -> Cycle a
@@ -296,6 +293,9 @@ summarizeCycle acc c =
     Nothing     -> M.empty
     Just (n, a) -> acceptanceRatios n a
   ar m = ars M.!? m
+
+-- XXX: I am not too happy about this data type but cannot think of a better
+-- solution.
 
 -- | For each key @k@, store the list of accepted (True) and rejected (False)
 -- proposals. For reasons of efficiency, the lists are stored in reverse order;
