@@ -27,7 +27,6 @@ source-repository head
 library
   exposed-modules:
       Mcmc
-      Mcmc.Data
       Mcmc.Item
       Mcmc.Mcmc
       Mcmc.Metropolis
@@ -39,6 +38,8 @@ library
       Mcmc.Move.Generic
       Mcmc.Move.Scale
       Mcmc.Move.Slide
+      Mcmc.Save
+      Mcmc.Status
       Mcmc.Tools.Shuffle
       Mcmc.Trace
   other-modules:

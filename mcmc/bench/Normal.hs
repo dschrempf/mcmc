@@ -70,9 +70,9 @@ nIter = 20000
 
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  let d = mcmc (const 1) likelihood moveCycle mon 0 g
-  s <- mh nBurn nAutoTune nIter d
-  let t = map state . fromTrace . trace $ mcmcStatus s
+  let s = status (const 1) likelihood moveCycle mon 0 g
+  r <- mh nBurn nAutoTune nIter s
+  let t = map state . fromTrace $ trace r
   putStrLn "Mean and standard deviations:"
   putStrLn $ "True: " ++ show (trueMean, trueStdDev)
   putStrLn $ "Markov chain: " <> show (summarize t)

@@ -49,7 +49,7 @@ module Mcmc
   , module Mcmc.Move.Slide
   , module Mcmc.Move.Scale
     -- * Initialization
-  , module Mcmc.Data
+  , module Mcmc.Status
   , module Mcmc.Monitor
   , module Mcmc.Monitor.Parameter
     -- * Algorithms
@@ -57,10 +57,10 @@ module Mcmc
   )
 where
 
-import           Mcmc.Data
 import           Mcmc.Metropolis
 import           Mcmc.Monitor
 import           Mcmc.Monitor.Parameter
 import           Mcmc.Move
 import           Mcmc.Move.Scale
 import           Mcmc.Move.Slide
+import           Mcmc.Status

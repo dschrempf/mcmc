@@ -96,10 +96,10 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  let d = mcmc (const 1) likelihood moveCycle mon initial g
-  s <- mh nBurn nAutoTune nIter d
+  let s = status (const 1) likelihood moveCycle mon initial g
+  r <- mh nBurn nAutoTune nIter s
   putStrLn "Mean and standard deviations of:"
-  let xs       = map state . fromTrace . trace $ mcmcStatus s
+  let xs       = map state . fromTrace $ trace r
       (ra, rb) = summarize xs
   putStrLn $ "Alpha: " <> show ra
   putStrLn $ "Beta: " <> show rb

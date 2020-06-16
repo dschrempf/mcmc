@@ -30,7 +30,7 @@ import           System.Random.MWC
 import           Mcmc.Item
 import           Mcmc.Mcmc
 import           Mcmc.Move
-import           Mcmc.Data
+import           Mcmc.Status
 import           Mcmc.Trace
 
 import           Mcmc.Tools.Shuffle
@@ -43,14 +43,12 @@ mhMove :: Move a -> Mcmc a ()
 mhMove m = do
   let p = mvSample $ mvSimple m
       q = mvLogDensity $ mvSimple m
-  d <- get
-  let sp             = mcmcSpec d
-      st             = mcmcStatus d
-      (Item x pX lX) = item st
-      pF             = logPriorF sp
-      lF             = logLikelihoodF sp
-      a              = acceptance st
-      g              = generator st
+  s <- get
+  let (Item x pX lX) = item s
+      pF             = logPriorF s
+      lF             = logLikelihoodF s
+      a              = acceptance s
+      g              = generator s
   -- 1. Sample new state.
   !y <- liftIO $ p x g
   -- 2. Calculate Metropolis-Hastings ratio.
@@ -58,14 +56,13 @@ mhMove m = do
       !lY = lF y
       !r  = mhRatio (pX * lX) (pY * lY) (q x y) (q y x)
   -- 3. Accept or reject.
-  !st' <- if ln r >= 0.0
-    then return $ st { item = Item y pY lY, acceptance = prependA m True a }
+  if ln r >= 0.0
+    then put $ s { item = Item y pY lY, acceptance = prependA m True a }
     else do
       b <- uniform g
       if b < exp (ln r)
-        then return $ st { item = Item y pY lY, acceptance = prependA m True a }
-        else return $ st { acceptance = prependA m False a }
-  put d { mcmcStatus = st' }
+        then put $ s { item = Item y pY lY, acceptance = prependA m True a }
+        else put $ s { acceptance = prependA m False a }
 
 -- Replicate 'Move's according to their weights and shuffle them.
 getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
@@ -77,19 +74,17 @@ mhIter :: [Move a] -> Mcmc a ()
 mhIter mvs = do
   mcmcMonitorExec
   mapM_ mhMove mvs
-  d <- get
-  let st  = mcmcStatus d
-      i   = item st
-      t   = trace st
-      n   = iteration st
-      st' = st { trace = prependT i t, iteration = succ n }
-  put d { mcmcStatus = st' }
+  s <- get
+  let i   = item s
+      t   = trace s
+      n   = iteration s
+  put $ s { trace = prependT i t, iteration = succ n }
 
 -- Run N iterations.
 mhNIter :: Int -> Mcmc a ()
 mhNIter n = do
-  c      <- gets $ cycle . mcmcSpec
-  g      <- gets $ generator . mcmcStatus
+  c      <- gets cycle
+  g      <- gets generator
   cycles <- liftIO $ getNCycles c n g
   forM_ cycles mhIter
 
@@ -149,8 +144,8 @@ mh
   -> Maybe Int -- ^ Auto tuning period (only during burn in); deactivate auto tuning
                -- completely with 'Nothing'.
   -> Int       -- ^ Number of Metropolis-Hastings iterations (without auto tuning).
-  -> McmcData a  -- ^ Initial 'Status' and 'Spec' of the Markov chain.
-  -> IO (McmcData a)
+  -> Status a  -- ^ Initial (or last) 'Status' of the Markov chain.
+  -> IO (Status a)
 mh b t n = execStateT
   (do
     mcmcInit (maybe n (+ n) b)

@@ -140,6 +140,9 @@ instance Ord (Move a) where
 -- However, we may need more information about the move for other MCMC samplers
 -- different from Metropolis-Hastings.
 
+-- TODO: MvLogDensity could be a maybe type so that it is not computed for
+-- symmetric moves.
+
 -- | Simple move without tuning information.
 --
 -- In order to calculate the Metropolis-Hastings ratio, we need to know the
