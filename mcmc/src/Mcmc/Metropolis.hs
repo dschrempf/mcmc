@@ -97,7 +97,7 @@ mhBurn n = do
   mhNIter n
   mcmcAutotune n
 
--- Burn in with or without auto tuning.
+-- TODO: This is a hack; mhRun should be split into mhBurnIn, and mhRun.
 mhBurnIn :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
 mhBurnIn b (Just t)
   | t <= 0    = error "mhBurnIn: Auto tuning period smaller equal 0."
@@ -106,6 +106,7 @@ mhBurnIn b (Just t)
   | otherwise = error "mhBurnIn: Please contact maintainer."
 mhBurnIn b Nothing = mhNIter b
 
+-- TODO: This is a hack; mhRun should be split into mhBurnIn, and mhRun.
 mhRun :: ToJSON a => Maybe Int -> Maybe Int -> Int -> Mcmc a ()
 mhRun (Just b) t n
   | b <= 0 = error "mhRun: Number of burn in iterations smaller equal 0."
@@ -123,38 +124,23 @@ mhRun Nothing _ n = do
   mcmcMonitorHeader
   mhNIter n
 
-mhReport :: Maybe Int -> Maybe Int -> Int -> IO ()
-mhReport b t n = do
-  putStrLn "-- Start of Metropolis-Hastings sampler."
-  case b of
-    Just b' -> putStrLn $ "-- Burn in for " <> show b' <> " iterations."
-    Nothing -> return ()
-  case t of
-    Just t' ->
-      putStrLn
-        $  "-- Auto tune every "
-        <> show t'
-        <> " iterations (during burn in only)."
-    Nothing -> return ()
-  putStrLn $ "-- Run chain for " <> show n <> " iterations."
-
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 --
 -- Of course, the given status can also be the result of a paused chain.
 mh
   :: ToJSON a
-  => Maybe Int -- ^ Number of iterations to complete during burn in; deactivate
-               -- burn in with 'Nothing'.
-  -> Maybe Int -- ^ Auto tuning period (only during burn in); deactivate auto tuning
-               -- completely with 'Nothing'.
-  -> Int       -- ^ Number of Metropolis-Hastings iterations (without auto tuning).
-  -> Status a  -- ^ Initial (or last) 'Status' of the Markov chain.
+  => Status a  -- ^ Initial (or last) 'Status' of the Markov chain.
   -> IO (Status a)
-mh b t n = execStateT
+mh = execStateT
   (do
-    mcmcInit (maybe n (+ n) b)
-    liftIO $ mhReport b t n
+    mcmcInit
+    mcmcReport
     mcmcSummarizeCycle Nothing
+    -- TODO: This is a hack; mhRun should be split into mhBurnIn, and mhRun.
+    s <- get
+    let b = burnInIterations s
+        t = autoTuningPeriod s
+        n = iterations s
     mhRun b t n
     mcmcMonitorExec
     mcmcSummarizeCycle (Just n)

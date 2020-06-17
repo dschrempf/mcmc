@@ -17,6 +17,17 @@ Creation date: Tue May  5 18:01:15 2020.
 -- Maybe something like Trace b; and give a function a -> b to extract
 -- supplementary info.
 
+-- TODO: Status tuned exclusively to the Metropolis-Hastings algorithm. We
+-- should abstract the algorithm from the chain. For example,
+--
+-- @
+-- data Status a b = Status { Chain a; Algorithm a b}
+-- @
+--
+-- where a described the state space and b the auxiliary information of the
+-- algorithm. This would also solve the above problem, for example in terms of
+-- the Hamiltonian algorithm
+
 module Mcmc.Status
   ( Status(..)
   , status
@@ -48,41 +59,47 @@ data Status a = Status
   {
     -- Variables saved to disc.
     -- | The name of the MCMC chain; used as file prefix.
-    name            :: String
+    name       :: String
     -- | The current 'Item' of the chain combines the current state and the
     -- current log-likelihood.
-  , item            :: Item a
+  , item       :: Item a
     -- | The iteration is the number of completed cycles.
-  , iteration       :: Int
+  , iteration  :: Int
     -- | The 'Trace' of the Markov chain in reverse order, the most recent
     -- 'Item' is at the head of the list.
-  , trace           :: Trace a
+  , trace      :: Trace a
     -- | For each 'Move', store the list of accepted (True) and rejected (False)
     -- proposals; for reasons of efficiency, the list is also stored in reverse
     -- order.
-  , acceptance      :: Acceptance (Move a)
+  , acceptance :: Acceptance (Move a)
+    -- | Number of burn in iterations; deactivate burn in with 'Nothing'.
+  , burnInIterations :: Maybe Int
+    -- | Auto tuning period (only during burn in); deactivate auto tuning with
+    -- 'Nothing'.
+  , autoTuningPeriod :: Maybe Int
+    -- | Number of normal iterations excluding burn in. Note that auto tuning
+    -- only happens during burn in.
+  , iterations       :: Int
+    -- | Starting time of chain; used to calculate run time and ETA.
+  , starttime        :: Maybe UTCTime
+    -- | time of last save.
+  , savetime         :: Maybe UTCTime
     -- | The random number generator.
-  , generator       :: GenIO
+  , generator  :: GenIO
 
-    -- Auxiliary variables and functions.
+    -- Auxiliary functions.
     -- | The log-prior function. The un-normalized log-posterior is the sum of
     -- the log-prior and the log-likelihood.
-  , logPriorF       :: a -> Log Double
+  , logPriorF        :: a -> Log Double
     -- | The log-likelihood function. The un-normalized log-posterior is the sum
     -- of the log-prior and the log-likelihood.
-  , logLikelihoodF  :: a -> Log Double
+  , logLikelihoodF   :: a -> Log Double
+
+    -- Variables related to the algorithm.
     -- | A set of 'Move's form a 'Cycle'.
-  , cycle           :: Cycle a
+  , cycle            :: Cycle a
     -- | A 'Monitor' observing the chain.
-  , monitor         :: Monitor a
-    -- TODO: This should not be a Maybe, but properly initialized from the
-    -- beginning. Also the burn in and auto tune should be in Status.
-    -- | Total number of iterations.
-  , totalIterations :: Maybe Int
-    -- | Starting time of chain; used to calculate run time and ETA.
-  , starttime       :: Maybe UTCTime
-    -- | time of last save.
-  , savetime        :: Maybe UTCTime
+  , monitor          :: Monitor a
   }
 
 -- | Initialize the 'Status' of a Markov chain Monte Carlo run.
@@ -94,20 +111,27 @@ status
                        -- chain will be logged after each cycle.
   -> Monitor a         -- ^ A 'Monitor' observing the chain.
   -> a                 -- ^ The initial state in the state space @a@.
+  -> Maybe Int         -- ^ Number of burn in iterations; deactivate burn in with 'Nothing'.
+  -> Maybe Int         -- ^ Auto tuning period (only during burn in); deactivate
+                       -- auto tuning with 'Nothing'.
+  -> Int               -- ^ Number of normal iterations excluding burn in. Note
+                       -- that auto tuning only happens during burn in.
   -> GenIO             -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
   -> Status a
-status n p l c m x g = Status n
-                              i
-                              0
-                              (singletonT i)
-                              (emptyA $ fromCycle c)
-                              g
-                              p
-                              l
-                              c
-                              m
-                              Nothing
-                              Nothing
-                              Nothing
+status n p l c m x mB mT nI g = Status n
+                                i
+                                0
+                                (singletonT i)
+                                (emptyA $ fromCycle c)
+                                mB
+                                mT
+                                nI
+                                Nothing
+                                Nothing
+                                g
+                                p
+                                l
+                                c
+                                m
   where i = Item x (p x) (l x)

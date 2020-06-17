@@ -49,6 +49,7 @@ import           Mcmc.Trace
 
 import           System.Random.MWC
 
+-- TODO: Use record syntax and TH deriving, easier.
 -- | Information about a Markov chain run, which can be (and is) stored on disk.
 data Save a = Save String (Item a) Int (Trace a) (Acceptance Int) (Vector Word32)
 

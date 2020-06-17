@@ -19,6 +19,7 @@ module Mcmc.Mcmc
   , mcmcAutotune
   , mcmcSummarizeCycle
   , mcmcInit
+  , mcmcReport
   , mcmcMonitorHeader
   , mcmcMonitorExec
   , mcmcClose
@@ -79,15 +80,36 @@ fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
 
 -- | Set the total number of iterations, the current time and open the
 -- 'Monitor's of the chain. See 'mOpen'.
-mcmcInit :: Int -> Mcmc a ()
-mcmcInit n = do
+mcmcInit :: Mcmc a ()
+mcmcInit = do
   t <- liftIO getCurrentTime
   liftIO $ putStrLn $ "-- Start time: " <> fTime t
   s <- get
   let m  = monitor s
       nm = name s
   m' <- liftIO $ mOpen nm m
-  put $ s { monitor = m', starttime = Just t, totalIterations = Just n }
+  put $ s { monitor = m', starttime = Just t}
+
+-- TODO: This is now tuned to MH, which should not be the case.
+-- | Report what is going to be done.
+mcmcReport :: Mcmc a ()
+mcmcReport = do
+  s <- get
+  let b = burnInIterations s
+      t = autoTuningPeriod s
+      n = iterations s
+  liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
+  case b of
+    Just b' -> liftIO $ putStrLn $ "-- Burn in for " <> show b' <> " iterations."
+    Nothing -> return ()
+  case t of
+    Just t' ->
+      liftIO $ putStrLn
+        $  "-- Auto tune every "
+        <> show t'
+        <> " iterations (during burn in only)."
+    Nothing -> return ()
+  liftIO $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
 
 -- | Print header line of 'Monitor' (only standard output).
 mcmcMonitorHeader :: Mcmc a ()
@@ -111,9 +133,7 @@ mcmcMonitorExec = do
   s  <- get
   ct <- liftIO getCurrentTime
   let i = iteration s
-      j = fromMaybe
-        (error "mcmcMonitorExec: Total number of iterations not set.")
-        (totalIterations s)
+      j = iterations s + fromMaybe 0 (burnInIterations s)
       m   = monitor s
       mst = starttime s
       dt  = case mst of
