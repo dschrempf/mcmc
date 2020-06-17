@@ -32,8 +32,6 @@ import           Statistics.Sample
 import           System.Random.MWC
 
 import           Mcmc
-
-import           Mcmc.Item
 import           Mcmc.Trace
 
 type I = (Double, Double)
@@ -99,7 +97,7 @@ poissonBench g = do
   let s = status (const 1) likelihood moveCycle mon initial g
   r <- mh nBurn nAutoTune nIter s
   putStrLn "Mean and standard deviations of:"
-  let xs       = map state . fromTrace $ trace r
+  let xs       = states $ trace r
       (ra, rb) = summarize xs
   putStrLn $ "Alpha: " <> show ra
   putStrLn $ "Beta: " <> show rb

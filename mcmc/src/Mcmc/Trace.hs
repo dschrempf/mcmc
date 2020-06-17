@@ -18,16 +18,24 @@ Creation date: Wed May 20 09:11:25 2020.
 -- vector together with the current index. However, I couldn't find such a
 -- structure on Hackage.
 
+-- XXX: Trace provided as an abstract data type, because the implementation
+-- should change from a list to a fixed sized vector with access index, see
+-- above.
+
 module Mcmc.Trace
-  ( Trace (fromTrace)
+  ( Trace
   , singleton
   , prependT
   , pop
   , takeN
+  , states
+  , logPriors
+  , logLikelihoods
   )
 where
 
 import           Data.Aeson
+import           Numeric.Log
 
 import           Mcmc.Item
 
@@ -68,3 +76,15 @@ pop = head . fromTrace
 -- | Get the N most recent item of the trace.
 takeN :: Int -> Trace a -> Trace a
 takeN n = Trace . take n . fromTrace
+
+-- | Get the actual states.
+states :: Trace a -> [a]
+states = map state . fromTrace
+
+-- | Get the log priors.
+logPriors :: Trace a -> [Log Double]
+logPriors = map logPrior . fromTrace
+
+-- | Get the log likelihoods.
+logLikelihoods :: Trace a -> [Log Double]
+logLikelihoods = map logPrior . fromTrace

@@ -17,15 +17,13 @@ Batch mean monitors.
 -}
 
 module Mcmc.Monitor.Batch
-  ( MonitorParameter(..)
+  ( MonitorBatch(..)
   , monitorBatchInt
   , monitorBatchRealFloat
   , monitorBatchRealFloatF
   , monitorBatchRealFloatS
   )
 where
-
--- TODO!
 
 import qualified Data.Text.Lazy.Builder.Int    as T
 import qualified Data.Text.Lazy.Builder.RealFloat
@@ -36,19 +34,23 @@ import           Lens.Micro
 
 import           Mcmc.Trace
 
--- | Instruction about a parameter to monitor.
+-- | Instruction about a parameter to monitor via batch means. Usually, the
+-- monitored parameter is average over the batch size. However, arbitrary
+-- functions performing more complicated analyses on the states in the batch can
+-- be provided.
+--
+-- XXX: Slow at the moment because the monitored parameter has to be extracted
+-- from the state for each iteration.
+--
+-- XXX: Even slower at the moment because normal lists are used.
 data MonitorBatch a = MonitorBatch
   {
     mpName :: Text               -- ^ Name of parameter.
   , mpFunc :: Trace a -> Builder -- ^ Instruction about how to extract the batch mean from the trace.
   }
 
--- TODO: Think about type of batch mean function. Probably Vector b -> b? ...
--- The trace type has to change!! But maybe, it is actually better to store the
--- parameters extracted by the monitors? I don't know.
---
--- It may be worth seeing if the implementation is too slow like this, and only
--- then, change.
+params :: Lens' a b -> [a] -> [b]
+params l = map (^. l)
 
 -- | Batch monitor integral parameters such as 'Int'.
 monitorBatchInt
@@ -57,7 +59,7 @@ monitorBatchInt
   -> Lens' a b  -- ^ Instruction about which parameter to monitor.
   -> ([b] -> b) -- ^ Function to calculate the batch mean.
   -> MonitorBatch a
-monitorBatchInt n l f = MonitorBatch n (T.decimal . f . map (^. l))
+monitorBatchInt n l f = MonitorBatch n (T.decimal . f . params l . states)
 
 -- | Batch monitor real float parameters such as 'Double' with eight decimal
 -- places (half precision).
@@ -68,7 +70,7 @@ monitorBatchRealFloat
   -> ([b] -> b) -- ^ Function to calculate the batch mean.
   -> MonitorBatch a
 monitorBatchRealFloat n l f =
-  MonitorBatch n (T.formatRealFloat T.Fixed (Just 8) . f . map (^. l))
+  MonitorBatch n (T.formatRealFloat T.Fixed (Just 8) . f . params l . states)
 
 -- | Batch monitor real float parameters such as 'Double' with full precision.
 monitorBatchRealFloatF
@@ -77,7 +79,7 @@ monitorBatchRealFloatF
   -> Lens' a b  -- ^ Instruction about which parameter to monitor.
   -> ([b] -> b) -- ^ Function to calculate the batch mean.
   -> MonitorBatch a
-monitorBatchRealFloatF n l f = MonitorBatch n (T.realFloat . f . map (^. l))
+monitorBatchRealFloatF n l f = MonitorBatch n (T.realFloat . f . params l . states)
 
 -- | Batch monitor real float parameters such as 'Double' with scientific
 -- notation and eight decimal places.
@@ -88,4 +90,4 @@ monitorBatchRealFloatS
   -> ([b] -> b) -- ^ Function to calculate the batch mean.
   -> MonitorBatch a
 monitorBatchRealFloatS n l f =
-  MonitorBatch n (T.formatRealFloat T.Exponent (Just 8) . f . map (^. l))
+  MonitorBatch n (T.formatRealFloat T.Exponent (Just 8) . f . params l . states)
