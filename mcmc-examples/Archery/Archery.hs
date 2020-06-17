@@ -76,8 +76,14 @@ monStd = monitorStdOut [monMu] 5000
 monFile :: MonitorFile I
 monFile = monitorFile "Archery.log" [monMu] 500
 
+monMuBatch :: MonitorParameterBatch I
+monMuBatch = monitorBatchMeanRealFloat "Mean mu" id
+
+monBatch :: MonitorBatch I
+monBatch = monitorBatch "ArcheryBatch.log" [monMuBatch] 1000
+
 mon :: Monitor I
-mon = Monitor monStd [monFile] []
+mon = Monitor monStd [monFile] [monBatch]
 
 nBurn :: Maybe Int
 nBurn = Just 200000
@@ -92,6 +98,6 @@ main :: IO ()
 main = do
   g  <- create
   mu <- arrowMean g
-  -- putStrLn $ "True parameter: " <> show mu_observed
+  putStrLn $ "True parameter: " <> show mu
   let s = status prior (likelihood mu) moveCycle mon 0.01 g
   void $ mh nBurn nAutoTune nIter s

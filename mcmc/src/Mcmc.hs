@@ -52,6 +52,7 @@ module Mcmc
   , module Mcmc.Status
   , module Mcmc.Monitor
   , module Mcmc.Monitor.Parameter
+  , module Mcmc.Monitor.ParameterBatch
     -- * Algorithms
   , module Mcmc.Metropolis
   )
@@ -60,6 +61,7 @@ where
 import           Mcmc.Metropolis
 import           Mcmc.Monitor
 import           Mcmc.Monitor.Parameter
+import           Mcmc.Monitor.ParameterBatch
 import           Mcmc.Move
 import           Mcmc.Move.Scale
 import           Mcmc.Move.Slide

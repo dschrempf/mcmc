@@ -107,8 +107,15 @@ monStd = monitorStdOut mons 100
 monFile :: MonitorFile I
 monFile = monitorFile "ApproximatePhylogeneticLikelihood.log" mons 10
 
+monBs :: [MonitorParameterBatch I]
+monBs = [ monitorBatchMeanRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree ]
+  where n x y = T.pack $ "Mean " <> show (x, y)
+
+monBatch :: MonitorBatch I
+monBatch = monitorBatch "ApproximatePhylogeneticLikelihoodBatch.log" monBs 200
+
 mon :: Monitor I
-mon = Monitor monStd [monFile] []
+mon = Monitor monStd [monFile] [monBatch]
 
 nBurn :: Maybe Int
 nBurn = Just 2000

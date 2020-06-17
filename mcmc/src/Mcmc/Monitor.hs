@@ -141,7 +141,7 @@ monitorFile
   -> Int                  -- ^ Logging period.
   -> MonitorFile a
 monitorFile f ps p
-  | p <= 1    = error "monitorFile: Monitor period has to be 1 or larger."
+  | p < 1    = error "monitorFile: Monitor period has to be 1 or larger."
   | otherwise = MonitorFile f Nothing ps p
 
 mfRenderRow :: [Text] -> Text
@@ -219,7 +219,7 @@ monitorBatch
   -> Int                       -- ^ Batch size.
   -> MonitorBatch a
 monitorBatch f ps p
-  | p <= 1    = error "monitorBatch: Batch size has to be 1 or larger."
+  | p < 2    = error "monitorBatch: Batch size has to be 2 or larger."
   | otherwise = MonitorBatch f Nothing ps p
 
 mbOpen :: MonitorBatch a -> IO (MonitorBatch a)

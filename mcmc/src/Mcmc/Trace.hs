@@ -87,4 +87,4 @@ logPriors = map logPrior . fromTrace
 
 -- | Get the log likelihoods.
 logLikelihoods :: Trace a -> [Log Double]
-logLikelihoods = map logPrior . fromTrace
+logLikelihoods = map logLikelihood . fromTrace
