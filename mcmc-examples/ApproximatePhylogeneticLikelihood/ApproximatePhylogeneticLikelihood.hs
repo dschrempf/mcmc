@@ -1,4 +1,6 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 {- |
 Module      :  Main
@@ -22,6 +24,8 @@ where
 import           Algebra.Graph.Label
 import           Algebra.Graph.Labelled.AdjacencyMap
 import           Control.Monad
+import           Data.Aeson
+import           Data.Aeson.TH
 import           Data.Maybe
 import qualified Data.Text.Lazy                as T
 import           Lens.Micro
@@ -32,25 +36,33 @@ import           System.Random.MWC
 
 import           Mcmc
 
+-- Use Int node labels for now.
+type Node = Int
+
+-- The sate space is a tree with branch lengths measured in 'Double', and 'Int'
+-- node labels. We use a phantom type "a" to denote if the tree stores the
+-- actual length, the mean, or the standard deviation of the branch.
+-- type Tree a = AdjacencyMap (Distance Double) Node
+type Tree a = AdjacencyMap Double Node
+
+instance ToJSON (AdjacencyMap Double Node)
+
+-- Different types of branch lengths.
 type Length = Double
 type Mean = Double
 type StdDev = Double
 
--- Use Int node labels for now.
-type Node = Int
-
 -- Tree with posterior means as branches.
-type MTree = AdjacencyMap (Distance Mean) Node
+type MTree = Tree Mean
 
 -- Tree with posterior standard deviations as branches.
-type VTree = AdjacencyMap (Distance StdDev) Node
+type STree = Tree StdDev
 
--- The tree with current branch lengths, which is also the state of the chain.
-type LTree = AdjacencyMap (Distance Length) Node
-type I = LTree
+-- The tree with current branch lengths, which is also the state of the chain,
+-- this is also the used state space.
+type LTree = Tree Length
 
-getLens
-  :: (Num e, Ord e, Ord a) => a -> a -> Lens' (AdjacencyMap (Distance e) a) e
+getLens :: Node -> Node -> Lens' LTree Double
 getLens x y = lens (g x y) (s x y)
  where
   g n m = fromD . edgeLabel n m
@@ -64,22 +76,21 @@ llhBranch :: Mean -> StdDev -> Length -> Log Double
 llhBranch m v l | l <= 0    = negInf
                 | otherwise = Exp $ logDensity (normalDistr m v) l
 
-llh :: MTree -> VTree -> I -> Log Double
+llh :: MTree -> STree -> LTree -> Log Double
 llh mt vt lt = product $ zipWith3 llhBranch ms vs ls
  where
   ms = map (fromD . (^. _1)) $ edgeList mt
   vs = map (fromD . (^. _1)) $ edgeList vt
   ls = map (fromD . (^. _1)) $ edgeList lt
 
-allEdges :: (Eq e, Monoid e, Ord a) => AdjacencyMap e a -> [(a, a)]
+allEdges :: LTree -> [(Node, Node)]
 allEdges = map (\(_, x, y) -> (x, y)) . edgeList
 
-slideBr :: Node -> Node -> Move I
+slideBr :: Node -> Node -> Move LTree
 slideBr x y = slideStandard n 1 (getLens x y) True
- where
-  n           = "Slide edge " <> show (x, y)
+  where n = "Slide edge " <> show (x, y)
 
-moveCycle :: Cycle I
+moveCycle :: Cycle LTree
 moveCycle = fromList $ map (uncurry slideBr) (allEdges lTree)
 
 toD :: a -> Distance a
@@ -97,24 +108,25 @@ mTree = (0 -< toD 5.0 >- 1) + (0 -< toD 10.0 >- 2)
 vTree :: MTree
 vTree = (0 -< toD 2.0 >- 1) + (0 -< toD 2.0 >- 2)
 
-mons :: [MonitorParameter I]
+mons :: [MonitorParameter LTree]
 mons = [ monitorRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree ]
   where n x y = T.pack $ show (x, y)
 
-monStd :: MonitorStdOut I
+monStd :: MonitorStdOut LTree
 monStd = monitorStdOut mons 100
 
-monFile :: MonitorFile I
-monFile = monitorFile "ApproximatePhylogeneticLikelihood.log" mons 10
+monFile :: MonitorFile LTree
+monFile = monitorFile "Branches" mons 10
 
-monBs :: [MonitorParameterBatch I]
-monBs = [ monitorBatchMeanRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree ]
+monBs :: [MonitorParameterBatch LTree]
+monBs =
+  [ monitorBatchMeanRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree ]
   where n x y = T.pack $ "Mean " <> show (x, y)
 
-monBatch :: MonitorBatch I
-monBatch = monitorBatch "ApproximatePhylogeneticLikelihoodBatch.log" monBs 200
+monBatch :: MonitorBatch LTree
+monBatch = monitorBatch "Branches" monBs 200
 
-mon :: Monitor I
+mon :: Monitor LTree
 mon = Monitor monStd [monFile] [monBatch]
 
 nBurn :: Maybe Int
@@ -126,5 +138,11 @@ nIter = 10000
 main :: IO ()
 main = do
   g <- create
-  let s = status prior (llh mTree vTree) moveCycle mon lTree g
+  let s = status "ApproximatePhylogeneticLikelihood"
+                 prior
+                 (llh mTree vTree)
+                 moveCycle
+                 mon
+                 lTree
+                 g
   void $ mh nBurn Nothing nIter s

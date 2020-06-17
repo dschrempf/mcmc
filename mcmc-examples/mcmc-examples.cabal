@@ -34,7 +34,8 @@ executable approx-plh
       ApproximatePhylogeneticLikelihood
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      algebraic-graphs
+      aeson
+    , algebraic-graphs
     , base >=4.7 && <5
     , log-domain
     , mcmc
@@ -54,7 +55,8 @@ executable archery
       Archery
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
     , log-domain
     , mcmc
     , mwc-random

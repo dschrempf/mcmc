@@ -48,9 +48,11 @@ import           Mcmc.Trace
 data Status a = Status
   {
     -- Variables saved to disc.
+    -- | The name of the MCMC chain; used as file prefix.
+    name            :: String
     -- | The current 'Item' of the chain combines the current state and the
     -- current log-likelihood.
-    item            :: Item a
+  , item            :: Item a
     -- | The iteration is the number of completed cycles.
   , iteration       :: Int
     -- | The 'Trace' of the Markov chain in reverse order, the most recent
@@ -82,7 +84,8 @@ data Status a = Status
 
 -- | Initialize the 'Status' of a Markov chain Monte Carlo run.
 status
-  :: (a -> Log Double) -- ^ The log-prior function.
+  :: String            -- ^ Name of the Markov chain; used as file prefix.
+  -> (a -> Log Double) -- ^ The log-prior function.
   -> (a -> Log Double) -- ^ The log-likelihood function.
   -> Cycle a           -- ^ A list of 'Move's executed in forward order. The
                        -- chain will be logged after each cycle.
@@ -91,6 +94,6 @@ status
   -> GenIO             -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
   -> Status a
-status p l c m x g = Status i 0 (singletonT i) (emptyA $ fromCycle c) g p l c m Nothing Nothing
+status n p l c m x g = Status n i 0 (singletonT i) (emptyA $ fromCycle c) g p l c m Nothing Nothing
   where
     i = Item x (p x) (l x)

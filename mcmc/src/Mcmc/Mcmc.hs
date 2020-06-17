@@ -21,6 +21,7 @@ module Mcmc.Mcmc
   , mcmcInit
   , mcmcMonitorHeader
   , mcmcMonitorExec
+  , mcmcSave
   , mcmcClose
   )
 where
@@ -29,6 +30,7 @@ import           Prelude                 hiding ( cycle )
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.State.Strict
+import           Data.Aeson
 import qualified Data.Map.Strict               as M
 import           Data.Maybe
 import qualified Data.Text.Lazy.IO             as T
@@ -38,6 +40,7 @@ import           Data.Time.Format
 import           Mcmc.Monitor
 import           Mcmc.Monitor.Time
 import           Mcmc.Move
+import           Mcmc.Save
 import           Mcmc.Status
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
@@ -82,7 +85,8 @@ mcmcInit n = do
   liftIO $ putStrLn $ "-- Start time: " <> fTime t
   s <- get
   let m = monitor s
-  m' <- liftIO $ mOpen m
+      nm = name s
+  m' <- liftIO $ mOpen nm m
   put $ s { monitor = m', starttime = Just t, totalIterations = Just n }
 
 -- | Print header line of 'Monitor' (only standard output).
@@ -92,7 +96,7 @@ mcmcMonitorHeader = do
   liftIO $ mHeader m
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
-mcmcMonitorExec :: Mcmc a ()
+mcmcMonitorExec :: ToJSON a => Mcmc a ()
 mcmcMonitorExec = do
   s  <- get
   ct <- liftIO getCurrentTime
@@ -107,6 +111,14 @@ mcmcMonitorExec = do
         Just st -> ct `diffUTCTime` st
       tr = trace s
   liftIO $ mExec i dt tr j m
+  -- TODO: This should not be here, but at the moment it is convenient.
+  mcmcSave
+
+-- | Save the status of an MCMC run. See 'saveStatus'.
+mcmcSave :: ToJSON a => Mcmc a ()
+mcmcSave = do
+  s <- get
+  liftIO $ saveStatus (name s <> ".mcmc") s
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: Mcmc a ()

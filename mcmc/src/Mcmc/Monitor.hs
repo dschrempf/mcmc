@@ -122,7 +122,7 @@ msExec i (Item x p l) t j m
 -- | Monitor to a file.
 data MonitorFile a = MonitorFile
   {
-    mfFile   :: FilePath
+    mfName   :: String
   , mfHandle :: Maybe Handle
   , mfParams :: [MonitorParameter a]
   , mfPeriod :: Int
@@ -134,28 +134,28 @@ data MonitorFile a = MonitorFile
 
 -- | Monitor parameters to a file.
 monitorFile
-  :: FilePath             -- ^ File path; file will be overwritten!
+  :: String               -- ^ Name; used as part of the file name.
   -> [MonitorParameter a] -- ^ Instructions about which parameters to log.
   -> Int                  -- ^ Logging period.
   -> MonitorFile a
-monitorFile f ps p
+monitorFile n ps p
   | p < 1    = error "monitorFile: Monitor period has to be 1 or larger."
-  | otherwise = MonitorFile f Nothing ps p
+  | otherwise = MonitorFile n Nothing ps p
 
 mfRenderRow :: [Text] -> Text
 mfRenderRow = T.intercalate "\t"
 
-mfOpen :: MonitorFile a -> IO (MonitorFile a)
-mfOpen m = do
-  h <- openFile (mfFile m) WriteMode
+mfOpen :: String -> MonitorFile a -> IO (MonitorFile a)
+mfOpen n m = do
+  h <- openFile (n <> mfName m <> ".monitor") WriteMode
   return $ m { mfHandle = Just h }
 
 mfHeader :: MonitorFile a -> IO ()
 mfHeader m = case mfHandle m of
   Nothing ->
     error
-      $  "mfHeader: No handle available for monitor with file "
-      <> mfFile m
+      $  "mfHeader: No handle available for monitor with name "
+      <> mfName m
       <> "."
   Just h ->
     T.hPutStrLn h
@@ -173,8 +173,8 @@ mfExec i (Item x p l) m
   | otherwise = case mfHandle m of
     Nothing ->
       error
-        $  "mfExec: No handle available for monitor with file "
-        <> mfFile m
+        $  "mfExec: No handle available for monitor with name "
+        <> mfName m
         <> "."
     Just h ->
       T.hPutStrLn h
@@ -188,7 +188,7 @@ mfExec i (Item x p l) m
 mfClose :: MonitorFile a -> IO ()
 mfClose m = case mfHandle m of
   Just h  -> hClose h
-  Nothing -> error $ "mfClose: File was not opened: " <> mfFile m <> "."
+  Nothing -> error $ "mfClose: File was not opened for monitor " <> mfName m <> "."
 
 -- | Monitor to a file, but calculate batch means for the given batch size.
 --
@@ -199,7 +199,7 @@ mfClose m = case mfHandle m of
 -- used.
 data MonitorBatch a = MonitorBatch
   {
-    mbFile   :: FilePath
+    mbName   :: String
   , mbHandle :: Maybe Handle
   , mbParams :: [MonitorParameterBatch a]
   , mbSize   :: Int
@@ -211,26 +211,26 @@ data MonitorBatch a = MonitorBatch
 
 -- | Monitor parameters to a file, see 'MonitorBatch'.
 monitorBatch
-  :: FilePath                  -- ^ File path; file will be overwritten!
+  :: String                    -- ^ Name; used as part of the file name.
   -> [MonitorParameterBatch a] -- ^ Instructions about which parameters to log
                                -- and how to calculate the batch means.
   -> Int                       -- ^ Batch size.
   -> MonitorBatch a
-monitorBatch f ps p
+monitorBatch n ps p
   | p < 2    = error "monitorBatch: Batch size has to be 2 or larger."
-  | otherwise = MonitorBatch f Nothing ps p
+  | otherwise = MonitorBatch n Nothing ps p
 
-mbOpen :: MonitorBatch a -> IO (MonitorBatch a)
-mbOpen m = do
-  h <- openFile (mbFile m) WriteMode
+mbOpen :: String -> MonitorBatch a -> IO (MonitorBatch a)
+mbOpen n m = do
+  h <- openFile (n <> mbName m <> ".batch") WriteMode
   return $ m { mbHandle = Just h }
 
 mbHeader :: MonitorBatch a -> IO ()
 mbHeader m = case mbHandle m of
   Nothing ->
     error
-      $  "mbHeader: No handle available for monitor with file "
-      <> mbFile m
+      $  "mbHeader: No handle available for batch monitor with name "
+      <> mbName m
       <> "."
   Just h ->
     T.hPutStrLn h
@@ -251,8 +251,8 @@ mbExec i t' m
   | otherwise = case mbHandle m of
     Nothing ->
       error
-        $  "mbExec: No handle available for monitor with file "
-        <> mbFile m
+        $  "mbExec: No handle available for batch monitor with name "
+        <> mbName m
         <> "."
     Just h ->
       T.hPutStrLn h
@@ -274,14 +274,14 @@ mbExec i t' m
 mbClose :: MonitorBatch a -> IO ()
 mbClose m = case mbHandle m of
   Just h  -> hClose h
-  Nothing -> error $ "mfClose: File was not opened: " <> mbFile m <> "."
+  Nothing -> error $ "mfClose: File was not opened for batch monitor: " <> mbName m <> "."
 
 -- | Open the files associated with the 'Monitor'.
-mOpen :: Monitor a -> IO (Monitor a)
-mOpen (Monitor s fs bs) = do
-  fs' <- mapM mfOpen fs
+mOpen :: String -> Monitor a -> IO (Monitor a)
+mOpen n (Monitor s fs bs) = do
+  fs' <- mapM (mfOpen n) fs
   mapM_ mfHeader fs'
-  bs' <- mapM mbOpen bs
+  bs' <- mapM (mbOpen n) bs
   mapM_ mbHeader bs'
   return $ Monitor s fs' bs'
 

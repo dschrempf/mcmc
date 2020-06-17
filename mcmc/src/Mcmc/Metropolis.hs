@@ -14,6 +14,9 @@ Creation date: Tue May  5 20:11:30 2020.
 
 -}
 
+-- TODO: Move all we can into Mcmc.Mcmc, because it will be reused across
+-- algorithms.
+
 module Mcmc.Metropolis
   ( mh
   )
@@ -24,6 +27,7 @@ import           Prelude                 hiding ( cycle )
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.State.Strict
+import           Data.Aeson
 import           Numeric.Log
 import           System.Random.MWC
 
@@ -70,7 +74,7 @@ getNCycles c = shuffleN mvs
   where !mvs = concat [ replicate (mvWeight m) m | m <- fromCycle c ]
 
 -- Run one iterations; perform all moves in a Cycle.
-mhIter :: [Move a] -> Mcmc a ()
+mhIter :: ToJSON a => [Move a] -> Mcmc a ()
 mhIter mvs = do
   mcmcMonitorExec
   mapM_ mhMove mvs
@@ -81,20 +85,20 @@ mhIter mvs = do
   put $ s { trace = prependT i t, iteration = succ n }
 
 -- Run N iterations.
-mhNIter :: Int -> Mcmc a ()
+mhNIter :: ToJSON a => Int -> Mcmc a ()
 mhNIter n = do
   c      <- gets cycle
   g      <- gets generator
   cycles <- liftIO $ getNCycles c n g
   forM_ cycles mhIter
 
-mhBurn :: Int -> Mcmc a ()
+mhBurn :: ToJSON a => Int -> Mcmc a ()
 mhBurn n = do
   mhNIter n
   mcmcAutotune n
 
 -- Burn in with or without auto tuning.
-mhBurnIn :: Int -> Maybe Int -> Mcmc a ()
+mhBurnIn :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
 mhBurnIn b (Just t)
   | t <= 0    = error "mhBurnIn: Auto tuning period smaller equal 0."
   | b > t     = mhBurn t >> mhBurnIn (b - t) (Just t)
@@ -102,7 +106,7 @@ mhBurnIn b (Just t)
   | otherwise = error "mhBurnIn: Please contact maintainer."
 mhBurnIn b Nothing = mhNIter b
 
-mhRun :: Maybe Int -> Maybe Int -> Int -> Mcmc a ()
+mhRun :: ToJSON a => Maybe Int -> Maybe Int -> Int -> Mcmc a ()
 mhRun (Just b) t n
   | b <= 0 = error "mhRun: Number of burn in iterations smaller equal 0."
   | otherwise = do
@@ -138,7 +142,7 @@ mhReport b t n = do
 --
 -- Of course, the given status can also be the result of a paused chain.
 mh
-  :: Show a
+  :: ToJSON a
   => Maybe Int -- ^ Number of iterations to complete during burn in; deactivate
                -- burn in with 'Nothing'.
   -> Maybe Int -- ^ Auto tuning period (only during burn in); deactivate auto tuning

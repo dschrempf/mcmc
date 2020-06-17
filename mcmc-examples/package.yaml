@@ -26,6 +26,7 @@ executables:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
+      - aeson
       - base >= 4.7 && < 5
       - log-domain
       - mcmc
@@ -41,6 +42,7 @@ executables:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
+      - aeson
       - algebraic-graphs
       - base >= 4.7 && < 5
       - log-domain
