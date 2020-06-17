@@ -66,9 +66,9 @@ spec :: Spec
 spec = describe "saveStatus and loadStatus" $
        it "doesn't change the MCMC chain" $ do
   gen <- create
-  let s = status (const 1) likelihood moveCycle mon 0 gen
-  saveStatus "test.json" s
-  s' <- loadStatus (const 1) likelihood moveCycle mon "test.json"
+  let s = status "SaveSpec" (const 1) likelihood moveCycle mon 0 gen
+  saveStatus "SaveSpec.json" s
+  s' <- loadStatus (const 1) likelihood moveCycle mon "SaveSpec.json"
   r <- mh nBurn nAutoTune nIter s
   r' <- mh nBurn nAutoTune nIter s'
   g <- save $ generator r
