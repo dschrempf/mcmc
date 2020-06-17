@@ -24,10 +24,10 @@ Creation date: Wed May 20 09:11:25 2020.
 
 module Mcmc.Trace
   ( Trace
-  , singleton
+  , singletonT
   , prependT
-  , pop
-  , takeN
+  , headT
+  , takeT
   , states
   , logPriors
   , logLikelihoods
@@ -61,8 +61,8 @@ instance FromJSON a => FromJSON (Trace a)  where
 -- $(deriveJSON defaultOptions 'Trace)
 
 -- | The empty trace.
-singleton :: Item a -> Trace a
-singleton i = Trace [i]
+singletonT :: Item a -> Trace a
+singletonT i = Trace [i]
 
 -- | Prepend an 'Item' to a 'Trace'.
 prependT :: Item a -> Trace a -> Trace a
@@ -70,12 +70,12 @@ prependT x (Trace xs) = Trace (x : xs)
 {-# INLINABLE prependT #-}
 
 -- | Get the most recent item of the trace.
-pop :: Trace a -> Item a
-pop = head . fromTrace
+headT :: Trace a -> Item a
+headT = head . fromTrace
 
 -- | Get the N most recent item of the trace.
-takeN :: Int -> Trace a -> Trace a
-takeN n = Trace . take n . fromTrace
+takeT :: Int -> Trace a -> Trace a
+takeT n = Trace . take n . fromTrace
 
 -- | Get the actual states.
 states :: Trace a -> [a]

@@ -87,7 +87,7 @@ module Mcmc.Move
   , summarizeCycle
     -- * Acceptance
   , Acceptance(..)
-  , empty
+  , emptyA
   , prependA
   , resetA
   , acceptanceRatios
@@ -313,8 +313,8 @@ instance (Ord k, FromJSONKey k) => FromJSON (Acceptance k) where
 -- | In the beginning there was the Word.
 --
 -- Initialize an empty storage of accepted/rejected values.
-empty :: Ord k => [k] -> Acceptance k
-empty ks = Acceptance $ M.fromList [ (k, []) | k <- ks ]
+emptyA :: Ord k => [k] -> Acceptance k
+emptyA ks = Acceptance $ M.fromList [ (k, []) | k <- ks ]
 
 -- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
 prependA :: (Ord k, Show k) => k -> Bool -> Acceptance k -> Acceptance k

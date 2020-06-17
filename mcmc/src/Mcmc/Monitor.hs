@@ -38,7 +38,6 @@ import qualified Data.Text.Lazy.IO             as T
 import qualified Data.Text.Lazy.Builder        as T
 import           Data.Text.Lazy                 ( Text )
 import           Data.Time.Clock
-import           Numeric.Log
 import           System.IO
 
 import           Mcmc.Item
@@ -95,21 +94,18 @@ msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
 
 msExec
   :: Int
-  -> Log Double
-  -> Log Double
-  -> Log Double
+  -> Item a
   -> NominalDiffTime
-  -> a
   -> Int
   -> MonitorStdOut a
   -> IO ()
-msExec i p l o t x j m
+msExec i (Item x p l) t j m
   | i `mod` msPeriod m /= 0
   = return ()
   | otherwise
   = T.hPutStrLn stdout
     $  msRenderRow
-    $  [T.pack (show i), renderLog p, renderLog l, renderLog o]
+    $  [T.pack (show i), renderLog p, renderLog l, renderLog (p*l)]
     ++ [ T.toLazyText $ mpFunc mp x | mp <- msParams m ]
     ++ [renderDuration t, eta]
  where
@@ -163,13 +159,10 @@ mfHeader m = case mfHandle m of
 
 mfExec
   :: Int
-  -> Log Double
-  -> Log Double
-  -> Log Double
-  -> a
+  -> Item a
   -> MonitorFile a
   -> IO ()
-mfExec i p l o x m
+mfExec i (Item x p l) m
   | i `mod` mfPeriod m /= 0 = return ()
   | otherwise = case mfHandle m of
     Nothing ->
@@ -183,7 +176,7 @@ mfExec i p l o x m
         $ T.pack (show i)
         : renderLog p
         : renderLog l
-        : renderLog o
+        : renderLog (p*l)
         : [ T.toLazyText $ mpFunc mp x | mp <- mfParams m ]
 
 mfClose :: MonitorFile a -> IO ()
@@ -213,8 +206,7 @@ mExec
   -> Monitor a       -- ^ The monitor.
   -> IO ()
 mExec i t xs j (Monitor s fs) =
-  msExec i p l (p * l) t x j s >> mapM_ (mfExec i p l (p * l) x) fs
-  where (Item x p l) = pop xs
+  msExec i (headT xs) t j s >> mapM_ (mfExec i $ headT xs) fs
 
 -- | Close the files associated with the 'Monitor'.
 mClose :: Monitor a -> IO (Monitor a)
