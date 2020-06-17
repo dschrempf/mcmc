@@ -59,19 +59,19 @@ data Status a = Status
   {
     -- Variables saved to disc.
     -- | The name of the MCMC chain; used as file prefix.
-    name       :: String
+    name             :: String
     -- | The current 'Item' of the chain combines the current state and the
     -- current log-likelihood.
-  , item       :: Item a
+  , item             :: Item a
     -- | The iteration is the number of completed cycles.
-  , iteration  :: Int
+  , iteration        :: Int
     -- | The 'Trace' of the Markov chain in reverse order, the most recent
     -- 'Item' is at the head of the list.
-  , trace      :: Trace a
+  , trace            :: Trace a
     -- | For each 'Move', store the list of accepted (True) and rejected (False)
     -- proposals; for reasons of efficiency, the list is also stored in reverse
     -- order.
-  , acceptance :: Acceptance (Move a)
+  , acceptance       :: Acceptance (Move a)
     -- | Number of burn in iterations; deactivate burn in with 'Nothing'.
   , burnInIterations :: Maybe Int
     -- | Auto tuning period (only during burn in); deactivate auto tuning with
@@ -85,7 +85,7 @@ data Status a = Status
     -- | time of last save.
   , savetime         :: Maybe UTCTime
     -- | The random number generator.
-  , generator  :: GenIO
+  , generator        :: GenIO
 
     -- Auxiliary functions.
     -- | The log-prior function. The un-normalized log-posterior is the sum of
@@ -120,18 +120,18 @@ status
                        -- sure to use a generator with the same seed.
   -> Status a
 status n p l c m x mB mT nI g = Status n
-                                i
-                                0
-                                (singletonT i)
-                                (emptyA $ fromCycle c)
-                                mB
-                                mT
-                                nI
-                                Nothing
-                                Nothing
-                                g
-                                p
-                                l
-                                c
-                                m
+                                       i
+                                       0
+                                       (singletonT i)
+                                       (emptyA $ fromCycle c)
+                                       mB
+                                       mT
+                                       nI
+                                       Nothing
+                                       Nothing
+                                       g
+                                       p
+                                       l
+                                       c
+                                       m
   where i = Item x (p x) (l x)

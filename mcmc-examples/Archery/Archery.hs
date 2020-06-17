@@ -99,5 +99,5 @@ main = do
   g  <- create
   mu <- arrowMean g
   putStrLn $ "True parameter: " <> show mu
-  let s = status "Archery" prior (likelihood mu) moveCycle mon 0.01 g
-  void $ mh nBurn nAutoTune nIter s
+  let s = status "Archery" prior (likelihood mu) moveCycle mon 0.01 nBurn nAutoTune nIter g
+  void $ mh s

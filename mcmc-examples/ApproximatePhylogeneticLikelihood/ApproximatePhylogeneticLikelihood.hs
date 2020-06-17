@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes        #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -16,7 +16,6 @@ Portability :  portable
 Creation date: Wed Jun 10 22:07:11 2020.
 
 -}
-
 module Main
   ( main
   )
@@ -28,12 +27,11 @@ import           Control.Monad
 import           Data.Aeson
 import qualified Data.Text.Lazy                as T
 import           Lens.Micro
+import           Mcmc
 import           Numeric.Log
 import           Statistics.Distribution hiding ( Mean )
 import           Statistics.Distribution.Normal
 import           System.Random.MWC
-
-import           Mcmc
 
 -- Use Int node labels for now.
 type Node = Int
@@ -48,7 +46,9 @@ instance ToJSON (AdjacencyMap Double Node)
 
 -- Different types of branch lengths.
 type Length = Double
+
 type Mean = Double
+
 type StdDev = Double
 
 -- Tree with posterior means as branches.
@@ -65,6 +65,7 @@ getLens :: Node -> Node -> Lens' LTree Double
 getLens x y = lens (g x y) (s x y)
  where
   g = edgeLabel
+
   s n m gr e = replaceEdge e n m gr
 
 -- For now, use a completely uninformative prior.
@@ -79,7 +80,9 @@ llh :: MTree -> STree -> LTree -> Log Double
 llh mt vt lt = product $ zipWith3 llhBranch ms vs ls
  where
   ms = map (^. _1) $ edgeList mt
+
   vs = map (^. _1) $ edgeList vt
+
   ls = map (^. _1) $ edgeList lt
 
 allEdges :: LTree -> [(Node, Node)]
@@ -93,15 +96,15 @@ moveCycle :: Cycle LTree
 moveCycle = fromList $ map (uncurry slideBr) (allEdges lTree)
 
 -- A stupid Dioid instance for 'Double'. Especially 'mempty' is problematic.
-
 instance Semigroup Double where
   (<>) = min
 
 instance Monoid Double where
-  mempty = 1/0
+  mempty = 1 / 0
 
 instance Semiring Double where
-  one = 0
+  one   = 0
+
   (<.>) = (+)
 
 instance Dioid Double
@@ -151,5 +154,8 @@ main = do
                  moveCycle
                  mon
                  lTree
+                 nBurn
+                 Nothing
+                 nIter
                  g
-  void $ mh nBurn Nothing nIter s
+  void $ mh s

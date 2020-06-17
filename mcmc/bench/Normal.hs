@@ -68,8 +68,8 @@ nIter = 20000
 
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  let s = status "Normal" (const 1) likelihood moveCycle mon 0 g
-  r <- mh nBurn nAutoTune nIter s
+  let s = status "Normal" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune nIter g
+  r <- mh s
   let t = states $ trace r
   putStrLn "Mean and standard deviations:"
   putStrLn $ "True: " ++ show (trueMean, trueStdDev)
