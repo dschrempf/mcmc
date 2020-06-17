@@ -26,6 +26,11 @@ cabal.project.local~
 .ghc.environment.*
 
 # End of https://www.gitignore.io/api/haskell
+
 *.dump-hi
 /TAGS
 *.log
+
+*.mcmc
+*.monitor
+*.batch

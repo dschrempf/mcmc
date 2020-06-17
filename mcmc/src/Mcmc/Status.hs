@@ -18,8 +18,7 @@ Creation date: Tue May  5 18:01:15 2020.
 -- supplementary info.
 
 module Mcmc.Status
-  (
-    Status(..)
+  ( Status(..)
   , status
   )
 where
@@ -76,10 +75,14 @@ data Status a = Status
   , cycle           :: Cycle a
     -- | A 'Monitor' observing the chain.
   , monitor         :: Monitor a
-    -- | Starting time of chain; used to calculate run time and ETA.
-  , starttime       :: Maybe UTCTime
+    -- TODO: This should not be a Maybe, but properly initialized from the
+    -- beginning. Also the burn in and auto tune should be in Status.
     -- | Total number of iterations.
   , totalIterations :: Maybe Int
+    -- | Starting time of chain; used to calculate run time and ETA.
+  , starttime       :: Maybe UTCTime
+    -- | time of last save.
+  , savetime        :: Maybe UTCTime
   }
 
 -- | Initialize the 'Status' of a Markov chain Monte Carlo run.
@@ -94,6 +97,17 @@ status
   -> GenIO             -- ^ A source of randomness. For reproducible runs, make
                        -- sure to use a generator with the same seed.
   -> Status a
-status n p l c m x g = Status n i 0 (singletonT i) (emptyA $ fromCycle c) g p l c m Nothing Nothing
-  where
-    i = Item x (p x) (l x)
+status n p l c m x g = Status n
+                              i
+                              0
+                              (singletonT i)
+                              (emptyA $ fromCycle c)
+                              g
+                              p
+                              l
+                              c
+                              m
+                              Nothing
+                              Nothing
+                              Nothing
+  where i = Item x (p x) (l x)

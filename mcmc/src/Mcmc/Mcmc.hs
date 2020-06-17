@@ -21,13 +21,13 @@ module Mcmc.Mcmc
   , mcmcInit
   , mcmcMonitorHeader
   , mcmcMonitorExec
-  , mcmcSave
   , mcmcClose
   )
 where
 
 import           Prelude                 hiding ( cycle )
 
+import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.State.Strict
 import           Data.Aeson
@@ -84,7 +84,7 @@ mcmcInit n = do
   t <- liftIO getCurrentTime
   liftIO $ putStrLn $ "-- Start time: " <> fTime t
   s <- get
-  let m = monitor s
+  let m  = monitor s
       nm = name s
   m' <- liftIO $ mOpen nm m
   put $ s { monitor = m', starttime = Just t, totalIterations = Just n }
@@ -94,6 +94,16 @@ mcmcMonitorHeader :: Mcmc a ()
 mcmcMonitorHeader = do
   m <- gets monitor
   liftIO $ mHeader m
+
+-- Save the status of an MCMC run. See 'saveStatus'.
+mcmcSave :: ToJSON a => Mcmc a ()
+mcmcSave = do
+  s <- get
+  liftIO $ saveStatus (name s <> ".mcmc") s
+
+-- Save state every 10 seconds.
+dtSave :: NominalDiffTime
+dtSave = 10
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()
@@ -111,14 +121,12 @@ mcmcMonitorExec = do
         Just st -> ct `diffUTCTime` st
       tr = trace s
   liftIO $ mExec i dt tr j m
-  -- TODO: This should not be here, but at the moment it is convenient.
-  mcmcSave
+  -- TODO: The save should not be here, but at the moment it is convenient.
+  case savetime s of
+    Nothing  -> mcmcSave >> put s { savetime = Just ct }
+    Just svt -> when (ct `diffUTCTime` svt > dtSave)
+                     (mcmcSave >> put s { savetime = Just ct })
 
--- | Save the status of an MCMC run. See 'saveStatus'.
-mcmcSave :: ToJSON a => Mcmc a ()
-mcmcSave = do
-  s <- get
-  liftIO $ saveStatus (name s <> ".mcmc") s
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: Mcmc a ()

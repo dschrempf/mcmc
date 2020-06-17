@@ -94,7 +94,7 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  let s = status (const 1) likelihood moveCycle mon initial g
+  let s = status "Poisson" (const 1) likelihood moveCycle mon initial g
   r <- mh nBurn nAutoTune nIter s
   putStrLn "Mean and standard deviations of:"
   let xs       = states $ trace r

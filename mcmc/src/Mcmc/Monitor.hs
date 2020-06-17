@@ -14,6 +14,8 @@ Creation date: Thu May 21 14:35:11 2020.
 
 -}
 
+-- TODO: Use line buffering.
+
 module Mcmc.Monitor
   (
     -- * Create monitors
@@ -297,8 +299,10 @@ mExec
   -> Int             -- ^ Total number of iterations; to calculate ETA.
   -> Monitor a       -- ^ The monitor.
   -> IO ()
-mExec i t xs j (Monitor s fs bs) =
-  msExec i (headT xs) t j s >> mapM_ (mfExec i $ headT xs) fs >> mapM_ (mbExec i xs) bs
+mExec i t xs j (Monitor s fs bs) = do
+  msExec i (headT xs) t j s
+  mapM_ (mfExec i $ headT xs) fs
+  mapM_ (mbExec i xs) bs
 
 -- | Close the files associated with the 'Monitor'.
 mClose :: Monitor a -> IO (Monitor a)

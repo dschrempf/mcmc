@@ -113,6 +113,7 @@ fromSave p l c m (Save n it i t a g) = Status n
                                               m
                                               Nothing
                                               Nothing
+                                              Nothing
  where
   mvs = zip [0 ..] $ fromCycle c
   a'  = Acceptance $ mapKeys mvs (fromAcceptance a)

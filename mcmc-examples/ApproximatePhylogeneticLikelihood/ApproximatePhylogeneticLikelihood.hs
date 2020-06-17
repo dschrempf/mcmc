@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskell #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 {- |
 Module      :  Main
@@ -25,8 +26,6 @@ import           Algebra.Graph.Label
 import           Algebra.Graph.Labelled.AdjacencyMap
 import           Control.Monad
 import           Data.Aeson
-import           Data.Aeson.TH
-import           Data.Maybe
 import qualified Data.Text.Lazy                as T
 import           Lens.Micro
 import           Numeric.Log
@@ -65,8 +64,8 @@ type LTree = Tree Length
 getLens :: Node -> Node -> Lens' LTree Double
 getLens x y = lens (g x y) (s x y)
  where
-  g n m = fromD . edgeLabel n m
-  s n m gr e = replaceEdge (toD e) n m gr
+  g = edgeLabel
+  s n m gr e = replaceEdge e n m gr
 
 -- For now, use a completely uninformative prior.
 prior :: a -> Log Double
@@ -79,9 +78,9 @@ llhBranch m v l | l <= 0    = negInf
 llh :: MTree -> STree -> LTree -> Log Double
 llh mt vt lt = product $ zipWith3 llhBranch ms vs ls
  where
-  ms = map (fromD . (^. _1)) $ edgeList mt
-  vs = map (fromD . (^. _1)) $ edgeList vt
-  ls = map (fromD . (^. _1)) $ edgeList lt
+  ms = map (^. _1) $ edgeList mt
+  vs = map (^. _1) $ edgeList vt
+  ls = map (^. _1) $ edgeList lt
 
 allEdges :: LTree -> [(Node, Node)]
 allEdges = map (\(_, x, y) -> (x, y)) . edgeList
@@ -93,20 +92,28 @@ slideBr x y = slideStandard n 1 (getLens x y) True
 moveCycle :: Cycle LTree
 moveCycle = fromList $ map (uncurry slideBr) (allEdges lTree)
 
-toD :: a -> Distance a
-toD = distance . unsafeFinite
+-- A stupid Dioid instance for 'Double'. Especially 'mempty' is problematic.
 
-fromD :: Distance a -> a
-fromD = fromJust . getFinite . getDistance
+instance Semigroup Double where
+  (<>) = min
+
+instance Monoid Double where
+  mempty = 1/0
+
+instance Semiring Double where
+  one = 0
+  (<.>) = (+)
+
+instance Dioid Double
 
 lTree :: LTree
-lTree = (0 -< toD 1.0 >- 1) + (0 -< toD 2.0 >- 2)
+lTree = (0 -< 1.0 >- 1) + (0 -< 2.0 >- 2)
 
 mTree :: MTree
-mTree = (0 -< toD 5.0 >- 1) + (0 -< toD 10.0 >- 2)
+mTree = (0 -< 5.0 >- 1) + (0 -< 10.0 >- 2)
 
 vTree :: MTree
-vTree = (0 -< toD 2.0 >- 1) + (0 -< toD 2.0 >- 2)
+vTree = (0 -< 2.0 >- 1) + (0 -< 2.0 >- 2)
 
 mons :: [MonitorParameter LTree]
 mons = [ monitorRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree ]
