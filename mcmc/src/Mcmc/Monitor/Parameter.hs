@@ -20,10 +20,6 @@ module Mcmc.Monitor.Parameter
   , monitorRealFloat
   , monitorRealFloatF
   , monitorRealFloatS
-  -- , monitorBatchInt
-  -- , monitorBatchRealFloat
-  -- , monitorBatchRealFloatF
-  -- , monitorBatchRealFloatS
   )
 where
 

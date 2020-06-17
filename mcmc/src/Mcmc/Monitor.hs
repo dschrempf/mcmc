@@ -14,8 +14,6 @@ Creation date: Thu May 21 14:35:11 2020.
 
 -}
 
--- TODO Allow batch mean monitors. Allow custom function to calculate the means.
-
 module Mcmc.Monitor
   (
     -- * Create monitors
@@ -130,7 +128,7 @@ data MonitorFile a = MonitorFile
   , mfPeriod :: Int
   }
 
--- TODO: The file monitor also includes iteration, prior, likelihood, and
+-- XXX: The file monitor also includes iteration, prior, likelihood, and
 -- posterior. What if I want to log trees; or other complex objects? In this
 -- case, we need a simpler monitor to a file.
 
@@ -207,7 +205,7 @@ data MonitorBatch a = MonitorBatch
   , mbSize   :: Int
   }
 
--- TODO: The batch monitor also includes iteration, prior, likelihood, and
+-- XXX: The batch monitor also includes iteration, prior, likelihood, and
 -- posterior. What if I want to log trees; or other complex objects? In this
 -- case, we need a simpler monitor to a file.
 
@@ -243,7 +241,6 @@ mbHeader m = case mbHandle m of
 logMean :: [Log Double] -> Log Double
 logMean xs = sum xs / fromIntegral (length xs)
 
--- TODO
 mbExec
   :: Int
   -> Trace a
@@ -292,8 +289,6 @@ mOpen (Monitor s fs bs) = do
 mHeader :: Monitor a -> IO ()
 mHeader (Monitor s _ _) = msHeader s
 
--- TODO: The trace data type should be changed for better. Probably a sequence?
--- Or better, a vector. This also effects other monitor involved functions.
 -- | Execute monitors; print status information to standard output and files.
 mExec
   :: Int             -- ^ Iteration.

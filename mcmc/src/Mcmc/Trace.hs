@@ -12,15 +12,18 @@ Creation date: Wed May 20 09:11:25 2020.
 
 -}
 
+-- TODO: The trace data type should be changed for better. Probably a sequence?
+-- Or better, a vector. This also effects other monitor involved functions.
+--
+-- That's why Trace is provided as an abstract data type, because the
+-- implementation should change from a list to a fixed sized vector with access
+-- index, see above.
+
 -- TODO: Possibly limit the length of the trace to the maximum batch size.
 --
 -- This could be achieved with a special data structure storing a fixed sized
 -- vector together with the current index. However, I couldn't find such a
 -- structure on Hackage.
-
--- XXX: Trace provided as an abstract data type, because the implementation
--- should change from a list to a fixed sized vector with access index, see
--- above.
 
 module Mcmc.Trace
   ( Trace
