@@ -55,7 +55,7 @@ monStd :: MonitorStdOut Double
 monStd = monitorStdOut [monitorRealFloat "mu" id] 200
 
 mon :: Monitor Double
-mon = Monitor monStd []
+mon = Monitor monStd [] []
 
 nBurn :: Maybe Int
 nBurn = Just 2000

@@ -81,7 +81,7 @@ monStd :: MonitorStdOut I
 monStd = monitorStdOut [monAlpha, monBeta] 150
 
 mon :: Monitor I
-mon = Monitor monStd []
+mon = Monitor monStd [] []
 
 nBurn :: Maybe Int
 nBurn = Just 2000

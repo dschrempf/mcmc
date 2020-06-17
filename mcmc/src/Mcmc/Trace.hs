@@ -73,7 +73,7 @@ prependT x (Trace xs) = Trace (x : xs)
 headT :: Trace a -> Item a
 headT = head . fromTrace
 
--- | Get the N most recent item of the trace.
+-- | Get the N most recent items of the trace.
 takeT :: Int -> Trace a -> Trace a
 takeT n = Trace . take n . fromTrace
 

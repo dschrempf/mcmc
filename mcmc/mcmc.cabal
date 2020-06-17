@@ -31,9 +31,9 @@ library
       Mcmc.Mcmc
       Mcmc.Metropolis
       Mcmc.Monitor
-      Mcmc.Monitor.Batch
       Mcmc.Monitor.Log
       Mcmc.Monitor.Parameter
+      Mcmc.Monitor.ParameterBatch
       Mcmc.Monitor.Time
       Mcmc.Move
       Mcmc.Move.Generic

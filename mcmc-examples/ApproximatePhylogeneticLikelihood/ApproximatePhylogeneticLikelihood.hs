@@ -108,7 +108,7 @@ monFile :: MonitorFile I
 monFile = monitorFile "ApproximatePhylogeneticLikelihood.log" mons 10
 
 mon :: Monitor I
-mon = Monitor monStd [monFile]
+mon = Monitor monStd [monFile] []
 
 nBurn :: Maybe Int
 nBurn = Just 2000

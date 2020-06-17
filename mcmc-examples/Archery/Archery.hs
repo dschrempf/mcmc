@@ -77,7 +77,7 @@ monFile :: MonitorFile I
 monFile = monitorFile "Archery.log" [monMu] 500
 
 mon :: Monitor I
-mon = Monitor monStd [monFile]
+mon = Monitor monStd [monFile] []
 
 nBurn :: Maybe Int
 nBurn = Just 200000

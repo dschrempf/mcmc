@@ -48,6 +48,7 @@ monitorInt
   -> Lens' a b -- ^ Instruction about which parameter to monitor.
   -> MonitorParameter a
 monitorInt n l = MonitorParameter n (\x -> T.decimal $ x ^. l)
+{-# SPECIALIZE monitorInt :: Text -> Lens' a Int -> MonitorParameter a #-}
 
 -- | Monitor real float parameters such as 'Double' with eight decimal places
 -- (half precision).
@@ -58,6 +59,7 @@ monitorRealFloat
   -> MonitorParameter a
 monitorRealFloat n l =
   MonitorParameter n (\x -> T.formatRealFloat T.Fixed (Just 8) $ x ^. l)
+{-# SPECIALIZE monitorRealFloat :: Text -> Lens' a Double -> MonitorParameter a #-}
 
 -- | Monitor real float parameters such as 'Double' with full precision.
 monitorRealFloatF
@@ -66,6 +68,7 @@ monitorRealFloatF
   -> Lens' a b -- ^ Instruction about which parameter to monitor.
   -> MonitorParameter a
 monitorRealFloatF n l = MonitorParameter n (\x -> T.realFloat $ x ^. l)
+{-# SPECIALIZE monitorRealFloatF :: Text -> Lens' a Double -> MonitorParameter a #-}
 
 -- | Monitor real float parameters such as 'Double' with scientific notation and
 -- eight decimal places.
@@ -77,46 +80,4 @@ monitorRealFloatS
 monitorRealFloatS n l = MonitorParameter
   n
   (\x -> T.formatRealFloat T.Exponent (Just 8) $ x ^. l)
-
--- TODO: Create separate data structure. For batch monitors.
-
--- -- | Batch monitor integral parameters such as 'Int'.
--- monitorBatchInt
---   :: Integral b
---   => Text       -- ^ Name of monitor.
---   -> Lens' a b  -- ^ Instruction about which parameter to monitor.
---   -> ([b] -> b) -- ^ Function to calculate batch mean.
---   -> MonitorParameter a
--- monitorBatchInt n l f = MonitorParameter n (T.decimal . f . map (^. l))
-
--- -- | Batch monitor real float parameters such as 'Double' with eight decimal
--- -- places (half precision).
--- monitorBatchRealFloat
---   :: RealFloat b
---   => Text       -- ^ Name of monitor.
---   -> Lens' a b  -- ^ Instruction about which parameter to monitor.
---   -> ([b] -> b) -- ^ Function to calculate batch mean.
---   -> MonitorParameter a
--- monitorBatchRealFloat n l f =
---   MonitorParameter n (T.formatRealFloat T.Fixed (Just 8) . f . map (^. l))
-
--- -- | Batch monitor real float parameters such as 'Double' with full precision.
--- monitorBatchRealFloatF
---   :: RealFloat b
---   => Text       -- ^ Name of monitor.
---   -> Lens' a b  -- ^ Instruction about which parameter to monitor.
---   -> ([b] -> b) -- ^ Function to calculate batch mean.
---   -> MonitorParameter a
--- monitorBatchRealFloatF n l f =
---   MonitorParameter n (T.realFloat . f . map (^. l))
-
--- -- | Batch monitor real float parameters such as 'Double' with scientific
--- -- notation and eight decimal places.
--- monitorBatchRealFloatS
---   :: RealFloat b
---   => Text       -- ^ Name of monitor.
---   -> Lens' a b  -- ^ Instruction about which parameter to monitor.
---   -> ([b] -> b) -- ^ Function to calculate batch mean.
---   -> MonitorParameter a
--- monitorBatchRealFloatS n l f =
---   MonitorParameter n (T.formatRealFloat T.Exponent (Just 8) . f . map (^. l))
+{-# SPECIALIZE monitorRealFloatS :: Text -> Lens' a Double -> MonitorParameter a #-}
