@@ -31,6 +31,7 @@ library
       Mcmc.Mcmc
       Mcmc.Metropolis
       Mcmc.Monitor
+      Mcmc.Monitor.Batch
       Mcmc.Monitor.Log
       Mcmc.Monitor.Parameter
       Mcmc.Monitor.Time
@@ -38,6 +39,7 @@ library
       Mcmc.Move.Generic
       Mcmc.Move.Scale
       Mcmc.Move.Slide
+      Mcmc.Save
       Mcmc.Status
       Mcmc.Tools.Shuffle
       Mcmc.Trace
@@ -49,7 +51,8 @@ library
       src
   ghc-options: -Wall
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
     , containers
     , log-domain
     , microlens
@@ -67,6 +70,7 @@ test-suite mcmc-test
   other-modules:
       Mcmc.Move.SlideSpec
       Mcmc.MovesSpec
+      Mcmc.SaveSpec
       Paths_mcmc
   hs-source-dirs:
       test
@@ -76,7 +80,10 @@ test-suite mcmc-test
     , base >=4.7 && <5
     , hspec
     , hspec-discover
+    , log-domain
     , mcmc
+    , mwc-random
+    , statistics
     , vector
   default-language: Haskell2010
 

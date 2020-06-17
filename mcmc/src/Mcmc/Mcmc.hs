@@ -29,18 +29,16 @@ import           Prelude                 hiding ( cycle )
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.State.Strict
-                                         hiding ( state )
 import qualified Data.Map.Strict               as M
 import           Data.Maybe
 import qualified Data.Text.Lazy.IO             as T
 import           Data.Time.Clock
 import           Data.Time.Format
 
-import           Mcmc.Item
-import           Mcmc.Status
 import           Mcmc.Monitor
 import           Mcmc.Monitor.Time
 import           Mcmc.Move
+import           Mcmc.Status
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.
@@ -49,15 +47,15 @@ type Mcmc a = StateT (Status a) IO
 -- Tune the 'Move's in the 'Cycle' of the Markov chain 'Status'; check
 -- acceptance ratio of the last n moves. Tuning has no effect on 'Move's that
 -- cannot be tuned. See 'autotune'.
-autotuneS :: Int -> Status a -> Status a
-autotuneS n s = s { cycle = mapCycle tuneF (cycle s) }
+autotuneSp :: Int -> Status a -> Status a
+autotuneSp n s = s { cycle = mapCycle tuneF (cycle s) }
  where
   ars = acceptanceRatios n $ acceptance s
   tuneF m = fromMaybe m (autotune (ars M.! m) m)
 
 -- | Auto tune the 'Move's in the 'Cycle' of the chain. See 'autotune'.
 mcmcAutotune :: Int -> Mcmc a ()
-mcmcAutotune t = modify' (autotuneS t)
+mcmcAutotune t = modify' (autotuneSp t)
 
 -- | Print short summary of 'Move's in 'Cycle'. See 'summarizeCycle'.
 mcmcSummarizeCycle :: Maybe Int -> Mcmc a ()
@@ -82,10 +80,10 @@ mcmcInit :: Int -> Mcmc a ()
 mcmcInit n = do
   t <- liftIO getCurrentTime
   liftIO $ putStrLn $ "-- Start time: " <> fTime t
-  s  <- get
-  m  <- gets monitor
+  s <- get
+  let m = monitor s
   m' <- liftIO $ mOpen m
-  put s { monitor = m', starttime = Just t, totalIterations = Just n }
+  put $ s { monitor = m', starttime = Just t, totalIterations = Just n }
 
 -- | Print header line of 'Monitor' (only standard output).
 mcmcMonitorHeader :: Mcmc a ()
@@ -102,20 +100,21 @@ mcmcMonitorExec = do
       j = fromMaybe
         (error "mcmcMonitorExec: Total number of iterations not set.")
         (totalIterations s)
-      (Item x p l) = item s
-      m            = monitor s
-      mst          = starttime s
-      t            = case mst of
+      m   = monitor s
+      mst = starttime s
+      dt  = case mst of
         Nothing -> error "mcmcMonitorExec: Start time not set."
         Just st -> ct `diffUTCTime` st
-  liftIO $ mExec i p l t x j m
+      tr = trace s
+  liftIO $ mExec i dt tr j m
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: Mcmc a ()
 mcmcClose = do
   s <- get
   let m = monitor s
-  liftIO $ mClose m
+  m' <- liftIO $ mClose m
+  put $ s { monitor = m' }
   t <- liftIO getCurrentTime
   let rt = case starttime s of
         Nothing -> error "mcmcClose: Start time not set."

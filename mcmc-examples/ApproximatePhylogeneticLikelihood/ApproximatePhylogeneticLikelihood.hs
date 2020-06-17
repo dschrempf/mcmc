@@ -119,5 +119,5 @@ nIter = 10000
 main :: IO ()
 main = do
   g <- create
-  let s = status lTree prior (llh mTree vTree) moveCycle mon g
+  let s = status prior (llh mTree vTree) moveCycle mon lTree g
   void $ mh nBurn Nothing nIter s

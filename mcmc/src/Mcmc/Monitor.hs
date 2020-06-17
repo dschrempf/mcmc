@@ -14,9 +14,6 @@ Creation date: Thu May 21 14:35:11 2020.
 
 -}
 
--- TODO Monitor every iteration by default and note that subsampling is
--- disadvantageous with reference to Geyer.
-
 -- TODO Allow batch mean monitors. Allow custom function to calculate the means.
 
 module Mcmc.Monitor
@@ -41,12 +38,13 @@ import qualified Data.Text.Lazy.IO             as T
 import qualified Data.Text.Lazy.Builder        as T
 import           Data.Text.Lazy                 ( Text )
 import           Data.Time.Clock
-import           Numeric.Log
 import           System.IO
 
+import           Mcmc.Item
 import           Mcmc.Monitor.Log
 import           Mcmc.Monitor.Parameter
 import           Mcmc.Monitor.Time
+import           Mcmc.Trace
 
 -- | A 'Monitor' describes which part of the Markov chain should be logged and
 -- where. Further, they allow output of summary statistics per iteration in a
@@ -69,8 +67,9 @@ monitorStdOut
   :: [MonitorParameter a] -- ^ Instructions about which parameters to log.
   -> Int                  -- ^ Logging period.
   -> MonitorStdOut a
-monitorStdOut ps p | p < 1    = error "monitorStdOut: Monitor period has to be 1 or larger."
-                   | otherwise = MonitorStdOut ps p
+monitorStdOut ps p
+  | p < 1     = error "monitorStdOut: Monitor period has to be 1 or larger."
+  | otherwise = MonitorStdOut ps p
 
 msIWidth :: Int64
 msIWidth = 10
@@ -95,21 +94,18 @@ msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
 
 msExec
   :: Int
-  -> Log Double
-  -> Log Double
-  -> Log Double
+  -> Item a
   -> NominalDiffTime
-  -> a
   -> Int
   -> MonitorStdOut a
   -> IO ()
-msExec i p l o t x j m
+msExec i (Item x p l) t j m
   | i `mod` msPeriod m /= 0
   = return ()
   | otherwise
   = T.hPutStrLn stdout
     $  msRenderRow
-    $  [T.pack (show i), renderLog p, renderLog l, renderLog o]
+    $  [T.pack (show i), renderLog p, renderLog l, renderLog (p*l)]
     ++ [ T.toLazyText $ mpFunc mp x | mp <- msParams m ]
     ++ [renderDuration t, eta]
  where
@@ -130,14 +126,15 @@ data MonitorFile a = MonitorFile
 -- What if I want to log trees; or other complex objects? In this case, we need
 -- a simpler monitor to a file.
 
--- | Monitor writing to a file.
+-- | Monitor parameters to a file.
 monitorFile
   :: FilePath             -- ^ File path; file will be overwritten!
   -> [MonitorParameter a] -- ^ Instructions about which parameters to log.
   -> Int                  -- ^ Logging period.
   -> MonitorFile a
-monitorFile f ps p | p <= 1    = error "monitorFile: Monitor period has to be 1 or larger."
-                   | otherwise = MonitorFile f Nothing ps p
+monitorFile f ps p
+  | p <= 1    = error "monitorFile: Monitor period has to be 1 or larger."
+  | otherwise = MonitorFile f Nothing ps p
 
 mfRenderRow :: [Text] -> Text
 mfRenderRow = T.intercalate "\t"
@@ -162,13 +159,10 @@ mfHeader m = case mfHandle m of
 
 mfExec
   :: Int
-  -> Log Double
-  -> Log Double
-  -> Log Double
-  -> a
+  -> Item a
   -> MonitorFile a
   -> IO ()
-mfExec i p l o x m
+mfExec i (Item x p l) m
   | i `mod` mfPeriod m /= 0 = return ()
   | otherwise = case mfHandle m of
     Nothing ->
@@ -182,7 +176,7 @@ mfExec i p l o x m
         $ T.pack (show i)
         : renderLog p
         : renderLog l
-        : renderLog o
+        : renderLog (p*l)
         : [ T.toLazyText $ mpFunc mp x | mp <- mfParams m ]
 
 mfClose :: MonitorFile a -> IO ()
@@ -201,19 +195,23 @@ mOpen (Monitor s fs) = do
 mHeader :: Monitor a -> IO ()
 mHeader (Monitor s _) = msHeader s
 
+-- TODO: The trace data type should be changed for better. Probably a sequence?
+-- Or better, a vector. This also effects other monitor involved functions.
 -- | Execute monitors; print status information to standard output and files.
 mExec
-  :: Int -- ^ Iteration.
-  -> Log Double -- ^ Prior.
-  -> Log Double -- ^ Likelihood.
+  :: Int             -- ^ Iteration.
   -> NominalDiffTime -- ^ Run time.
-  -> a -- ^ State of Markov chain.
-  -> Int -- ^ Total number of iterations; to calculate ETA.
-  -> Monitor a -- ^ The monitor.
+  -> Trace a         -- ^ Trace of Markov chain.
+  -> Int             -- ^ Total number of iterations; to calculate ETA.
+  -> Monitor a       -- ^ The monitor.
   -> IO ()
-mExec i p l t x j (Monitor s fs) =
-  msExec i p l (p * l) t x j s >> mapM_ (mfExec i p l (p * l) x) fs
+mExec i t xs j (Monitor s fs) =
+  msExec i (headT xs) t j s >> mapM_ (mfExec i $ headT xs) fs
 
 -- | Close the files associated with the 'Monitor'.
-mClose :: Monitor a -> IO ()
-mClose (Monitor _ fs) = mapM_ mfClose fs
+mClose :: Monitor a -> IO (Monitor a)
+mClose m@(Monitor _ fms) = do
+  mapM_ mfClose fms
+  let fms' = map (\fm -> fm { mfHandle = Nothing }) fms
+  return m { mFiles = fms' }
+

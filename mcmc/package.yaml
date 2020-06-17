@@ -20,6 +20,7 @@ ghc-options:
 library:
   source-dirs: src
   dependencies:
+    - aeson
     - base >= 4.7 && < 5
     - containers
     - log-domain
@@ -63,6 +64,9 @@ tests:
       - base >= 4.7 && < 5
       - hspec
       - hspec-discover
+      - log-domain
       - mcmc
+      - mwc-random
+      - statistics
       - QuickCheck
       - vector

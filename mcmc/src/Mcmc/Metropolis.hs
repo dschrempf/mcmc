@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 {- |
 Module      :  Mcmc.Metropolis
 Description :  Metropolis-Hastings at its best
@@ -48,24 +50,24 @@ mhMove m = do
       a              = acceptance s
       g              = generator s
   -- 1. Sample new state.
-  y <- liftIO $ p x g
+  !y <- liftIO $ p x g
   -- 2. Calculate Metropolis-Hastings ratio.
-  let pY = pF y
-      lY = lF y
-      r  = mhRatio (pX * lX) (pY * lY) (q x y) (q y x)
+  let !pY = pF y
+      !lY = lF y
+      !r  = mhRatio (pX * lX) (pY * lY) (q x y) (q y x)
   -- 3. Accept or reject.
   if ln r >= 0.0
-    then put s { item = Item y pY lY, acceptance = prependA m True a }
+    then put $ s { item = Item y pY lY, acceptance = prependA m True a }
     else do
       b <- uniform g
       if b < exp (ln r)
-        then put s { item = Item y pY lY, acceptance = prependA m True a }
-        else put s { acceptance = prependA m False a }
+        then put $ s { item = Item y pY lY, acceptance = prependA m True a }
+        else put $ s { acceptance = prependA m False a }
 
 -- Replicate 'Move's according to their weights and shuffle them.
 getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
 getNCycles c = shuffleN mvs
-  where mvs = concat [ replicate (mvWeight m) m | m <- fromCycle c ]
+  where !mvs = concat [ replicate (mvWeight m) m | m <- fromCycle c ]
 
 -- Run one iterations; perform all moves in a Cycle.
 mhIter :: [Move a] -> Mcmc a ()
@@ -73,11 +75,10 @@ mhIter mvs = do
   mcmcMonitorExec
   mapM_ mhMove mvs
   s <- get
-  let i  = item s
-      t  = trace s
-      n  = iteration s
-      s' = s { trace = prependT i t, iteration = succ n }
-  put s'
+  let i   = item s
+      t   = trace s
+      n   = iteration s
+  put $ s { trace = prependT i t, iteration = succ n }
 
 -- Run N iterations.
 mhNIter :: Int -> Mcmc a ()
@@ -98,12 +99,12 @@ mhBurnIn b (Just t)
   | t <= 0    = error "mhBurnIn: Auto tuning period smaller equal 0."
   | b > t     = mhBurn t >> mhBurnIn (b - t) (Just t)
   | b <= t    = mhBurn b
-  | otherwise = error "mhRun: Please contact maintainer."
+  | otherwise = error "mhBurnIn: Please contact maintainer."
 mhBurnIn b Nothing = mhNIter b
 
 mhRun :: Maybe Int -> Maybe Int -> Int -> Mcmc a ()
 mhRun (Just b) t n
-  | b <= 0 = error "mhBurnIn: Number of burn in iterations smaller equal 0."
+  | b <= 0 = error "mhRun: Number of burn in iterations smaller equal 0."
   | otherwise = do
     liftIO $ putStrLn $ "-- Burn in for " <> show b <> " cycles."
     mcmcMonitorHeader
@@ -143,7 +144,7 @@ mh
   -> Maybe Int -- ^ Auto tuning period (only during burn in); deactivate auto tuning
                -- completely with 'Nothing'.
   -> Int       -- ^ Number of Metropolis-Hastings iterations (without auto tuning).
-  -> Status a  -- ^ Initial 'Status' of Markov chain.
+  -> Status a  -- ^ Initial (or last) 'Status' of the Markov chain.
   -> IO (Status a)
 mh b t n = execStateT
   (do

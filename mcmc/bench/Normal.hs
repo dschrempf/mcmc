@@ -29,8 +29,6 @@ import           Statistics.Sample
 import           System.Random.MWC
 
 import           Mcmc
-
-import           Mcmc.Item
 import           Mcmc.Trace
 
 trueMean :: Double
@@ -39,8 +37,8 @@ trueMean = 5
 trueStdDev :: Double
 trueStdDev = 4
 
-posterior :: Double -> Log Double
-posterior = Exp . logDensity (normalDistr trueMean trueStdDev)
+likelihood :: Double -> Log Double
+likelihood = Exp . logDensity (normalDistr trueMean trueStdDev)
 
 moveCycle :: Cycle Double
 moveCycle = fromList
@@ -70,8 +68,9 @@ nIter = 20000
 
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  s <- mh nBurn nAutoTune nIter (status 0 (const 1) posterior moveCycle mon g)
-  let t = map state . fromTrace $ trace s
+  let s = status (const 1) likelihood moveCycle mon 0 g
+  r <- mh nBurn nAutoTune nIter s
+  let t = states $ trace r
   putStrLn "Mean and standard deviations:"
   putStrLn $ "True: " ++ show (trueMean, trueStdDev)
   putStrLn $ "Markov chain: " <> show (summarize t)
