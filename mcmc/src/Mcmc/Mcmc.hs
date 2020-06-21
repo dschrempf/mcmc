@@ -122,6 +122,9 @@ mcmcSave = do
 dtSave :: NominalDiffTime
 dtSave = 10
 
+-- TODO: Move the time stuff into the monitor because it is unnecessarily slow
+-- if the period is large.
+
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()
 mcmcMonitorExec = do

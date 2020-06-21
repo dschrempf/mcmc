@@ -27,11 +27,12 @@ cabal.project.local~
 
 # End of https://www.gitignore.io/api/haskell
 
+*.batch
+*.cabal
 *.dump-hi
-/TAGS
-*.log
-
 *.json
+*.log
 *.mcmc
 *.monitor
-*.batch
+
+/TAGS
