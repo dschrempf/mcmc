@@ -1,47 +1,42 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-{- |
-Module      :  Mcmc.Mcmc
-Description :  Mcmc helpers
-Copyright   :  (c) Dominik Schrempf, 2020
-License     :  GPL-3.0-or-later
-
-Maintainer  :  dominik.schrempf@gmail.com
-Stability   :  unstable
-Portability :  portable
-
-Creation date: Fri May 29 10:19:45 2020.
-
--}
-
+-- |
+-- Module      :  Mcmc.Mcmc
+-- Description :  Mcmc helpers
+-- Copyright   :  (c) Dominik Schrempf, 2020
+-- License     :  GPL-3.0-or-later
+--
+-- Maintainer  :  dominik.schrempf@gmail.com
+-- Stability   :  unstable
+-- Portability :  portable
+--
+-- Creation date: Fri May 29 10:19:45 2020.
 module Mcmc.Mcmc
-  ( Mcmc
-  , mcmcAutotune
-  , mcmcSummarizeCycle
-  , mcmcInit
-  , mcmcReport
-  , mcmcMonitorHeader
-  , mcmcMonitorExec
-  , mcmcClose
+  ( Mcmc,
+    mcmcAutotune,
+    mcmcSummarizeCycle,
+    mcmcInit,
+    mcmcReport,
+    mcmcMonitorHeader,
+    mcmcMonitorExec,
+    mcmcClose,
   )
 where
 
-import           Prelude                 hiding ( cycle )
-
-import           Control.Monad
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.State.Strict
-import           Data.Aeson
-import           Data.Maybe
-import qualified Data.Text.Lazy.IO             as T
-import           Data.Time.Clock
-import           Data.Time.Format
-
-import           Mcmc.Monitor
-import           Mcmc.Monitor.Time
-import           Mcmc.Move
-import           Mcmc.Save
-import           Mcmc.Status
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.State.Strict
+import Data.Aeson
+import Data.Maybe
+import qualified Data.Text.Lazy.IO as T
+import Data.Time.Clock
+import Data.Time.Format
+import Mcmc.Monitor
+import Mcmc.Monitor.Time
+import Mcmc.Move
+import Mcmc.Save
+import Mcmc.Status
+import Prelude hiding (cycle)
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.
@@ -54,7 +49,7 @@ mcmcAutotune t = do
   let a = acceptance s
       c = cycle s
       c' = autotuneC t a c
-  put $ s { cycle = c' }
+  put $ s {cycle = c'}
 
 -- | Print short summary of 'Move's in 'Cycle'. See 'summarizeCycle'.
 mcmcSummarizeCycle :: Maybe Int -> Mcmc a ()
@@ -80,12 +75,13 @@ mcmcInit = do
   t <- liftIO getCurrentTime
   liftIO $ putStrLn $ "-- Start time: " <> fTime t
   s <- get
-  let m  = monitor s
+  let m = monitor s
       nm = name s
   m' <- liftIO $ mOpen nm m
-  put $ s { monitor = m', starttime = Just t}
+  put $ s {monitor = m', starttime = Just t}
 
 -- TODO: This is now tuned to MH, which should not be the case.
+
 -- | Report what is going to be done.
 mcmcReport :: Mcmc a ()
 mcmcReport = do
@@ -99,10 +95,10 @@ mcmcReport = do
     Nothing -> return ()
   case t of
     Just t' ->
-      liftIO $ putStrLn
-        $  "-- Auto tune every "
-        <> show t'
-        <> " iterations (during burn in only)."
+      liftIO $ putStrLn $
+        "-- Auto tune every "
+          <> show t'
+          <> " iterations (during burn in only)."
     Nothing -> return ()
   liftIO $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
 
@@ -128,22 +124,24 @@ dtSave = 10
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()
 mcmcMonitorExec = do
-  s  <- get
+  s <- get
   ct <- liftIO getCurrentTime
   let i = iteration s
       j = iterations s + fromMaybe 0 (burnInIterations s)
-      m   = monitor s
+      m = monitor s
       mst = starttime s
-      dt  = case mst of
+      dt = case mst of
         Nothing -> error "mcmcMonitorExec: Start time not set."
         Just st -> ct `diffUTCTime` st
       tr = trace s
   liftIO $ mExec i dt tr j m
   -- TODO: The save should not be here, but at the moment it is convenient.
   case savetime s of
-    Nothing  -> mcmcSave >> put s { savetime = Just ct }
-    Just svt -> when (ct `diffUTCTime` svt > dtSave)
-                     (mcmcSave >> put s { savetime = Just ct })
+    Nothing -> mcmcSave >> put s {savetime = Just ct}
+    Just svt ->
+      when
+        (ct `diffUTCTime` svt > dtSave)
+        (mcmcSave >> put s {savetime = Just ct})
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: Mcmc a ()
@@ -151,7 +149,7 @@ mcmcClose = do
   s <- get
   let m = monitor s
   m' <- liftIO $ mClose m
-  put $ s { monitor = m' }
+  put $ s {monitor = m'}
   t <- liftIO getCurrentTime
   let rt = case starttime s of
         Nothing -> error "mcmcClose: Start time not set."

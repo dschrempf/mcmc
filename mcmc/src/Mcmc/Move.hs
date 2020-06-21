@@ -106,17 +106,18 @@ import Text.Printf
 --
 -- A 'Move' may be tuneable in that it contains information about how to enlarge
 -- or shrink the step size to tune the acceptance ratio.
-data Move a = Move
-  { -- | Name (no moves with the same name are allowed in a 'Cycle').
-    mvName :: String,
-    -- | The weight determines how often a 'Move' is executed per iteration of
-    -- the Markov chain.
-    mvWeight :: Int,
-    -- | Simple move without tuning information.
-    mvSimple :: MoveSimple a,
-    -- | Tuning is disabled if set to 'Nothing'.
-    mvTune :: Maybe (Tuner a)
-  }
+data Move a
+  = Move
+      { -- | Name (no moves with the same name are allowed in a 'Cycle').
+        mvName :: String,
+        -- | The weight determines how often a 'Move' is executed per iteration of
+        -- the Markov chain.
+        mvWeight :: Int,
+        -- | Simple move without tuning information.
+        mvSimple :: MoveSimple a,
+        -- | Tuning is disabled if set to 'Nothing'.
+        mvTune :: Maybe (Tuner a)
+      }
 
 instance Show (Move a) where
   show = mvName
@@ -143,25 +144,27 @@ instance Ord (Move a) where
 -- In order to calculate the Metropolis-Hastings ratio, we need to know the
 -- probability (density) of jumping forth, and the probability (density) of
 -- jumping back.
-data MoveSimple a = MoveSimple
-  { -- | Instruction about randomly moving from the current state to a new
-    -- state, given some source of randomness.
-    mvSample ::
-      a ->
-      GenIO ->
-      IO a,
-    -- | The log-density of going from one state to another.
-    mvLogDensity ::
-      a ->
-      a ->
-      Log Double
-  }
+data MoveSimple a
+  = MoveSimple
+      { -- | Instruction about randomly moving from the current state to a new
+        -- state, given some source of randomness.
+        mvSample ::
+          a ->
+          GenIO ->
+          IO a,
+        -- | The log-density of going from one state to another.
+        mvLogDensity ::
+          a ->
+          a ->
+          Log Double
+      }
 
 -- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
-data Tuner a = Tuner
-  { tParam :: Double,
-    tFunc :: Double -> MoveSimple a
-  }
+data Tuner a
+  = Tuner
+      { tParam :: Double,
+        tFunc :: Double -> MoveSimple a
+      }
 
 -- | Create a 'Tuner'. The tuning function accepts a tuning parameter, and
 -- returns a corresponding 'MoveSimple'. The larger the tuning parameter, the

@@ -1,27 +1,23 @@
-{- |
-Module      :  Mcmc.MovesSpec
-Description :  Unit tests for Mcmc.MovesSpec
-Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3.0-or-later
-
-Maintainer  :  dominik.schrempf@gmail.com
-Stability   :  unstable
-Portability :  portable
-
-Creation date: Tue May 19 12:07:43 2020.
-
--}
-
+-- |
+-- Module      :  Mcmc.MovesSpec
+-- Description :  Unit tests for Mcmc.MovesSpec
+-- Copyright   :  (c) Dominik Schrempf 2020
+-- License     :  GPL-3.0-or-later
+--
+-- Maintainer  :  dominik.schrempf@gmail.com
+-- Stability   :  unstable
+-- Portability :  portable
+--
+-- Creation date: Tue May 19 12:07:43 2020.
 module Mcmc.MovesSpec
-  ( spec
+  ( spec,
   )
 where
 
-import           Test.Hspec
-import           Test.QuickCheck
-
-import           Mcmc.Move
-import           Mcmc.Move.Slide
+import Mcmc.Move
+import Mcmc.Move.Slide
+import Test.Hspec
+import Test.QuickCheck
 
 prop_sym :: Eq b => (a -> a -> b) -> a -> a -> Bool
 prop_sym f x y = f x y == f y x

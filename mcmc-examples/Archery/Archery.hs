@@ -1,35 +1,31 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-{- |
-Module      :  Main
-Description :  Modeling shots of an archer shots on a circular target
-Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3.0-or-later
-
-Maintainer  :  dominik.schrempf@gmail.com
-Stability   :  unstable
-Portability :  portable
-
-Creation date: Wed May 27 17:11:28 2020.
-
-Please refer to the corresponding [RevBayes
-tutorial](https://revbayes.github.io/tutorials/mcmc/archery.html).
-
--}
-
+-- |
+-- Module      :  Main
+-- Description :  Modeling shots of an archer shots on a circular target
+-- Copyright   :  (c) Dominik Schrempf 2020
+-- License     :  GPL-3.0-or-later
+--
+-- Maintainer  :  dominik.schrempf@gmail.com
+-- Stability   :  unstable
+-- Portability :  portable
+--
+-- Creation date: Wed May 27 17:11:28 2020.
+--
+-- Please refer to the corresponding [RevBayes
+-- tutorial](https://revbayes.github.io/tutorials/mcmc/archery.html).
 module Main
-  ( main
+  ( main,
   )
 where
 
-import           Control.Monad
-import           Numeric.Log
-import           Statistics.Distribution
-import           Statistics.Distribution.Exponential
-import           Statistics.Distribution.Gamma
-import           System.Random.MWC
-
-import           Mcmc
+import Control.Monad
+import Mcmc
+import Numeric.Log
+import Statistics.Distribution
+import Statistics.Distribution.Exponential
+import Statistics.Distribution.Gamma
+import System.Random.MWC
 
 type I = Double
 
@@ -57,12 +53,14 @@ priorDistribution :: ExponentialDistribution
 priorDistribution = exponential alpha
 
 prior :: I -> Log Double
-prior x | x <= 0    = negInf
-        | otherwise = Exp $ logDensity priorDistribution x
+prior x
+  | x <= 0 = negInf
+  | otherwise = Exp $ logDensity priorDistribution x
 
 likelihood :: I -> I -> Log Double
-likelihood mu x | x <= 0    = negInf
-                | otherwise = Exp $ logDensity (meanDistribution mu) x
+likelihood mu x
+  | x <= 0 = negInf
+  | otherwise = Exp $ logDensity (meanDistribution mu) x
 
 moveCycle :: Cycle I
 moveCycle = fromList [slideUniformDouble "mu; slide uniform" 1 1.0 True]
@@ -96,7 +94,7 @@ nIter = 1000000
 
 main :: IO ()
 main = do
-  g  <- create
+  g <- create
   mu <- arrowMean g
   putStrLn $ "True parameter: " <> show mu
   let s = status "Archery" prior (likelihood mu) moveCycle mon 0.01 nBurn nAutoTune nIter g

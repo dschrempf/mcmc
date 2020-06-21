@@ -1,37 +1,34 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RankNTypes        #-}
-
+{-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-{- |
-Module      :  Main
-Description :  Approximate phylogenetic likelihood
-Copyright   :  (c) Dominik Schrempf, 2020
-License     :  GPL-3.0-or-later
-
-Maintainer  :  dominik.schrempf@gmail.com
-Stability   :  unstable
-Portability :  portable
-
-Creation date: Wed Jun 10 22:07:11 2020.
-
--}
+-- |
+-- Module      :  Main
+-- Description :  Approximate phylogenetic likelihood
+-- Copyright   :  (c) Dominik Schrempf, 2020
+-- License     :  GPL-3.0-or-later
+--
+-- Maintainer  :  dominik.schrempf@gmail.com
+-- Stability   :  unstable
+-- Portability :  portable
+--
+-- Creation date: Wed Jun 10 22:07:11 2020.
 module Main
-  ( main
+  ( main,
   )
 where
 
-import           Algebra.Graph.Label
-import           Algebra.Graph.Labelled.AdjacencyMap
-import           Control.Monad
-import           Data.Aeson
-import qualified Data.Text.Lazy                as T
-import           Lens.Micro
-import           Mcmc
-import           Numeric.Log
-import           Statistics.Distribution hiding ( Mean )
-import           Statistics.Distribution.Normal
-import           System.Random.MWC
+import Algebra.Graph.Label
+import Algebra.Graph.Labelled.AdjacencyMap
+import Control.Monad
+import Data.Aeson
+import qualified Data.Text.Lazy as T
+import Lens.Micro
+import Mcmc
+import Numeric.Log
+import Statistics.Distribution hiding (Mean)
+import Statistics.Distribution.Normal
+import System.Random.MWC
 
 -- Use Int node labels for now.
 type Node = Int
@@ -63,34 +60,33 @@ type LTree = Tree Length
 
 getLens :: Node -> Node -> Lens' LTree Double
 getLens x y = lens (g x y) (s x y)
- where
-  g = edgeLabel
-
-  s n m gr e = replaceEdge e n m gr
+  where
+    g = edgeLabel
+    s n m gr e = replaceEdge e n m gr
 
 -- For now, use a completely uninformative prior.
 prior :: a -> Log Double
 prior = const 1
 
 llhBranch :: Mean -> StdDev -> Length -> Log Double
-llhBranch m v l | l <= 0    = negInf
-                | otherwise = Exp $ logDensity (normalDistr m v) l
+llhBranch m v l
+  | l <= 0 = negInf
+  | otherwise = Exp $ logDensity (normalDistr m v) l
 
 llh :: MTree -> STree -> LTree -> Log Double
 llh mt vt lt = product $ zipWith3 llhBranch ms vs ls
- where
-  ms = map (^. _1) $ edgeList mt
-
-  vs = map (^. _1) $ edgeList vt
-
-  ls = map (^. _1) $ edgeList lt
+  where
+    ms = map (^. _1) $ edgeList mt
+    vs = map (^. _1) $ edgeList vt
+    ls = map (^. _1) $ edgeList lt
 
 allEdges :: LTree -> [(Node, Node)]
 allEdges = map (\(_, x, y) -> (x, y)) . edgeList
 
 slideBr :: Node -> Node -> Move LTree
 slideBr x y = slideStandard n 1 (getLens x y) True
-  where n = "Slide edge " <> show (x, y)
+  where
+    n = "Slide edge " <> show (x, y)
 
 moveCycle :: Cycle LTree
 moveCycle = fromList $ map (uncurry slideBr) (allEdges lTree)
@@ -103,7 +99,7 @@ instance Monoid Double where
   mempty = 1 / 0
 
 instance Semiring Double where
-  one   = 0
+  one = 0
 
   (<.>) = (+)
 
@@ -119,8 +115,9 @@ vTree :: MTree
 vTree = (0 -< 2.0 >- 1) + (0 -< 2.0 >- 2)
 
 mons :: [MonitorParameter LTree]
-mons = [ monitorRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree ]
-  where n x y = T.pack $ show (x, y)
+mons = [monitorRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree]
+  where
+    n x y = T.pack $ show (x, y)
 
 monStd :: MonitorStdOut LTree
 monStd = monitorStdOut mons 100
@@ -130,8 +127,9 @@ monFile = monitorFile "Branches" mons 10
 
 monBs :: [MonitorParameterBatch LTree]
 monBs =
-  [ monitorBatchMeanRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree ]
-  where n x y = T.pack $ "Mean " <> show (x, y)
+  [monitorBatchMeanRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree]
+  where
+    n x y = T.pack $ "Mean " <> show (x, y)
 
 monBatch :: MonitorBatch LTree
 monBatch = monitorBatch "Branches" monBs 200
@@ -148,14 +146,16 @@ nIter = 10000
 main :: IO ()
 main = do
   g <- create
-  let s = status "ApproximatePhylogeneticLikelihood"
-                 prior
-                 (llh mTree vTree)
-                 moveCycle
-                 mon
-                 lTree
-                 nBurn
-                 Nothing
-                 nIter
-                 g
+  let s =
+        status
+          "ApproximatePhylogeneticLikelihood"
+          prior
+          (llh mTree vTree)
+          moveCycle
+          mon
+          lTree
+          nBurn
+          Nothing
+          nIter
+          g
   void $ mh s

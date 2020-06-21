@@ -1,34 +1,30 @@
-{- |
-Module      :  Mcmc.Trace
-Description :  Trace of a Markov chain
-Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3.0-or-later
-
-Maintainer  :  dominik.schrempf@gmail.com
-Stability   :  unstable
-Portability :  portable
-
-Creation date: Wed May 20 09:11:25 2020.
-
--}
-
+-- |
+-- Module      :  Mcmc.Trace
+-- Description :  Trace of a Markov chain
+-- Copyright   :  (c) Dominik Schrempf 2020
+-- License     :  GPL-3.0-or-later
+--
+-- Maintainer  :  dominik.schrempf@gmail.com
+-- Stability   :  unstable
+-- Portability :  portable
+--
+-- Creation date: Wed May 20 09:11:25 2020.
 module Mcmc.Trace
-  ( Trace
-  , singletonT
-  , pushT
-  , headT
-  , takeT
+  ( Trace,
+    singletonT,
+    pushT,
+    headT,
+    takeT,
   )
 where
 
-import           Data.Aeson
-
-import           Mcmc.Item
+import Data.Aeson
+import Mcmc.Item
 
 -- | A 'Trace' passes through a list of states with associated log-likelihoods
 -- which are called 'Item's. New 'Item's are prepended, and the path of the
 -- Markov chain is stored in reversed order.
-newtype Trace a = Trace {fromTrace :: [Item a] }
+newtype Trace a = Trace {fromTrace :: [Item a]}
   deriving (Show, Read, Eq)
 
 instance Semigroup (Trace a) where
@@ -41,7 +37,7 @@ instance ToJSON a => ToJSON (Trace a) where
   toJSON (Trace xs) = toJSON xs
   toEncoding (Trace xs) = toEncoding xs
 
-instance FromJSON a => FromJSON (Trace a)  where
+instance FromJSON a => FromJSON (Trace a) where
   parseJSON v = Trace <$> parseJSONList v
 
 -- $(deriveJSON defaultOptions 'Trace)
@@ -53,7 +49,7 @@ singletonT i = Trace [i]
 -- | Prepend an 'Item' to a 'Trace'.
 pushT :: Item a -> Trace a -> Trace a
 pushT x = Trace . (:) x . fromTrace
-{-# INLINABLE pushT #-}
+{-# INLINEABLE pushT #-}
 
 -- | Get the most recent item of the trace.
 headT :: Trace a -> Item a

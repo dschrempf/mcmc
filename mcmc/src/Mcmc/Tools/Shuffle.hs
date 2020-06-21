@@ -1,34 +1,32 @@
-{- |
-Module      :  Mcmc.Tools.Shuffle
-Description :  Shuffle a list
-Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3.0-or-later
-
-Maintainer  :  dominik.schrempf@gmail.com
-Stability   :  unstable
-Portability :  portable
-
-Creation date: Wed May 20 14:37:09 2020.
-
-From https://wiki.haskell.org/Random_shuffle.
-
--}
-
+-- |
+-- Module      :  Mcmc.Tools.Shuffle
+-- Description :  Shuffle a list
+-- Copyright   :  (c) Dominik Schrempf 2020
+-- License     :  GPL-3.0-or-later
+--
+-- Maintainer  :  dominik.schrempf@gmail.com
+-- Stability   :  unstable
+-- Portability :  portable
+--
+-- Creation date: Wed May 20 14:37:09 2020.
+--
+-- From https://wiki.haskell.org/Random_shuffle.
 module Mcmc.Tools.Shuffle
-  ( shuffle
-  , shuffleN
-  , grabble
+  ( shuffle,
+    shuffleN,
+    grabble,
   )
 where
 
-import           Control.Monad
-import           Control.Monad.ST
-import qualified Data.Vector                   as V
-import qualified Data.Vector.Mutable           as M
-import           Data.Vector                    ( Vector )
-import           System.Random.MWC              ( GenIO
-                                                , uniformR
-                                                )
+import Control.Monad
+import Control.Monad.ST
+import qualified Data.Vector as V
+import Data.Vector (Vector)
+import qualified Data.Vector.Mutable as M
+import System.Random.MWC
+  ( GenIO,
+    uniformR,
+  )
 
 -- | Shuffle a list.
 shuffle :: [a] -> GenIO -> IO [a]
@@ -46,7 +44,8 @@ grabble xs m n gen = do
     j <- uniformR (i, l) gen
     return (i, j)
   return $ map (V.toList . V.take n . swapElems (V.fromList xs)) swapss
-  where l = length xs - 1
+  where
+    l = length xs - 1
 
 swapElems :: Vector a -> [(Int, Int)] -> Vector a
 swapElems xs swaps = runST $ do
