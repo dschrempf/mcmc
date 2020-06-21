@@ -13,15 +13,16 @@
 -- Creation date: Tue May  5 18:01:15 2020.
 module Mcmc
   ( -- * Moves
-    --
-    -- Moves are named according to what they do, i.e., how they change the state of a
-    -- Markov chain, and not according to the intrinsically used probability
-    -- distributions. For example, 'slideDouble' is a sliding move changing a 'Double'.
-    -- Under the hood, it uses the normal distribution with a given mean and variance.
-    -- The sampled variate is added to the current value of the variable (hence, the
-    -- name slide). The same nomenclature is used by RevBayes [1]. The probability
-    -- distributions and intrinsic properties of a specific move are specified in
-    -- detail in the documentation.
+
+    -- | Moves are named according to what they do, i.e., how they change the
+    -- state of a Markov chain, and not according to the intrinsically used
+    -- probability distributions. For example, 'slideDouble' is a sliding move
+    -- changing a 'Double'. Under the hood, it uses the normal distribution with
+    -- a given mean and variance. The sampled variate is added to the current
+    -- value of the variable (hence, the name slide). The same nomenclature is
+    -- used by RevBayes [1]. The probability distributions and intrinsic
+    -- properties of a specific move are specified in detail in the
+    -- documentation.
     --
     -- The other method, which is used intrinsically, is more systematic, but also a
     -- little bit more complicated: we separate between the proposal distribution and
