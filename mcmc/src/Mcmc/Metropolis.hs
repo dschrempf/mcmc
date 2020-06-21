@@ -61,12 +61,12 @@ mhMove m = do
       !r  = mhRatio (pX * lX) (pY * lY) (q x y) (q y x)
   -- 3. Accept or reject.
   if ln r >= 0.0
-    then put $ s { item = Item y pY lY, acceptance = prependA m True a }
+    then put $ s { item = Item y pY lY, acceptance = pushA m True a }
     else do
       b <- uniform g
       if b < exp (ln r)
-        then put $ s { item = Item y pY lY, acceptance = prependA m True a }
-        else put $ s { acceptance = prependA m False a }
+        then put $ s { item = Item y pY lY, acceptance = pushA m True a }
+        else put $ s { acceptance = pushA m False a }
 
 -- Replicate 'Move's according to their weights and shuffle them.
 getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]

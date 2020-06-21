@@ -84,7 +84,7 @@ module Mcmc.Move
     -- * Acceptance
     Acceptance (..),
     emptyA,
-    prependA,
+    pushA,
     resetA,
     acceptanceRatios,
   )
@@ -278,9 +278,6 @@ summarizeCycle acc c =
       Just (n, a) -> acceptanceRatios n a
     ar m = ars M.!? m
 
--- XXX: I am not too happy about this data type but cannot think of a better
--- solution.
-
 -- | For each key @k@, store the list of accepted (True) and rejected (False)
 -- proposals. For reasons of efficiency, the lists are stored in reverse order;
 -- latest first.
@@ -300,14 +297,14 @@ emptyA :: Ord k => [k] -> Acceptance k
 emptyA ks = Acceptance $ M.fromList [(k, []) | k <- ks]
 
 -- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
-prependA :: (Ord k, Show k) => k -> Bool -> Acceptance k -> Acceptance k
+pushA :: (Ord k, Show k) => k -> Bool -> Acceptance k -> Acceptance k
 -- Unsafe; faster.
-prependA k v (Acceptance m) = Acceptance $ M.adjust (v :) k m
+pushA k v (Acceptance m) = Acceptance $ M.adjust (v :) k m
 -- -- Safe; slower.
 -- prependA k v (Acceptance m) | k `M.member` m = Acceptance $ M.adjust (v:) k m
 --                             | otherwise = error msg
 --   where msg = "prependA: Can not add acceptance value for key: " <> show k <> "."
-{-# INLINEABLE prependA #-}
+{-# INLINEABLE pushA #-}
 
 -- | Reset acceptance storage.
 resetA :: Acceptance k -> Acceptance k

@@ -142,7 +142,6 @@ mcmcMonitorExec = do
     Just svt -> when (ct `diffUTCTime` svt > dtSave)
                      (mcmcSave >> put s { savetime = Just ct })
 
-
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: Mcmc a ()
 mcmcClose = do
