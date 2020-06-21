@@ -82,7 +82,7 @@ mhIter mvs = do
   let i   = item s
       t   = trace s
       n   = iteration s
-  put $ s { trace = prependT i t, iteration = succ n }
+  put $ s { trace = pushT i t, iteration = succ n }
 
 -- Run N iterations.
 mhNIter :: ToJSON a => Int -> Mcmc a ()
@@ -118,6 +118,9 @@ mhRun (Just b) t n
     case t of
       Nothing -> return ()
       Just _  -> mcmcSummarizeCycle t
+    s <- get
+    let a = acceptance s
+    put $ s { acceptance = resetA a}
     mhRun Nothing Nothing n
 mhRun Nothing _ n = do
   liftIO $ putStrLn $ "-- Run chain for " <> show n <> " iterations."

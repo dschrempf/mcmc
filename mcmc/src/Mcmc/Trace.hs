@@ -12,33 +12,16 @@ Creation date: Wed May 20 09:11:25 2020.
 
 -}
 
--- TODO: The trace data type should be changed for better. Probably a sequence?
--- Or better, a vector. This also effects other monitor involved functions.
---
--- That's why Trace is provided as an abstract data type, because the
--- implementation should change from a list to a fixed sized vector with access
--- index, see above.
-
--- TODO: Possibly limit the length of the trace to the maximum batch size.
---
--- This could be achieved with a special data structure storing a fixed sized
--- vector together with the current index. However, I couldn't find such a
--- structure on Hackage.
-
 module Mcmc.Trace
   ( Trace
   , singletonT
-  , prependT
+  , pushT
   , headT
   , takeT
-  , states
-  , logPriors
-  , logLikelihoods
   )
 where
 
 import           Data.Aeson
-import           Numeric.Log
 
 import           Mcmc.Item
 
@@ -68,26 +51,14 @@ singletonT :: Item a -> Trace a
 singletonT i = Trace [i]
 
 -- | Prepend an 'Item' to a 'Trace'.
-prependT :: Item a -> Trace a -> Trace a
-prependT x (Trace xs) = Trace (x : xs)
-{-# INLINABLE prependT #-}
+pushT :: Item a -> Trace a -> Trace a
+pushT x = Trace . (:) x . fromTrace
+{-# INLINABLE pushT #-}
 
 -- | Get the most recent item of the trace.
 headT :: Trace a -> Item a
 headT = head . fromTrace
 
 -- | Get the N most recent items of the trace.
-takeT :: Int -> Trace a -> Trace a
-takeT n = Trace . take n . fromTrace
-
--- | Get the actual states.
-states :: Trace a -> [a]
-states = map state . fromTrace
-
--- | Get the log priors.
-logPriors :: Trace a -> [Log Double]
-logPriors = map logPrior . fromTrace
-
--- | Get the log likelihoods.
-logLikelihoods :: Trace a -> [Log Double]
-logLikelihoods = map logLikelihood . fromTrace
+takeT :: Int -> Trace a -> [Item a]
+takeT n = take n . fromTrace

@@ -1,35 +1,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-{- |
-Module      :  Normal
-Description :  Benchmark Metropolis-Hastings algorithm
-Copyright   :  (c) Dominik Schrempf 2020
-License     :  GPL-3.0-or-later
-
-Maintainer  :  dominik.schrempf@gmail.com
-Stability   :  unstable
-Portability :  portable
-
-Creation date: Wed May  6 00:10:11 2020.
-
--}
-
+-- |
+-- Module      :  Normal
+-- Description :  Benchmark Metropolis-Hastings algorithm
+-- Copyright   :  (c) Dominik Schrempf 2020
+-- License     :  GPL-3.0-or-later
+--
+-- Maintainer  :  dominik.schrempf@gmail.com
+-- Stability   :  unstable
+-- Portability :  portable
+--
+-- Creation date: Wed May  6 00:10:11 2020.
 module Normal
-  ( normalBench
+  ( normalBench,
   )
 where
 
-import qualified Data.Vector.Unboxed           as V
-import           Numeric.Log                   as L
-import           Statistics.Distribution hiding ( mean
-                                                , stdDev
-                                                )
-import           Statistics.Distribution.Normal
-import           Statistics.Sample
-import           System.Random.MWC
-
-import           Mcmc
-import           Mcmc.Trace
+import Control.Monad
+import Mcmc
+import Numeric.Log as L
+import Statistics.Distribution hiding
+  ( mean,
+    stdDev,
+  )
+import Statistics.Distribution.Normal
+import System.Random.MWC
 
 trueMean :: Double
 trueMean = 5
@@ -41,15 +36,13 @@ likelihood :: Double -> Log Double
 likelihood = Exp . logDensity (normalDistr trueMean trueStdDev)
 
 moveCycle :: Cycle Double
-moveCycle = fromList
-  [ slideDouble "small"  5 0   0.1 True
-  , slideDouble "medium" 2 0   1.0 True
-  , slideDouble "large"  2 0   5.0 True
-  , slideDouble "skewed" 1 1.0 4.0 True
-  ]
-
-summarize :: [Double] -> (Double, Double)
-summarize xs = (mean v, stdDev v) where v = V.fromList xs
+moveCycle =
+  fromList
+    [ slideDouble "small" 5 0 0.1 True,
+      slideDouble "medium" 2 0 1.0 True,
+      slideDouble "large" 2 0 5.0 True,
+      slideDouble "skewed" 1 1.0 4.0 True
+    ]
 
 monStd :: MonitorStdOut Double
 monStd = monitorStdOut [monitorRealFloat "mu" id] 200
@@ -69,8 +62,4 @@ nIter = 20000
 normalBench :: GenIO -> IO ()
 normalBench g = do
   let s = status "Normal" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune nIter g
-  r <- mh s
-  let t = states $ trace r
-  putStrLn "Mean and standard deviations:"
-  putStrLn $ "True: " ++ show (trueMean, trueStdDev)
-  putStrLn $ "Markov chain: " <> show (summarize t)
+  void $ mh s

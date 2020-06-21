@@ -32,7 +32,6 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.State.Strict
 import           Data.Aeson
-import qualified Data.Map.Strict               as M
 import           Data.Maybe
 import qualified Data.Text.Lazy.IO             as T
 import           Data.Time.Clock
@@ -48,18 +47,14 @@ import           Mcmc.Status
 -- required, but it is used by the different inference algorithms.
 type Mcmc a = StateT (Status a) IO
 
--- Tune the 'Move's in the 'Cycle' of the Markov chain 'Status'; check
--- acceptance ratio of the last n moves. Tuning has no effect on 'Move's that
--- cannot be tuned. See 'autotune'.
-autotuneSp :: Int -> Status a -> Status a
-autotuneSp n s = s { cycle = mapCycle tuneF (cycle s) }
- where
-  ars = acceptanceRatios n $ acceptance s
-  tuneF m = fromMaybe m (autotune (ars M.! m) m)
-
 -- | Auto tune the 'Move's in the 'Cycle' of the chain. See 'autotune'.
 mcmcAutotune :: Int -> Mcmc a ()
-mcmcAutotune t = modify' (autotuneSp t)
+mcmcAutotune t = do
+  s <- get
+  let a = acceptance s
+      c = cycle s
+      c' = autotuneC t a c
+  put $ s { cycle = c' }
 
 -- | Print short summary of 'Move's in 'Cycle'. See 'summarizeCycle'.
 mcmcSummarizeCycle :: Maybe Int -> Mcmc a ()
