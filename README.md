@@ -12,7 +12,7 @@ planned in the future.
 
 ## Documentation
 
-The source code contains detailed documentation about general concepts as well
+The [source code](https://hackage.haskell.org/package/mcmc) contains detailed documentation about general concepts as well
 as specific functions.
 
 
