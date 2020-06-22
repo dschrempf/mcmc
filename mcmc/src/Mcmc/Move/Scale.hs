@@ -13,7 +13,6 @@
 -- Creation date: Thu May 14 21:49:23 2020.
 module Mcmc.Move.Scale
   ( scale,
-    scaleDouble,
     scaleUnbiased,
   )
 where
@@ -45,22 +44,6 @@ scale ::
 scale n w l k th True =
   Move n w (scaleSimple l k th 1.0) (Just $ tuner $ scaleSimple l k th)
 scale n w l k th False = Move n w (scaleSimple l k th 1.0) Nothing
-
--- | Multiplicative move with Gamma distributed density; specialized to a one
--- dimensional state space of type 'Double'.
-scaleDouble ::
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
-  -- | Shape.
-  Double ->
-  -- | Scale.
-  Double ->
-  -- | Enable tuning.
-  Bool ->
-  Move Double
-scaleDouble n w = scale n w id
 
 -- | Multiplicative move with Gamma distributed density. The scale of the Gamma
 -- distributions is set to (shape)^{-1}, so that the mean of the Gamma

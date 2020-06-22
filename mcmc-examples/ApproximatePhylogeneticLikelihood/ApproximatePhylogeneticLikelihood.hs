@@ -83,7 +83,7 @@ allEdges :: LTree -> [(Node, Node)]
 allEdges = map (\(_, x, y) -> (x, y)) . edgeList
 
 slideBr :: Node -> Node -> Move LTree
-slideBr x y = slideStandard n 1 (getLens x y) True
+slideBr x y = slideSymmetric n 1 (getLens x y) 1.0 True
   where
     n = "Slide edge " <> show (x, y)
 

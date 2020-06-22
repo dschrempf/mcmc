@@ -13,10 +13,8 @@
 -- Creation date: Wed May  6 10:59:13 2020.
 module Mcmc.Move.Slide
   ( slide,
-    slideDouble,
-    slideStandard,
+    slideSymmetric,
     slideUniform,
-    slideUniformDouble,
   )
 where
 
@@ -49,43 +47,37 @@ slide n w l m s True =
   Move n w (slideSimple l m s 1.0) (Just $ tuner (slideSimple l m s))
 slide n w l m s False = Move n w (slideSimple l m s 1.0) Nothing
 
--- | See 'slide'; specialized to a one dimensional state space of type 'Double'.
-slideDouble ::
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
-  -- | Mean.
-  Double ->
-  -- | Standard deviation.
-  Double ->
-  -- | Enable tuning.
-  Bool ->
-  Move Double
-slideDouble n w = slide n w id
+-- The actual move with tuning parameter.
+slideSymmetricSimple :: Lens' a Double -> Double -> Double -> MoveSimple a
+slideSymmetricSimple l s t = moveSymmetricGenericContinuous l (normalDistr 0.0 (s * t)) (+)
 
--- | Additive move with normally distributed density with a mean of 0.0 and a
--- standard deviation of 1.0.
-slideStandard ::
+-- | Additive move with normally distributed density with mean zero. This move
+-- is very fast, because the Metropolis-Hastings ratio does not include
+-- calculation of the forwards and backwards log densities.
+slideSymmetric ::
   -- | Name.
   String ->
   -- | Weight.
   Int ->
   -- | Instruction about which parameter to change.
   Lens' a Double ->
+  -- | Standard deviation.
+  Double ->
   -- | Enable tuning.
   Bool ->
   Move a
-slideStandard n w l True =
-  Move n w (slideSimple l 0.0 1.0 1.0) (Just $ tuner (slideSimple l 0.0 1.0))
-slideStandard n w l False = Move n w (slideSimple l 0.0 1.0 1.0) Nothing
+slideSymmetric n w l s True =
+  Move n w (slideSymmetricSimple l s 1.0) (Just $ tuner (slideSymmetricSimple l s))
+slideSymmetric n w l s False = Move n w (slideSymmetricSimple l s 1.0) Nothing
 
 -- The actual move with tuning parameter.
 slideUniformSimple :: Lens' a Double -> Double -> Double -> MoveSimple a
 slideUniformSimple l d t =
-  moveGenericContinuous l (uniformDistr (- t * d) (t * d)) (+) (-)
+  moveSymmetricGenericContinuous l (uniformDistr (- t * d) (t * d)) (+)
 
--- | Additive move with uniformly distributed density.
+-- | Additive move with uniformly distributed density. This move is very fast,
+-- because the Metropolis-Hastings ratio does not include calculation of the
+-- forwards and backwards log densities.
 slideUniform ::
   -- | Name.
   String ->
@@ -101,17 +93,3 @@ slideUniform ::
 slideUniform n w l d True =
   Move n w (slideUniformSimple l d 1.0) (Just $ tuner (slideUniformSimple l d))
 slideUniform n w l d False = Move n w (slideUniformSimple l d 1.0) Nothing
-
--- | See 'slideUniform'; specialized to a one dimensional state space of type
--- 'Double'.
-slideUniformDouble ::
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
-  -- | Delta.
-  Double ->
-  -- | Enable tuning.
-  Bool ->
-  Move Double
-slideUniformDouble n w = slideUniform n w id

@@ -19,7 +19,9 @@
 -- Creation date: Thu May 14 20:26:27 2020.
 module Mcmc.Move.Generic
   ( moveGenericContinuous,
+    moveSymmetricGenericContinuous,
     moveGenericDiscrete,
+    moveSymmetricGenericDiscrete,
   )
 where
 
@@ -66,7 +68,20 @@ moveGenericContinuous ::
   (Double -> Double -> Double) ->
   MoveSimple a
 moveGenericContinuous l d f fInv =
-  MoveSimple (jumpCont l d f) (logDensCont l d fInv)
+  MoveSimple (jumpCont l d f) (Just $ logDensCont l d fInv)
+
+-- | Generic function to create symmetric moves for continuous parameters ('Double').
+moveSymmetricGenericContinuous ::
+  (ContDistr d, ContGen d) =>
+  -- | Instruction about which parameter to change.
+  Lens' a Double ->
+  -- | Probability distribution
+  d ->
+  -- | Forward operator, e.g. (+), so that x + dx = y.
+  (Double -> Double -> Double) ->
+  MoveSimple a
+moveSymmetricGenericContinuous l d f =
+  MoveSimple (jumpCont l d f) Nothing
 
 jumpDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
@@ -106,4 +121,17 @@ moveGenericDiscrete ::
   (Int -> Int -> Int) ->
   MoveSimple a
 moveGenericDiscrete l fd f fInv =
-  MoveSimple (jumpDiscrete l fd f) (logDensDiscrete l fd fInv)
+  MoveSimple (jumpDiscrete l fd f) (Just $ logDensDiscrete l fd fInv)
+
+-- | Generic function to create symmetric moves for discrete parameters ('Int').
+moveSymmetricGenericDiscrete ::
+  (DiscreteDistr d, DiscreteGen d) =>
+  -- | Instruction about which parameter to change.
+  Lens' a Int ->
+  -- | Probability distribution.
+  d ->
+  -- | Forward operator, e.g. (+), so that x + dx = y.
+  (Int -> Int -> Int) ->
+  MoveSimple a
+moveSymmetricGenericDiscrete l fd f =
+  MoveSimple (jumpDiscrete l fd f) Nothing

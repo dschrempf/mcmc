@@ -33,14 +33,20 @@ import Numeric.Log
 import System.Random.MWC
 import Prelude hiding (cycle)
 
+-- For non-symmetric moves.
 mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
 {-# INLINE mhRatio #-}
 
+-- For symmetric moves.
+mhRatioSymmetric :: Log Double -> Log Double -> Log Double
+mhRatioSymmetric lX lY = lY / lX
+{-# INLINE mhRatioSymmetric #-}
+
 mhMove :: Move a -> Mcmc a ()
 mhMove m = do
   let p = mvSample $ mvSimple m
-      q = mvLogDensity $ mvSimple m
+      mq = mvLogDensity $ mvSimple m
   s <- get
   let (Item x pX lX) = item s
       pF = logPriorF s
@@ -52,7 +58,9 @@ mhMove m = do
   -- 2. Calculate Metropolis-Hastings ratio.
   let !pY = pF y
       !lY = lF y
-      !r = mhRatio (pX * lX) (pY * lY) (q x y) (q y x)
+      !r = case mq of
+        Nothing -> mhRatioSymmetric (pX * lX) (pY * lY)
+        Just q  -> mhRatio (pX * lX) (pY * lY) (q x y) (q y x)
   -- 3. Accept or reject.
   if ln r >= 0.0
     then put $ s {item = Item y pY lY, acceptance = pushA m True a}

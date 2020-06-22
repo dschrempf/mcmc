@@ -151,15 +151,10 @@ instance Ord (Move a) where
 data MoveSimple a = MoveSimple
   { -- | Instruction about randomly moving from the current state to a new
     -- state, given some source of randomness.
-    mvSample ::
-      a ->
-      GenIO ->
-      IO a,
-    -- | The log-density of going from one state to another.
-    mvLogDensity ::
-      a ->
-      a ->
-      Log Double
+    mvSample :: a -> GenIO -> IO a,
+    -- | The log-density of going from one state to another. Set to 'Nothing'
+    -- for symmetric moves.
+    mvLogDensity :: Maybe (a -> a -> Log Double)
   }
 
 -- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
@@ -260,8 +255,9 @@ summarizeCycle acc c =
       T.replicate (T.length moveHeader) "─"
     ]
       ++ [summarizeMove m (ar m) | m <- mvs]
-      ++ [ T.replicate (T.length moveHeader) "─", B.toLazyText $
-           B.decimal mpi <> B.fromString " move(s) per iteration." <> arStr
+      ++ [ T.replicate (T.length moveHeader) "─",
+           B.toLazyText $
+             B.decimal mpi <> B.fromString " move(s) per iteration." <> arStr
          ]
   where
     mvs = fromCycle c

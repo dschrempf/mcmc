@@ -48,10 +48,10 @@ likelihood x =
   product [f ft yr x | (ft, yr) <- zip fatalities normalizedYears]
 
 moveAlpha :: Move I
-moveAlpha = slide "alpha" 2 _1 0.0 0.2 False
+moveAlpha = slideSymmetric "alpha" 2 _1 0.2 False
 
 moveBeta :: Move I
-moveBeta = slide "beta" 1 _2 0.0 0.2 False
+moveBeta = slideSymmetric "beta" 1 _2 0.2 False
 
 moveCycle :: Cycle I
 moveCycle = fromList [moveAlpha, moveBeta]

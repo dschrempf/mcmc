@@ -36,10 +36,10 @@ likelihood = Exp . logDensity (normalDistr trueMean trueStdDev)
 moveCycle :: Cycle Double
 moveCycle =
   fromList
-    [ slideDouble "small" 5 0 0.1 True,
-      slideDouble "medium" 2 0 1.0 True,
-      slideDouble "large" 2 0 5.0 True,
-      slideDouble "skewed" 1 1.0 4.0 True
+    [ slideSymmetric "small" 5 id 0.1 True,
+      slideSymmetric "medium" 2 id 1.0 True,
+      slideSymmetric "large" 2 id 5.0 True,
+      slide "skewed" 1 id 1.0 4.0 True
     ]
 
 monStd :: MonitorStdOut Double

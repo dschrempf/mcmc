@@ -61,7 +61,7 @@ likelihood mu x
   | otherwise = Exp $ logDensity (meanDistribution mu) x
 
 moveCycle :: Cycle I
-moveCycle = fromList [slideUniformDouble "mu; slide uniform" 1 1.0 True]
+moveCycle = fromList [slideUniform "mu; slide uniform" 1 id 1.0 True]
 
 monMu :: MonitorParameter I
 monMu = monitorRealFloat "Mu" id
