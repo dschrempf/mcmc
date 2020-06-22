@@ -56,6 +56,7 @@ module Mcmc
 
     -- * Misc
     negInf,
+    module Mcmc.Save,
   )
 where
 
@@ -66,6 +67,7 @@ import Mcmc.Monitor.ParameterBatch
 import Mcmc.Move
 import Mcmc.Move.Scale
 import Mcmc.Move.Slide
+import Mcmc.Save
 import Mcmc.Status
 import Numeric.Log
 

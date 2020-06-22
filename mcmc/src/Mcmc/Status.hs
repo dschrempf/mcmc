@@ -146,5 +146,6 @@ status n p l c m x mB mT nI g =
   where
     i = Item x (p x) (l x)
 
+-- | Do not save the Markov chain at the end.
 noSave :: Status a -> Status a
 noSave s = s {save = False}

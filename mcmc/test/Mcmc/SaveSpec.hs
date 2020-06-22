@@ -14,8 +14,7 @@ module Mcmc.SaveSpec
   )
 where
 
-import Mcmc
-import Mcmc.Save
+import Mcmc hiding (save)
 import Numeric.Log
 import Statistics.Distribution hiding
   ( mean,
