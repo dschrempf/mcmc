@@ -56,13 +56,13 @@ mcmcSummarizeCycle :: Maybe Int -> Mcmc a ()
 mcmcSummarizeCycle Nothing = do
   liftIO $ putStrLn ""
   c <- gets cycle
-  liftIO $ putStr $ summarizeCycle Nothing c
+  liftIO $ T.putStr $ summarizeCycle Nothing c
   liftIO $ putStrLn ""
 mcmcSummarizeCycle (Just n) = do
   liftIO $ putStrLn ""
   a <- gets acceptance
   c <- gets cycle
-  liftIO $ putStr $ summarizeCycle (Just (n, a)) c
+  liftIO $ T.putStr $ summarizeCycle (Just (n, a)) c
   liftIO $ putStrLn ""
 
 fTime :: FormatTime t => t -> String

@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 -- |
 -- Module      :  Normal
 -- Description :  Benchmark Metropolis-Hastings algorithm

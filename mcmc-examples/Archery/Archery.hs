@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 -- |
 -- Module      :  Main
 -- Description :  Modeling shots of an archer shots on a circular target

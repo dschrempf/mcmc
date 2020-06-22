@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 -- |
 -- Module      :  Poisson
 -- Description :  Poisson regression model for airline fatalities

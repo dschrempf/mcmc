@@ -22,7 +22,6 @@ import Algebra.Graph.Label
 import Algebra.Graph.Labelled.AdjacencyMap
 import Control.Monad
 import Data.Aeson
-import qualified Data.Text.Lazy as T
 import Lens.Micro
 import Mcmc
 import Numeric.Log
@@ -117,7 +116,7 @@ vTree = (0 -< 2.0 >- 1) + (0 -< 2.0 >- 2)
 mons :: [MonitorParameter LTree]
 mons = [monitorRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree]
   where
-    n x y = T.pack $ show (x, y)
+    n x y = show (x, y)
 
 monStd :: MonitorStdOut LTree
 monStd = monitorStdOut mons 100
@@ -129,7 +128,7 @@ monBs :: [MonitorParameterBatch LTree]
 monBs =
   [monitorBatchMeanRealFloat (n x y) (getLens x y) | (x, y) <- allEdges lTree]
   where
-    n x y = T.pack $ "Mean " <> show (x, y)
+    n x y = "Mean " <> show (x, y)
 
 monBatch :: MonitorBatch LTree
 monBatch = monitorBatch "Branches" monBs 200

@@ -97,7 +97,7 @@ msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
           ++ nms
           ++ ["Runtime", "ETA"]
     sep = T.replicate (T.length row) "─"
-    nms = [mpName p | p <- msParams m]
+    nms = [T.pack $ mpName p | p <- msParams m]
 
 msExec ::
   Int ->
@@ -166,7 +166,7 @@ mfHeader m = case mfHandle m of
     T.hPutStrLn h
       $ mfRenderRow
       $ ["Iteration", "Log-Prior", "Log-Likelihood", "Log-Posterior"]
-        ++ [mpName p | p <- mfParams m]
+        ++ [T.pack $ mpName p | p <- mfParams m]
 
 mfExec ::
   Int ->
@@ -242,7 +242,7 @@ mbHeader m = case mbHandle m of
     T.hPutStrLn h
       $ mfRenderRow
       $ ["Iteration", "Mean log-Prior", "Mean log-Likelihood", "Mean log-Posterior"]
-        ++ [mbpName mbp | mbp <- mbParams m]
+        ++ [T.pack $ mbpName mbp | mbp <- mbParams m]
 
 logMean :: [Log Double] -> Log Double
 logMean xs = sum xs / fromIntegral (length xs)

@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- TODO: Allow execution of moves in order of appearance in the cycle.
@@ -96,9 +97,13 @@ import Data.List
 import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map)
 import Data.Maybe
+import qualified Data.Text.Lazy as T
+import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy.Builder as B
+import qualified Data.Text.Lazy.Builder.Int as B
+import qualified Data.Text.Lazy.Builder.RealFloat as B
 import Numeric.Log hiding (sum)
 import System.Random.MWC
-import Text.Printf
 
 -- | A 'Move' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability density conditioned on the
@@ -106,21 +111,20 @@ import Text.Printf
 --
 -- A 'Move' may be tuneable in that it contains information about how to enlarge
 -- or shrink the step size to tune the acceptance ratio.
-data Move a
-  = Move
-      { -- | Name (no moves with the same name are allowed in a 'Cycle').
-        mvName :: String,
-        -- | The weight determines how often a 'Move' is executed per iteration of
-        -- the Markov chain.
-        mvWeight :: Int,
-        -- | Simple move without tuning information.
-        mvSimple :: MoveSimple a,
-        -- | Tuning is disabled if set to 'Nothing'.
-        mvTune :: Maybe (Tuner a)
-      }
+data Move a = Move
+  { -- | Name (no moves with the same name are allowed in a 'Cycle').
+    mvName :: String,
+    -- | The weight determines how often a 'Move' is executed per iteration of
+    -- the Markov chain.
+    mvWeight :: Int,
+    -- | Simple move without tuning information.
+    mvSimple :: MoveSimple a,
+    -- | Tuning is disabled if set to 'Nothing'.
+    mvTune :: Maybe (Tuner a)
+  }
 
 instance Show (Move a) where
-  show = mvName
+  show m = show $ mvName m
 
 instance Eq (Move a) where
   m == n = mvName m == mvName n
@@ -144,27 +148,25 @@ instance Ord (Move a) where
 -- In order to calculate the Metropolis-Hastings ratio, we need to know the
 -- probability (density) of jumping forth, and the probability (density) of
 -- jumping back.
-data MoveSimple a
-  = MoveSimple
-      { -- | Instruction about randomly moving from the current state to a new
-        -- state, given some source of randomness.
-        mvSample ::
-          a ->
-          GenIO ->
-          IO a,
-        -- | The log-density of going from one state to another.
-        mvLogDensity ::
-          a ->
-          a ->
-          Log Double
-      }
+data MoveSimple a = MoveSimple
+  { -- | Instruction about randomly moving from the current state to a new
+    -- state, given some source of randomness.
+    mvSample ::
+      a ->
+      GenIO ->
+      IO a,
+    -- | The log-density of going from one state to another.
+    mvLogDensity ::
+      a ->
+      a ->
+      Log Double
+  }
 
 -- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
-data Tuner a
-  = Tuner
-      { tParam :: Double,
-        tFunc :: Double -> MoveSimple a
-      }
+data Tuner a = Tuner
+  { tParam :: Double,
+    tFunc :: Double -> MoveSimple a
+  }
 
 -- | Create a 'Tuner'. The tuning function accepts a tuning parameter, and
 -- returns a corresponding 'MoveSimple'. The larger the tuning parameter, the
@@ -227,47 +229,39 @@ autotuneC n a = Cycle . map tuneF . fromCycle
     ars = acceptanceRatios n a
     tuneF m = fromMaybe m (autotune (ars M.! m) m)
 
-left :: Int -> String -> String
-left n s = take n s ++ replicate (n - l) ' ' where l = length s
-
-right :: Int -> String -> String
-right n s = replicate (n - l) ' ' ++ take n s where l = length s
-
-renderRow :: String -> String -> String -> String -> String
-renderRow name weight acceptRatio tuneParam = nB ++ wB ++ rB ++ tB
+renderRow :: Text -> Text -> Text -> Text -> Text
+renderRow name weight acceptRatio tuneParam = nB <> wB <> rB <> tB
   where
-    nB = left 30 name
-    wB = right 8 weight
-    rB = right 20 acceptRatio
-    tB = right 20 tuneParam
+    nB = T.justifyLeft 30 ' ' name
+    wB = T.justifyRight 8 ' ' weight
+    rB = T.justifyRight 20 ' ' acceptRatio
+    tB = T.justifyRight 20 ' ' tuneParam
 
-moveHeader :: String
+moveHeader :: Text
 moveHeader =
   renderRow "Move name" "Weight" "Acceptance ratio" "Tuning parameter"
 
-summarizeMove :: Move a -> Maybe Double -> String
-summarizeMove m r = renderRow name weight acceptRatio tuneParamStr
+summarizeMove :: Move a -> Maybe Double -> Text
+summarizeMove m r = renderRow (T.pack name) weight acceptRatio tuneParamStr
   where
     name = mvName m
-    weight = show $ mvWeight m
-    acceptRatio = maybe "" (printf "%.3f") r
-    tuneParamStr = maybe "" (printf "%.3f") (tParam <$> mvTune m)
-
--- TODO: Move this to Mcmc?
+    weight = B.toLazyText $ B.decimal $ mvWeight m
+    acceptRatio = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) r
+    tuneParamStr = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) (tParam <$> mvTune m)
 
 -- | Summarize the 'Move's in the 'Cycle'. Also report acceptance ratios for the
 -- given number of last iterations.
-summarizeCycle :: Maybe (Int, Acceptance (Move a)) -> Cycle a -> String
+summarizeCycle :: Maybe (Int, Acceptance (Move a)) -> Cycle a -> Text
 summarizeCycle acc c =
-  unlines $
+  T.unlines $
     [ "Summary of move(s) in cycle:",
-      replicate (length moveHeader) '─',
+      T.replicate (T.length moveHeader) "─",
       moveHeader,
-      replicate (length moveHeader) '─'
+      T.replicate (T.length moveHeader) "─"
     ]
       ++ [summarizeMove m (ar m) | m <- mvs]
-      ++ [ replicate (length moveHeader) '─',
-           show mpi ++ " move(s) per iteration." ++ arStr
+      ++ [ T.replicate (T.length moveHeader) "─", B.toLazyText $
+           B.decimal mpi <> B.fromString " move(s) per iteration." <> arStr
          ]
   where
     mvs = fromCycle c
@@ -275,7 +269,7 @@ summarizeCycle acc c =
     arStr = case acc of
       Nothing -> ""
       Just (n, _) ->
-        " Acceptance ratio(s) calculated over " ++ show n ++ " iterations."
+        " Acceptance ratio(s) calculated over " <> B.decimal n <> " iterations."
     ars = case acc of
       Nothing -> M.empty
       Just (n, a) -> acceptanceRatios n a

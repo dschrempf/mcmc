@@ -24,7 +24,6 @@ module Mcmc.Monitor.ParameterBatch
   )
 where
 
-import Data.Text.Lazy (Text)
 import Data.Text.Lazy.Builder (Builder)
 import qualified Data.Text.Lazy.Builder.RealFloat as T
 import Lens.Micro
@@ -39,7 +38,7 @@ import Lens.Micro
 data MonitorParameterBatch a
   = MonitorParameterBatch
       { -- | Name of batch monitored parameter.
-        mbpName :: Text,
+        mbpName :: String,
         -- | Instruction about how to extract the batch mean from the trace.
         mbpFunc :: [a] -> Builder
       }
@@ -57,7 +56,7 @@ mean xs = realToFrac (sum xs) / fromIntegral (length xs)
 monitorBatchMeanInt ::
   Integral b =>
   -- | Name of monitor.
-  Text ->
+  String ->
   -- | Instruction about which parameter to monitor.
   Lens' a b ->
   MonitorParameterBatch a
@@ -65,27 +64,27 @@ monitorBatchMeanInt n l =
   MonitorParameterBatch
     n
     (T.formatRealFloat T.Fixed (Just 8) . mean . mapL l)
-{-# SPECIALIZE monitorBatchMeanInt :: Text -> Lens' a Int -> MonitorParameterBatch a #-}
+{-# SPECIALIZE monitorBatchMeanInt :: String -> Lens' a Int -> MonitorParameterBatch a #-}
 
 -- | Batch monitor integral parameters such as 'Int'. Print the mean with full
 -- precision.
 monitorBatchMeanIntF ::
   Integral b =>
   -- | Name of monitor.
-  Text ->
+  String ->
   -- | Instruction about which parameter to monitor.
   Lens' a b ->
   MonitorParameterBatch a
 monitorBatchMeanIntF n l =
   MonitorParameterBatch n (T.realFloat . mean . mapL l)
-{-# SPECIALIZE monitorBatchMeanIntF :: Text -> Lens' a Int -> MonitorParameterBatch a #-}
+{-# SPECIALIZE monitorBatchMeanIntF :: String -> Lens' a Int -> MonitorParameterBatch a #-}
 
 -- | Batch monitor real float parameters such as 'Double' with eight decimal
 -- places (half precision).
 monitorBatchMeanRealFloat ::
   RealFloat b =>
   -- | Name of monitor.
-  Text ->
+  String ->
   -- | Instruction about which parameter to monitor.
   Lens' a b ->
   MonitorParameterBatch a
@@ -93,26 +92,26 @@ monitorBatchMeanRealFloat n l =
   MonitorParameterBatch
     n
     (T.formatRealFloat T.Fixed (Just 8) . mean . mapL l)
-{-# SPECIALIZE monitorBatchMeanRealFloat :: Text -> Lens' a Double -> MonitorParameterBatch a #-}
+{-# SPECIALIZE monitorBatchMeanRealFloat :: String -> Lens' a Double -> MonitorParameterBatch a #-}
 
 -- | Batch monitor real float parameters such as 'Double' with full precision.
 monitorBatchMeanRealFloatF ::
   RealFloat b =>
   -- | Name of monitor.
-  Text ->
+  String ->
   -- | Instruction about which parameter to monitor.
   Lens' a b ->
   MonitorParameterBatch a
 monitorBatchMeanRealFloatF n l =
   MonitorParameterBatch n (T.realFloat . mean . mapL l)
-{-# SPECIALIZE monitorBatchMeanRealFloatF :: Text -> Lens' a Double -> MonitorParameterBatch a #-}
+{-# SPECIALIZE monitorBatchMeanRealFloatF :: String -> Lens' a Double -> MonitorParameterBatch a #-}
 
 -- | Batch monitor real float parameters such as 'Double' with scientific
 -- notation and eight decimal places.
 monitorBatchMeanRealFloatS ::
   RealFloat b =>
   -- | Name of monitor.
-  Text ->
+  String ->
   -- | Instruction about which parameter to monitor.
   Lens' a b ->
   MonitorParameterBatch a
@@ -120,12 +119,12 @@ monitorBatchMeanRealFloatS n l =
   MonitorParameterBatch
     n
     (T.formatRealFloat T.Exponent (Just 8) . mean . mapL l)
-{-# SPECIALIZE monitorBatchMeanRealFloatS :: Text -> Lens' a Double -> MonitorParameterBatch a #-}
+{-# SPECIALIZE monitorBatchMeanRealFloatS :: String -> Lens' a Double -> MonitorParameterBatch a #-}
 
 -- | Batch monitor parameters with custom lens and builder.
 monitorBatchCustom ::
   -- | Name of monitor.
-  Text ->
+  String ->
   -- | Instruction about which parameter to monitor.
   Lens' a b ->
   -- | Function to calculate the batch mean.
