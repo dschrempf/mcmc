@@ -2,5 +2,10 @@
 # Markov chain Monte Carlo sampling - ChangeLog
 
 
+## 0.1.3
+
+Many changes; notably it is now possible to continue a Markov chain run.
+
+
 ## Unreleased changes
 

@@ -21,7 +21,7 @@ git clone https://github.com/dschrempf/mcmc.git
 stack build
 #+end_src
 
-For example, estimate the accuracy of an archer with
+For example, estimate the [[https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Archery/Archery.hs][accuracy of an archer]] with
 #+name: Archery
 #+begin_src sh :exports code :results none
 stack exec archery

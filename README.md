@@ -24,7 +24,7 @@ attached to this repository.
     git clone https://github.com/dschrempf/mcmc.git
     stack build
 
-For example, estimate the accuracy of an archer with
+For example, estimate the [accuracy of an archer](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Archery/Archery.hs) with
 
     stack exec archery
 
