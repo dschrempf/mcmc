@@ -66,12 +66,12 @@ getLens x y = lens (g x y) (s x y)
     s n m gr e = replaceEdge e n m gr
 
 -- For now, use a completely uninformative prior.
-prior :: a -> Log Double
-prior = const 1
+constPrior :: a -> Log Double
+constPrior = const 1
 
 lhBranch :: Mean -> StdDev -> Length -> Log Double
 lhBranch m v l
-  | l <= 0 = negInf
+  | l <= 0 = pzero
   | otherwise = Exp $ logDensity (normalDistr m v) l
 
 lh :: MTree -> STree -> LTree -> Log Double
@@ -155,9 +155,9 @@ main = do
   args <- getArgs
   case args of
     ["continue", nStr] -> do
-      s <- loadStatus prior (lh mTree vTree) moveCycle mon (nm ++ ".mcmc")
+      s <- loadStatus constPrior (lh mTree vTree) moveCycle mon (nm ++ ".mcmc")
       void $ mhContinue (read nStr) s
     _ -> do
       g <- create
-      let s = status nm prior (lh mTree vTree) moveCycle mon lTree nBurn nTune nIter g
+      let s = status nm constPrior (lh mTree vTree) moveCycle mon lTree nBurn nTune nIter g
       void $ mh s

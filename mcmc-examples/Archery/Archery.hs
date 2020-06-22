@@ -50,14 +50,14 @@ arrowMean = genContVar (meanDistribution muTrue)
 priorDistribution :: ExponentialDistribution
 priorDistribution = exponential alpha
 
-prior :: I -> Log Double
-prior x
-  | x <= 0 = negInf
+pr :: I -> Log Double
+pr x
+  | x <= 0 = pzero
   | otherwise = Exp $ logDensity priorDistribution x
 
-likelihood :: I -> I -> Log Double
-likelihood mu x
-  | x <= 0 = negInf
+lh :: I -> I -> Log Double
+lh mu x
+  | x <= 0 = pzero
   | otherwise = Exp $ logDensity (meanDistribution mu) x
 
 moveCycle :: Cycle I
@@ -95,5 +95,5 @@ main = do
   g <- create
   mu <- arrowMean g
   putStrLn $ "True parameter: " <> show mu
-  let s = noSave $ status "Archery" prior (likelihood mu) moveCycle mon 0.01 nBurn nAutoTune nIter g
+  let s = noSave $ status "Archery" pr (lh mu) moveCycle mon 0.01 nBurn nAutoTune nIter g
   void $ mh s

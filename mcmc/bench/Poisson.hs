@@ -43,8 +43,8 @@ f ft yr (alpha, beta) = Exp $ logProbability (poisson l) (fromIntegral ft)
   where
     l = exp $ alpha + beta * yr
 
-likelihood :: I -> Log Double
-likelihood x =
+lh :: I -> Log Double
+lh x =
   product [f ft yr x | (ft, yr) <- zip fatalities normalizedYears]
 
 moveAlpha :: Move I
@@ -82,5 +82,5 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  let s = noSave $ status "Poisson" (const 1) likelihood moveCycle mon initial nBurn nAutoTune nIter g
+  let s = noSave $ status "Poisson" (const 1) lh moveCycle mon initial nBurn nAutoTune nIter g
   void $ mh s

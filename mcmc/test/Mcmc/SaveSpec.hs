@@ -30,8 +30,8 @@ trueMean = 5
 trueStdDev :: Double
 trueStdDev = 4
 
-likelihood :: Double -> Log Double
-likelihood = Exp . logDensity (normalDistr trueMean trueStdDev)
+lh :: Double -> Log Double
+lh = Exp . logDensity (normalDistr trueMean trueStdDev)
 
 moveCycle :: Cycle Double
 moveCycle =
@@ -63,9 +63,9 @@ spec =
     $ it "doesn't change the MCMC chain"
     $ do
       gen <- create
-      let s = noSave $ status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune nIter gen
+      let s = noSave $ status "SaveSpec" (const 1) lh moveCycle mon 0 nBurn nAutoTune nIter gen
       saveStatus "SaveSpec.json" s
-      s' <- loadStatus (const 1) likelihood moveCycle mon "SaveSpec.json"
+      s' <- loadStatus (const 1) lh moveCycle mon "SaveSpec.json"
       r <- mh s
       r' <- mh s'
       item r `shouldBe` item r'

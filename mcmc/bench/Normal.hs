@@ -30,8 +30,8 @@ trueMean = 5
 trueStdDev :: Double
 trueStdDev = 4
 
-likelihood :: Double -> Log Double
-likelihood = Exp . logDensity (normalDistr trueMean trueStdDev)
+lh :: Double -> Log Double
+lh = Exp . logDensity (normalDistr trueMean trueStdDev)
 
 moveCycle :: Cycle Double
 moveCycle =
@@ -59,5 +59,5 @@ nIter = 20000
 
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  let s = noSave $ status "Normal" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune nIter g
+  let s = noSave $ status "Normal" (const 1) lh moveCycle mon 0 nBurn nAutoTune nIter g
   void $ mh s
