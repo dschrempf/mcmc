@@ -1,8 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
 
--- TODO: Move all we can into Mcmc.Mcmc, because it will be reused across
--- algorithms.
-
 -- |
 -- Module      :  Mcmc.Metropolis
 -- Description :  Metropolis-Hastings at its best
@@ -100,23 +97,20 @@ mhBurn n = do
   mhNIter n
   mcmcAutotune n
 
--- TODO: This is a hack; mhRun should be split into mhBurnIn, and mhRun.
-mhBurnIn :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
-mhBurnIn b (Just t)
-  | t <= 0 = error "mhBurnIn: Auto tuning period smaller equal 0."
-  | b > t = mhBurn t >> mhBurnIn (b - t) (Just t)
-  | b <= t = mhBurn b
-  | otherwise = error "mhBurnIn: Please contact maintainer."
-mhBurnIn b Nothing = mhNIter b
+mhBurnInN :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
+mhBurnInN b (Just t)
+  | t <= 0 = error "mhBurnInN: Auto tuning period smaller equal 0."
+  | b > t = mhBurn t >> mhBurnInN (b - t) (Just t)
+  | otherwise = mhBurn b
+mhBurnInN b Nothing = mhNIter b
 
--- TODO: This is a hack; mhRun should be split into mhBurnIn, and mhRun.
-mhRun :: ToJSON a => Maybe Int -> Maybe Int -> Int -> Mcmc a ()
-mhRun (Just b) t n
-  | b <= 0 = error "mhRun: Number of burn in iterations smaller equal 0."
+mhBurnIn :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
+mhBurnIn b t
+  | b <= 0 = error "mhBurnIn: Number of burn in iterations smaller equal 0."
   | otherwise = do
     liftIO $ putStrLn $ "-- Burn in for " <> show b <> " cycles."
     mcmcMonitorHeader
-    mhBurnIn b t
+    mhBurnInN b t
     liftIO $ putStrLn "-- Burn in finished."
     case t of
       Nothing -> return ()
@@ -124,8 +118,9 @@ mhRun (Just b) t n
     s <- get
     let a = acceptance s
     put $ s {acceptance = resetA a}
-    mhRun Nothing Nothing n
-mhRun Nothing _ n = do
+
+mhRun :: ToJSON a => Int -> Mcmc a ()
+mhRun n = do
   liftIO $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
   mcmcMonitorHeader
   mhNIter n
@@ -142,16 +137,16 @@ mh =
   execStateT
     ( do
         mcmcInit
+        liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
         mcmcReport
         mcmcSummarizeCycle Nothing
-        -- TODO: This is a hack; mhRun should be split into mhBurnIn, and mhRun.
         s <- get
-        let b = burnInIterations s
-            t = autoTuningPeriod s
-            n = iterations s
-        mhRun b t n
+        case burnInIterations s of
+          Nothing -> return ()
+          Just b  -> mhBurnIn b (autoTuningPeriod s)
+        mhRun (iterations s)
         mcmcMonitorExec
-        mcmcSummarizeCycle (Just n)
+        mcmcSummarizeCycle (Just $ iterations s)
         liftIO $ putStrLn "-- Metropolis-Hastings sampler finished."
         mcmcClose
     )

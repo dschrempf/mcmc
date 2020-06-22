@@ -80,8 +80,6 @@ mcmcInit = do
   m' <- liftIO $ mOpen nm m
   put $ s {monitor = m', starttime = Just t}
 
--- TODO: This is now tuned to MH, which should not be the case.
-
 -- | Report what is going to be done.
 mcmcReport :: Mcmc a ()
 mcmcReport = do
@@ -89,7 +87,6 @@ mcmcReport = do
   let b = burnInIterations s
       t = autoTuningPeriod s
       n = iterations s
-  liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
   case b of
     Just b' -> liftIO $ putStrLn $ "-- Burn in for " <> show b' <> " iterations."
     Nothing -> return ()
