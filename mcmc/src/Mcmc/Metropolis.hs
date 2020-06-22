@@ -69,6 +69,8 @@ mhMove m = do
         then put $ s {item = Item y pY lY, acceptance = pushA m True a}
         else put $ s {acceptance = pushA m False a}
 
+-- TODO: Split the generator here. See SaveSpec -> mhContinue.
+
 -- Replicate 'Move's according to their weights and shuffle them.
 getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
 getNCycles c = shuffleN mvs
@@ -78,13 +80,13 @@ getNCycles c = shuffleN mvs
 -- Run one iterations; perform all moves in a Cycle.
 mhIter :: ToJSON a => [Move a] -> Mcmc a ()
 mhIter mvs = do
-  mcmcMonitorExec
   mapM_ mhMove mvs
   s <- get
   let i = item s
       t = trace s
       n = iteration s
   put $ s {trace = pushT i t, iteration = succ n}
+  mcmcMonitorExec
 
 -- Run N iterations.
 mhNIter :: ToJSON a => Int -> Mcmc a ()

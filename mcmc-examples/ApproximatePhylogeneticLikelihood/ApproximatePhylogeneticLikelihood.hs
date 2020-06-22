@@ -27,6 +27,7 @@ import Mcmc
 import Numeric.Log
 import Statistics.Distribution hiding (Mean)
 import Statistics.Distribution.Normal
+import System.Environment
 import System.Random.MWC
 
 -- Use Int node labels for now.
@@ -39,6 +40,7 @@ type Node = Int
 type Tree a = AdjacencyMap Double Node
 
 instance ToJSON (AdjacencyMap Double Node)
+instance FromJSON (AdjacencyMap Double Node)
 
 -- Different types of branch lengths.
 type Length = Double
@@ -145,19 +147,17 @@ nTune = Just 200
 nIter :: Int
 nIter = 20000
 
+nm :: String
+nm = "ApproximatePhylogeneticLikelihood"
+
 main :: IO ()
 main = do
-  g <- create
-  let s =
-        status
-          "ApproximatePhylogeneticLikelihood"
-          prior
-          (llh mTree vTree)
-          moveCycle
-          mon
-          lTree
-          nBurn
-          nTune
-          nIter
-          g
-  void $ mh s
+  args <- getArgs
+  case args of
+    ["continue", nStr] -> do
+      s <- loadStatus prior (llh mTree vTree) moveCycle mon (nm ++ ".mcmc")
+      void $ mhContinue (read nStr) s
+    _ -> do
+      g <- create
+      let s = status nm prior (llh mTree vTree) moveCycle mon lTree nBurn nTune nIter g
+      void $ mh s

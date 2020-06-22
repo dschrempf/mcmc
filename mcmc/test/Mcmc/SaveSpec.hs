@@ -43,7 +43,7 @@ moveCycle =
     ]
 
 monStd :: MonitorStdOut Double
-monStd = monitorStdOut [monitorRealFloat "mu" id] 200
+monStd = monitorStdOut [monitorRealFloat "mu" id] 10
 
 mon :: Monitor Double
 mon = Monitor monStd [] []
@@ -58,18 +58,38 @@ nIter :: Int
 nIter = 200
 
 spec :: Spec
-spec = describe "saveStatus and loadStatus"
-  $ it "doesn't change the MCMC chain"
-  $ do
-    gen <- create
-    let s = status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune nIter gen
-    saveStatus "SaveSpec.json" s
-    s' <- loadStatus (const 1) likelihood moveCycle mon "SaveSpec.json"
-    r <- mh s
-    r' <- mh s'
-    g <- save $ generator r
-    g' <- save $ generator r'
-    item r `shouldBe` item r'
-    iteration r `shouldBe` iteration r'
-    trace r `shouldBe` trace r'
-    g `shouldBe` g'
+spec =
+  describe "saveStatus and loadStatus"
+    $ it "doesn't change the MCMC chain"
+    $ do
+      gen <- create
+      let s = noSave $ status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune nIter gen
+      saveStatus "SaveSpec.json" s
+      s' <- loadStatus (const 1) likelihood moveCycle mon "SaveSpec.json"
+      r <- mh s
+      r' <- mh s'
+      item r `shouldBe` item r'
+      iteration r `shouldBe` iteration r'
+      trace r `shouldBe` trace r'
+      g <- save $ generator r
+      g' <- save $ generator r'
+      g `shouldBe` g'
+
+  -- -- TODO: This will only work with a splittable generator because getNCycles
+  -- -- changes the generator.
+  -- describe "mhContinue"
+  --   $ it "mh 200 + mhContinue 200 == mh 400"
+  --   $ do
+  --     gen1 <- create
+  --     let s1 = noSave $ status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune 400 gen1
+  --     r1 <- mh s1
+  --     gen2 <- create
+  --     let s2 = noSave $ status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune 200 gen2
+  --     r2' <- mh s2
+  --     r2 <- mhContinue 200 r2'
+  --     item r1 `shouldBe` item r2
+  --     iteration r1 `shouldBe` iteration r2
+  --     trace r1 `shouldBe` trace r2
+  --     g <- save $ generator r1
+  --     g' <- save $ generator r2
+  --     g `shouldBe` g'

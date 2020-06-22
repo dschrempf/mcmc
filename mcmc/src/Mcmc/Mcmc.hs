@@ -54,16 +54,12 @@ mcmcAutotune t = do
 -- | Print short summary of 'Move's in 'Cycle'. See 'summarizeCycle'.
 mcmcSummarizeCycle :: Maybe Int -> Mcmc a ()
 mcmcSummarizeCycle Nothing = do
-  liftIO $ putStrLn ""
   c <- gets cycle
   liftIO $ T.putStr $ summarizeCycle Nothing c
-  liftIO $ putStrLn ""
 mcmcSummarizeCycle (Just n) = do
-  liftIO $ putStrLn ""
   a <- gets acceptance
   c <- gets cycle
   liftIO $ T.putStr $ summarizeCycle (Just (n, a)) c
-  liftIO $ putStrLn ""
 
 fTime :: FormatTime t => t -> String
 fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
@@ -84,7 +80,7 @@ mcmcInit = do
   put $ s {monitor = m', start = Just (n, t)}
 
 -- | Report what is going to be done.
-mcmcReport :: Mcmc a ()
+mcmcReport :: ToJSON a => Mcmc a ()
 mcmcReport = do
   s <- get
   let b = burnInIterations s
@@ -101,6 +97,9 @@ mcmcReport = do
           <> " iterations (during burn in only)."
     Nothing -> return ()
   liftIO $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
+  liftIO $ putStrLn "-- Initial state."
+  mcmcMonitorHeader
+  mcmcMonitorExec
 
 -- | Print header line of 'Monitor' (only standard output).
 mcmcMonitorHeader :: Mcmc a ()
@@ -134,7 +133,6 @@ mcmcClose :: ToJSON a => Mcmc a ()
 mcmcClose = do
   s <- get
   let n = iterations s
-  mcmcMonitorExec
   mcmcSummarizeCycle (Just n)
   liftIO $ putStrLn "-- Metropolis-Hastings sampler finished."
   let m = monitor s

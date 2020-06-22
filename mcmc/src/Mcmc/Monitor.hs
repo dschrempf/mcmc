@@ -81,7 +81,7 @@ monitorStdOut ps p
   | otherwise = MonitorStdOut ps p
 
 msIWidth :: Int64
-msIWidth = 10
+msIWidth = 12
 
 msWidth :: Int64
 msWidth = 22
@@ -99,7 +99,7 @@ msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
         ["Iteration", "Log-Prior", "Log-Likelihood", "Log-Posterior"]
           ++ nms
           ++ ["Runtime", "ETA"]
-    sep = T.replicate (T.length row) "─"
+    sep = "   " <> T.replicate (T.length row - 3) "─"
     nms = [T.pack $ mpName p | p <- msParams m]
 
 msExec ::

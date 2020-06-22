@@ -225,7 +225,7 @@ autotuneC n a = Cycle . map tuneF . fromCycle
     tuneF m = fromMaybe m (autotune (ars M.! m) m)
 
 renderRow :: Text -> Text -> Text -> Text -> Text
-renderRow name weight acceptRatio tuneParam = nB <> wB <> rB <> tB
+renderRow name weight acceptRatio tuneParam = "   " <> nB <> wB <> rB <> tB
   where
     nB = T.justifyLeft 30 ' ' name
     wB = T.justifyRight 8 ' ' weight
@@ -249,15 +249,18 @@ summarizeMove m r = renderRow (T.pack name) weight acceptRatio tuneParamStr
 summarizeCycle :: Maybe (Int, Acceptance (Move a)) -> Cycle a -> Text
 summarizeCycle acc c =
   T.unlines $
-    [ "Summary of move(s) in cycle:",
-      T.replicate (T.length moveHeader) "─",
+    [ "-- Summary of move(s) in cycle.",
+      -- T.replicate (T.length moveHeader) "─",
       moveHeader,
-      T.replicate (T.length moveHeader) "─"
+      "   " <> T.replicate (T.length moveHeader - 3) "─"
     ]
       ++ [summarizeMove m (ar m) | m <- mvs]
-      ++ [ T.replicate (T.length moveHeader) "─",
+      ++ [ "   " <> T.replicate (T.length moveHeader - 3) "─",
            B.toLazyText $
-             B.decimal mpi <> B.fromString " move(s) per iteration." <> arStr
+             B.fromLazyText "-- "
+               <> B.decimal mpi
+               <> B.fromString " move(s) per iteration."
+               <> arStr
          ]
   where
     mvs = fromCycle c
