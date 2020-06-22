@@ -76,9 +76,12 @@ mcmcInit = do
   liftIO $ putStrLn $ "-- Start time: " <> fTime t
   s <- get
   let m = monitor s
+      n = iteration s
       nm = name s
-  m' <- liftIO $ mOpen nm m
-  put $ s {monitor = m', starttime = Just t}
+  m' <- if n == 0
+        then liftIO $ mOpen nm m
+        else liftIO $ mAppend nm m
+  put $ s {monitor = m', start = Just (n, t)}
 
 -- | Report what is going to be done.
 mcmcReport :: Mcmc a ()
@@ -109,7 +112,9 @@ mcmcMonitorHeader = do
 mcmcSave :: ToJSON a => Mcmc a ()
 mcmcSave = do
   s <- get
-  when (save s) (liftIO $ saveStatus (name s <> ".mcmc") s)
+  liftIO $ putStrLn "-- Save Markov chain. For long chains, this may take a while."
+  liftIO $ saveStatus (name s <> ".mcmc") s
+  liftIO $ putStrLn "-- Done saving Markov chain."
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()
@@ -118,21 +123,21 @@ mcmcMonitorExec = do
   let i = iteration s
       j = iterations s + fromMaybe 0 (burnInIterations s)
       m = monitor s
-      st = fromMaybe (error "mcmcMonitorExec: Start time not set.") (starttime s)
+      st = fromMaybe (error "mcmcMonitorExec: Starting state and time not set.") (start s)
       tr = trace s
   liftIO $ mExec i st tr j m
-  mcmcSave
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
-mcmcClose :: Mcmc a ()
+mcmcClose :: ToJSON a => Mcmc a ()
 mcmcClose = do
   s <- get
   let m = monitor s
   m' <- liftIO $ mClose m
   put $ s {monitor = m'}
+  mcmcSave
   t <- liftIO getCurrentTime
-  let rt = case starttime s of
+  let rt = case start s of
         Nothing -> error "mcmcClose: Start time not set."
-        Just st -> t `diffUTCTime` st
+        Just (_, st) -> t `diffUTCTime` st
   liftIO $ T.putStrLn $ "-- Wall clock run time: " <> renderDuration rt <> "."
   liftIO $ putStrLn $ "-- End time: " <> fTime t

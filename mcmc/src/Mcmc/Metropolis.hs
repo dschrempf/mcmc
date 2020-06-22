@@ -20,6 +20,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State.Strict
 import Data.Aeson
+import Data.Maybe
 import Mcmc.Item
 import Mcmc.Mcmc
 import Mcmc.Move
@@ -103,7 +104,8 @@ mhBurnInN b Nothing = mhNIter b
 -- Initialize burn in for given number of iterations.
 mhBurnIn :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
 mhBurnIn b t
-  | b <= 0 = error "mhBurnIn: Number of burn in iterations smaller equal 0."
+  | b < 0 = error "mhBurnIn: Negative number of burn in iterations."
+  | b == 0 = return ()
   | otherwise = do
     liftIO $ putStrLn $ "-- Burn in for " <> show b <> " cycles."
     mcmcMonitorHeader
@@ -126,20 +128,25 @@ mhRun n = do
 mhT :: ToJSON a => Mcmc a ()
 mhT = do
   s <- get
-  if iteration s == 0
-    then liftIO $ putStrLn "-- Continue Metropolis-Hastings sampler."
-    else liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
+  liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
   mcmcInit
   mcmcReport
   mcmcSummarizeCycle Nothing
-  case burnInIterations s of
-    Nothing -> return ()
-    Just b -> mhBurnIn b (autoTuningPeriod s)
-  mhRun (iterations s)
+  let b = fromMaybe 0 (burnInIterations s)
+  mhBurnIn b (autoTuningPeriod s)
+  let n = iterations s
+  mhRun n
   mcmcMonitorExec
-  mcmcSummarizeCycle (Just $ iterations s)
+  mcmcSummarizeCycle (Just n)
   liftIO $ putStrLn "-- Metropolis-Hastings sampler finished."
   mcmcClose
+
+mhContinue :: ToJSON a => Int -> Mcmc a ()
+mhContinue dn = do
+  liftIO $ putStrLn "-- Continue Metropolis-Hastings sampler."
+  liftIO $ putStrLn $ "-- Run chain for " <> show dn <> " additional iterations."
+  -- TODO.
+  mcmcInit
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 --
@@ -149,4 +156,7 @@ mh ::
   -- | Initial (or last) status of the Markov chain.
   Status a ->
   IO (Status a)
-mh = execStateT mhT
+mh s = do let m = iteration s
+          if m == 0 then execStateT mhT s
+            else do putStrLn "To continue a Markov chain run, please use 'mhContinue'."
+                    error $ "Current iteration " ++ show m ++ " is non-zero."

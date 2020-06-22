@@ -28,7 +28,6 @@
 module Mcmc.Status
   ( Status (..),
     status,
-    doSave,
   )
 where
 
@@ -77,13 +76,9 @@ data Status a
         -- | Number of normal iterations excluding burn in. Note that auto tuning
         -- only happens during burn in.
         iterations :: Int,
-        -- | Starting time of chain; used to calculate run time and ETA.
-        starttime :: Maybe UTCTime,
-        -- | Save the chain each iteration? By default, the chain is not saved,
-        -- because it is very slow for fast chains. However, saving time for
-        -- slow chains is relatively small. Saved chains can be restarted
-        -- easily!
-        save :: Bool,
+        -- | Starting time and starting iteration of chain; used to calculate
+        -- run time and ETA.
+        start :: Maybe (Int, UTCTime),
         -- | The random number generator.
         generator :: GenIO,
         -- Auxiliary functions.
@@ -140,7 +135,6 @@ status n p l c m x mB mT nI g =
     mT
     nI
     Nothing
-    False
     g
     p
     l
@@ -148,6 +142,3 @@ status n p l c m x mB mT nI g =
     m
   where
     i = Item x (p x) (l x)
-
-doSave :: Status a -> Status a
-doSave s = s {save = True}

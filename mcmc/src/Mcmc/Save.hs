@@ -22,9 +22,11 @@ module Mcmc.Save
   )
 where
 
+import Codec.Compression.GZip
 import Control.Monad
 import Data.Aeson
 import Data.Aeson.TH
+import qualified Data.ByteString.Lazy as B
 import Data.List hiding (cycle)
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -36,27 +38,13 @@ import Data.Word
 import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Move
-import Mcmc.Status hiding (save)
+import Mcmc.Status
 import Mcmc.Trace
 import Numeric.Log
 import System.IO.Unsafe (unsafePerformIO)
 import System.Random.MWC
 import Prelude hiding (cycle)
 
--- | Information about a Markov chain run, which can be (and is) stored on disk.
--- data Save a =
---   Save { sName :: String
---        , sItem :: Item a
---        , sIteration :: Int
---        , sTrace :: Trace a
---        , sAcceptance :: Acceptance Int
---        , sBurnInIterations :: Maybe Int
---        , sAutoTuningPeriod :: Maybe Int
---        , sIterations :: Int
---        , sStarttime :: Maybe UTCTime
---        , sSavetime :: Maybe UTCTime
---        , sGenerator :: Vector Word32
---        }
 data Save a
   = Save
       String
@@ -67,9 +55,7 @@ data Save a
       (Maybe Int)
       (Maybe Int)
       Int
-      (Maybe UTCTime)
-      -- (Maybe UTCTime)
-      Bool
+      (Maybe (Int, UTCTime))
       (Vector Word32)
 
 $(deriveJSON defaultOptions 'Save)
@@ -80,7 +66,7 @@ mapKeys xs m = foldl' insrt M.empty xs
     insrt m' (k1, k2) = M.insert k2 (m M.! k1) m'
 
 toSave :: Status a -> Save a
-toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
+toSave (Status nm it i tr ac br at is st g _ _ c _) =
   Save
     nm
     it
@@ -91,7 +77,6 @@ toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
     at
     is
     st
-    sv
     g'
   where
     moveToInt = zip (fromCycle c) [0 ..]
@@ -116,7 +101,7 @@ toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
 -- - cycle
 -- - monitor
 saveStatus :: ToJSON a => FilePath -> Status a -> IO ()
-saveStatus fn s = encodeFile fn (toSave s)
+saveStatus fn s = B.writeFile fn $ compress $ encode (toSave s)
 
 -- fromSav logprior logllh cycle monitor save
 fromSave ::
@@ -126,7 +111,7 @@ fromSave ::
   Monitor a ->
   Save a ->
   Status a
-fromSave p l c m (Save nm it i tr ac' br at is st sv g') =
+fromSave p l c m (Save nm it i tr ac' br at is st g') =
   Status
     nm
     it
@@ -137,7 +122,6 @@ fromSave p l c m (Save nm it i tr ac' br at is st sv g') =
     at
     is
     st
-    sv
     g
     p
     l
@@ -166,7 +150,7 @@ loadStatus ::
   FilePath ->
   IO (Status a)
 loadStatus p l c m fn = do
-  res <- eitherDecodeFileStrict' fn
+  res <- eitherDecode . decompress <$> B.readFile fn
   let s = case res of
         Left err -> error err
         Right sv -> fromSave p l c m sv

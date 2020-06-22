@@ -22,7 +22,9 @@ library:
   dependencies:
     - aeson
     - base >= 4.7 && < 5
+    - bytestring
     - containers
+    - directory
     - log-domain
     - microlens
     - mwc-random
@@ -31,6 +33,7 @@ library:
     - time
     - transformers
     - vector
+    - zlib
   generated-other-modules: Paths_mcmc
 
 benchmarks:

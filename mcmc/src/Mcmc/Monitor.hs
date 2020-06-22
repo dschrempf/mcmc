@@ -23,12 +23,14 @@ module Mcmc.Monitor
 
     -- * Use monitor
     mOpen,
+    mAppend,
     mHeader,
     mExec,
     mClose,
   )
 where
 
+import Control.Monad
 import Data.Int
 import qualified Data.Text.Lazy as T
 import Data.Text.Lazy (Text)
@@ -42,6 +44,7 @@ import Mcmc.Monitor.ParameterBatch
 import Mcmc.Monitor.Time
 import Mcmc.Trace
 import Numeric.Log
+import System.Directory
 import System.IO
 import Prelude hiding (sum)
 
@@ -102,17 +105,17 @@ msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
 msExec ::
   Int ->
   Item a ->
-  UTCTime ->
+  (Int, UTCTime) ->
   Int ->
   MonitorStdOut a ->
   IO ()
-msExec i (Item x p l) st j m
+msExec i (Item x p l) (ss, st) j m
   | i `mod` msPeriod m /= 0 =
     return ()
   | otherwise = do
       ct <- getCurrentTime
       let dt = ct `diffUTCTime` st
-          timePerIter = dt / fromIntegral i
+          timePerIter = dt / fromIntegral (i - ss)
           eta = if i < 10
                 then ""
                 else renderDuration $ timePerIter * fromIntegral (j - i)
@@ -156,6 +159,16 @@ mfOpen n m = do
   h <- openFile (n <> mfName m <> ".monitor") WriteMode
   hSetBuffering h LineBuffering
   return $ m {mfHandle = Just h}
+
+mfAppend :: String -> MonitorFile a -> IO (MonitorFile a)
+mfAppend n m = do
+  let fn = n <> mfName m <> ".monitor"
+  fe <- doesFileExist fn
+  if fe
+    then do h <- openFile fn AppendMode
+            hSetBuffering h LineBuffering
+            return $ m {mfHandle = Just h}
+    else error $ "mfAppend: Monitor file does not exist: " ++ fn ++ "."
 
 mfHeader :: MonitorFile a -> IO ()
 mfHeader m = case mfHandle m of
@@ -233,6 +246,16 @@ mbOpen n m = do
   hSetBuffering h LineBuffering
   return $ m {mbHandle = Just h}
 
+mbAppend :: String -> MonitorBatch a -> IO (MonitorBatch a)
+mbAppend n m = do
+  let fn = n <> mbName m <> ".batch"
+  fe <- doesFileExist fn
+  if fe
+    then do h <- openFile fn AppendMode
+            hSetBuffering h LineBuffering
+            return $ m {mbHandle = Just h}
+    else error $ "mbAppend: Monitor file does not exist: " ++ fn ++ "."
+
 mbHeader :: MonitorBatch a -> IO ()
 mbHeader m = case mbHandle m of
   Nothing ->
@@ -293,6 +316,13 @@ mOpen n (Monitor s fs bs) = do
   mapM_ mbHeader bs'
   return $ Monitor s fs' bs'
 
+-- | Open the files associated with the 'Monitor' in append mode.
+mAppend :: String -> Monitor a -> IO (Monitor a)
+mAppend n (Monitor s fs bs) = do
+  fs' <- mapM (mfAppend n) fs
+  bs' <- mapM (mbAppend n) bs
+  return $ Monitor s fs' bs'
+
 -- | Print header line of 'Monitor' (standard output only).
 mHeader :: Monitor a -> IO ()
 mHeader (Monitor s _ _) = msHeader s
@@ -301,8 +331,8 @@ mHeader (Monitor s _ _) = msHeader s
 mExec ::
   -- | Iteration.
   Int ->
-  -- | Start time.
-  UTCTime ->
+  -- | Starting state and time.
+  (Int, UTCTime) ->
   -- | Trace of Markov chain.
   Trace a ->
   -- | Total number of iterations; to calculate ETA.
