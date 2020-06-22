@@ -137,10 +137,13 @@ mon :: Monitor LTree
 mon = Monitor monStd [monFile] [monBatch]
 
 nBurn :: Maybe Int
-nBurn = Just 2000
+nBurn = Just 4000
+
+nTune :: Maybe Int
+nTune = Just 200
 
 nIter :: Int
-nIter = 10000
+nIter = 20000
 
 main :: IO ()
 main = do
@@ -154,7 +157,7 @@ main = do
           mon
           lTree
           nBurn
-          Nothing
+          nTune
           nIter
           g
   void $ mh s
