@@ -13,6 +13,7 @@
 -- Creation date: Tue May  5 20:11:30 2020.
 module Mcmc.Metropolis
   ( mh,
+    mhContinue,
   )
 where
 
@@ -136,27 +137,42 @@ mhT = do
   mhBurnIn b (autoTuningPeriod s)
   let n = iterations s
   mhRun n
-  mcmcMonitorExec
-  mcmcSummarizeCycle (Just n)
-  liftIO $ putStrLn "-- Metropolis-Hastings sampler finished."
   mcmcClose
 
-mhContinue :: ToJSON a => Int -> Mcmc a ()
-mhContinue dn = do
+mhContinueT :: ToJSON a => Int -> Mcmc a ()
+mhContinueT dn = do
   liftIO $ putStrLn "-- Continue Metropolis-Hastings sampler."
   liftIO $ putStrLn $ "-- Run chain for " <> show dn <> " additional iterations."
-  -- TODO.
+  s <- get
+  let n = iterations s
+  put s {iterations = n + dn}
   mcmcInit
+  mcmcSummarizeCycle Nothing
+  mhRun dn
+  mcmcClose
+
+-- | Continue a Markov chain for a given number of Metropolis-Hastings steps.
+mhContinue ::
+  ToJSON a =>
+  -- | Additional number of Metropolis-Hastings steps.
+  Int ->
+  -- | Loaded status of the Markov chain.
+  Status a ->
+  IO (Status a)
+mhContinue dn
+  | dn <= 0 = error "mhContinue: The number of iterations is zero or negative."
+  | otherwise = execStateT $ mhContinueT dn
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
---
--- Of course, the given status can also be the result of a paused chain.
 mh ::
   ToJSON a =>
   -- | Initial (or last) status of the Markov chain.
   Status a ->
   IO (Status a)
-mh s = do let m = iteration s
-          if m == 0 then execStateT mhT s
-            else do putStrLn "To continue a Markov chain run, please use 'mhContinue'."
-                    error $ "Current iteration " ++ show m ++ " is non-zero."
+mh s = do
+  let m = iteration s
+  if m == 0
+    then execStateT mhT s
+    else do
+      putStrLn "To continue a Markov chain run, please use 'mhContinue'."
+      error $ "mh: Current iteration " ++ show m ++ " is non-zero."

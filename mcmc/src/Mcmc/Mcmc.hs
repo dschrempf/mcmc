@@ -112,9 +112,11 @@ mcmcMonitorHeader = do
 mcmcSave :: ToJSON a => Mcmc a ()
 mcmcSave = do
   s <- get
-  liftIO $ putStrLn "-- Save Markov chain. For long chains, this may take a while."
-  liftIO $ saveStatus (name s <> ".mcmc") s
-  liftIO $ putStrLn "-- Done saving Markov chain."
+  liftIO $ if save s
+    then do putStrLn "-- Save Markov chain. For long chains, this may take a while."
+            saveStatus (name s <> ".mcmc") s
+            putStrLn "-- Done saving Markov chain."
+    else putStrLn "-- Do not save the Markov chain."
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()
@@ -131,6 +133,10 @@ mcmcMonitorExec = do
 mcmcClose :: ToJSON a => Mcmc a ()
 mcmcClose = do
   s <- get
+  let n = iterations s
+  mcmcMonitorExec
+  mcmcSummarizeCycle (Just n)
+  liftIO $ putStrLn "-- Metropolis-Hastings sampler finished."
   let m = monitor s
   m' <- liftIO $ mClose m
   put $ s {monitor = m'}
