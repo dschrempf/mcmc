@@ -9,7 +9,7 @@ since it covers most use cases. However, implementation of more algorithms is
 planned in the future.
 
 ** Documentation
-The source code contains detailed documentation about general concepts as well
+The [[https://hackage.haskell.org/package/mcmc][source code]] contains detailed documentation about general concepts as well
 as specific functions.
 
 ** Examples
