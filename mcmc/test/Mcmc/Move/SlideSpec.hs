@@ -14,6 +14,7 @@ module Mcmc.Move.SlideSpec
   )
 where
 
+import Data.Maybe
 import Mcmc.Move
 import Mcmc.Move.Slide
 import Test.Hspec
@@ -23,11 +24,11 @@ prop_sym :: Eq b => (a -> a -> b) -> a -> a -> Bool
 prop_sym f x y = f x y == f y x
 
 slideSym :: Move Double
-slideSym = slideDouble "symmetric" 1 0 1.0 False
+slideSym = slide "symmetric" 1 id 0 1.0 False
 
 spec :: Spec
 spec =
   describe "slide"
     $ it "has a symmetric proposal distribution if mean is 0"
     $ property
-    $ prop_sym (mvLogDensity . mvSimple $ slideSym)
+    $ prop_sym (fromJust $ mvLogDensity . mvSimple $ slideSym)
