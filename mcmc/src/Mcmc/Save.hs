@@ -105,7 +105,7 @@ toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
 saveStatus :: ToJSON a => FilePath -> Status a -> IO ()
 saveStatus fn s = B.writeFile fn $ compress $ encode (toSave s)
 
--- fromSav prior llh cycle monitor save
+-- fromSav prior lh cycle monitor save
 fromSave ::
   (a -> Log Double) ->
   (a -> Log Double) ->

@@ -35,38 +35,6 @@
 -- Portability :  portable
 --
 -- Creation date: Wed May 20 13:42:53 2020.
---
--- A short introduction to update mechanisms using the Metropolis-Hastings
--- algorithm (see Geyer, C. J., 2011; Introduction to Markov Chain Monte Carlo. In
--- Handbook of Markov Chain Monte Carlo (pp. 45), Chapman \& Hall/CRC).
---
--- A 'Move' is an instruction about how to advance a given Markov chain so that it
--- possibly reaches a new state. That is, 'Move's specify how the chain traverses
--- the state space. As far as this MCMC library is concerned, 'Move's are
--- /elementary updates/ in that they cannot be decomposed into smaller updates.
---
--- 'Move's can be combined to form composite updates, a technique often referred to
--- as /composition/. On the other hand, /mixing/ (used in the sense of mixture
--- models) is the random choice of a 'Move' (or a composition of 'Move's) from a
--- given set.
---
--- The __composition__ and __mixture__ of 'Move's allows specification of nearly
--- all MCMC algorithms involving a single chain (i.e., population methods such as
--- particle filters are excluded). In particular, Gibbs samplers of all sorts can
--- be specified using this procedure.
---
--- This library enables composition and mixture of 'Move's via the 'Cycle' data
--- type. Essentially, a 'Cycle' is a set of 'Move's. The chain advances after the
--- completion of each 'Cycle', which is called an __iteration__, and the iteration
--- counter is increased by one.
---
--- The 'Move's in a 'Cycle' can be executed in the given order or in a random
--- sequence which allows, for example, specification of a fixed scan Gibbs sampler,
--- or a random sequence scan Gibbs sampler, respectively.
---
--- Note that it is of utter importance that the given 'Cycle' enables traversal of
--- the complete state space. Otherwise, the Markov chain will not converge to the
--- correct stationary posterior distribution.
 module Mcmc.Move
   ( -- * Move
     Move (..),

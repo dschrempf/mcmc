@@ -41,16 +41,8 @@ import Numeric.Log
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
 
--- | The 'Status' of an MCMC run. All we need to run a chain combined in one
--- data type. See 'status' for creation.
---
--- The 'Status' of a Markov chain includes information about current state
--- ('Item') and iteration, the history of the chain ('Trace'), the 'Acceptance'
--- ratios, and the random number generator.
---
--- Further, the 'Status' includes auxiliary variables and functions such as the
--- prior and likelihood functions, instructions to move around the state space
--- and to monitor the MCMC run, as well as some auxiliary information.
+-- | The 'Status' contains all information to run an MCMC chain. It is
+-- constructed using the function 'status'.
 data Status a = Status
   { -- Variables saved to disc.
 
