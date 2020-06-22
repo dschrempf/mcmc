@@ -269,8 +269,8 @@ mbHeader m = case mbHandle m of
       $ ["Iteration", "Mean log-Prior", "Mean log-Likelihood", "Mean log-Posterior"]
         ++ [T.pack $ mbpName mbp | mbp <- mbParams m]
 
-logMean :: [Log Double] -> Log Double
-logMean xs = sum xs / fromIntegral (length xs)
+mean :: [Log Double] -> Log Double
+mean xs = sum xs / fromIntegral (length xs)
 
 mbExec ::
   Int ->
@@ -295,12 +295,12 @@ mbExec i t' m
           : [T.toLazyText $ mbpFunc mbp (map state t) | mbp <- mbParams m]
   where
     t = takeT (mbSize m) t'
-    lps = map logPrior t
-    lls = map logLikelihood t
+    lps = map prior t
+    lls = map likelihood t
     los = zipWith (*) lps lls
-    mlps = logMean lps
-    mlls = logMean lls
-    mlos = logMean los
+    mlps = mean lps
+    mlls = mean lls
+    mlos = mean los
 
 mbClose :: MonitorBatch a -> IO ()
 mbClose m = case mbHandle m of

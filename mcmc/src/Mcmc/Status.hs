@@ -49,15 +49,15 @@ import Prelude hiding (cycle)
 -- ratios, and the random number generator.
 --
 -- Further, the 'Status' includes auxiliary variables and functions such as the
--- log prior and log likelihood functions, instructions to move around the state
--- space and to monitor the MCMC run, as well as some auxiliary information.
+-- prior and likelihood functions, instructions to move around the state space
+-- and to monitor the MCMC run, as well as some auxiliary information.
 data Status a = Status
   { -- Variables saved to disc.
 
     -- | The name of the MCMC chain; used as file prefix.
     name :: String,
     -- | The current 'Item' of the chain combines the current state and the
-    -- current log-likelihood.
+    -- current likelihood.
     item :: Item a,
     -- | The iteration is the number of completed cycles.
     iteration :: Int,
@@ -85,12 +85,12 @@ data Status a = Status
     generator :: GenIO,
     -- Auxiliary functions.
 
-    -- | The log-prior function. The un-normalized log-posterior is the sum of
-    -- the log-prior and the log-likelihood.
-    logPriorF :: a -> Log Double,
-    -- | The log-likelihood function. The un-normalized log-posterior is the sum
-    -- of the log-prior and the log-likelihood.
-    logLikelihoodF :: a -> Log Double,
+    -- | The prior function. The un-normalized posterior is the product of the
+    -- prior and the likelihood.
+    priorF :: a -> Log Double,
+    -- | The likelihood function. The un-normalized posterior is the product of
+    -- the prior and the likelihood.
+    likelihoodF :: a -> Log Double,
     -- Variables related to the algorithm.
 
     -- | A set of 'Move's form a 'Cycle'.
@@ -103,9 +103,9 @@ data Status a = Status
 status ::
   -- | Name of the Markov chain; used as file prefix.
   String ->
-  -- | The log-prior function.
+  -- | The prior function.
   (a -> Log Double) ->
-  -- | The log-likelihood function.
+  -- | The likelihood function.
   (a -> Log Double) ->
   -- | A list of 'Move's executed in forward order. The
   -- chain will be logged after each cycle.

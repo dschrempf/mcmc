@@ -53,7 +53,7 @@ slideSymmetricSimple l s t = moveSymmetricGenericContinuous l (normalDistr 0.0 (
 
 -- | Additive move with normally distributed density with mean zero. This move
 -- is very fast, because the Metropolis-Hastings ratio does not include
--- calculation of the forwards and backwards log densities.
+-- calculation of the forwards and backwards densities.
 slideSymmetric ::
   -- | Name.
   String ->
@@ -77,7 +77,7 @@ slideUniformSimple l d t =
 
 -- | Additive move with uniformly distributed density. This move is very fast,
 -- because the Metropolis-Hastings ratio does not include calculation of the
--- forwards and backwards log densities.
+-- forwards and backwards densities.
 slideUniform ::
   -- | Name.
   String ->

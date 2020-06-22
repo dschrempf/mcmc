@@ -28,16 +28,16 @@ instance FromJSON a => FromJSON (Log a) where
   parseJSON v = Exp <$> parseJSON v
 
 -- | An 'Item', or link of the Markov chain. For reasons of computational
--- efficiency, each state is associated with the corresponding log-prior and
--- log-likelihood.
+-- efficiency, each state is associated with the corresponding prior and
+-- likelihood.
 data Item a
   = Item
       { -- | The current state in the state space @a@.
         state :: a,
-        -- | The current log-prior.
-        logPrior :: Log Double,
-        -- | The current log-likelihood.
-        logLikelihood :: Log Double
+        -- | The current prior.
+        prior :: Log Double,
+        -- | The current likelihood.
+        likelihood :: Log Double
       }
   deriving (Eq, Ord, Show, Read)
 

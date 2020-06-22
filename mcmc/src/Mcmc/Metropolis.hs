@@ -45,11 +45,11 @@ mhRatioSymmetric lX lY = lY / lX
 mhMove :: Move a -> Mcmc a ()
 mhMove m = do
   let p = mvSample $ mvSimple m
-      mq = mvLogDensity $ mvSimple m
+      mq = mvDensity $ mvSimple m
   s <- get
   let (Item x pX lX) = item s
-      pF = logPriorF s
-      lF = logLikelihoodF s
+      pF = priorF s
+      lF = likelihoodF s
       a = acceptance s
       g = generator s
   -- 1. Sample new state.

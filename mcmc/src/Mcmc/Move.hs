@@ -133,13 +133,13 @@ instance Ord (Move a) where
   compare = compare `on` mvName
 
 -- XXX: One could also use a different type for 'mvSample', so that
--- 'mvLogDensity' can be avoided. In detail,
+-- 'mvDensity' can be avoided. In detail,
 --
 -- @
 --   mvSample :: a -> GenIO -> IO (a, Log Double, Log, Double)
 -- @
 --
--- where the log densities describe the probability of going there and back.
+-- where the densities describe the probability of going there and back.
 -- However, we may need more information about the move for other MCMC samplers
 -- different from Metropolis-Hastings.
 
@@ -152,9 +152,9 @@ data MoveSimple a = MoveSimple
   { -- | Instruction about randomly moving from the current state to a new
     -- state, given some source of randomness.
     mvSample :: a -> GenIO -> IO a,
-    -- | The log-density of going from one state to another. Set to 'Nothing'
-    -- for symmetric moves.
-    mvLogDensity :: Maybe (a -> a -> Log Double)
+    -- | The density of going from one state to another. Set to 'Nothing' for
+    -- symmetric moves.
+    mvDensity :: Maybe (a -> a -> Log Double)
   }
 
 -- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.

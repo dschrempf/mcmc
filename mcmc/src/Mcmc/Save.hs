@@ -98,14 +98,14 @@ toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
 --
 -- Important information that cannot be saved and has to be provided again when
 -- a chain is restored:
--- - log prior function
--- - log likelihood function
+-- - prior function
+-- - likelihood function
 -- - cycle
 -- - monitor
 saveStatus :: ToJSON a => FilePath -> Status a -> IO ()
 saveStatus fn s = B.writeFile fn $ compress $ encode (toSave s)
 
--- fromSav logprior logllh cycle monitor save
+-- fromSav prior llh cycle monitor save
 fromSave ::
   (a -> Log Double) ->
   (a -> Log Double) ->
@@ -140,8 +140,8 @@ fromSave p l c m (Save nm it i tr ac' br at is st sv g') =
 -- | Load a 'Status' from file.
 -- Important information that cannot be saved and has to be provided again when
 -- a chain is restored:
--- - log prior function
--- - log likelihood function
+-- - prior function
+-- - likelihood function
 -- - cycle
 -- - monitor
 loadStatus ::
@@ -157,7 +157,7 @@ loadStatus p l c m fn = do
   let s = case res of
         Left err -> error err
         Right sv -> fromSave p l c m sv
-  -- Check if log prior and log likelihood matches.
+  -- Check if prior and likelihood matches.
   let Item x svp svl = item s
   -- Recompute and check the prior and likelihood for the last state because the
   -- functions may have changed. Of course, we cannot test for the same
@@ -166,11 +166,11 @@ loadStatus p l c m fn = do
   when
     (p x /= svp)
     ( error
-        "loadStatus: Provided log prior function does not match the saved log prior."
+        "loadStatus: Provided prior function does not match the saved prior."
     )
   when
     (l x /= svl)
     ( error
-        "loadStatus: Provided log likelihood function does not match the saved log likelihood."
+        "loadStatus: Provided likelihood function does not match the saved likelihood."
     )
   return s

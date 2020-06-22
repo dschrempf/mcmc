@@ -1,10 +1,9 @@
 {-# LANGUAGE RankNTypes #-}
 
--- Technically, only a Getter is needed when calculating the log density of the
--- move ('logDensCont', and similar functions). I tried splitting the lens into
--- a getter and a setter. However, speed improvements were marginal, and some
--- times not even measurable. Using a 'Lens'' is just easier, and has no real
--- drawbacks.
+-- Technically, only a Getter is needed when calculating the density of the move
+-- ('densCont', and similar functions). I tried splitting the lens into a getter
+-- and a setter. However, speed improvements were marginal, and some times not
+-- even measurable. Using a 'Lens'' is just easier, and has no real drawbacks.
 
 -- |
 -- Module      :  Mcmc.Move.Generic
@@ -44,7 +43,7 @@ jumpCont l d f x g = do
   return $ set l ((x ^. l) `f` dx) x
 {-# INLINEABLE jumpCont #-}
 
-logDensCont ::
+densCont ::
   (ContDistr d, ContGen d) =>
   Lens' a Double ->
   d ->
@@ -52,8 +51,8 @@ logDensCont ::
   a ->
   a ->
   Log Double
-logDensCont l d fInv x y = Exp $ logDensity d ((y ^. l) `fInv` (x ^. l))
-{-# INLINEABLE logDensCont #-}
+densCont l d fInv x y = Exp $ logDensity d ((y ^. l) `fInv` (x ^. l))
+{-# INLINEABLE densCont #-}
 
 -- | Generic function to create moves for continuous parameters ('Double').
 moveGenericContinuous ::
@@ -68,7 +67,7 @@ moveGenericContinuous ::
   (Double -> Double -> Double) ->
   MoveSimple a
 moveGenericContinuous l d f fInv =
-  MoveSimple (jumpCont l d f) (Just $ logDensCont l d fInv)
+  MoveSimple (jumpCont l d f) (Just $ densCont l d fInv)
 
 -- | Generic function to create symmetric moves for continuous parameters ('Double').
 moveSymmetricGenericContinuous ::
@@ -96,7 +95,7 @@ jumpDiscrete l d f x g = do
   return $ set l ((x ^. l) `f` dx) x
 {-# INLINEABLE jumpDiscrete #-}
 
-logDensDiscrete ::
+densDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
   Lens' a Int ->
   d ->
@@ -104,9 +103,9 @@ logDensDiscrete ::
   a ->
   a ->
   Log Double
-logDensDiscrete l d fInv x y =
+densDiscrete l d fInv x y =
   Exp $ logProbability d ((y ^. l) `fInv` (x ^. l))
-{-# INLINEABLE logDensDiscrete #-}
+{-# INLINEABLE densDiscrete #-}
 
 -- | Generic function to create moves for discrete parameters ('Int').
 moveGenericDiscrete ::
@@ -121,7 +120,7 @@ moveGenericDiscrete ::
   (Int -> Int -> Int) ->
   MoveSimple a
 moveGenericDiscrete l fd f fInv =
-  MoveSimple (jumpDiscrete l fd f) (Just $ logDensDiscrete l fd fInv)
+  MoveSimple (jumpDiscrete l fd f) (Just $ densDiscrete l fd fInv)
 
 -- | Generic function to create symmetric moves for discrete parameters ('Int').
 moveSymmetricGenericDiscrete ::
