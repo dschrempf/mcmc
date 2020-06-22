@@ -57,7 +57,7 @@ mhMove m = do
       !lY = lF y
       !r = case mq of
         Nothing -> mhRatioSymmetric (pX * lX) (pY * lY)
-        Just q  -> mhRatio (pX * lX) (pY * lY) (q x y) (q y x)
+        Just q -> mhRatio (pX * lX) (pY * lY) (q x y) (q y x)
   -- 3. Accept or reject.
   if ln r >= 0.0
     then put $ s {item = Item y pY lY, acceptance = pushA m True a}
@@ -92,18 +92,15 @@ mhNIter n = do
   cycles <- liftIO $ getNCycles c n g
   forM_ cycles mhIter
 
-mhBurn :: ToJSON a => Int -> Mcmc a ()
-mhBurn n = do
-  mhNIter n
-  mcmcAutotune n
-
+-- Burn in and auto tune.
 mhBurnInN :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
 mhBurnInN b (Just t)
   | t <= 0 = error "mhBurnInN: Auto tuning period smaller equal 0."
-  | b > t = mhBurn t >> mhBurnInN (b - t) (Just t)
-  | otherwise = mhBurn b
+  | b > t = mhNIter t >> mcmcAutotune t >> mhBurnInN (b - t) (Just t)
+  | otherwise = mhNIter b >> mcmcAutotune b
 mhBurnInN b Nothing = mhNIter b
 
+-- Initialize burn in for given number of iterations.
 mhBurnIn :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
 mhBurnIn b t
   | b <= 0 = error "mhBurnIn: Number of burn in iterations smaller equal 0."
@@ -119,34 +116,37 @@ mhBurnIn b t
     let a = acceptance s
     put $ s {acceptance = resetA a}
 
+-- Run for given number of iterations.
 mhRun :: ToJSON a => Int -> Mcmc a ()
 mhRun n = do
   liftIO $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
   mcmcMonitorHeader
   mhNIter n
 
+mhT :: ToJSON a => Mcmc a ()
+mhT = do
+  s <- get
+  if iteration s == 0
+    then liftIO $ putStrLn "-- Continue Metropolis-Hastings sampler."
+    else liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
+  mcmcInit
+  mcmcReport
+  mcmcSummarizeCycle Nothing
+  case burnInIterations s of
+    Nothing -> return ()
+    Just b -> mhBurnIn b (autoTuningPeriod s)
+  mhRun (iterations s)
+  mcmcMonitorExec
+  mcmcSummarizeCycle (Just $ iterations s)
+  liftIO $ putStrLn "-- Metropolis-Hastings sampler finished."
+  mcmcClose
+
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 --
 -- Of course, the given status can also be the result of a paused chain.
 mh ::
   ToJSON a =>
-  -- | Initial (or last) 'Status' of the Markov chain.
+  -- | Initial (or last) status of the Markov chain.
   Status a ->
   IO (Status a)
-mh =
-  execStateT
-    ( do
-        mcmcInit
-        liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
-        mcmcReport
-        mcmcSummarizeCycle Nothing
-        s <- get
-        case burnInIterations s of
-          Nothing -> return ()
-          Just b  -> mhBurnIn b (autoTuningPeriod s)
-        mhRun (iterations s)
-        mcmcMonitorExec
-        mcmcSummarizeCycle (Just $ iterations s)
-        liftIO $ putStrLn "-- Metropolis-Hastings sampler finished."
-        mcmcClose
-    )
+mh = execStateT mhT

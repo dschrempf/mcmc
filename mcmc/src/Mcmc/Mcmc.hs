@@ -109,36 +109,19 @@ mcmcMonitorHeader = do
 mcmcSave :: ToJSON a => Mcmc a ()
 mcmcSave = do
   s <- get
-  liftIO $ saveStatus (name s <> ".mcmc") s
-
--- Save state every 10 seconds.
-dtSave :: NominalDiffTime
-dtSave = 10
-
--- TODO: Move the time stuff into the monitor because it is unnecessarily slow
--- if the period is large.
+  when (save s) (liftIO $ saveStatus (name s <> ".mcmc") s)
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()
 mcmcMonitorExec = do
   s <- get
-  ct <- liftIO getCurrentTime
   let i = iteration s
       j = iterations s + fromMaybe 0 (burnInIterations s)
       m = monitor s
-      mst = starttime s
-      dt = case mst of
-        Nothing -> error "mcmcMonitorExec: Start time not set."
-        Just st -> ct `diffUTCTime` st
+      st = fromMaybe (error "mcmcMonitorExec: Start time not set.") (starttime s)
       tr = trace s
-  liftIO $ mExec i dt tr j m
-  -- TODO: The save should not be here, but at the moment it is convenient.
-  case savetime s of
-    Nothing -> mcmcSave >> put s {savetime = Just ct}
-    Just svt ->
-      when
-        (ct `diffUTCTime` svt > dtSave)
-        (mcmcSave >> put s {savetime = Just ct})
+  liftIO $ mExec i st tr j m
+  mcmcSave
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: Mcmc a ()

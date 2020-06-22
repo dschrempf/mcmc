@@ -102,23 +102,25 @@ msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
 msExec ::
   Int ->
   Item a ->
-  NominalDiffTime ->
+  UTCTime ->
   Int ->
   MonitorStdOut a ->
   IO ()
-msExec i (Item x p l) t j m
+msExec i (Item x p l) st j m
   | i `mod` msPeriod m /= 0 =
     return ()
-  | otherwise =
-    T.hPutStrLn stdout
-      $ msRenderRow
-      $ [T.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
-        ++ [T.toLazyText $ mpFunc mp x | mp <- msParams m]
-        ++ [renderDuration t, eta]
-  where
-    eta =
-      if i < 10 then "" else renderDuration $ timePerIter * fromIntegral (j - i)
-    timePerIter = t / fromIntegral i
+  | otherwise = do
+      ct <- getCurrentTime
+      let dt = ct `diffUTCTime` st
+          timePerIter = dt / fromIntegral i
+          eta = if i < 10
+                then ""
+                else renderDuration $ timePerIter * fromIntegral (j - i)
+      T.hPutStrLn stdout
+        $ msRenderRow
+        $ [T.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
+          ++ [T.toLazyText $ mpFunc mp x | mp <- msParams m]
+          ++ [renderDuration dt , eta]
 
 -- | Monitor to a file.
 data MonitorFile a
@@ -299,8 +301,8 @@ mHeader (Monitor s _ _) = msHeader s
 mExec ::
   -- | Iteration.
   Int ->
-  -- | Run time.
-  NominalDiffTime ->
+  -- | Start time.
+  UTCTime ->
   -- | Trace of Markov chain.
   Trace a ->
   -- | Total number of iterations; to calculate ETA.

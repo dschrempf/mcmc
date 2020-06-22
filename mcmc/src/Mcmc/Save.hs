@@ -36,7 +36,7 @@ import Data.Word
 import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Move
-import Mcmc.Status
+import Mcmc.Status hiding (save)
 import Mcmc.Trace
 import Numeric.Log
 import System.IO.Unsafe (unsafePerformIO)
@@ -68,15 +68,16 @@ data Save a
       (Maybe Int)
       Int
       (Maybe UTCTime)
-      (Maybe UTCTime)
+      -- (Maybe UTCTime)
+      Bool
       (Vector Word32)
 
 $(deriveJSON defaultOptions 'Save)
 
 mapKeys :: (Ord k1, Ord k2) => [(k1, k2)] -> Map k1 v -> Map k2 v
-mapKeys xs m = foldl' addValue M.empty xs
+mapKeys xs m = foldl' insrt M.empty xs
   where
-    addValue m' (k1, k2) = M.insert k2 (m M.! k1) m'
+    insrt m' (k1, k2) = M.insert k2 (m M.! k1) m'
 
 toSave :: Status a -> Save a
 toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
@@ -93,8 +94,8 @@ toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
     sv
     g'
   where
-    mvs = flip zip [0 ..] $ fromCycle c
-    ac' = Acceptance $ mapKeys mvs (fromAcceptance ac)
+    moveToInt = zip (fromCycle c) [0 ..]
+    ac' = Acceptance $ mapKeys moveToInt (fromAcceptance ac)
     -- TODO: Remove as soon as split mix is used and is available with the
     -- statistics package.
     g' = fromSeed $ unsafePerformIO $ save g
@@ -125,29 +126,29 @@ fromSave ::
   Monitor a ->
   Save a ->
   Status a
-fromSave p l c m (Save nm it i tr ac br at is st sv g) =
+fromSave p l c m (Save nm it i tr ac' br at is st sv g') =
   Status
     nm
     it
     i
     tr
-    ac'
+    ac
     br
     at
     is
     st
     sv
-    g'
+    g
     p
     l
     c
     m
   where
-    mvs = zip [0 ..] $ fromCycle c
-    ac' = Acceptance $ mapKeys mvs (fromAcceptance ac)
+    intToMove = zip [0 ..] $ fromCycle c
+    ac = Acceptance $ mapKeys intToMove (fromAcceptance ac')
     -- TODO: Remove as soon as split mix is used and is available with the
     -- statistics package.
-    g' = unsafePerformIO $ restore $ toSeed g
+    g = unsafePerformIO $ restore $ toSeed g'
 
 -- | Load a 'Status' from file.
 -- Important information that cannot be saved and has to be provided again when
