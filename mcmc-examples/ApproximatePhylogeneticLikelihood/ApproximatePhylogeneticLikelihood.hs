@@ -62,18 +62,14 @@ type Tree a = AdjacencyMap (Distance Length) Node
 
 -- We want to save and restore the Markov chain. This is done by converting
 -- trees to and from JSON objects. It is unfortunate, that we have to tell
--- Haskell how to convert 'Distance' and 'Tree' objects to and from JSON.
-
+-- Haskell how to convert 'Tree' as well as 'Distance' objects.
+instance ToJSON (Tree a)
+instance FromJSON (Tree a)
 instance ToJSON (Distance Double) where
   toJSON = toJSON . fromD
   toEncoding = toEncoding . fromD
-
 instance FromJSON (Distance Double) where
   parseJSON d = toD <$> (parseJSON d :: Parser Double)
-
-instance ToJSON (Tree a)
-
-instance FromJSON (Tree a)
 
 -- Branch accessor functions (lenses).
 getLens :: Node -> Node -> Lens' (Tree a) Double
