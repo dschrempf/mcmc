@@ -11,7 +11,8 @@
 -- Creation date: Wed May 27 17:11:28 2020.
 --
 -- Please refer to the corresponding [RevBayes
--- tutorial](https://revbayes.github.io/tutorials/mcmc/archery.html).
+-- tutorial](https://revbayes.github.io/tutorials/mcmc/archery.html). Here, the
+-- gamma distribution is not used to reduce computation of the posterior.
 module Main
   ( main,
   )
@@ -22,80 +23,86 @@ import Mcmc
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Exponential
-import Statistics.Distribution.Gamma
 import System.Random.MWC
 
--- State space, the accuracy of the archer.
-type I = Double
+-- State space of the Markov chain. The precision of the archer is measured as a
+-- 'Double'.
+type Precision = Double
 
--- Number of arrows.
+-- Distance of an arrow to the center.
+type Distance = Double
+
+-- Observed number of arrows.
 nArrows :: Int
-nArrows = 100
+nArrows = 200
 
--- True precision of archer.
+-- True precision of the archer.
 muTrue :: Double
 muTrue = 1.0
 
--- Parameter of prior distribution.
-alpha :: Double
-alpha = 1.0
+-- Simulated distances from center.
+distances :: GenIO -> IO [Distance]
+distances = replicateM nArrows . genContVar (exponential muTrue)
 
--- Likelihood function.
-meanDistribution :: I -> GammaDistribution
-meanDistribution x = gammaDistr (fromIntegral nArrows) (x / fromIntegral nArrows)
-
--- Simulated mean distance from center.
-arrowMean :: GenIO -> IO I
-arrowMean = genContVar (meanDistribution muTrue)
-
-priorDistribution :: ExponentialDistribution
-priorDistribution = exponential alpha
-
-pr :: I -> Log Double
+-- Uninformative prior for positive precision values.
+pr :: Precision -> Log Double
 pr x
   | x <= 0 = pzero
-  | otherwise = Exp $ logDensity priorDistribution x
+  | otherwise = Exp 0
 
 -- Likelihood function.
-lh :: I -> I -> Log Double
-lh mu x
-  | x <= 0 = pzero
-  | otherwise = Exp $ logDensity (meanDistribution mu) x
+lh :: [Distance] -> Precision -> Log Double
+lh xs p
+  | p <= 0 = pzero
+  | otherwise = product [ Exp $ logDensity (exponential p) x | x <- xs ]
 
-moveCycle :: Cycle I
+-- The move cycle consists of one move only. A uniform distribution is used to
+-- slide the precision of the archer.
+moveCycle :: Cycle Precision
 moveCycle = fromList [slideUniform "mu; slide uniform" 1 id 1.0 True]
 
-monMu :: MonitorParameter I
+-- Monitor the precision of the archer.
+monMu :: MonitorParameter Precision
 monMu = monitorRealFloat "Mu" id
 
-monStd :: MonitorStdOut I
+-- Monitor to standard output.
+monStd :: MonitorStdOut Precision
 monStd = monitorStdOut [monMu] 5000
 
-monFile :: MonitorFile I
+-- Monitor to file.
+monFile :: MonitorFile Precision
 monFile = monitorFile "Mu" [monMu] 500
 
-monMuBatch :: MonitorParameterBatch I
+-- Monitor the batch mean of the precision of the archer.
+monMuBatch :: MonitorParameterBatch Precision
 monMuBatch = monitorBatchMeanRealFloat "Mean mu" id
 
-monBatch :: MonitorBatch I
+-- Monitor the batch mean to file.
+monBatch :: MonitorBatch Precision
 monBatch = monitorBatch "Mu" [monMuBatch] 1000
 
-mon :: Monitor I
+-- Combine the monitors.
+mon :: Monitor Precision
 mon = Monitor monStd [monFile] [monBatch]
 
+-- Number of burn in iterations.
 nBurnIn :: Maybe Int
 nBurnIn = Just 200000
 
+-- Auto tuning period.
 nAutoTune :: Maybe Int
 nAutoTune = Just 10000
 
+-- Number of Metropolis-Hastings iterations after burn in.
 nIter :: Int
 nIter = 1000000
 
 main :: IO ()
 main = do
   g <- create
-  mu <- arrowMean g
-  putStrLn $ "True parameter: " <> show mu
-  let s = noSave $ status "Archery" pr (lh mu) moveCycle mon 0.01 nBurnIn nAutoTune nIter g
+  -- Simulate a list of observed arrow distances.
+  xs <- distances g
+  -- Combine all the objects defined above.
+  let s = noSave $ status "Archery" pr (lh xs) moveCycle mon 0.01 nBurnIn nAutoTune nIter g
+  -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
   void $ mh s
