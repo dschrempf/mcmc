@@ -80,6 +80,7 @@ test-suite mcmc-test
   build-depends:
       QuickCheck
     , base >=4.7 && <5
+    , directory
     , hspec
     , hspec-discover
     , log-domain

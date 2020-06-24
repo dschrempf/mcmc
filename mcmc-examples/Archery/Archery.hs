@@ -25,11 +25,12 @@ import Statistics.Distribution.Exponential
 import Statistics.Distribution.Gamma
 import System.Random.MWC
 
+-- State space, the accuracy of the archer.
 type I = Double
 
 -- Number of arrows.
-n :: Int
-n = 100
+nArrows :: Int
+nArrows = 100
 
 -- True precision of archer.
 muTrue :: Double
@@ -41,7 +42,7 @@ alpha = 1.0
 
 -- Likelihood function.
 meanDistribution :: I -> GammaDistribution
-meanDistribution x = gammaDistr (fromIntegral n) (x / fromIntegral n)
+meanDistribution x = gammaDistr (fromIntegral nArrows) (x / fromIntegral nArrows)
 
 -- Simulated mean distance from center.
 arrowMean :: GenIO -> IO I
@@ -55,6 +56,7 @@ pr x
   | x <= 0 = pzero
   | otherwise = Exp $ logDensity priorDistribution x
 
+-- Likelihood function.
 lh :: I -> I -> Log Double
 lh mu x
   | x <= 0 = pzero
@@ -81,8 +83,8 @@ monBatch = monitorBatch "Mu" [monMuBatch] 1000
 mon :: Monitor I
 mon = Monitor monStd [monFile] [monBatch]
 
-nBurn :: Maybe Int
-nBurn = Just 200000
+nBurnIn :: Maybe Int
+nBurnIn = Just 200000
 
 nAutoTune :: Maybe Int
 nAutoTune = Just 10000
@@ -95,5 +97,5 @@ main = do
   g <- create
   mu <- arrowMean g
   putStrLn $ "True parameter: " <> show mu
-  let s = noSave $ status "Archery" pr (lh mu) moveCycle mon 0.01 nBurn nAutoTune nIter g
+  let s = noSave $ status "Archery" pr (lh mu) moveCycle mon 0.01 nBurnIn nAutoTune nIter g
   void $ mh s

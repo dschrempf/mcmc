@@ -65,6 +65,7 @@ tests:
       - -with-rtsopts=-N
     dependencies:
       - base >= 4.7 && < 5
+      - directory
       - hspec
       - hspec-discover
       - log-domain

@@ -21,6 +21,7 @@ import Statistics.Distribution hiding
     stdDev,
   )
 import Statistics.Distribution.Normal
+import System.Directory
 import System.Random.MWC
 import Test.Hspec
 
@@ -66,6 +67,7 @@ spec =
       let s = noSave $ status "SaveSpec" (const 1) lh moveCycle mon 0 nBurn nAutoTune nIter gen
       saveStatus "SaveSpec.json" s
       s' <- loadStatus (const 1) lh moveCycle mon "SaveSpec.json"
+      removeFile "SaveSpec.json"
       r <- mh s
       r' <- mh s'
       item r `shouldBe` item r'
