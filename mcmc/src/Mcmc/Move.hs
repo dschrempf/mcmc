@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE RankNTypes #-}
-
--- TODO: Allow execution of moves in order of appearance in the cycle.
 
 -- TODO: Moves and monitors both use lenses and names for what they move and
 -- monitor. Should a data structure be used combining the lens and the name, so
@@ -24,6 +23,8 @@
 --
 -- scaleBactrian
 
+-- TODO: Try to use abstract data types (Acceptance, Move, MoveSimple).
+
 -- |
 -- Module      :  Mcmc.Move
 -- Description :  Moves and cycles
@@ -45,9 +46,13 @@ module Mcmc.Move
     autotune,
 
     -- * Cycle
-    Cycle (fromCycle),
+    MoveOrder (..),
+    Cycle (ccMoves),
     fromList,
-    autotuneC,
+    setOrder,
+    getNCycles,
+    tuneCycle,
+    autotuneCycle,
     summarizeCycle,
 
     -- * Acceptance
@@ -60,6 +65,7 @@ module Mcmc.Move
 where
 
 import Data.Aeson
+import Data.Default
 import Data.Function
 import Data.List
 import qualified Data.Map.Strict as M
@@ -70,6 +76,7 @@ import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Text.Lazy.Builder.Int as B
 import qualified Data.Text.Lazy.Builder.RealFloat as B
+import Mcmc.Tools.Shuffle
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
@@ -100,8 +107,8 @@ instance Eq (Move a) where
 instance Ord (Move a) where
   compare = compare `on` mvName
 
--- XXX: One could also use a different type for 'mvSample', so that
--- 'mvDensity' can be avoided. In detail,
+-- One could also use a different type for 'mvSample', so that 'mvDensity' can
+-- be avoided. In detail,
 --
 -- @
 --   mvSample :: a -> GenIO -> IO (a, Log Double, Log, Double)
@@ -141,37 +148,62 @@ tuner = Tuner 1.0
 --   @dt@ is larger than 1.0, the 'Move' is enlarged, if @0<dt<1.0@, it is
 --   shrunk. Negative tuning parameters are not allowed.
 tune :: Double -> Move a -> Maybe (Move a)
-tune dt tm
+tune dt m
   | dt <= 0 = error $ "tune: Tuning parameter not positive: " <> show dt <> "."
   | otherwise = do
-    (Tuner t f) <- mvTune tm
+    (Tuner t f) <- mvTune m
     let t' = t * dt
-    return $ tm {mvSimple = f t', mvTune = Just $ Tuner t' f}
+    return $ m {mvSimple = f t', mvTune = Just $ Tuner t' f}
 
+-- XXX: The desired acceptance ratio 0.44 is optimal for one-dimensional
+-- 'Move's; one could also store the affected number of dimensions with the
+-- 'Move' and tune towards an acceptance ratio accounting for the number of
+-- dimensions.
 ratioOpt :: Double
 ratioOpt = 0.44
 
 -- | For a given acceptance ratio, auto tune the 'Move'. For now, a 'Move' is
 -- enlarged when the acceptance ratio is above 0.44, and shrunk otherwise.
 -- Return 'Nothing' if 'Move' is not tuneable.
---
--- XXX: The desired acceptance ratio 0.44 is optimal for one-dimensional
--- 'Move's; one could also store the affected number of dimensions with the
--- 'Move' and tune towards an acceptance ratio accounting for the number of
--- dimensions.
 autotune :: Double -> Move a -> Maybe (Move a)
 autotune a = tune (a / ratioOpt)
 
+-- | Define the order in which 'Move's are executed in a 'Cycle'. Technically,
+-- this is not an order, since the total number of 'Move's per 'Cycle' may be
+-- different (e.g., compare 'RandomO' and 'RandomReversibleO').
+data MoveOrder
+  = -- | Shuffle the 'Move's in the 'Cycle'. The 'Move's are replicated
+    -- according to their weights and executed in random order. If a 'Move' has
+    -- weight @w@, it is executed exactly @w@ times per iteration.
+    RandomO
+  | -- | The 'Move's are executed sequentially, in the order they appear in the
+    -- 'Cycle'. 'Move's with weight @w>1@ are repeated immediately @w@ times
+    -- (and not appended to the end of the list).
+    SequentialO
+  | -- | Similar to 'RandomOrder'. However, a reversed copy of the list of
+    --  shuffled 'Move's is appended such that the resulting Markov chain is
+    --  reversible.
+    --  Note: the total number of 'Move's executed per cycle is twice the number
+    --  of 'RandomO'.
+    RandomReversibleO
+  | -- | Similar to 'SequentialO'. However, a reversed copy of the list of
+    -- sequentially ordered 'Move's is appended such that the resulting Markov
+    -- chain is reversible.
+    SequentialReversibleO
+  deriving (Eq, Show)
+
+instance Default MoveOrder where def = RandomO
+
 -- | In brief, a 'Cycle' is a list of moves. The state of the Markov chain will
--- be logged only after each 'Cycle', and the iteration counter will be
--- increased by one. __Moves must have unique names__, so that they can be
--- identified.
+-- be logged only after all 'Move's in the 'Cycle' have been completed, and the
+-- iteration counter will be increased by one. The order in which the 'Move's
+-- are executed is specified by 'MoveOrder'. The default is 'RandomOrder'.
 --
--- 'Move's are replicated according to their weights and executed in random
--- order. That is, they are not executed in the order they appear in the
--- 'Cycle'. However, if a 'Move' has weight @w@, it is executed exactly @w@
--- times per iteration.
-newtype Cycle a = Cycle {fromCycle :: [Move a]}
+-- __Moves must have unique names__, so that they can be identified.
+data Cycle a = Cycle
+  { ccMoves :: [Move a],
+    ccOrder :: MoveOrder
+  }
 
 -- | Create a 'Cycle' from a list of 'Move's.
 fromList :: [Move a] -> Cycle a
@@ -179,18 +211,41 @@ fromList [] =
   error "fromList: Received an empty list but cannot create an empty Cycle."
 fromList xs =
   if length (nub nms) == length nms
-    then Cycle xs
+    then Cycle xs def
     else error "fromList: Moves don't have unique names."
   where
     nms = map mvName xs
 
--- | Tune the 'Move's in the 'Cycle'. Tuning has no effect on 'Move's that
--- cannot be tuned. See 'autotune'.
-autotuneC :: Int -> Acceptance (Move a) -> Cycle a -> Cycle a
-autotuneC n a = Cycle . map tuneF . fromCycle
+-- | Set the order of 'Move's in a 'Cycle'.
+setOrder :: MoveOrder -> Cycle a -> Cycle a
+setOrder o c = c {ccOrder = o}
+
+-- | Replicate 'Move's according to their weights and possibly shuffle them.
+getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
+getNCycles (Cycle xs o) n g = case o of
+  RandomO -> shuffleN mvs n g
+  SequentialO -> return $ replicate n mvs
+  RandomReversibleO -> do
+    mvsRs <- shuffleN mvs n g
+    return [mvsR ++ reverse mvsR | mvsR <- mvsRs]
+  SequentialReversibleO -> return $ replicate n $ mvs ++ reverse mvs
   where
-    ars = acceptanceRatios n a
-    tuneF m = fromMaybe m (autotune (ars M.! m) m)
+    !mvs = concat [replicate (mvWeight m) m | m <- xs]
+
+-- | Tune some 'Move's in the 'Cycle'. See 'tune'. Moves in the map, but not in
+-- the cycle are ignored!
+tuneCycle :: Map (Move a) Double -> Cycle a -> Cycle a
+tuneCycle m c = c {ccMoves = map tuneF $ ccMoves c}
+  where
+    tuneF mv = case m M.!? mv of
+      Nothing -> mv
+      Just x -> fromMaybe mv (tune x mv)
+
+-- | Caculate acceptance ratios for the given number of last iterations. Auto
+-- tune the 'Move's in the 'Cycle' with the calculated acceptance ratios. See
+-- 'autotune'.
+autotuneCycle :: Int -> Acceptance (Move a) -> Cycle a -> Cycle a
+autotuneCycle n a = tuneCycle (M.map (/ratioOpt) $ acceptanceRatios n a)
 
 renderRow :: Text -> Text -> Text -> Text -> Text
 renderRow name weight acceptRatio tuneParam = "   " <> nB <> wB <> rB <> tB
@@ -231,7 +286,7 @@ summarizeCycle acc c =
                <> arStr
          ]
   where
-    mvs = fromCycle c
+    mvs = ccMoves c
     mpi = sum $ map mvWeight mvs
     arStr = case acc of
       Nothing -> ""

@@ -1,9 +1,9 @@
--- TODO: Add possibility to store supplementary information about the chain.
+-- XXX: Add possibility to store supplementary information about the chain.
 --
 -- Maybe something like Trace b; and give a function a -> b to extract
 -- supplementary info.
 
--- TODO: Status tuned exclusively to the Metropolis-Hastings algorithm. We
+-- XXX: Status tuned exclusively to the Metropolis-Hastings algorithm. We
 -- should abstract the algorithm from the chain. For example,
 --
 -- @
@@ -71,7 +71,7 @@ data Status a = Status
     -- | Starting time and starting iteration of chain; used to calculate
     -- run time and ETA.
     start :: Maybe (Int, UTCTime),
-    -- | Save the chain? Defaults to 'True'.
+    -- | Save the chain at the end of the run? Defaults to 'True'.
     save :: Bool,
     -- | The random number generator.
     generator :: GenIO,
@@ -124,7 +124,7 @@ status n p l c m x mB mT nI g =
     i
     0
     (singletonT i)
-    (emptyA $ fromCycle c)
+    (emptyA $ ccMoves c)
     mB
     mT
     nI

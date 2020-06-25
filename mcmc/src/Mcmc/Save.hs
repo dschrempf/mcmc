@@ -33,7 +33,7 @@ import qualified Data.Map as M
 import Data.Time.Clock
 import Data.Vector.Unboxed (Vector)
 import Data.Word
--- TODO: Remove as soon as split mix is used and is available with the
+-- TODO: Splitmix. Remove as soon as split mix is used and is available with the
 -- statistics package.
 import Mcmc.Item
 import Mcmc.Monitor
@@ -47,17 +47,21 @@ import Prelude hiding (cycle)
 
 data Save a
   = Save
-      String
+      -- Variables related to the chain.
+      String -- Name.
       (Item a)
-      Int
+      Int -- Iteration.
       (Trace a)
       (Acceptance Int)
-      (Maybe Int)
-      (Maybe Int)
-      Int
-      (Maybe (Int, UTCTime))
-      Bool
-      (Vector Word32)
+      (Maybe Int) -- Burn in.
+      (Maybe Int) -- Auto tune.
+      Int -- Iterations.
+      (Maybe (Int, UTCTime)) -- Starting iteration and time.
+      Bool -- Save.
+      (Vector Word32) -- Current seed.
+
+      -- Variables related to the algorithm.
+      [Maybe Double] -- Tuning parameters.
 
 $(deriveJSON defaultOptions 'Save)
 
@@ -80,12 +84,14 @@ toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
     st
     sv
     g'
+    ts
   where
-    moveToInt = zip (fromCycle c) [0 ..]
+    moveToInt = zip (ccMoves c) [0 ..]
     ac' = Acceptance $ mapKeys moveToInt (fromAcceptance ac)
-    -- TODO: Remove as soon as split mix is used and is available with the
-    -- statistics package.
+    -- TODO: Splitmix. Remove as soon as split mix is used and is available with
+    -- the statistics package.
     g' = fromSeed $ unsafePerformIO $ save g
+    ts = [ fmap tParam mt | mt <- map mvTune $ ccMoves c ]
 
 -- | Save a 'Status' to file.
 --
@@ -113,7 +119,7 @@ fromSave ::
   Monitor a ->
   Save a ->
   Status a
-fromSave p l c m (Save nm it i tr ac' br at is st sv g') =
+fromSave p l c m (Save nm it i tr ac' br at is st sv g' ts) =
   Status
     nm
     it
@@ -128,14 +134,15 @@ fromSave p l c m (Save nm it i tr ac' br at is st sv g') =
     g
     p
     l
-    c
+    c'
     m
   where
-    intToMove = zip [0 ..] $ fromCycle c
+    intToMove = zip [0 ..] $ ccMoves c
     ac = Acceptance $ mapKeys intToMove (fromAcceptance ac')
-    -- TODO: Remove as soon as split mix is used and is available with the
-    -- statistics package.
+    -- TODO: Splitmix. Remove as soon as split mix is used and is available with
+    -- the statistics package.
     g = unsafePerformIO $ restore $ toSeed g'
+    c' = tuneCycle (M.mapMaybe id $ M.fromList $ zip (ccMoves c) ts) c
 
 -- | Load a 'Status' from file.
 -- Important information that cannot be saved and has to be provided again when

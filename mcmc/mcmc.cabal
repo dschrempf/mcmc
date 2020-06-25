@@ -55,6 +55,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
+    , data-default
     , directory
     , log-domain
     , microlens
@@ -72,6 +73,7 @@ test-suite mcmc-test
   main-is: Spec.hs
   other-modules:
       Mcmc.Move.SlideSpec
+      Mcmc.MoveSpec
       Mcmc.SaveSpec
       Paths_mcmc
   hs-source-dirs:

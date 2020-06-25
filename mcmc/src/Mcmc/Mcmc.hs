@@ -48,7 +48,7 @@ mcmcAutotune t = do
   s <- get
   let a = acceptance s
       c = cycle s
-      c' = autotuneC t a c
+      c' = autotuneCycle t a c
   put $ s {cycle = c'}
 
 -- | Print short summary of 'Move's in 'Cycle'. See 'summarizeCycle'.

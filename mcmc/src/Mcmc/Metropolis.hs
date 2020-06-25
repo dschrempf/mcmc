@@ -26,7 +26,6 @@ import Mcmc.Item
 import Mcmc.Mcmc
 import Mcmc.Move
 import Mcmc.Status
-import Mcmc.Tools.Shuffle
 import Mcmc.Trace
 import Numeric.Log
 import System.Random.MWC
@@ -69,13 +68,7 @@ mhMove m = do
         then put $ s {item = Item y pY lY, acceptance = pushA m True a}
         else put $ s {acceptance = pushA m False a}
 
--- TODO: Split the generator here. See SaveSpec -> mhContinue.
-
--- Replicate 'Move's according to their weights and shuffle them.
-getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
-getNCycles c = shuffleN mvs
-  where
-    !mvs = concat [replicate (mvWeight m) m | m <- fromCycle c]
+-- TODO: Splitmix. Split the generator here. See SaveSpec -> mhContinue.
 
 -- Run one iterations; perform all moves in a Cycle.
 mhIter :: ToJSON a => [Move a] -> Mcmc a ()
@@ -149,7 +142,7 @@ mhContinueT dn = do
   let n = iterations s
   put s {iterations = n + dn}
   mcmcInit
-  mcmcSummarizeCycle Nothing
+  mcmcSummarizeCycle (Just n)
   mhRun dn
   mcmcClose
 

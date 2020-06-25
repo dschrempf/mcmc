@@ -77,8 +77,8 @@ spec =
       g' <- save $ generator r'
       g `shouldBe` g'
 
-  -- -- TODO: This will only work with a splittable generator because getNCycles
-  -- -- changes the generator.
+  -- -- TODO: Splitmix. This will only work with a splittable generator
+  -- -- because getNCycles changes the generator.
   -- describe "mhContinue"
   --   $ it "mh 200 + mhContinue 200 == mh 400"
   --   $ do
