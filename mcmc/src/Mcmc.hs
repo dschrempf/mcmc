@@ -83,10 +83,10 @@ module Mcmc
     -- graphical models and an interactive model-specification language, Systematic
     -- Biology, 65(4), 726–736 (2016). http://dx.doi.org/10.1093/sysbio/syw021
     Move,
-    bactrian,
     scale,
     scaleUnbiased,
     slide,
+    slideBactrian,
     slideSymmetric,
     slideUniform,
     Cycle,

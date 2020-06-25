@@ -14,6 +14,7 @@
 module Mcmc.Mcmc
   ( Mcmc,
     mcmcAutotune,
+    mcmcResetA,
     mcmcSummarizeCycle,
     mcmcInit,
     mcmcReport,
@@ -42,24 +43,34 @@ import Prelude hiding (cycle)
 -- required, but it is used by the different inference algorithms.
 type Mcmc a = StateT (Status a) IO
 
--- | Auto tune the 'Move's in the 'Cycle' of the chain. See 'autotune'.
-mcmcAutotune :: Int -> Mcmc a ()
-mcmcAutotune t = do
+-- | Auto tune the 'Move's in the 'Cycle' of the chain. Reset acceptance counts.
+-- See 'autotune'.
+mcmcAutotune :: Mcmc a ()
+mcmcAutotune = do
   s <- get
   let a = acceptance s
       c = cycle s
-      c' = autotuneCycle t a c
+      c' = autotuneCycle a c
   put $ s {cycle = c'}
 
--- | Print short summary of 'Move's in 'Cycle'. See 'summarizeCycle'.
-mcmcSummarizeCycle :: Maybe Int -> Mcmc a ()
-mcmcSummarizeCycle Nothing = do
-  c <- gets cycle
-  liftIO $ T.putStr $ summarizeCycle Nothing c
-mcmcSummarizeCycle (Just n) = do
+-- | Reset acceptance counts.
+mcmcResetA :: Mcmc a ()
+mcmcResetA = do
+  s <- get
+  let a = acceptance s
+  put $ s {acceptance = resetA a}
+
+-- TODO: This function should not have a Bool parameter. Rather, the
+-- summarizeCycle function should be aware of an empty acceptance type.
+
+-- | Print short summary of 'Move's in 'Cycle'. If 'True', also print acceptance
+-- ratios. See 'summarizeCycle'.
+mcmcSummarizeCycle :: Bool -> Mcmc a ()
+mcmcSummarizeCycle aPred = do
   a <- gets acceptance
+  let ma = if aPred then Just a else Nothing
   c <- gets cycle
-  liftIO $ T.putStr $ summarizeCycle (Just (n, a)) c
+  liftIO $ T.putStr $ summarizeCycle ma c
 
 fTime :: FormatTime t => t -> String
 fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
@@ -135,8 +146,7 @@ mcmcMonitorExec = do
 mcmcClose :: ToJSON a => Mcmc a ()
 mcmcClose = do
   s <- get
-  let n = iterations s
-  mcmcSummarizeCycle (Just n)
+  mcmcSummarizeCycle True
   liftIO $ putStrLn "-- Metropolis-Hastings sampler finished."
   let m = monitor s
   m' <- liftIO $ mClose m

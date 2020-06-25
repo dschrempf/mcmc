@@ -112,7 +112,7 @@ slideBranch x y = slideSymmetric n 1 (getLens x y) 1.0 True
 
 -- Bactrian move changing the length of a branch.
 bactrianBranch :: Node -> Node -> Move (Tree Length)
-bactrianBranch x y = bactrian n 1 (getLens x y) 0.9 1.0 True
+bactrianBranch x y = slideBactrian n 1 (getLens x y) 0.9 1.0 True
   where
     n = "Bactrian edge " <> show (x, y)
 
@@ -207,9 +207,10 @@ main = do
       -- and likelihood functions, as well as the move cycle and the monitors,
       -- because those cannot be saved consistently. The loading function checks
       -- the values of the prior and likelihood functions of the last state, to
-      -- minimize the chance that wrong functions are used by accident. It is
-      -- also advised to use the same moves and monitors. Otherwise, the
-      -- posterior may change, or the files may be messed up.
+      -- minimize the chance that wrong functions are used by accident. It also
+      -- sets the tuning parameters of the moves in the cycle. Using different
+      -- moves in the cycle, or using different monitors may lead to undefined
+      -- behavior and is not supported.
       s <- loadStatus pr (lh meanTree stdDevTree) moveCycle mon (nm ++ ".mcmc")
       -- Continue the chain for the given number of iterations.
       void $ mhContinue (read nStr) s

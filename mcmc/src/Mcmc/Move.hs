@@ -65,6 +65,7 @@ import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Text.Lazy.Builder.Int as B
 import qualified Data.Text.Lazy.Builder.RealFloat as B
+import Lens.Micro
 import Mcmc.Tools.Shuffle
 import Numeric.Log hiding (sum)
 import System.Random.MWC
@@ -75,18 +76,17 @@ import System.Random.MWC
 --
 -- A 'Move' may be tuneable in that it contains information about how to enlarge
 -- or shrink the step size to tune the acceptance ratio.
-data Move a
-  = Move
-      { -- | Name (no moves with the same name are allowed in a 'Cycle').
-        mvName :: String,
-        -- | The weight determines how often a 'Move' is executed per iteration of
-        -- the Markov chain.
-        mvWeight :: Int,
-        -- | Simple move without tuning information.
-        mvSimple :: MoveSimple a,
-        -- | Tuning is disabled if set to 'Nothing'.
-        mvTuner :: Maybe (Tuner a)
-      }
+data Move a = Move
+  { -- | Name (no moves with the same name are allowed in a 'Cycle').
+    mvName :: String,
+    -- | The weight determines how often a 'Move' is executed per iteration of
+    -- the Markov chain.
+    mvWeight :: Int,
+    -- | Simple move without tuning information.
+    mvSimple :: MoveSimple a,
+    -- | Tuning is disabled if set to 'Nothing'.
+    mvTuner :: Maybe (Tuner a)
+  }
 
 instance Show (Move a) where
   show m = show $ mvName m
@@ -113,22 +113,20 @@ instance Ord (Move a) where
 -- In order to calculate the Metropolis-Hastings ratio, we need to know the
 -- probability (density) of jumping forth, and the probability (density) of
 -- jumping back.
-data MoveSimple a
-  = MoveSimple
-      { -- | Instruction about randomly moving from the current state to a new
-        -- state, given some source of randomness.
-        mvSample :: a -> GenIO -> IO a,
-        -- | The density of going from one state to another. Set to 'Nothing' for
-        -- symmetric moves.
-        mvDensity :: Maybe (a -> a -> Log Double)
-      }
+data MoveSimple a = MoveSimple
+  { -- | Instruction about randomly moving from the current state to a new
+    -- state, given some source of randomness.
+    mvSample :: a -> GenIO -> IO a,
+    -- | The density of going from one state to another. Set to 'Nothing' for
+    -- symmetric moves.
+    mvDensity :: Maybe (a -> a -> Log Double)
+  }
 
 -- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
-data Tuner a
-  = Tuner
-      { tParam :: Double,
-        tFunc :: Double -> MoveSimple a
-      }
+data Tuner a = Tuner
+  { tParam :: Double,
+    tFunc :: Double -> MoveSimple a
+  }
 
 -- | Create a 'Tuner'. The tuning function accepts a tuning parameter, and
 -- returns a corresponding 'MoveSimple'. The larger the tuning parameter, the
@@ -192,11 +190,10 @@ instance Default Order where def = RandomO
 -- are executed is specified by 'Order'. The default is 'RandomO'.
 --
 -- __Moves must have unique names__, so that they can be identified.
-data Cycle a
-  = Cycle
-      { ccMoves :: [Move a],
-        ccOrder :: Order
-      }
+data Cycle a = Cycle
+  { ccMoves :: [Move a],
+    ccOrder :: Order
+  }
 
 -- | Create a 'Cycle' from a list of 'Move's.
 fromList :: [Move a] -> Cycle a
@@ -237,36 +234,38 @@ tuneCycle m c =
       Nothing -> mv
       Just x -> fromMaybe mv (tune x mv)
 
--- | Caculate acceptance ratios for the given number of last iterations. Auto
--- tune the 'Move's in the 'Cycle' with the calculated acceptance ratios. See
--- 'autotune'.
-autotuneCycle :: Int -> Acceptance (Move a) -> Cycle a -> Cycle a
-autotuneCycle n a = tuneCycle (M.map (/ ratioOpt) $ acceptanceRatios n a)
+-- | Caculate acceptance ratios. Auto tune the 'Move's in the 'Cycle' with the
+-- calculated acceptance ratios. See 'autotune'.
+autotuneCycle :: Acceptance (Move a) -> Cycle a -> Cycle a
+autotuneCycle a = tuneCycle (M.map (/ ratioOpt) $ acceptanceRatios a)
 
-renderRow :: Text -> Text -> Text -> Text -> Text
-renderRow name weight acceptRatio tuneParam = "   " <> nB <> wB <> rB <> tB
+renderRow :: Text -> Text -> Text -> Text -> Text -> Text -> Text
+renderRow name weight nAccept nReject acceptRatio tuneParam = "   " <> nm <> wt <> na <> nr <> ra <> tp
   where
-    nB = T.justifyLeft 30 ' ' name
-    wB = T.justifyRight 8 ' ' weight
-    rB = T.justifyRight 20 ' ' acceptRatio
-    tB = T.justifyRight 20 ' ' tuneParam
+    nm = T.justifyLeft 30 ' ' name
+    wt = T.justifyRight 8 ' ' weight
+    na = T.justifyRight 15 ' ' nAccept
+    nr = T.justifyRight 15 ' ' nReject
+    ra = T.justifyRight 15 ' ' acceptRatio
+    tp = T.justifyRight 20 ' ' tuneParam
 
 moveHeader :: Text
 moveHeader =
-  renderRow "Move name" "Weight" "Acceptance ratio" "Tuning parameter"
+  renderRow "Move name" "Weight" "Accepted" "Rejected" "Ratio" "Tuning parameter"
 
-summarizeMove :: Move a -> Maybe Double -> Text
-summarizeMove m r = renderRow (T.pack name) weight acceptRatio tuneParamStr
+summarizeMove :: Move a -> Maybe (Int, Int, Double) -> Text
+summarizeMove m r = renderRow (T.pack name) weight nAccept nReject acceptRatio tuneParamStr
   where
     name = mvName m
     weight = B.toLazyText $ B.decimal $ mvWeight m
-    acceptRatio = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) r
+    nAccept = B.toLazyText $ maybe "" (B.decimal . (^. _1)) r
+    nReject = B.toLazyText $ maybe "" (B.decimal . (^. _2)) r
+    acceptRatio = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3) . (^. _3)) r
     tuneParamStr = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) (tParam <$> mvTuner m)
 
--- | Summarize the 'Move's in the 'Cycle'. Also report acceptance ratios for the
--- given number of last iterations.
-summarizeCycle :: Maybe (Int, Acceptance (Move a)) -> Cycle a -> Text
-summarizeCycle acc c =
+-- | Summarize the 'Move's in the 'Cycle'. Also report acceptance ratios.
+summarizeCycle :: Maybe (Acceptance (Move a)) -> Cycle a -> Text
+summarizeCycle ma c =
   T.unlines $
     [ "-- Summary of move(s) in cycle.",
       -- T.replicate (T.length moveHeader) "─",
@@ -279,24 +278,14 @@ summarizeCycle acc c =
              B.fromLazyText "-- "
                <> B.decimal mpi
                <> B.fromString " move(s) per iteration."
-               <> arStr
          ]
   where
     mvs = ccMoves c
     mpi = sum $ map mvWeight mvs
-    arStr = case acc of
-      Nothing -> ""
-      Just (n, _) ->
-        " Acceptance ratio(s) calculated over " <> B.decimal n <> " iterations."
-    ars = case acc of
-      Nothing -> M.empty
-      Just (n, a) -> acceptanceRatios n a
-    ar m = ars M.!? m
+    ar m = fmap (acceptanceRatio m) ma
 
--- | For each key @k@, store the list of accepted (True) and rejected (False)
--- proposals. For reasons of efficiency, the lists are stored in reverse order;
--- latest first.
-newtype Acceptance k = Acceptance {fromAcceptance :: Map k [Bool]}
+-- | For each key @k@, store the number of accepted and rejected proposals.
+newtype Acceptance k = Acceptance {fromAcceptance :: Map k (Int, Int)}
 
 instance ToJSONKey k => ToJSON (Acceptance k) where
   toJSON (Acceptance m) = toJSON m
@@ -309,21 +298,19 @@ instance (Ord k, FromJSONKey k) => FromJSON (Acceptance k) where
 --
 -- Initialize an empty storage of accepted/rejected values.
 emptyA :: Ord k => [k] -> Acceptance k
-emptyA ks = Acceptance $ M.fromList [(k, []) | k <- ks]
+emptyA ks = Acceptance $ M.fromList [(k, (0, 0)) | k <- ks]
 
 -- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
 pushA :: (Ord k, Show k) => k -> Bool -> Acceptance k -> Acceptance k
--- Unsafe; faster.
-pushA k v (Acceptance m) = Acceptance $ M.adjust (v :) k m
--- -- Safe; slower.
--- prependA k v (Acceptance m) | k `M.member` m = Acceptance $ M.adjust (v:) k m
---                             | otherwise = error msg
---   where msg = "prependA: Can not add acceptance value for key: " <> show k <> "."
+-- Unsafe but fast.
+pushA k v = Acceptance . M.adjust (over l (+ 1)) k . fromAcceptance
+  where
+    l = if v then _1 else _2
 {-# INLINEABLE pushA #-}
 
 -- | Reset acceptance storage.
-resetA :: Acceptance k -> Acceptance k
-resetA = Acceptance . M.map (const []) . fromAcceptance
+resetA :: Ord k => Acceptance k -> Acceptance k
+resetA = emptyA . M.keys . fromAcceptance
 
 transformKeys :: (Ord k1, Ord k2) => [k1] -> [k2] -> Map k1 v -> Map k2 v
 transformKeys ks1 ks2 m = foldl' insrt M.empty $ zip ks1 ks2
@@ -335,12 +322,12 @@ transformKeys ks1 ks2 m = foldl' insrt M.empty $ zip ks1 ks2
 transformKeysA :: (Ord k1, Ord k2) => [k1] -> [k2] -> Acceptance k1 -> Acceptance k2
 transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
 
-ratio :: Int -> [Bool] -> Double
-ratio n xs = fromIntegral (length ts) / fromIntegral n
-  where
-    ts = filter (== True) xs
+-- | Acceptance counts and ratio for a specific move.
+acceptanceRatio :: (Show k, Ord k) => k -> Acceptance k -> (Int, Int, Double)
+acceptanceRatio k a = case fromAcceptance a M.!? k of
+  Just (as, rs) -> (as, rs, fromIntegral as / fromIntegral (as + rs))
+  Nothing -> error $ "acceptanceRatio: Key not found in map: " ++ show k ++ "."
 
--- | Acceptance ratios averaged over the given number of last iterations. If
--- less than @n@ iterations are available, only those are used.
-acceptanceRatios :: Int -> Acceptance k -> Map k Double
-acceptanceRatios n (Acceptance m) = M.map (ratio n . take n) m
+-- | Acceptance ratios for all moves.
+acceptanceRatios :: Acceptance k -> Map k Double
+acceptanceRatios = M.map (\(as, rs) -> fromIntegral as / fromIntegral (as + rs)) . fromAcceptance

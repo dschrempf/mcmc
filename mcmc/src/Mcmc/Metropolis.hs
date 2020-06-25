@@ -93,8 +93,9 @@ mhNIter n = do
 mhBurnInN :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
 mhBurnInN b (Just t)
   | t <= 0 = error "mhBurnInN: Auto tuning period smaller equal 0."
-  | b > t = mhNIter t >> mcmcAutotune t >> mhBurnInN (b - t) (Just t)
-  | otherwise = mhNIter b >> mcmcAutotune b
+  | b > t = mhNIter t >> mcmcAutotune >> mcmcResetA >> mhBurnInN (b - t) (Just t)
+  -- TODO: Do not auto tune if the last batch is small.
+  | otherwise = mhNIter b >> mcmcAutotune >> mcmcSummarizeCycle True >> mcmcResetA
 mhBurnInN b Nothing = mhNIter b
 
 -- Initialize burn in for given number of iterations.
@@ -107,12 +108,6 @@ mhBurnIn b t
     mcmcMonitorHeader
     mhBurnInN b t
     liftIO $ putStrLn "-- Burn in finished."
-    case t of
-      Nothing -> return ()
-      Just _ -> mcmcSummarizeCycle t
-    s <- get
-    let a = acceptance s
-    put $ s {acceptance = resetA a}
 
 -- Run for given number of iterations.
 mhRun :: ToJSON a => Int -> Mcmc a ()
@@ -127,7 +122,7 @@ mhT = do
   liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
   mcmcInit
   mcmcReport
-  mcmcSummarizeCycle Nothing
+  mcmcSummarizeCycle False
   let b = fromMaybe 0 (burnInIterations s)
   mhBurnIn b (autoTuningPeriod s)
   let n = iterations s
@@ -142,7 +137,7 @@ mhContinueT dn = do
   let n = iterations s
   put s {iterations = n + dn}
   mcmcInit
-  mcmcSummarizeCycle (Just n)
+  mcmcSummarizeCycle True
   mhRun dn
   mcmcClose
 
