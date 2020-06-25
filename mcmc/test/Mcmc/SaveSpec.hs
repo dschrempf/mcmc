@@ -14,7 +14,9 @@ module Mcmc.SaveSpec
   )
 where
 
-import Mcmc hiding (save)
+import Mcmc
+import Mcmc.Save
+import Mcmc.Status hiding (save)
 import Numeric.Log
 import Statistics.Distribution hiding
   ( mean,
@@ -76,6 +78,7 @@ spec =
       g <- save $ generator r
       g' <- save $ generator r'
       g `shouldBe` g'
+
 -- -- TODO: Splitmix. This will only work with a splittable generator
 -- -- because getNCycles changes the generator.
 -- describe "mhContinue"
