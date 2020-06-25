@@ -43,6 +43,8 @@ slide ::
   -- | Enable tuning.
   Bool ->
   Move a
+-- TODO: This and all other move definitions can be condensed. Only the tuner
+-- has to be changed according to the given Bool parameter.
 slide n w l m s True =
   Move n w (slideSimple l m s 1.0) (Just $ tuner (slideSimple l m s))
 slide n w l m s False = Move n w (slideSimple l m s 1.0) Nothing

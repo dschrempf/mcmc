@@ -36,6 +36,7 @@ library
       Mcmc.Monitor.ParameterBatch
       Mcmc.Monitor.Time
       Mcmc.Move
+      Mcmc.Move.Bactrian
       Mcmc.Move.Generic
       Mcmc.Move.Scale
       Mcmc.Move.Slide

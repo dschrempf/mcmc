@@ -110,9 +110,18 @@ slideBranch x y = slideSymmetric n 1 (getLens x y) 1.0 True
   where
     n = "Slide edge " <> show (x, y)
 
+-- Bactrian move changing the length of a branch.
+bactrianBranch :: Node -> Node -> Move (Tree Length)
+bactrianBranch x y = bactrian n 1 (getLens x y) 0.9 1.0 True
+  where
+    n = "Bactrian edge " <> show (x, y)
+
 -- Collect all sliding moves into a cycle.
 moveCycle :: Cycle (Tree Length)
-moveCycle = fromList $ map (uncurry slideBranch) (getEdges startingTree)
+moveCycle =
+  fromList $
+    map (uncurry slideBranch) (getEdges startingTree)
+      ++ map (uncurry bactrianBranch) (getEdges startingTree)
 
 -- Convert a number to a distance. Assume that the given number is positive
 -- and finite.

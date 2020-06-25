@@ -83,6 +83,7 @@ module Mcmc
     -- graphical models and an interactive model-specification language, Systematic
     -- Biology, 65(4), 726–736 (2016). http://dx.doi.org/10.1093/sysbio/syw021
     Move,
+    bactrian,
     scale,
     scaleUnbiased,
     slide,
@@ -147,6 +148,7 @@ import Mcmc.Monitor
 import Mcmc.Monitor.Parameter
 import Mcmc.Monitor.ParameterBatch
 import Mcmc.Move
+import Mcmc.Move.Bactrian
 import Mcmc.Move.Scale
 import Mcmc.Move.Slide
 import Mcmc.Save
