@@ -19,7 +19,7 @@
 -- For examples, please see
 -- [mcmc-examples](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples).
 --
--- The import of this module alone should cover most use cases.
+-- __The import of this module alone should cover most use cases.__
 module Mcmc
   ( -- * Moves
 
@@ -81,9 +81,14 @@ module Mcmc
     -- B. R., Huelsenbeck, J. P., …, Revbayes: bayesian phylogenetic inference using
     -- graphical models and an interactive model-specification language, Systematic
     -- Biology, 65(4), 726–736 (2016). http://dx.doi.org/10.1093/sysbio/syw021
-    module Mcmc.Move,
-    module Mcmc.Move.Slide,
-    module Mcmc.Move.Scale,
+    Move,
+    scale,
+    scaleUnbiased,
+    slide,
+    slideSymmetric,
+    slideUniform,
+    Cycle,
+    fromList,
 
     -- * Initialization
 
@@ -91,16 +96,16 @@ module Mcmc
     -- constructed using the function 'status'.
     --
     -- The 'Status' of a Markov chain includes information about current state
-    -- ('Item') and iteration, the history of the chain ('Trace'), the 'Acceptance'
-    -- ratios, and the random number generator.
+    -- ('Mcmc.Item.Item') and iteration, the history of the chain
+    -- ('Mcmc.Trace.Trace'), the 'Acceptance' ratios, and the random number
+    -- generator.
     --
     -- Further, the 'Status' includes auxiliary variables and functions such as
     -- the prior and likelihood functions, instructions to move around the state
     -- space (see above) and to monitor the MCMC run, as well as some auxiliary
     -- information.
-    module Mcmc.Status,
-    module Mcmc.Item,
-    module Mcmc.Trace,
+    status,
+    noSave,
 
     -- * Monitor
 
@@ -110,7 +115,13 @@ module Mcmc
     -- - 'MonitorFile': Log to a file.
     -- - 'MonitorBatch': Log summary statistics such as the mean of the last
     -- - states to a file.
-    module Mcmc.Monitor,
+    Monitor (Monitor),
+    MonitorStdOut,
+    monitorStdOut,
+    MonitorFile,
+    monitorFile,
+    MonitorBatch,
+    monitorBatch,
     module Mcmc.Monitor.Parameter,
     module Mcmc.Monitor.ParameterBatch,
 
@@ -119,15 +130,15 @@ module Mcmc
     -- | At the moment, the library is tailored to the Metropolis-Hastings
     -- algorithm ('mh') since it covers most use cases. However, implementation
     -- of more algorithms is planned in the future.
-    module Mcmc.Metropolis,
+    mh,
+    mhContinue,
 
     -- * Misc
     pzero,
-    module Mcmc.Save,
+    loadStatus,
   )
 where
 
-import Mcmc.Item
 import Mcmc.Metropolis
 import Mcmc.Monitor
 import Mcmc.Monitor.Parameter
@@ -137,7 +148,6 @@ import Mcmc.Move.Scale
 import Mcmc.Move.Slide
 import Mcmc.Save
 import Mcmc.Status
-import Mcmc.Trace
 import Numeric.Log
 
 -- | Because we need a probability of zero for likelihoods of really bad moves.

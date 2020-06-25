@@ -28,7 +28,6 @@ import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy as B
 import Data.List hiding (cycle)
-import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Time.Clock
 import Data.Vector.Unboxed (Vector)
@@ -65,11 +64,6 @@ data Save a
 
 $(deriveJSON defaultOptions 'Save)
 
-mapKeys :: (Ord k1, Ord k2) => [(k1, k2)] -> Map k1 v -> Map k2 v
-mapKeys xs m = foldl' insrt M.empty xs
-  where
-    insrt m' (k1, k2) = M.insert k2 (m M.! k1) m'
-
 toSave :: Status a -> Save a
 toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
   Save
@@ -86,8 +80,7 @@ toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
     g'
     ts
   where
-    moveToInt = zip (ccMoves c) [0 ..]
-    ac' = Acceptance $ mapKeys moveToInt (fromAcceptance ac)
+    ac' = transformKeysA (ccMoves c) [0..] ac
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
     -- the statistics package.
     g' = fromSeed $ unsafePerformIO $ save g
@@ -137,8 +130,7 @@ fromSave p l c m (Save nm it i tr ac' br at is st sv g' ts) =
     c'
     m
   where
-    intToMove = zip [0 ..] $ ccMoves c
-    ac = Acceptance $ mapKeys intToMove (fromAcceptance ac')
+    ac = transformKeysA [0..] (ccMoves c) ac'
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
     -- the statistics package.
     g = unsafePerformIO $ restore $ toSeed g'

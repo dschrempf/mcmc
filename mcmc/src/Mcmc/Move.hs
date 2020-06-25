@@ -23,8 +23,6 @@
 --
 -- scaleBactrian
 
--- TODO: Try to use abstract data types (Acceptance, Move, MoveSimple).
-
 -- |
 -- Module      :  Mcmc.Move
 -- Description :  Moves and cycles
@@ -46,7 +44,7 @@ module Mcmc.Move
     autotune,
 
     -- * Cycle
-    MoveOrder (..),
+    Order (..),
     Cycle (ccMoves),
     fromList,
     setOrder,
@@ -56,10 +54,11 @@ module Mcmc.Move
     summarizeCycle,
 
     -- * Acceptance
-    Acceptance (..),
+    Acceptance (fromAcceptance),
     emptyA,
     pushA,
     resetA,
+    transformKeysA,
     acceptanceRatios,
   )
 where
@@ -168,10 +167,10 @@ ratioOpt = 0.44
 autotune :: Double -> Move a -> Maybe (Move a)
 autotune a = tune (a / ratioOpt)
 
--- | Define the order in which 'Move's are executed in a 'Cycle'. Technically,
--- this is not an order, since the total number of 'Move's per 'Cycle' may be
--- different (e.g., compare 'RandomO' and 'RandomReversibleO').
-data MoveOrder
+-- | Define the order in which 'Move's are executed in a 'Cycle'. The total
+-- number of 'Move's per 'Cycle' may differ between 'Order's (e.g., compare
+-- 'RandomO' and 'RandomReversibleO').
+data Order
   = -- | Shuffle the 'Move's in the 'Cycle'. The 'Move's are replicated
     -- according to their weights and executed in random order. If a 'Move' has
     -- weight @w@, it is executed exactly @w@ times per iteration.
@@ -180,7 +179,7 @@ data MoveOrder
     -- 'Cycle'. 'Move's with weight @w>1@ are repeated immediately @w@ times
     -- (and not appended to the end of the list).
     SequentialO
-  | -- | Similar to 'RandomOrder'. However, a reversed copy of the list of
+  | -- | Similar to 'RandomO'. However, a reversed copy of the list of
     --  shuffled 'Move's is appended such that the resulting Markov chain is
     --  reversible.
     --  Note: the total number of 'Move's executed per cycle is twice the number
@@ -192,17 +191,17 @@ data MoveOrder
     SequentialReversibleO
   deriving (Eq, Show)
 
-instance Default MoveOrder where def = RandomO
+instance Default Order where def = RandomO
 
 -- | In brief, a 'Cycle' is a list of moves. The state of the Markov chain will
 -- be logged only after all 'Move's in the 'Cycle' have been completed, and the
 -- iteration counter will be increased by one. The order in which the 'Move's
--- are executed is specified by 'MoveOrder'. The default is 'RandomOrder'.
+-- are executed is specified by 'Order'. The default is 'RandomO'.
 --
 -- __Moves must have unique names__, so that they can be identified.
 data Cycle a = Cycle
   { ccMoves :: [Move a],
-    ccOrder :: MoveOrder
+    ccOrder :: Order
   }
 
 -- | Create a 'Cycle' from a list of 'Move's.
@@ -217,7 +216,7 @@ fromList xs =
     nms = map mvName xs
 
 -- | Set the order of 'Move's in a 'Cycle'.
-setOrder :: MoveOrder -> Cycle a -> Cycle a
+setOrder :: Order -> Cycle a -> Cycle a
 setOrder o c = c {ccOrder = o}
 
 -- | Replicate 'Move's according to their weights and possibly shuffle them.
@@ -232,11 +231,13 @@ getNCycles (Cycle xs o) n g = case o of
   where
     !mvs = concat [replicate (mvWeight m) m | m <- xs]
 
--- | Tune some 'Move's in the 'Cycle'. See 'tune'. Moves in the map, but not in
--- the cycle are ignored!
+-- | Tune 'Move's in the 'Cycle'. See 'tune'.
 tuneCycle :: Map (Move a) Double -> Cycle a -> Cycle a
-tuneCycle m c = c {ccMoves = map tuneF $ ccMoves c}
+tuneCycle m c = if sort (M.keys m) == sort mvs
+                then c {ccMoves = map tuneF mvs}
+                else error "tuneCycle: Map contains moves that are not in the cycle."
   where
+    mvs = ccMoves c
     tuneF mv = case m M.!? mv of
       Nothing -> mv
       Just x -> fromMaybe mv (tune x mv)
@@ -328,6 +329,16 @@ pushA k v (Acceptance m) = Acceptance $ M.adjust (v :) k m
 -- | Reset acceptance storage.
 resetA :: Acceptance k -> Acceptance k
 resetA = Acceptance . M.map (const []) . fromAcceptance
+
+transformKeys :: (Ord k1, Ord k2) => [k1] -> [k2] -> Map k1 v -> Map k2 v
+transformKeys ks1 ks2 m = foldl' insrt M.empty $ zip ks1 ks2
+  where
+    insrt m' (k1, k2) = M.insert k2 (m M.! k1) m'
+
+-- | Transform keys using the given lists. Keys not provided will not be present
+-- in the new 'Acceptance' variable.
+transformKeysA :: (Ord k1, Ord k2) => [k1] -> [k2] -> Acceptance k1 -> Acceptance k2
+transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
 
 ratio :: Int -> [Bool] -> Double
 ratio n xs = fromIntegral (length ts) / fromIntegral n

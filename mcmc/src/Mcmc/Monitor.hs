@@ -62,7 +62,7 @@ data Monitor a
         mBatches :: [MonitorBatch a]
       }
 
--- | Monitor to standard output.
+-- | Monitor to standard output; constructed with 'monitorStdOut'.
 data MonitorStdOut a
   = MonitorStdOut
       { msParams :: [MonitorParameter a],
@@ -125,7 +125,7 @@ msExec i (Item x p l) (ss, st) j m
           ++ [T.toLazyText $ mpFunc mp x | mp <- msParams m]
           ++ [renderDuration dt , eta]
 
--- | Monitor to a file.
+-- | Monitor to a file; constructed with 'monitorFile'.
 data MonitorFile a
   = MonitorFile
       { mfName :: String,
@@ -210,10 +210,11 @@ mfClose m = case mfHandle m of
   Just h -> hClose h
   Nothing -> error $ "mfClose: File was not opened for monitor " <> mfName m <> "."
 
--- | Monitor to a file, but calculate batch means for the given batch size.
+-- | Monitor to a file, but calculate batch means for the given batch size;
+-- constructed with 'monitorBatch'.
 --
--- XXX: Batch monitors are slow at the moment because the monitored parameter
--- has to be extracted from the state for each iteration.
+-- Batch monitors are slow at the moment because the monitored parameter has to
+-- be extracted from the state for each iteration.
 data MonitorBatch a
   = MonitorBatch
       { mbName :: String,
