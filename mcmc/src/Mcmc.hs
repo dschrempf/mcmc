@@ -46,7 +46,8 @@ module Mcmc
     --
     -- The 'Move's in a 'Cycle' can be executed in the given order or in a
     -- random sequence which allows, for example, specification of a fixed scan
-    -- Gibbs sampler, or a random sequence scan Gibbs sampler, respectively.
+    -- Gibbs sampler, or a random sequence scan Gibbs sampler, respectively. See
+    -- 'Order'.
     --
     -- Note that it is of utter importance that the given 'Cycle' enables
     -- traversal of the complete state space. Otherwise, the Markov chain will
@@ -89,6 +90,8 @@ module Mcmc
     slideUniform,
     Cycle,
     fromList,
+    Order (..),
+    setOrder,
 
     -- * Initialization
 

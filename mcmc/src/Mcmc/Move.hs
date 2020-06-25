@@ -2,10 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
--- TODO: Moves and monitors both use lenses and names for what they move and
--- monitor. Should a data structure be used combining the lens and the name, so
--- that things are cohesive?
-
 -- TODO: Moves on simplices: SimplexElementScale (?).
 
 -- TODO: Moves on tree branch lengths.
@@ -95,7 +91,7 @@ data Move a
         -- | Simple move without tuning information.
         mvSimple :: MoveSimple a,
         -- | Tuning is disabled if set to 'Nothing'.
-        mvTune :: Maybe (Tuner a)
+        mvTuner :: Maybe (Tuner a)
       }
 
 instance Show (Move a) where
@@ -153,9 +149,9 @@ tune :: Double -> Move a -> Maybe (Move a)
 tune dt m
   | dt <= 0 = error $ "tune: Tuning parameter not positive: " <> show dt <> "."
   | otherwise = do
-    (Tuner t f) <- mvTune m
+    (Tuner t f) <- mvTuner m
     let t' = t * dt
-    return $ m {mvSimple = f t', mvTune = Just $ Tuner t' f}
+    return $ m {mvSimple = f t', mvTuner = Just $ Tuner t' f}
 
 -- XXX: The desired acceptance ratio 0.44 is optimal for one-dimensional
 -- 'Move's; one could also store the affected number of dimensions with the
@@ -271,7 +267,7 @@ summarizeMove m r = renderRow (T.pack name) weight acceptRatio tuneParamStr
     name = mvName m
     weight = B.toLazyText $ B.decimal $ mvWeight m
     acceptRatio = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) r
-    tuneParamStr = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) (tParam <$> mvTune m)
+    tuneParamStr = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) (tParam <$> mvTuner m)
 
 -- | Summarize the 'Move's in the 'Cycle'. Also report acceptance ratios for the
 -- given number of last iterations.
