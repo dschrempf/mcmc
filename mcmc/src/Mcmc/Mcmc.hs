@@ -74,9 +74,10 @@ mcmcInit = do
   let m = monitor s
       n = iteration s
       nm = name s
-  m' <- if n == 0
-        then liftIO $ mOpen nm m
-        else liftIO $ mAppend nm m
+  m' <-
+    if n == 0
+      then liftIO $ mOpen nm m
+      else liftIO $ mAppend nm m
   put $ s {monitor = m', start = Just (n, t)}
 
 -- | Report what is going to be done.
@@ -111,11 +112,13 @@ mcmcMonitorHeader = do
 mcmcSave :: ToJSON a => Mcmc a ()
 mcmcSave = do
   s <- get
-  liftIO $ if save s
-    then do putStrLn "-- Save Markov chain. For long chains, this may take a while."
-            saveStatus (name s <> ".mcmc") s
-            putStrLn "-- Done saving Markov chain."
-    else putStrLn "-- Do not save the Markov chain."
+  liftIO $
+    if save s
+      then do
+        putStrLn "-- Save Markov chain. For long chains, this may take a while."
+        saveStatus (name s <> ".mcmc") s
+        putStrLn "-- Done saving Markov chain."
+      else putStrLn "-- Do not save the Markov chain."
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()

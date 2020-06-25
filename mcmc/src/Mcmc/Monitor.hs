@@ -113,17 +113,18 @@ msExec i (Item x p l) (ss, st) j m
   | i `mod` msPeriod m /= 0 =
     return ()
   | otherwise = do
-      ct <- getCurrentTime
-      let dt = ct `diffUTCTime` st
-          timePerIter = dt / fromIntegral (i - ss)
-          eta = if i < 10
-                then ""
-                else renderDuration $ timePerIter * fromIntegral (j - i)
-      T.hPutStrLn stdout
-        $ msRenderRow
-        $ [T.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
-          ++ [T.toLazyText $ mpFunc mp x | mp <- msParams m]
-          ++ [renderDuration dt , eta]
+    ct <- getCurrentTime
+    let dt = ct `diffUTCTime` st
+        timePerIter = dt / fromIntegral (i - ss)
+        eta =
+          if i < 10
+            then ""
+            else renderDuration $ timePerIter * fromIntegral (j - i)
+    T.hPutStrLn stdout
+      $ msRenderRow
+      $ [T.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
+        ++ [T.toLazyText $ mpFunc mp x | mp <- msParams m]
+        ++ [renderDuration dt, eta]
 
 -- | Monitor to a file; constructed with 'monitorFile'.
 data MonitorFile a
@@ -165,9 +166,10 @@ mfAppend n m = do
   let fn = n <> mfName m <> ".monitor"
   fe <- doesFileExist fn
   if fe
-    then do h <- openFile fn AppendMode
-            hSetBuffering h LineBuffering
-            return $ m {mfHandle = Just h}
+    then do
+      h <- openFile fn AppendMode
+      hSetBuffering h LineBuffering
+      return $ m {mfHandle = Just h}
     else error $ "mfAppend: Monitor file does not exist: " ++ fn ++ "."
 
 mfHeader :: MonitorFile a -> IO ()
@@ -252,9 +254,10 @@ mbAppend n m = do
   let fn = n <> mbName m <> ".batch"
   fe <- doesFileExist fn
   if fe
-    then do h <- openFile fn AppendMode
-            hSetBuffering h LineBuffering
-            return $ m {mbHandle = Just h}
+    then do
+      h <- openFile fn AppendMode
+      hSetBuffering h LineBuffering
+      return $ m {mbHandle = Just h}
     else error $ "mbAppend: Monitor file does not exist: " ++ fn ++ "."
 
 mbHeader :: MonitorBatch a -> IO ()

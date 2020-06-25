@@ -80,11 +80,11 @@ toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
     g'
     ts
   where
-    ac' = transformKeysA (ccMoves c) [0..] ac
+    ac' = transformKeysA (ccMoves c) [0 ..] ac
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
     -- the statistics package.
     g' = fromSeed $ unsafePerformIO $ save g
-    ts = [ fmap tParam mt | mt <- map mvTune $ ccMoves c ]
+    ts = [fmap tParam mt | mt <- map mvTune $ ccMoves c]
 
 -- | Save a 'Status' to file.
 --
@@ -130,7 +130,7 @@ fromSave p l c m (Save nm it i tr ac' br at is st sv g' ts) =
     c'
     m
   where
-    ac = transformKeysA [0..] (ccMoves c) ac'
+    ac = transformKeysA [0 ..] (ccMoves c) ac'
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
     -- the statistics package.
     g = unsafePerformIO $ restore $ toSeed g'

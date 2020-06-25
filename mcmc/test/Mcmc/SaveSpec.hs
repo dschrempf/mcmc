@@ -76,22 +76,21 @@ spec =
       g <- save $ generator r
       g' <- save $ generator r'
       g `shouldBe` g'
-
-  -- -- TODO: Splitmix. This will only work with a splittable generator
-  -- -- because getNCycles changes the generator.
-  -- describe "mhContinue"
-  --   $ it "mh 200 + mhContinue 200 == mh 400"
-  --   $ do
-  --     gen1 <- create
-  --     let s1 = noSave $ status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune 400 gen1
-  --     r1 <- mh s1
-  --     gen2 <- create
-  --     let s2 = noSave $ status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune 200 gen2
-  --     r2' <- mh s2
-  --     r2 <- mhContinue 200 r2'
-  --     item r1 `shouldBe` item r2
-  --     iteration r1 `shouldBe` iteration r2
-  --     trace r1 `shouldBe` trace r2
-  --     g <- save $ generator r1
-  --     g' <- save $ generator r2
-  --     g `shouldBe` g'
+-- -- TODO: Splitmix. This will only work with a splittable generator
+-- -- because getNCycles changes the generator.
+-- describe "mhContinue"
+--   $ it "mh 200 + mhContinue 200 == mh 400"
+--   $ do
+--     gen1 <- create
+--     let s1 = noSave $ status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune 400 gen1
+--     r1 <- mh s1
+--     gen2 <- create
+--     let s2 = noSave $ status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune 200 gen2
+--     r2' <- mh s2
+--     r2 <- mhContinue 200 r2'
+--     item r1 `shouldBe` item r2
+--     iteration r1 `shouldBe` iteration r2
+--     trace r1 `shouldBe` trace r2
+--     g <- save $ generator r1
+--     g' <- save $ generator r2
+--     g `shouldBe` g'

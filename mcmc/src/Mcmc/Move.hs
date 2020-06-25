@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- TODO: Moves and monitors both use lenses and names for what they move and
@@ -85,17 +85,18 @@ import System.Random.MWC
 --
 -- A 'Move' may be tuneable in that it contains information about how to enlarge
 -- or shrink the step size to tune the acceptance ratio.
-data Move a = Move
-  { -- | Name (no moves with the same name are allowed in a 'Cycle').
-    mvName :: String,
-    -- | The weight determines how often a 'Move' is executed per iteration of
-    -- the Markov chain.
-    mvWeight :: Int,
-    -- | Simple move without tuning information.
-    mvSimple :: MoveSimple a,
-    -- | Tuning is disabled if set to 'Nothing'.
-    mvTune :: Maybe (Tuner a)
-  }
+data Move a
+  = Move
+      { -- | Name (no moves with the same name are allowed in a 'Cycle').
+        mvName :: String,
+        -- | The weight determines how often a 'Move' is executed per iteration of
+        -- the Markov chain.
+        mvWeight :: Int,
+        -- | Simple move without tuning information.
+        mvSimple :: MoveSimple a,
+        -- | Tuning is disabled if set to 'Nothing'.
+        mvTune :: Maybe (Tuner a)
+      }
 
 instance Show (Move a) where
   show m = show $ mvName m
@@ -122,20 +123,22 @@ instance Ord (Move a) where
 -- In order to calculate the Metropolis-Hastings ratio, we need to know the
 -- probability (density) of jumping forth, and the probability (density) of
 -- jumping back.
-data MoveSimple a = MoveSimple
-  { -- | Instruction about randomly moving from the current state to a new
-    -- state, given some source of randomness.
-    mvSample :: a -> GenIO -> IO a,
-    -- | The density of going from one state to another. Set to 'Nothing' for
-    -- symmetric moves.
-    mvDensity :: Maybe (a -> a -> Log Double)
-  }
+data MoveSimple a
+  = MoveSimple
+      { -- | Instruction about randomly moving from the current state to a new
+        -- state, given some source of randomness.
+        mvSample :: a -> GenIO -> IO a,
+        -- | The density of going from one state to another. Set to 'Nothing' for
+        -- symmetric moves.
+        mvDensity :: Maybe (a -> a -> Log Double)
+      }
 
 -- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
-data Tuner a = Tuner
-  { tParam :: Double,
-    tFunc :: Double -> MoveSimple a
-  }
+data Tuner a
+  = Tuner
+      { tParam :: Double,
+        tFunc :: Double -> MoveSimple a
+      }
 
 -- | Create a 'Tuner'. The tuning function accepts a tuning parameter, and
 -- returns a corresponding 'MoveSimple'. The larger the tuning parameter, the
@@ -199,10 +202,11 @@ instance Default Order where def = RandomO
 -- are executed is specified by 'Order'. The default is 'RandomO'.
 --
 -- __Moves must have unique names__, so that they can be identified.
-data Cycle a = Cycle
-  { ccMoves :: [Move a],
-    ccOrder :: Order
-  }
+data Cycle a
+  = Cycle
+      { ccMoves :: [Move a],
+        ccOrder :: Order
+      }
 
 -- | Create a 'Cycle' from a list of 'Move's.
 fromList :: [Move a] -> Cycle a
@@ -233,9 +237,10 @@ getNCycles (Cycle xs o) n g = case o of
 
 -- | Tune 'Move's in the 'Cycle'. See 'tune'.
 tuneCycle :: Map (Move a) Double -> Cycle a -> Cycle a
-tuneCycle m c = if sort (M.keys m) == sort mvs
-                then c {ccMoves = map tuneF mvs}
-                else error "tuneCycle: Map contains moves that are not in the cycle."
+tuneCycle m c =
+  if sort (M.keys m) == sort mvs
+    then c {ccMoves = map tuneF mvs}
+    else error "tuneCycle: Map contains moves that are not in the cycle."
   where
     mvs = ccMoves c
     tuneF mv = case m M.!? mv of
@@ -246,7 +251,7 @@ tuneCycle m c = if sort (M.keys m) == sort mvs
 -- tune the 'Move's in the 'Cycle' with the calculated acceptance ratios. See
 -- 'autotune'.
 autotuneCycle :: Int -> Acceptance (Move a) -> Cycle a -> Cycle a
-autotuneCycle n a = tuneCycle (M.map (/ratioOpt) $ acceptanceRatios n a)
+autotuneCycle n a = tuneCycle (M.map (/ ratioOpt) $ acceptanceRatios n a)
 
 renderRow :: Text -> Text -> Text -> Text -> Text
 renderRow name weight acceptRatio tuneParam = "   " <> nB <> wB <> rB <> tB

@@ -54,7 +54,7 @@ pr x
 lh :: [Distance] -> Precision -> Log Double
 lh xs p
   | p <= 0 = pzero
-  | otherwise = product [ Exp $ logDensity (exponential p) x | x <- xs ]
+  | otherwise = product [Exp $ logDensity (exponential p) x | x <- xs]
 
 -- The move cycle consists of one move only. A uniform distribution is used to
 -- slide the precision of the archer.
