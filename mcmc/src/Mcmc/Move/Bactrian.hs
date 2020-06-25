@@ -2,6 +2,11 @@
 
 -- TODO: Test this move!
 
+-- TODO:
+-- slideBactrian
+--
+-- scaleBactrian
+
 -- |
 -- Module      :  Mcmc.Move.Bactrian
 -- Description :  Bactrian moves

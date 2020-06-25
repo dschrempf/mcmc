@@ -13,12 +13,6 @@
 -- - Narrow (what is this, see RevBayes)
 -- - FNPR (dito)
 
--- TODO: Bactrian moves; https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
---
--- slideBactrian
---
--- scaleBactrian
-
 -- |
 -- Module      :  Mcmc.Move
 -- Description :  Moves and cycles
