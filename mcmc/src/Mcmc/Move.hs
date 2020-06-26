@@ -268,7 +268,6 @@ summarizeCycle :: Maybe (Acceptance (Move a)) -> Cycle a -> Text
 summarizeCycle ma c =
   T.unlines $
     [ "-- Summary of move(s) in cycle.",
-      -- T.replicate (T.length moveHeader) "─",
       moveHeader,
       "   " <> T.replicate (T.length moveHeader - 3) "─"
     ]
@@ -302,10 +301,8 @@ emptyA ks = Acceptance $ M.fromList [(k, (0, 0)) | k <- ks]
 
 -- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
 pushA :: (Ord k, Show k) => k -> Bool -> Acceptance k -> Acceptance k
--- Unsafe but fast.
-pushA k v = Acceptance . M.adjust (over l (+ 1)) k . fromAcceptance
-  where
-    l = if v then _1 else _2
+pushA k True = Acceptance . M.adjust (\(a, r) -> (succ a, r)) k . fromAcceptance
+pushA k False = Acceptance . M.adjust (\(a, r) -> (a, succ r)) k . fromAcceptance
 {-# INLINEABLE pushA #-}
 
 -- | Reset acceptance storage.
