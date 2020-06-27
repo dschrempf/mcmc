@@ -43,6 +43,7 @@ import Mcmc.Monitor.Parameter
 import Mcmc.Monitor.ParameterBatch
 import Mcmc.Monitor.Time
 import Mcmc.Trace
+import Mcmc.Verbosity
 import Numeric.Log
 import System.Directory
 import System.IO
@@ -51,23 +52,21 @@ import Prelude hiding (sum)
 -- | A 'Monitor' describes which part of the Markov chain should be logged and
 -- where. Further, they allow output of summary statistics per iteration in a
 -- flexible way.
-data Monitor a
-  = Monitor
-      { -- | Monitor writing to standard output.
-        mStdOut :: MonitorStdOut a,
-        -- | Monitors writing to files.
-        mFiles :: [MonitorFile a],
-        -- | Monitors calculating batch means and
-        -- writing to files.
-        mBatches :: [MonitorBatch a]
-      }
+data Monitor a = Monitor
+  { -- | Monitor writing to standard output.
+    mStdOut :: MonitorStdOut a,
+    -- | Monitors writing to files.
+    mFiles :: [MonitorFile a],
+    -- | Monitors calculating batch means and
+    -- writing to files.
+    mBatches :: [MonitorBatch a]
+  }
 
 -- | Monitor to standard output; constructed with 'monitorStdOut'.
-data MonitorStdOut a
-  = MonitorStdOut
-      { msParams :: [MonitorParameter a],
-        msPeriod :: Int
-      }
+data MonitorStdOut a = MonitorStdOut
+  { msParams :: [MonitorParameter a],
+    msPeriod :: Int
+  }
 
 -- | Monitor to standard output.
 monitorStdOut ::
@@ -127,13 +126,12 @@ msExec i (Item x p l) (ss, st) j m
         ++ [renderDuration dt, eta]
 
 -- | Monitor to a file; constructed with 'monitorFile'.
-data MonitorFile a
-  = MonitorFile
-      { mfName :: String,
-        mfHandle :: Maybe Handle,
-        mfParams :: [MonitorParameter a],
-        mfPeriod :: Int
-      }
+data MonitorFile a = MonitorFile
+  { mfName :: String,
+    mfHandle :: Maybe Handle,
+    mfParams :: [MonitorParameter a],
+    mfPeriod :: Int
+  }
 
 -- XXX: The file monitor also includes iteration, prior, likelihood, and
 -- posterior. What if I want to log trees; or other complex objects? In this
@@ -217,13 +215,12 @@ mfClose m = case mfHandle m of
 --
 -- Batch monitors are slow at the moment because the monitored parameter has to
 -- be extracted from the state for each iteration.
-data MonitorBatch a
-  = MonitorBatch
-      { mbName :: String,
-        mbHandle :: Maybe Handle,
-        mbParams :: [MonitorParameterBatch a],
-        mbSize :: Int
-      }
+data MonitorBatch a = MonitorBatch
+  { mbName :: String,
+    mbHandle :: Maybe Handle,
+    mbParams :: [MonitorParameterBatch a],
+    mbSize :: Int
+  }
 
 -- XXX: The batch monitor also includes iteration, prior, likelihood, and
 -- posterior. What if I want to log trees; or other complex objects? In this
@@ -333,6 +330,8 @@ mHeader (Monitor s _ _) = msHeader s
 
 -- | Execute monitors; print status information to standard output and files.
 mExec ::
+  -- | Verbosity
+  Verbosity ->
   -- | Iteration.
   Int ->
   -- | Starting state and time.
@@ -344,8 +343,8 @@ mExec ::
   -- | The monitor.
   Monitor a ->
   IO ()
-mExec i t xs j (Monitor s fs bs) = do
-  msExec i (headT xs) t j s
+mExec v i t xs j (Monitor s fs bs) = do
+  info v $ msExec i (headT xs) t j s
   mapM_ (mfExec i $ headT xs) fs
   mapM_ (mbExec i xs) bs
 

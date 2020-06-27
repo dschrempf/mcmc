@@ -41,9 +41,8 @@ scale ::
   -- | Enable tuning.
   Bool ->
   Move a
-scale n w l k th True =
-  Move n w (scaleSimple l k th 1.0) (Just $ tuner $ scaleSimple l k th)
-scale n w l k th False = Move n w (scaleSimple l k th 1.0) Nothing
+scale n w l k th t = Move n w (scaleSimple l k th 1.0) tnr
+  where tnr = if t then Just $ tuner $ scaleSimple l k th else Nothing
 
 -- | Multiplicative move with Gamma distributed density. The scale of the Gamma
 -- distributions is set to (shape)^{-1}, so that the mean of the Gamma
@@ -60,10 +59,5 @@ scaleUnbiased ::
   -- | Enable tuning.
   Bool ->
   Move a
-scaleUnbiased n w l k True =
-  Move
-    n
-    w
-    (scaleSimple l k (1 / k) 1.0)
-    (Just $ tuner $ scaleSimple l k (1 / k))
-scaleUnbiased n w l k False = Move n w (scaleSimple l k (1 / k) 1.0) Nothing
+scaleUnbiased n w l k t = Move n w (scaleSimple l k (1 / k) 1.0) tnr
+  where tnr = if t then  Just $ tuner $ scaleSimple l k (1 / k) else Nothing

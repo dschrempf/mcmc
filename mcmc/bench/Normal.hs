@@ -59,5 +59,5 @@ nIter = 20000
 
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  let s = noSave $ status "Normal" (const 1) lh moveCycle mon 0 nBurn nAutoTune nIter g
+  let s = quiet $ noSave $ status "Normal" (const 1) lh moveCycle mon 0 nBurn nAutoTune nIter g
   void $ mh s

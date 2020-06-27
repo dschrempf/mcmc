@@ -104,22 +104,22 @@ mhBurnIn b t
   | b < 0 = error "mhBurnIn: Negative number of burn in iterations."
   | b == 0 = return ()
   | otherwise = do
-    liftIO $ putStrLn $ "-- Burn in for " <> show b <> " cycles."
+    mcmcInfo $ putStrLn $ "-- Burn in for " <> show b <> " cycles."
     mcmcMonitorHeader
     mhBurnInN b t
-    liftIO $ putStrLn "-- Burn in finished."
+    mcmcInfo $ putStrLn "-- Burn in finished."
 
 -- Run for given number of iterations.
 mhRun :: ToJSON a => Int -> Mcmc a ()
 mhRun n = do
-  liftIO $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
+  mcmcInfo $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
   mcmcMonitorHeader
   mhNIter n
 
 mhT :: ToJSON a => Mcmc a ()
 mhT = do
   s <- get
-  liftIO $ putStrLn "-- Start of Metropolis-Hastings sampler."
+  mcmcInfo $ putStrLn "-- Start of Metropolis-Hastings sampler."
   mcmcInit
   mcmcReport
   mcmcSummarizeCycle False
@@ -131,8 +131,8 @@ mhT = do
 
 mhContinueT :: ToJSON a => Int -> Mcmc a ()
 mhContinueT dn = do
-  liftIO $ putStrLn "-- Continue Metropolis-Hastings sampler."
-  liftIO $ putStrLn $ "-- Run chain for " <> show dn <> " additional iterations."
+  mcmcInfo $ putStrLn "-- Continue Metropolis-Hastings sampler."
+  mcmcInfo $ putStrLn $ "-- Run chain for " <> show dn <> " additional iterations."
   s <- get
   let n = iterations s
   put s {iterations = n + dn}

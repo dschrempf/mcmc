@@ -43,11 +43,8 @@ slide ::
   -- | Enable tuning.
   Bool ->
   Move a
--- TODO: This and all other move definitions can be condensed. Only the tuner
--- has to be changed according to the given Bool parameter.
-slide n w l m s True =
-  Move n w (slideSimple l m s 1.0) (Just $ tuner (slideSimple l m s))
-slide n w l m s False = Move n w (slideSimple l m s 1.0) Nothing
+slide n w l m s t = Move n w (slideSimple l m s 1.0) tnr
+  where tnr = if t then  Just $ tuner (slideSimple l m s) else Nothing
 
 -- The actual move with tuning parameter.
 slideSymmetricSimple :: Lens' a Double -> Double -> Double -> MoveSimple a
@@ -68,9 +65,8 @@ slideSymmetric ::
   -- | Enable tuning.
   Bool ->
   Move a
-slideSymmetric n w l s True =
-  Move n w (slideSymmetricSimple l s 1.0) (Just $ tuner (slideSymmetricSimple l s))
-slideSymmetric n w l s False = Move n w (slideSymmetricSimple l s 1.0) Nothing
+slideSymmetric n w l s t = Move n w (slideSymmetricSimple l s 1.0) tnr
+  where tnr = if t then Just $ tuner (slideSymmetricSimple l s) else Nothing
 
 -- The actual move with tuning parameter.
 slideUniformSimple :: Lens' a Double -> Double -> Double -> MoveSimple a
@@ -92,6 +88,5 @@ slideUniform ::
   -- | Enable tuning.
   Bool ->
   Move a
-slideUniform n w l d True =
-  Move n w (slideUniformSimple l d 1.0) (Just $ tuner (slideUniformSimple l d))
-slideUniform n w l d False = Move n w (slideUniformSimple l d 1.0) Nothing
+slideUniform n w l d t = Move n w (slideUniformSimple l d 1.0) tnr
+  where tnr = if t then Just $ tuner (slideUniformSimple l d) else Nothing

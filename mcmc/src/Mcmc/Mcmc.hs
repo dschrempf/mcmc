@@ -13,6 +13,7 @@
 -- Creation date: Fri May 29 10:19:45 2020.
 module Mcmc.Mcmc
   ( Mcmc,
+    mcmcInfo,
     mcmcAutotune,
     mcmcResetA,
     mcmcSummarizeCycle,
@@ -37,11 +38,24 @@ import Mcmc.Monitor.Time
 import Mcmc.Move
 import Mcmc.Save
 import Mcmc.Status
+import Mcmc.Verbosity
 import Prelude hiding (cycle)
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.
 type Mcmc a = StateT (Status a) IO
+
+-- -- Print warning.
+-- mWarn :: IO () -> Mcmc a ()
+-- mWarn m = gets verbosity >>= \v -> liftIO (warn v m)
+
+-- | Perform IO action only if 'Verbosity' is 'Info' or larger.
+mcmcInfo :: IO () -> Mcmc a ()
+mcmcInfo m = gets verbosity >>= \v -> liftIO (info v m)
+
+-- -- Print debugging message.
+-- mDebug :: IO () -> Mcmc a ()
+-- mDebug m = gets verbosity >>= \v -> liftIO (debug v m)
 
 -- | Auto tune the 'Move's in the 'Cycle' of the chain. Reset acceptance counts.
 -- See 'autotune'.
@@ -70,7 +84,7 @@ mcmcSummarizeCycle aPred = do
   a <- gets acceptance
   let ma = if aPred then Just a else Nothing
   c <- gets cycle
-  liftIO $ T.putStr $ summarizeCycle ma c
+  mcmcInfo $ T.putStr $ summarizeCycle ma c
 
 fTime :: FormatTime t => t -> String
 fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
@@ -80,7 +94,7 @@ fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
 mcmcInit :: Mcmc a ()
 mcmcInit = do
   t <- liftIO getCurrentTime
-  liftIO $ putStrLn $ "-- Start time: " <> fTime t
+  mcmcInfo $ putStrLn $ "-- Start time: " <> fTime t
   s <- get
   let m = monitor s
       n = iteration s
@@ -99,17 +113,17 @@ mcmcReport = do
       t = autoTuningPeriod s
       n = iterations s
   case b of
-    Just b' -> liftIO $ putStrLn $ "-- Burn in for " <> show b' <> " iterations."
+    Just b' -> mcmcInfo $ putStrLn $ "-- Burn in for " <> show b' <> " iterations."
     Nothing -> return ()
   case t of
     Just t' ->
-      liftIO $ putStrLn $
+      mcmcInfo $ putStrLn $
         "-- Auto tune every "
           <> show t'
           <> " iterations (during burn in only)."
     Nothing -> return ()
-  liftIO $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
-  liftIO $ putStrLn "-- Initial state."
+  mcmcInfo $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
+  mcmcInfo $ putStrLn "-- Initial state."
   mcmcMonitorHeader
   mcmcMonitorExec
 
@@ -117,19 +131,18 @@ mcmcReport = do
 mcmcMonitorHeader :: Mcmc a ()
 mcmcMonitorHeader = do
   m <- gets monitor
-  liftIO $ mHeader m
+  mcmcInfo $ mHeader m
 
 -- Save the status of an MCMC run. See 'saveStatus'.
 mcmcSave :: ToJSON a => Mcmc a ()
 mcmcSave = do
   s <- get
-  liftIO $
-    if save s
-      then do
-        putStrLn "-- Save Markov chain. For long chains, this may take a while."
-        saveStatus (name s <> ".mcmc") s
-        putStrLn "-- Done saving Markov chain."
-      else putStrLn "-- Do not save the Markov chain."
+  if save s
+    then do
+      mcmcInfo $ putStrLn "-- Save Markov chain. For long chains, this may take a while."
+      liftIO $ saveStatus (name s <> ".mcmc") s
+      mcmcInfo $ putStrLn "-- Done saving Markov chain."
+    else mcmcInfo $ putStrLn "-- Do not save the Markov chain."
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()
@@ -140,14 +153,15 @@ mcmcMonitorExec = do
       m = monitor s
       st = fromMaybe (error "mcmcMonitorExec: Starting state and time not set.") (start s)
       tr = trace s
-  liftIO $ mExec i st tr j m
+      vb = verbosity s
+  liftIO $ mExec vb i st tr j m
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: ToJSON a => Mcmc a ()
 mcmcClose = do
   s <- get
   mcmcSummarizeCycle True
-  liftIO $ putStrLn "-- Metropolis-Hastings sampler finished."
+  mcmcInfo $ putStrLn "-- Metropolis-Hastings sampler finished."
   let m = monitor s
   m' <- liftIO $ mClose m
   put $ s {monitor = m'}
@@ -156,5 +170,5 @@ mcmcClose = do
   let rt = case start s of
         Nothing -> error "mcmcClose: Start time not set."
         Just (_, st) -> t `diffUTCTime` st
-  liftIO $ T.putStrLn $ "-- Wall clock run time: " <> renderDuration rt <> "."
-  liftIO $ putStrLn $ "-- End time: " <> fTime t
+  mcmcInfo $ T.putStrLn $ "-- Wall clock run time: " <> renderDuration rt <> "."
+  mcmcInfo $ putStrLn $ "-- End time: " <> fTime t

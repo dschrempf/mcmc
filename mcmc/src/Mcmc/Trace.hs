@@ -40,8 +40,6 @@ instance ToJSON a => ToJSON (Trace a) where
 instance FromJSON a => FromJSON (Trace a) where
   parseJSON v = Trace <$> parseJSONList v
 
--- $(deriveJSON defaultOptions 'Trace)
-
 -- | The empty trace.
 singletonT :: Item a -> Trace a
 singletonT i = Trace [i]

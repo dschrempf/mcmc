@@ -110,6 +110,7 @@ module Mcmc
     -- information.
     status,
     noSave,
+    quiet,
 
     -- * Monitor
 

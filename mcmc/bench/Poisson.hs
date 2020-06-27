@@ -82,5 +82,5 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  let s = noSave $ status "Poisson" (const 1) lh moveCycle mon initial nBurn nAutoTune nIter g
+  let s = quiet $ noSave $ status "Poisson" (const 1) lh moveCycle mon initial nBurn nAutoTune nIter g
   void $ mh s

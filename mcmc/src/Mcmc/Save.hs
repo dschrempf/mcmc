@@ -39,6 +39,7 @@ import Mcmc.Monitor
 import Mcmc.Move
 import Mcmc.Status hiding (save)
 import Mcmc.Trace
+import Mcmc.Verbosity
 import Numeric.Log
 import System.IO.Unsafe (unsafePerformIO)
 import System.Random.MWC
@@ -57,15 +58,16 @@ data Save a
       Int -- Iterations.
       (Maybe (Int, UTCTime)) -- Starting iteration and time.
       Bool -- Save.
+      Verbosity
       (Vector Word32) -- Current seed.
 
       -- Variables related to the algorithm.
       [Maybe Double] -- Tuning parameters.
 
-$(deriveJSON defaultOptions 'Save)
+$(deriveJSON defaultOptions ''Save)
 
 toSave :: Status a -> Save a
-toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
+toSave (Status nm it i tr ac br at is st sv vb g _ _ c _) =
   Save
     nm
     it
@@ -77,6 +79,7 @@ toSave (Status nm it i tr ac br at is st sv g _ _ c _) =
     is
     st
     sv
+    vb
     g'
     ts
   where
@@ -112,7 +115,7 @@ fromSave ::
   Monitor a ->
   Save a ->
   Status a
-fromSave p l c m (Save nm it i tr ac' br at is st sv g' ts) =
+fromSave p l c m (Save nm it i tr ac' br at is st sv vb g' ts) =
   Status
     nm
     it
@@ -124,6 +127,7 @@ fromSave p l c m (Save nm it i tr ac' br at is st sv g' ts) =
     is
     st
     sv
+    vb
     g
     p
     l

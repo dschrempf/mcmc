@@ -29,6 +29,7 @@ module Mcmc.Status
   ( Status (..),
     status,
     noSave,
+    quiet,
   )
 where
 
@@ -37,6 +38,7 @@ import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Move
 import Mcmc.Trace
+import Mcmc.Verbosity
 import Numeric.Log
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
@@ -74,6 +76,8 @@ data Status a
         start :: Maybe (Int, UTCTime),
         -- | Save the chain at the end of the run? Defaults to 'True'.
         save :: Bool,
+        -- | Verbosity.
+        verbosity :: Verbosity,
         -- | The random number generator.
         generator :: GenIO,
         -- Auxiliary functions.
@@ -131,6 +135,7 @@ status n p l c m x mB mT nI g =
     nI
     Nothing
     True
+    Info
     g
     p
     l
@@ -142,3 +147,9 @@ status n p l c m x mB mT nI g =
 -- | Do not save the Markov chain at the end.
 noSave :: Status a -> Status a
 noSave s = s {save = False}
+
+-- At the moment, we only provide two levels of verbosity: Quiet, and Info.
+-- | Do not print anything to standard output. File monitors and batch monitors
+-- are executed normally.
+quiet :: Status a -> Status a
+quiet s = s {verbosity = Quiet}

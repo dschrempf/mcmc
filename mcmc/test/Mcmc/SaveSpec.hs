@@ -66,7 +66,7 @@ spec =
     $ it "doesn't change the MCMC chain"
     $ do
       gen <- create
-      let s = noSave $ status "SaveSpec" (const 1) lh moveCycle mon 0 nBurn nAutoTune nIter gen
+      let s = quiet $ noSave $ status "SaveSpec" (const 1) lh moveCycle mon 0 nBurn nAutoTune nIter gen
       saveStatus "SaveSpec.json" s
       s' <- loadStatus (const 1) lh moveCycle mon "SaveSpec.json"
       removeFile "SaveSpec.json"

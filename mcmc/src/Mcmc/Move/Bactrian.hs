@@ -2,6 +2,10 @@
 
 -- TODO: Test these moves!
 
+-- TODO: Benchmark these moves!
+
+-- TODO: Remove standard output from benchmarks.
+
 -- |
 -- Module      :  Mcmc.Move.Bactrian
 -- Description :  Bactrian moves
@@ -89,11 +93,8 @@ slideBactrian ::
   -- | Enable tuning.
   Bool ->
   Move a
--- TODO: This and all other move definitions can be condensed. Only the tuner
--- has to be changed according to the given Bool parameter.
-slideBactrian n w l m s True =
-  Move n w (bactrianAdditiveSimple l m s 1.0) (Just $ tuner (bactrianAdditiveSimple l m s))
-slideBactrian n w l m s False = Move n w (bactrianAdditiveSimple l m s 1.0) Nothing
+slideBactrian n w l m s t = Move n w (bactrianAdditiveSimple l m s 1.0) tnr
+  where tnr = if t then Just $ tuner (bactrianAdditiveSimple l m s) else Nothing
 
 bactrianMult ::
   Lens' a Double ->
@@ -144,8 +145,5 @@ scaleBactrian ::
   -- | Enable tuning.
   Bool ->
   Move a
--- TODO: This and all other move definitions can be condensed. Only the tuner
--- has to be changed according to the given Bool parameter.
-scaleBactrian n w l m s True =
-  Move n w (bactrianMultSimple l m s 1.0) (Just $ tuner (bactrianMultSimple l m s))
-scaleBactrian n w l m s False = Move n w (bactrianMultSimple l m s 1.0) Nothing
+scaleBactrian n w l m s t = Move n w (bactrianMultSimple l m s 1.0) tnr
+  where tnr = if t then Just $ tuner (bactrianMultSimple l m s) else Nothing

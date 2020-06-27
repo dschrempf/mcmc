@@ -44,6 +44,7 @@ library
       Mcmc.Status
       Mcmc.Tools.Shuffle
       Mcmc.Trace
+      Mcmc.Verbosity
   other-modules:
       Paths_mcmc
   autogen-modules:
