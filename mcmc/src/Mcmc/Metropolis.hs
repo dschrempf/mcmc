@@ -97,6 +97,7 @@ mhBurnInN b (Just t)
   | otherwise = do
       mhNIter b
       mcmcAutotune
+      -- TODO: This is not ideal, yet.
       when (b <= 100) (mcmcWarn $ "WARNING: Last auto tuning period spans " <> show b <> " iterations only.")
       mcmcAutotune
       mcmcInfo "Acceptance ratios calculated before the last auto tune."
