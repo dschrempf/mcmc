@@ -36,6 +36,15 @@ shuffle xs g = head <$> grabble xs 1 (length xs) g
 shuffleN :: [a] -> Int -> GenIO -> IO [[a]]
 shuffleN xs n = grabble xs n (length xs)
 
+-- -- Using System.Random.Shuffle. Speed is the same, so stay without additional dependency.
+-- -- | Shuffle a list @n@ times.
+-- shuffleN :: [a] -> Int -> GenIO -> IO [[a]]
+-- shuffleN xs n g = replicateM n $ fmap (shuffle xs) (rseqM (length xs - 1) g)
+--   where
+--     rseqM :: Int -> GenIO -> IO [Int]
+--     rseqM 0 _ = return []
+--     rseqM i gen = liftM2 (:) (uniformR (0, i) gen) (rseqM (i - 1) gen)
+
 -- | @grabble xs m n@ is /O(m*n')/, where @n' = min n (length xs)@. Choose @n'@
 -- elements from @xs@, without replacement, and that @m@ times.
 grabble :: [a] -> Int -> Int -> GenIO -> IO [[a]]
