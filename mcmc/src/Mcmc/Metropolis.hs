@@ -162,10 +162,7 @@ mh ::
   -- | Initial (or last) status of the Markov chain.
   Status a ->
   IO (Status a)
-mh s = do
-  let m = iteration s
-  if m == 0
-    then execStateT mhT s
-    else do
-      putStrLn "To continue a Markov chain run, please use 'mhContinue'."
-      error $ "mh: Current iteration " ++ show m ++ " is non-zero."
+mh s = if iteration s == 0
+       then execStateT mhT s
+       else do putStrLn "To continue a Markov chain run, please use 'mhContinue'."
+               error $ "mh: Current iteration " ++ show (iteration s) ++ " is non-zero."
