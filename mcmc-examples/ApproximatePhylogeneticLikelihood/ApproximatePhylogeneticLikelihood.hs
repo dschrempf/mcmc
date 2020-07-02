@@ -136,11 +136,11 @@ fromD = fromJust . getFinite . getDistance
 startingTree :: Tree Length
 startingTree = (0 -< toD 1.0 >- 1) + (0 -< toD 2.0 >- 2)
 
--- Tree storing the true means.
+-- Tree storing the (true) posterior means.
 meanTree :: Tree Mean
 meanTree = (0 -< toD 5.0 >- 1) + (0 -< toD 10.0 >- 2)
 
--- Tree storing the true standard deviations.
+-- Tree storing the (true) posterior standard deviations.
 stdDevTree :: Tree StdDev
 stdDevTree = (0 -< toD 2.0 >- 1) + (0 -< toD 2.0 >- 2)
 
@@ -167,7 +167,7 @@ branchBatchMons =
 
 -- Monitor batch means of branch lengths to a file.
 monBatch :: MonitorBatch (Tree Length)
-monBatch = monitorBatch "Branches" branchBatchMons 200
+monBatch = monitorBatch "Branches" branchBatchMons 100
 
 -- Combine the monitors.
 mon :: Monitor (Tree Length)
@@ -175,7 +175,7 @@ mon = Monitor monStdOut [monFile] [monBatch]
 
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
-nBurnIn = Just 4000
+nBurnIn = Just 6000
 
 -- Auto tuning period.
 nAutoTune :: Maybe Int

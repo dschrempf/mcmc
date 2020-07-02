@@ -33,6 +33,8 @@ module Mcmc.Status
   )
 where
 
+import Control.Applicative
+import Data.Maybe
 import Data.Time.Clock
 import Mcmc.Item
 import Mcmc.Monitor
@@ -45,56 +47,55 @@ import Prelude hiding (cycle)
 
 -- | The 'Status' contains all information to run an MCMC chain. It is
 -- constructed using the function 'status'.
-data Status a
-  = Status
-      { -- Variables saved to disc.
+data Status a = Status
+  { -- Variables saved to disc.
 
-        -- | The name of the MCMC chain; used as file prefix.
-        name :: String,
-        -- | The current 'Item' of the chain combines the current state and the
-        -- current likelihood.
-        item :: Item a,
-        -- | The iteration is the number of completed cycles.
-        iteration :: Int,
-        -- | The 'Trace' of the Markov chain in reverse order, the most recent
-        -- 'Item' is at the head of the list.
-        trace :: Trace a,
-        -- | For each 'Move', store the list of accepted (True) and rejected (False)
-        -- proposals; for reasons of efficiency, the list is also stored in reverse
-        -- order.
-        acceptance :: Acceptance (Move a),
-        -- | Number of burn in iterations; deactivate burn in with 'Nothing'.
-        burnInIterations :: Maybe Int,
-        -- | Auto tuning period (only during burn in); deactivate auto tuning with
-        -- 'Nothing'.
-        autoTuningPeriod :: Maybe Int,
-        -- | Number of normal iterations excluding burn in. Note that auto tuning
-        -- only happens during burn in.
-        iterations :: Int,
-        -- | Starting time and starting iteration of chain; used to calculate
-        -- run time and ETA.
-        start :: Maybe (Int, UTCTime),
-        -- | Save the chain at the end of the run? Defaults to 'True'.
-        save :: Bool,
-        -- | Verbosity.
-        verbosity :: Verbosity,
-        -- | The random number generator.
-        generator :: GenIO,
-        -- Auxiliary functions.
+    -- | The name of the MCMC chain; used as file prefix.
+    name :: String,
+    -- | The current 'Item' of the chain combines the current state and the
+    -- current likelihood.
+    item :: Item a,
+    -- | The iteration is the number of completed cycles.
+    iteration :: Int,
+    -- | The 'Trace' of the Markov chain in reverse order, the most recent
+    -- 'Item' is at the head of the list.
+    trace :: Trace a,
+    -- | For each 'Move', store the list of accepted (True) and rejected (False)
+    -- proposals; for reasons of efficiency, the list is also stored in reverse
+    -- order.
+    acceptance :: Acceptance (Move a),
+    -- | Number of burn in iterations; deactivate burn in with 'Nothing'.
+    burnInIterations :: Maybe Int,
+    -- | Auto tuning period (only during burn in); deactivate auto tuning with
+    -- 'Nothing'.
+    autoTuningPeriod :: Maybe Int,
+    -- | Number of normal iterations excluding burn in. Note that auto tuning
+    -- only happens during burn in.
+    iterations :: Int,
+    -- | Starting time and starting iteration of chain; used to calculate
+    -- run time and ETA.
+    start :: Maybe (Int, UTCTime),
+    -- | Save the chain at the end of the run? Defaults to 'True'.
+    save :: Bool,
+    -- | Verbosity.
+    verbosity :: Verbosity,
+    -- | The random number generator.
+    generator :: GenIO,
+    -- Auxiliary functions.
 
-        -- | The prior function. The un-normalized posterior is the product of the
-        -- prior and the likelihood.
-        priorF :: a -> Log Double,
-        -- | The likelihood function. The un-normalized posterior is the product of
-        -- the prior and the likelihood.
-        likelihoodF :: a -> Log Double,
-        -- Variables related to the algorithm.
+    -- | The prior function. The un-normalized posterior is the product of the
+    -- prior and the likelihood.
+    priorF :: a -> Log Double,
+    -- | The likelihood function. The un-normalized posterior is the product of
+    -- the prior and the likelihood.
+    likelihoodF :: a -> Log Double,
+    -- Variables related to the algorithm.
 
-        -- | A set of 'Move's form a 'Cycle'.
-        cycle :: Cycle a,
-        -- | A 'Monitor' observing the chain.
-        monitor :: Monitor a
-      }
+    -- | A set of 'Move's form a 'Cycle'.
+    cycle :: Cycle a,
+    -- | A 'Monitor' observing the chain.
+    monitor :: Monitor a
+  }
 
 -- | Initialize the 'Status' of a Markov chain Monte Carlo run.
 status ::
@@ -123,30 +124,33 @@ status ::
   -- sure to use a generator with the same seed.
   GenIO ->
   Status a
-status n p l c m x mB mT nI g =
-  Status
-    n
-    i
-    0
-    (singletonT i)
-    (emptyA $ ccMoves c)
-    mB
-    mT
-    nI
-    Nothing
-    True
-    Info
-    g
-    p
-    l
-    c
-    m
+status n p l c m x mB mT nI g
+  | isJust mT && isNothing mB = error "status: Auto tuning period given, but no burn in."
+  | otherwise =
+    Status
+      n
+      i
+      0
+      (singletonT i)
+      (emptyA $ ccMoves c)
+      mB
+      mT
+      nI
+      Nothing
+      True
+      Info
+      g
+      p
+      l
+      c
+      m
   where
     i = Item x (p x) (l x)
 
 -- | Do not save the Markov chain at the end.
 noSave :: Status a -> Status a
 noSave s = s {save = False}
+
 
 -- At the moment, we only provide two levels of verbosity: Quiet, and Info.
 -- | Do not print anything to standard output. File monitors and batch monitors

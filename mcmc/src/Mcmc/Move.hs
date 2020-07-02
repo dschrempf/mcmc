@@ -152,6 +152,8 @@ tune dt m
 ratioOpt :: Double
 ratioOpt = 0.44
 
+-- TODO: Optimize the change of the tuning parameter.
+
 -- | For a given acceptance ratio, auto tune the 'Move'. For now, a 'Move' is
 -- enlarged when the acceptance ratio is above 0.44, and shrunk otherwise.
 -- Return 'Nothing' if 'Move' is not tuneable.
@@ -264,8 +266,8 @@ summarizeMove m r = renderRow (T.pack name) weight nAccept nReject acceptRatio t
     tuneParamStr = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) (tParam <$> mvTuner m)
 
 -- | Summarize the 'Move's in the 'Cycle'. Also report acceptance ratios.
-summarizeCycle :: Maybe (Acceptance (Move a)) -> Cycle a -> Text
-summarizeCycle ma c =
+summarizeCycle :: Acceptance (Move a) -> Cycle a -> Text
+summarizeCycle a c =
   T.unlines $
     [ "-- Summary of move(s) in cycle.",
       moveHeader,
@@ -281,7 +283,7 @@ summarizeCycle ma c =
   where
     mvs = ccMoves c
     mpi = sum $ map mvWeight mvs
-    ar m = fmap (acceptanceRatio m) ma
+    ar m = acceptanceRatio m a
 
 -- | For each key @k@, store the number of accepted and rejected proposals.
 newtype Acceptance k = Acceptance {fromAcceptance :: Map k (Int, Int)}
@@ -320,9 +322,10 @@ transformKeysA :: (Ord k1, Ord k2) => [k1] -> [k2] -> Acceptance k1 -> Acceptanc
 transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
 
 -- | Acceptance counts and ratio for a specific move.
-acceptanceRatio :: (Show k, Ord k) => k -> Acceptance k -> (Int, Int, Double)
+acceptanceRatio :: (Show k, Ord k) => k -> Acceptance k -> Maybe (Int, Int, Double)
 acceptanceRatio k a = case fromAcceptance a M.!? k of
-  Just (as, rs) -> (as, rs, fromIntegral as / fromIntegral (as + rs))
+  Just (0, 0) -> Nothing
+  Just (as, rs) -> Just (as, rs, fromIntegral as / fromIntegral (as + rs))
   Nothing -> error $ "acceptanceRatio: Key not found in map: " ++ show k ++ "."
 
 -- | Acceptance ratios for all moves.

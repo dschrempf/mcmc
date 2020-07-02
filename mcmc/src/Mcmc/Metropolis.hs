@@ -93,9 +93,15 @@ mhNIter n = do
 mhBurnInN :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
 mhBurnInN b (Just t)
   | t <= 0 = error "mhBurnInN: Auto tuning period smaller equal 0."
-  | b > t = mhNIter t >> mcmcAutotune >> mcmcResetA >> mhBurnInN (b - t) (Just t)
-  -- TODO: Do not auto tune if the last batch is small.
-  | otherwise = mhNIter b >> mcmcAutotune >> mcmcSummarizeCycle True >> mcmcResetA
+  | b > t = mhNIter t >> mcmcAutotune >> mcmcDebugA mcmcSummarizeCycle >> mcmcResetA >> mhBurnInN (b - t) (Just t)
+  | otherwise = do
+      mhNIter b
+      mcmcAutotune
+      when (b <= 100) (mcmcWarn $ "WARNING: Last auto tuning period spans " <> show b <> " iterations only.")
+      mcmcAutotune
+      mcmcInfo "Acceptance ratios calculated before the last auto tune."
+      mcmcSummarizeCycle
+      mcmcResetA
 mhBurnInN b Nothing = mhNIter b
 
 -- Initialize burn in for given number of iterations.
@@ -104,25 +110,25 @@ mhBurnIn b t
   | b < 0 = error "mhBurnIn: Negative number of burn in iterations."
   | b == 0 = return ()
   | otherwise = do
-    mcmcInfo $ putStrLn $ "-- Burn in for " <> show b <> " cycles."
+    mcmcInfo $ "Burn in for " <> show b <> " cycles."
     mcmcMonitorHeader
     mhBurnInN b t
-    mcmcInfo $ putStrLn "-- Burn in finished."
+    mcmcInfo "Burn in finished."
 
 -- Run for given number of iterations.
 mhRun :: ToJSON a => Int -> Mcmc a ()
 mhRun n = do
-  mcmcInfo $ putStrLn $ "-- Run chain for " <> show n <> " iterations."
+  mcmcInfo $ "Run chain for " <> show n <> " iterations."
   mcmcMonitorHeader
   mhNIter n
 
 mhT :: ToJSON a => Mcmc a ()
 mhT = do
   s <- get
-  mcmcInfo $ putStrLn "-- Start of Metropolis-Hastings sampler."
+  mcmcInfo "Start of Metropolis-Hastings sampler."
   mcmcInit
   mcmcReport
-  mcmcSummarizeCycle False
+  mcmcSummarizeCycle
   let b = fromMaybe 0 (burnInIterations s)
   mhBurnIn b (autoTuningPeriod s)
   let n = iterations s
@@ -131,13 +137,13 @@ mhT = do
 
 mhContinueT :: ToJSON a => Int -> Mcmc a ()
 mhContinueT dn = do
-  mcmcInfo $ putStrLn "-- Continue Metropolis-Hastings sampler."
-  mcmcInfo $ putStrLn $ "-- Run chain for " <> show dn <> " additional iterations."
+  mcmcInfo "Continue Metropolis-Hastings sampler."
+  mcmcInfo $ "Run chain for " <> show dn <> " additional iterations."
   s <- get
   let n = iterations s
   put s {iterations = n + dn}
   mcmcInit
-  mcmcSummarizeCycle True
+  mcmcSummarizeCycle
   mhRun dn
   mcmcClose
 
