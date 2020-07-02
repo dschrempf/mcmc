@@ -93,16 +93,12 @@ mhNIter n = do
 mhBurnInN :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
 mhBurnInN b (Just t)
   | t <= 0 = error "mhBurnInN: Auto tuning period smaller equal 0."
-  | b > t = mhNIter t >> mcmcAutotune >> mcmcDebugA mcmcSummarizeCycle >> mcmcResetA >> mhBurnInN (b - t) (Just t)
+  | b > t = mcmcResetA >> mhNIter t >> mcmcDebugA mcmcSummarizeCycle >> mcmcAutotune >> mhBurnInN (b - t) (Just t)
   | otherwise = do
-      mhNIter b
-      mcmcAutotune
-      -- TODO: This is not ideal, yet.
-      when (b <= 100) (mcmcWarn $ "WARNING: Last auto tuning period spans " <> show b <> " iterations only.")
-      mcmcAutotune
-      mcmcInfo "Acceptance ratios calculated before the last auto tune."
-      mcmcSummarizeCycle
       mcmcResetA
+      mhNIter b
+      mcmcSummarizeCycle
+      mcmcInfo $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
 mhBurnInN b Nothing = mhNIter b
 
 -- Initialize burn in for given number of iterations.

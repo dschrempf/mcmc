@@ -175,7 +175,7 @@ mon = Monitor monStdOut [monFile] [monBatch]
 
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
-nBurnIn = Just 6000
+nBurnIn = Just 4000
 
 -- Auto tuning period.
 nAutoTune :: Maybe Int

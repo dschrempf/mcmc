@@ -42,7 +42,7 @@ import Mcmc.Monitor
 import Mcmc.Monitor.Time
 import Mcmc.Move
 import Mcmc.Save
-import Mcmc.Status
+import Mcmc.Status hiding (debug)
 import Mcmc.Verbosity
 import Prelude hiding (cycle)
 

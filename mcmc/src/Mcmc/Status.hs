@@ -30,17 +30,17 @@ module Mcmc.Status
     status,
     noSave,
     quiet,
+    debug,
   )
 where
 
-import Control.Applicative
 import Data.Maybe
 import Data.Time.Clock
 import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Move
 import Mcmc.Trace
-import Mcmc.Verbosity
+import Mcmc.Verbosity (Verbosity(..))
 import Numeric.Log
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
@@ -151,9 +151,11 @@ status n p l c m x mB mT nI g
 noSave :: Status a -> Status a
 noSave s = s {save = False}
 
-
--- At the moment, we only provide two levels of verbosity: Quiet, and Info.
 -- | Do not print anything to standard output. File monitors and batch monitors
 -- are executed normally.
 quiet :: Status a -> Status a
 quiet s = s {verbosity = Quiet}
+
+-- | Be verbose.
+debug :: Status a -> Status a
+debug s = s {verbosity = Debug}

@@ -152,8 +152,6 @@ tune dt m
 ratioOpt :: Double
 ratioOpt = 0.44
 
--- TODO: Optimize the change of the tuning parameter.
-
 -- | For a given acceptance ratio, auto tune the 'Move'. For now, a 'Move' is
 -- enlarged when the acceptance ratio is above 0.44, and shrunk otherwise.
 -- Return 'Nothing' if 'Move' is not tuneable.
@@ -269,20 +267,15 @@ summarizeMove m r = renderRow (T.pack name) weight nAccept nReject acceptRatio t
 summarizeCycle :: Acceptance (Move a) -> Cycle a -> Text
 summarizeCycle a c =
   T.unlines $
-    [ "-- Summary of move(s) in cycle.",
+    [ "-- Summary of move(s) in cycle. " <> mpi <> " move(s) per iteration.",
       moveHeader,
       "   " <> T.replicate (T.length moveHeader - 3) "─"
     ]
       ++ [summarizeMove m (ar m) | m <- mvs]
-      ++ [ "   " <> T.replicate (T.length moveHeader - 3) "─",
-           B.toLazyText $
-             B.fromLazyText "-- "
-               <> B.decimal mpi
-               <> B.fromString " move(s) per iteration."
-         ]
+      ++ [ "   " <> T.replicate (T.length moveHeader - 3) "─"]
   where
     mvs = ccMoves c
-    mpi = sum $ map mvWeight mvs
+    mpi = B.toLazyText $ B.decimal $ sum $ map mvWeight mvs
     ar m = acceptanceRatio m a
 
 -- | For each key @k@, store the number of accepted and rejected proposals.

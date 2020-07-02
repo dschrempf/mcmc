@@ -111,6 +111,7 @@ module Mcmc
     status,
     noSave,
     quiet,
+    debug,
 
     -- * Monitor
 
