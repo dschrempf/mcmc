@@ -24,3 +24,6 @@ cradle:
     # mcmc-tree
     - path: "mcmc-tree/src"
       component: "mcmc-tree:lib"
+
+    - path: "mcmc-tree/test"
+      component: "mcmc-tree:test:mcmc-tree-test"

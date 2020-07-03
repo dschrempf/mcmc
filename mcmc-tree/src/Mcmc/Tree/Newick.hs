@@ -8,6 +8,7 @@
 -- Stability   :  unstable
 -- Portability :  portable
 --
+--
 -- Creation date: Fri Jul  3 09:35:43 2020.
 --
 -- Some functions are inspired by
@@ -15,22 +16,21 @@
 --
 -- [Specifications](http://evolution.genetics.washington.edu/phylip/newicktree.html)
 --
--- - In particular, no conversion from _ to (space) is done right now.
+-- In particular, no conversion from _ to (space) is done right now.
 module Mcmc.Tree.Newick
-  ( Parser,
-    newick,
+  ( newick,
     oneNewick,
     manyNewick,
   )
 where
 
-import Algebra.Graph.Labelled.AdjacencyMap
+import Data.ByteString.Internal (c2w)
 import qualified Data.ByteString.Lazy as L
 import Data.ByteString.Lazy (ByteString)
-import Data.ByteString.Internal (c2w)
+import Data.Maybe
+import Data.Tree
 import Data.Void
 import Data.Word
-import Mcmc.Tree.Tree
 import Text.Megaparsec
 import Text.Megaparsec.Byte
 import Text.Megaparsec.Byte.Lexer
@@ -39,79 +39,88 @@ import Text.Megaparsec.Byte.Lexer
   )
 
 -- | Parse a single Newick tree. Also succeeds when more trees follow.
-newick :: ByteString -> Tree Double ByteString
-newick = parseByteStringWith "newick" newickP
+newick :: FilePath -> IO (Tree (Double, ByteString))
+newick = parseFileWith "newick" newickTree
 
 -- | Parse a single Newick tree. Fails when end of file is not reached.
-oneNewick :: ByteString -> Tree Double ByteString
-oneNewick = parseByteStringWith "oneNewick" oneNewickP
+oneNewick :: FilePath -> IO (Tree (Double, ByteString))
+oneNewick = parseFileWith "oneNewick" oneNewickTree
 
 -- | Parse many Newick trees until end of file.
-manyNewick :: ByteString -> [Tree Double ByteString]
-manyNewick = parseByteStringWith "manyNewick" manyNewickP
+manyNewick :: FilePath -> IO [Tree (Double, ByteString)]
+manyNewick = parseFileWith "manyNewick" manyNewickTree
 
--- Parse a 'ByteString' and extract the result.
-parseByteStringWith
-  :: (ShowErrorComponent e)
-  => String                  -- ^ Name of byte string.
-  -> Parsec e ByteString a -- ^ Parser.
-  -> ByteString            -- ^ Input.
-  -> a
-parseByteStringWith s p l = case parse p s l of
-  Left  err -> error $ errorBundlePretty err
-  Right val -> val
+parseFileWith ::
+  (ShowErrorComponent e) =>
+  -- | Name of byte string.
+  String ->
+  -- | Parser.
+  Parsec e ByteString a ->
+  -- | Input file.
+  FilePath ->
+  IO a
+parseFileWith s p f = do
+  l <- L.readFile f
+  return $ case parse p s l of
+    Left err -> error $ errorBundlePretty err
+    Right val -> val
 
-type Parser = Parsec Void ByteString
+type L = (Double, ByteString)
 
-w :: Char -> Parser Word8
+type P = Parsec Void ByteString
+
+w :: Char -> P Word8
 w = char . c2w
 
 -- Parse a single Newick tree. Also succeeds when more trees follow.
-newickP :: Parser (Tree Double ByteString)
-newickP = space *> tree <* w ';' <* space <?> "newick"
+newickTree :: P (Tree L)
+newickTree = space *> tree <* w ';' <* space <?> "newick"
 
 -- Parse a single Newick tree. Fails when end of file is not reached.
-oneNewickP :: Parser (Tree Double ByteString)
-oneNewickP = newickP <* eof <?> "oneNewick"
+oneNewickTree :: P (Tree L)
+oneNewickTree = newickTree <* eof <?> "oneNewick"
 
 -- Parse many Newick trees until end of file.
-manyNewickP :: Parser [Tree Double ByteString]
-manyNewickP = some newickP <* eof <?> "manyNewick"
+manyNewickTree :: P [Tree L]
+manyNewickTree = some newickTree <* eof <?> "manyNewick"
 
-tree :: Parser (Tree Double ByteString)
+tree :: P (Tree L)
 tree = branched <|> leaf <?> "tree"
 
-branched :: Parser (Tree Double ByteString)
+branched :: P (Tree L)
 branched = do
-  f <- fmap fromTree <$> forest
-  n <- node
-  b <- toD <$> branchLength <?> "branched"
-  return $ Tree $ connect b (vertex n) (overlays f)
+  f <- forest
+  l <- nodeLabel <?> "branched"
+  return $ Node l f
 
 -- A forest is a set of trees separated by @,@ and enclosed by parentheses.
-forest :: Parser [Tree Double ByteString]
+forest :: P [Tree L]
 forest = between (w '(') (w ')') (tree `sepBy1` w ',') <?> "forest"
 
 -- A leaf is a node without children.
-leaf :: Parser (Tree Double ByteString)
+leaf :: P (Tree L)
 leaf = do
-  n <- node <?> "leaf"
-  return $ Tree $ vertex n
+  l <- nodeLabel <?> "leaf"
+  return $ Node l []
 
--- A node name can be any string of printable characters except blanks, colons,
--- semicolons, parentheses, and square brackets (and commas).
-node :: Parser ByteString
-node = L.pack <$> many (satisfy checkNameCharacter) <?> "node"
+-- A node has a name and a branch length.
+nodeLabel :: P L
+nodeLabel = do
+  n <- name
+  b <- branchLength
+  return (fromMaybe 0 b, n)
 
 checkNameCharacter :: Word8 -> Bool
 checkNameCharacter c = c `notElem` map c2w " :;()[],"
 
+-- A name can be any string of printable characters except blanks, colons,
+-- semicolons, parentheses, and square brackets (and commas).
+name :: P ByteString
+name = L.pack <$> many (satisfy checkNameCharacter) <?> "name"
+
 -- Branch length.
-branchLength :: Parser Double
-branchLength = w ':' *> branchLengthGiven <?> "branchLength"
+branchLength :: P (Maybe Double)
+branchLength = optional $ w ':' *> (try float <|> decimalAsDouble)
 
-branchLengthGiven :: Parser Double
-branchLengthGiven = try float <|> decimalAsDouble
-
-decimalAsDouble :: Parser Double
-decimalAsDouble = fromIntegral <$> (decimal :: Parser Int)
+decimalAsDouble :: P Double
+decimalAsDouble = fromIntegral <$> (decimal :: P Int)

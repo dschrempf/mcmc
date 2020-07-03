@@ -18,8 +18,6 @@ module Main
   )
 where
 
--- TODO: Use mcmc-tree.
-
 import Algebra.Graph.Label
 import Algebra.Graph.Labelled.AdjacencyMap
 import Control.Monad

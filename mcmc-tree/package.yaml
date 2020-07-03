@@ -24,6 +24,23 @@ library:
     - aeson
     - base >= 4.7 && < 5
     - bytestring
+    - containers
     - megaparsec
     - microlens
   generated-other-modules: Paths_mcmc_tree
+
+tests:
+  mcmc-tree-test:
+    main:        Spec.hs
+    source-dirs: test
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - algebraic-graphs
+      - base >= 4.7 && < 5
+      - containers
+      - hspec
+      - hspec-discover
+      - mcmc-tree
