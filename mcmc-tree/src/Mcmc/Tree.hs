@@ -25,10 +25,7 @@ where
 import Algebra.Graph.Label
 import Algebra.Graph.Labelled.AdjacencyMap
 import Data.Aeson
-import Data.Bifunctor
 import Data.ByteString.Lazy (ByteString)
-import qualified Data.IntMap as M
-import Data.IntMap (IntMap)
 import Data.Maybe
 import Data.Traversable
 import qualified Data.Set as S
@@ -67,7 +64,7 @@ getLens x y = lens (g x y) (s x y)
     g v w = fromD . edgeLabel v w
     s n m gr e = replaceEdge (toD e) n m gr
 
-label :: Traversable t => t (e, a) -> (t (e, (Int, a)))
+label :: Traversable t => t (e, a) -> t (e, (Int, a))
 label = snd . mapAccumL (\i (b, x) -> (i + 1, (b, (i, x)))) (1 :: Int)
 
 fromTree :: (Num e, Ord e, Ord a) => a -> Tree (e, a) -> T e (Int, a)
