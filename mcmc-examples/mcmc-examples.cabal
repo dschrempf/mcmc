@@ -46,7 +46,6 @@ executable archery
 executable plh
   main-is: PhylogeneticLikelihood.hs
   other-modules:
-      ApproximatePhylogeneticLikelihood
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples

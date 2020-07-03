@@ -4,7 +4,7 @@
 
 -- |
 -- Module      :  Main
--- Description :  Approximate phylogenetic likelihood
+-- Description :  Approximate phylogenetic likelihood using normal distribution
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
