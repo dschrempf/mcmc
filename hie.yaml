@@ -11,8 +11,11 @@ cradle:
       component: "mcmc:bench:mcmc-bench"
 
     # mcmc-examples
-    - path: "mcmc-examples/ApproximatePhylogeneticLikelihood"
-      component: "mcmc-examples:exe:approx-plh"
+    - path: "mcmc-examples/PhylogeneticLikelihood"
+      component: "mcmc-examples:exe:plh"
+
+    - path: "mcmc-examples/PhylogeneticLikelihoodMultivariate"
+      component: "mcmc-examples:exe:plh-multivariate"
 
     - path: "mcmc-examples/Archery"
       component: "mcmc-examples:exe:archery"
@@ -21,9 +24,3 @@ cradle:
     - path: "mcmc-statistics/src"
       component: "mcmc-statistics:lib"
 
-    # mcmc-tree
-    - path: "mcmc-tree/src"
-      component: "mcmc-tree:lib"
-
-    - path: "mcmc-tree/test"
-      component: "mcmc-tree:test:mcmc-tree-test"

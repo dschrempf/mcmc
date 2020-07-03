@@ -34,9 +34,9 @@ executables:
       - statistics
       - text
     generated-other-modules: Paths_mcmc_examples
-  approx-plh:
-    main:        ApproximatePhylogeneticLikelihood.hs
-    source-dirs: ApproximatePhylogeneticLikelihood
+  plh:
+    main:        PhylogeneticLikelihood.hs
+    source-dirs: PhylogeneticLikelihood
     ghc-options:
       - -threaded
       - -rtsopts
@@ -52,3 +52,22 @@ executables:
       - statistics
       - text
     generated-other-modules: Paths_mcmc_examples
+  plh-multivariate:
+    main:        PhylogeneticLikelihoodMultivariate.hs
+    source-dirs: PhylogeneticLikelihoodMultivariate
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - aeson
+      - algebraic-graphs
+      - base >= 4.7 && < 5
+      - bytestring
+      - containers
+      - log-domain
+      - mcmc
+      - megaparsec
+      - microlens
+    generated-other-modules: Paths_mcmc_examples
+

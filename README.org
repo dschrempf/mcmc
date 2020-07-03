@@ -2,7 +2,7 @@
 
 #+html: <p align="center"><img src="https://travis-ci.org/dschrempf/mcmc.svg?branch=master"/></p>
 
-Sample from a posterior using Markov chain Monte Carlo.
+Sample from a posterior using Markov chain Monte Carlo methods.
 
 At the moment, the library is tailored to the Metropolis-Hastings algorithm
 since it covers most use cases. However, implementation of more algorithms is
@@ -18,6 +18,7 @@ attached to this repository.
 #+name: Build
 #+begin_src sh :exports code :results none
 git clone https://github.com/dschrempf/mcmc.git
+cd mcmc
 stack build
 #+end_src
 
