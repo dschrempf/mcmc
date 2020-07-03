@@ -1,0 +1,29 @@
+name:                mcmc-tree
+version:             0.1.3
+github:              "dschrempf/mcmc"
+license:             GPL-3.0-or-later
+author:              "Dominik Schrempf"
+maintainer:          "dominik.schrempf@gmail.com"
+copyright:           "Dominik Schrempf (2020)"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+synopsis:            Markov chain Monte Carlo sampling on trees
+category:            Math, Statistics
+description:         Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
+
+ghc-options:
+  - -Wall
+
+library:
+  source-dirs: src
+  dependencies:
+    - algebraic-graphs
+    - aeson
+    - base >= 4.7 && < 5
+    - bytestring
+    - megaparsec
+    - microlens
+  generated-other-modules: Paths_mcmc_tree

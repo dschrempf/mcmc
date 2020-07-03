@@ -18,11 +18,12 @@ module Main
   )
 where
 
+-- TODO: Use mcmc-tree.
+
 import Algebra.Graph.Label
 import Algebra.Graph.Labelled.AdjacencyMap
 import Control.Monad
 import Data.Aeson
-import Data.Aeson.Types
 import Data.Maybe
 import Lens.Micro
 import Mcmc
@@ -72,7 +73,7 @@ instance ToJSON (Distance Double) where
   toEncoding = toEncoding . fromD
 
 instance FromJSON (Distance Double) where
-  parseJSON d = toD <$> (parseJSON d :: Parser Double)
+  parseJSON d = toD <$> parseJSON d
 
 -- Branch accessor functions (lenses).
 getLens :: Node -> Node -> Lens' (Tree a) Double
