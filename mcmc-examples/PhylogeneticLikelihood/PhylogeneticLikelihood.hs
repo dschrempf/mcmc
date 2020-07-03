@@ -13,10 +13,7 @@
 -- Portability :  portable
 --
 -- Creation date: Wed Jun 10 22:07:11 2020.
-module Main
-  ( main,
-  )
-where
+module Main (main) where
 
 import Algebra.Graph.Label
 import Algebra.Graph.Labelled.AdjacencyMap

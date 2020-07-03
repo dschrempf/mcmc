@@ -13,10 +13,7 @@
 -- Please refer to the corresponding [RevBayes
 -- tutorial](https://revbayes.github.io/tutorials/mcmc/archery.html). Here, the
 -- gamma distribution is not used to reduce computation of the posterior.
-module Main
-  ( main,
-  )
-where
+module Main (main) where
 
 import Control.Monad
 import Mcmc

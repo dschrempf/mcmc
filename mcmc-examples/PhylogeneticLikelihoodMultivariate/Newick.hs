@@ -1,5 +1,5 @@
 -- |
--- Module      :  Mcmc.Tree.Newick
+-- Module      :  Newick
 -- Description :  Convert to and from Newick format
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -17,13 +17,14 @@
 -- [Specifications](http://evolution.genetics.washington.edu/phylip/newicktree.html)
 --
 -- In particular, no conversion from _ to (space) is done right now.
-module Mcmc.Tree.Newick
+module Newick
   ( newick,
     oneNewick,
     manyNewick,
   )
 where
 
+import Codec.Compression.GZip
 import Data.ByteString.Internal (c2w)
 import qualified Data.ByteString.Lazy as L
 import Data.ByteString.Lazy (ByteString)
@@ -60,7 +61,7 @@ parseFileWith ::
   FilePath ->
   IO a
 parseFileWith s p f = do
-  l <- L.readFile f
+  l <- decompress <$> L.readFile f
   return $ case parse p s l of
     Left err -> error $ errorBundlePretty err
     Right val -> val

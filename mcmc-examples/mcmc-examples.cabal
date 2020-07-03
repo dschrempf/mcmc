@@ -67,8 +67,8 @@ executable plh
 executable plh-multivariate
   main-is: PhylogeneticLikelihoodMultivariate.hs
   other-modules:
-      Mcmc.Tree
-      Mcmc.Tree.Newick
+      Newick
+      Tree
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples
@@ -81,8 +81,11 @@ executable plh-multivariate
     , base >=4.7 && <5
     , bytestring
     , containers
+    , hmatrix
     , log-domain
     , mcmc
     , megaparsec
     , microlens
+    , vector
+    , zlib
   default-language: Haskell2010

@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |
--- Module      :  Mcmc.Tree
+-- Module      :  Tree
 -- Description :  Markov chain Monte Carlo sampling on trees
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -15,8 +15,10 @@
 -- Creation date: Fri Jul  3 09:05:09 2020.
 --
 -- __The import of this module alone should cover most use cases.__
-module Mcmc.Tree
+module Tree
   ( T,
+    toD,
+    fromD,
     getLens,
     manyNewick,
   )
@@ -31,7 +33,7 @@ import Data.Traversable
 import qualified Data.Set as S
 import Data.Tree
 import Lens.Micro
-import qualified Mcmc.Tree.Newick as N
+import qualified Newick as N
 
 -- | Rooted (directed) tree with branch labels of type @e@ and node labels of
 -- type @a@.
@@ -48,11 +50,11 @@ instance (ToJSON e, ToJSONKey a) => ToJSON (AdjacencyMap e a)
 
 instance (FromJSON e, FromJSONKey a, Ord a) => FromJSON (AdjacencyMap e a)
 
--- Extract the number from a distance. Assume that the distance is finite.
+-- | Extract the number from a distance. Assume that the distance is finite.
 fromD :: Distance a -> a
 fromD = fromMaybe (error "fromD: Negative distance.") . getFinite . getDistance
 
--- Convert a number to a distance. Assume that the given number is positive
+-- | Convert a number to a distance. Assume that the given number is positive
 -- and finite.
 toD :: (Num a, Ord a) => a -> Distance a
 toD = distance . fromMaybe (error "toD: Negative number.") . finite
