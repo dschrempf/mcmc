@@ -20,7 +20,8 @@ module Tree
     toD,
     fromD,
     getLens,
-    manyNewick,
+    nNewick,
+    someNewick,
   )
 where
 
@@ -32,7 +33,7 @@ import Data.Maybe
 import Data.Traversable
 import qualified Data.Set as S
 import Data.Tree
-import Lens.Micro
+import Lens.Micro.Platform
 import qualified Newick as N
 
 -- | Rooted (directed) tree with branch labels of type @e@ and node labels of
@@ -69,8 +70,10 @@ getLens x y = lens (g x y) (s x y)
 label :: Traversable t => t (e, a) -> t (e, (Int, a))
 label = snd . mapAccumL (\i (b, x) -> (i + 1, (b, (i, x)))) (1 :: Int)
 
+-- TODO: Removing the origin after insertion is a hack; but I had problems with
+-- singular matrices when the root branch length is zero.
 fromTree :: (Num e, Ord e, Ord a) => a -> Tree (e, a) -> T e (Int, a)
-fromTree o t = (edges . S.toList . go (0, o)) (label t)
+fromTree o t = removeVertex (0, o) $ (edges . S.toList . go (0, o)) (label t)
   where
     -- go parent tree
     go p (Node (b, x) []) = S.singleton (toD b, p, x)
@@ -81,9 +84,16 @@ prune t@(Node (b, _) [c]) | b == 0 = prune c
                           | otherwise = t
 prune t = t
 
--- | Parse many Newick trees until end of file. To ensure unique node labels,
--- 'Int' labels are additionally assigned to all nodes.
-manyNewick :: FilePath -> IO [T Double (Int, ByteString)]
-manyNewick fn = do
-  ts <- N.manyNewick fn
+-- | Parse @n@ Newick trees. To ensure unique node labels, 'Int' labels are
+-- additionally assigned to all nodes.
+nNewick :: Int -> FilePath -> IO [T Double (Int, ByteString)]
+nNewick n fn = do
+  ts <- N.nNewick n fn
+  return $ map (fromTree "origin" . prune) ts
+
+-- | Parse one or more Newick trees until end of file. To ensure unique node
+-- labels, 'Int' labels are additionally assigned to all nodes.
+someNewick :: FilePath -> IO [T Double (Int, ByteString)]
+someNewick fn = do
+  ts <- N.someNewick fn
   return $ map (fromTree "origin" . prune) ts

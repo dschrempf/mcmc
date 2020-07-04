@@ -152,6 +152,8 @@ tune dt m
 ratioOpt :: Double
 ratioOpt = 0.44
 
+-- TODO: Ensure that the tuning parameter is not under- or overflowing.
+
 -- | For a given acceptance ratio, auto tune the 'Move'. For now, a 'Move' is
 -- enlarged when the acceptance ratio is above 0.44, and shrunk otherwise.
 -- Return 'Nothing' if 'Move' is not tuneable.

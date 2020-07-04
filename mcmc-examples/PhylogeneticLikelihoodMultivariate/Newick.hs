@@ -20,7 +20,8 @@
 module Newick
   ( newick,
     oneNewick,
-    manyNewick,
+    nNewick,
+    someNewick,
   )
 where
 
@@ -47,9 +48,13 @@ newick = parseFileWith "newick" newickTree
 oneNewick :: FilePath -> IO (Tree (Double, ByteString))
 oneNewick = parseFileWith "oneNewick" oneNewickTree
 
--- | Parse many Newick trees until end of file.
-manyNewick :: FilePath -> IO [Tree (Double, ByteString)]
-manyNewick = parseFileWith "manyNewick" manyNewickTree
+-- | Parse @n@ Newick trees. Also succeeds when more trees follow.
+nNewick :: Int -> FilePath -> IO [Tree (Double, ByteString)]
+nNewick n = parseFileWith "manyNewick" (nNewickTree n)
+
+-- | Parse one or more Newick trees until end of file.
+someNewick :: FilePath -> IO [Tree (Double, ByteString)]
+someNewick = parseFileWith "manyNewick" someNewickTree
 
 parseFileWith ::
   (ShowErrorComponent e) =>
@@ -81,9 +86,13 @@ newickTree = space *> tree <* w ';' <* space <?> "newick"
 oneNewickTree :: P (Tree L)
 oneNewickTree = newickTree <* eof <?> "oneNewick"
 
--- Parse many Newick trees until end of file.
-manyNewickTree :: P [Tree L]
-manyNewickTree = some newickTree <* eof <?> "manyNewick"
+-- Parse @n@ Newick trees. Also succeeds when more trees follow.
+nNewickTree :: Int -> P [Tree L]
+nNewickTree n = count n newickTree <* space <?> "nNewick"
+
+-- Parse one or more Newick trees until end of file.
+someNewickTree :: P [Tree L]
+someNewickTree = some newickTree <* eof <?> "someNewick"
 
 tree :: P (Tree L)
 tree = branched <|> leaf <?> "tree"

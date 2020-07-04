@@ -69,7 +69,8 @@ executables:
       - log-domain
       - mcmc
       - megaparsec
-      - microlens
+      - microlens-platform
+      - mwc-random
       - vector
       - zlib
     generated-other-modules: Paths_mcmc_examples

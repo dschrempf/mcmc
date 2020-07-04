@@ -85,7 +85,8 @@ executable plh-multivariate
     , log-domain
     , mcmc
     , megaparsec
-    , microlens
+    , microlens-platform
+    , mwc-random
     , vector
     , zlib
   default-language: Haskell2010
