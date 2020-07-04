@@ -62,13 +62,13 @@ pr xs
 --
 -- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
 lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
-lh mu sigmaInv logSigmaDet xs = Exp $ ((-0.5) *) $ logSigmaDet + (dxs <# sigmaInv) <.> dxs
+lh mu sigmaInv logSigmaDet xs = Exp $ (-0.5) * ( logSigmaDet + ((dxs <# sigmaInv) <.> dxs ))
   where
     dxs = xs - mu
 
 -- Slide branch with given index.
 slideBranch :: Int -> Move I
-slideBranch i = slideSymmetric n 1 (singular $ ix i) 0.1 True
+slideBranch i = slideSymmetric n 1 (singular $ ix i) 0.01 True
   where
     n = "Slide branch " <> show i
 
@@ -103,21 +103,18 @@ nIterations = 10000
 main :: IO ()
 main = do
   g <- create
-  putStrLn "Read trees."
-  !trs <- nNewick 300 fn
-  putStrLn "Get the posterior means and the posterior covariance matrix."
+  -- putStrLn "Read trees."
+  !trs <- someNewick fn
+  -- putStrLn "Get the posterior means and the posterior covariance matrix."
   let !pm = getPosteriorMatrix trs
       !(mu, sigma) = L.meanCov pm
-      !sigmaInv = L.inv $ L.unSym sigma
-      !logSigmaDet = log $ L.det $ L.unSym sigma
-  print $ V.length mu
-  print $ L.rows $ L.unSym sigma
-  -- TODO: Infinity?
-  print logSigmaDet
-  putStrLn "Choose a bad starting state for our chain."
+      !(sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
+  putStrLn "Maximum likelihood values."
+  print mu
+  -- putStrLn "Choose a bad starting state for our chain."
   let k = L.cols pm
       start = V.replicate k (1.0 :: Double)
-  -- Status of the chain.
-  let s = debug $ status "ApproximatePhylogeneticLikelihoodMultivariate" pr (lh mu sigmaInv logSigmaDet) (moveCycle start) (mon start) start nBurnIn nAutoTune nIterations g
+  -- putStrLn "Status of the chain."
+  let s = status "ApproximatePhylogeneticLikelihoodMultivariate" pr (lh mu sigmaInv logSigmaDet) (moveCycle start) (mon start) start nBurnIn nAutoTune nIterations g
   void $ mh s
   putStrLn "I am done."
