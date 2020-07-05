@@ -114,9 +114,14 @@ msExec i (Item x p l) (ss, st) j m
   | otherwise = do
     ct <- getCurrentTime
     let dt = ct `diffUTCTime` st
+        -- Careful, don't evaluate this when i == ss.
         timePerIter = dt / fromIntegral (i - ss)
+        -- -- Always 0; doesn't make much sense.
+        -- tpi = if (i - ss) < 10
+        --       then ""
+        --       else renderDurationS timePerIter
         eta =
-          if i < 10
+          if (i - ss) < 10
             then ""
             else renderDuration $ timePerIter * fromIntegral (j - i)
     T.hPutStrLn stdout

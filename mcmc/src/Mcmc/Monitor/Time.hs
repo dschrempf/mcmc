@@ -13,6 +13,7 @@
 -- Creation date: Fri May 29 12:36:43 2020.
 module Mcmc.Monitor.Time
   ( renderDuration,
+    renderDurationS,
   )
 where
 
@@ -36,3 +37,10 @@ renderDuration dt = hTxt <> mTxt <> sTxt
     ts :: Int
     ts = round dt
     renderDecimal n = T.justifyRight 2 '0' $ T.toLazyText $ T.decimal n
+
+-- | Render duration in seconds.
+renderDurationS :: NominalDiffTime -> Text
+renderDurationS dt = T.toLazyText $ T.decimal ts
+  where
+    ts :: Int
+    ts = round dt
