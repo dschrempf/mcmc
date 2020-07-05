@@ -31,7 +31,6 @@ module Mcmc.Move
     Tuner (tParam, tFunc),
     tuner,
     tune,
-    autotune,
 
     -- * Cycle
     Order (..),
@@ -134,6 +133,10 @@ data Tuner a = Tuner
 tuner :: (Double -> MoveSimple a) -> Tuner a
 tuner = Tuner 1.0
 
+-- Minimal tuning parameter; subject to change.
+tuningParamMin :: Double
+tuningParamMin = 1e-12
+
 -- | Tune a 'Move'. Return 'Nothing' if 'Move' is not tuneable. If the parameter
 --   @dt@ is larger than 1.0, the 'Move' is enlarged, if @0<dt<1.0@, it is
 --   shrunk. Negative tuning parameters are not allowed.
@@ -142,7 +145,8 @@ tune dt m
   | dt <= 0 = error $ "tune: Tuning parameter not positive: " <> show dt <> "."
   | otherwise = do
     (Tuner t f) <- mvTuner m
-    let t' = t * dt
+    -- Ensure that the tuning parameter is not too small.
+    let t' = max tuningParamMin (t * dt)
     return $ m {mvSimple = f t', mvTuner = Just $ Tuner t' f}
 
 -- XXX: The desired acceptance ratio 0.44 is optimal for one-dimensional
@@ -151,14 +155,6 @@ tune dt m
 -- dimensions.
 ratioOpt :: Double
 ratioOpt = 0.44
-
--- TODO: Ensure that the tuning parameter is not under- or overflowing.
-
--- | For a given acceptance ratio, auto tune the 'Move'. For now, a 'Move' is
--- enlarged when the acceptance ratio is above 0.44, and shrunk otherwise.
--- Return 'Nothing' if 'Move' is not tuneable.
-autotune :: Double -> Move a -> Maybe (Move a)
-autotune a = tune (a / ratioOpt)
 
 -- | Define the order in which 'Move's are executed in a 'Cycle'. The total
 -- number of 'Move's per 'Cycle' may differ between 'Order's (e.g., compare
@@ -239,7 +235,7 @@ tuneCycle m c =
 -- | Caculate acceptance ratios. Auto tune the 'Move's in the 'Cycle' with the
 -- calculated acceptance ratios. See 'autotune'.
 autotuneCycle :: Acceptance (Move a) -> Cycle a -> Cycle a
-autotuneCycle a = tuneCycle (M.map (/ ratioOpt) $ acceptanceRatios a)
+autotuneCycle a = tuneCycle (M.map (\x -> exp $ x - ratioOpt) $ acceptanceRatios a)
 
 renderRow :: Text -> Text -> Text -> Text -> Text -> Text -> Text
 renderRow name weight nAccept nReject acceptRatio tuneParam = "   " <> nm <> wt <> na <> nr <> ra <> tp

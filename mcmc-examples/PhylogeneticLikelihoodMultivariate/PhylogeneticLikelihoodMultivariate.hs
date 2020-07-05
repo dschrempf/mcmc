@@ -15,14 +15,16 @@
 -- This example is a little more involved and includes estimation of a larger
 -- phylogeny by fitting the posterior with a multivariate normal distribution.
 --
--- The trees are read from a data file which is given relative to the directory
--- in which this module resides. Hence, the compiled binary has to be executed
--- from this directory.
+-- The trees are read from a data file which is given relative to the @mcmc@ git
+-- repository base directory. Hence, the compiled binary has to be executed from
+-- this directory.
 module Main (main) where
 
 import Algebra.Graph.Labelled.AdjacencyMap
 import Control.Monad
+-- import Control.Monad.ST
 import qualified Data.Vector.Storable as V
+-- import qualified Data.Vector.Storable.Mutable as M
 import Data.Vector.Storable (Vector)
 import Lens.Micro.Platform
 import Mcmc
@@ -32,15 +34,23 @@ import Numeric.Log
 import System.Random.MWC
 import Tree
 
--- TODO: Move on vectors. This is really hard.
-
--- TODO: Monitors.
-
 -- We condense the branch lengths into a vector.
 type I = Vector R
 
+-- -- Does not work because the likelihood function will not be recomputed since
+-- -- it believes the vector has not changed.
+-- unsafeSet :: Int -> Vector R -> Double -> Vector R
+-- unsafeSet i v x = runST $ do
+--   mv <- V.unsafeThaw v
+--   M.write mv i x
+--   V.unsafeFreeze mv
+
+-- -- Custom mutable lens.
+-- unsafeIx :: Int -> Lens' (Vector R) R
+-- unsafeIx i = lens (V.! i) (unsafeSet i)
+
 fn :: FilePath
-fn = "data/plants_1.treelist.gz"
+fn = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
 
 getEdges :: T Double a -> I
 getEdges = L.fromList . (map (fromD . (^. _1)) . edgeList)
@@ -62,7 +72,7 @@ pr xs
 --
 -- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
 lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
-lh mu sigmaInv logSigmaDet xs = Exp $ (-0.5) * ( logSigmaDet + ((dxs <# sigmaInv) <.> dxs ))
+lh mu sigmaInv logSigmaDet xs = Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
   where
     dxs = xs - mu
 
@@ -86,7 +96,8 @@ branchMons v = [monitorRealFloat (n i) (singular $ ix i) | i <- [0 .. k]]
 
 mon :: I -> Monitor I
 mon v = Monitor (monitorStdOut (take 3 bs) 50) [monitorFile "Branches" bs 10] []
-  where bs = branchMons v
+  where
+    bs = branchMons v
 
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
@@ -117,4 +128,3 @@ main = do
   -- putStrLn "Status of the chain."
   let s = status "ApproximatePhylogeneticLikelihoodMultivariate" pr (lh mu sigmaInv logSigmaDet) (moveCycle start) (mon start) start nBurnIn nAutoTune nIterations g
   void $ mh s
-  putStrLn "I am done."
