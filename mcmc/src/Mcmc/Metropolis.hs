@@ -97,13 +97,13 @@ mhBurnInN b (Just t)
   | b > t = do
     mcmcResetA
     mhNIter t
-    _ <- mcmcDebug <$> mcmcSummarizeCycle
+    mcmcSummarizeCycle >>= mcmcDebug
     mcmcAutotune
     mhBurnInN (b - t) (Just t)
   | otherwise = do
     mcmcResetA
     mhNIter b
-    _ <- mcmcInfoClean <$> mcmcSummarizeCycle
+    mcmcSummarizeCycle >>= mcmcInfoClean
     mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
 mhBurnInN b Nothing = mhNIter b
 
@@ -130,7 +130,7 @@ mhT = do
   mcmcInit
   mcmcInfo "Start of Metropolis-Hastings sampler."
   mcmcReport
-  _ <- mcmcInfoClean <$> mcmcSummarizeCycle
+  mcmcSummarizeCycle >>= mcmcInfoClean
   s <- get
   let b = fromMaybe 0 (burnInIterations s)
   mhBurnIn b (autoTuningPeriod s)
@@ -146,7 +146,7 @@ mhContinueT dn = do
   let n = iterations s
   put s {iterations = n + dn}
   mcmcInit
-  _ <- mcmcInfoClean <$> mcmcSummarizeCycle
+  mcmcSummarizeCycle >>= mcmcInfoClean
   mhRun dn
   mcmcClose
 

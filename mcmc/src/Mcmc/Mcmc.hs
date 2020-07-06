@@ -56,6 +56,9 @@ import Prelude hiding (cycle)
 -- required, but it is used by the different inference algorithms.
 type Mcmc a = StateT (Status a) IO
 
+-- TODO: This setup is sub-optimal, so to speak. Can't I think of something
+-- clean?
+
 -- | Write to standard output and log file.
 mcmcOut :: Text -> Mcmc a ()
 mcmcOut msg = do
@@ -213,7 +216,7 @@ mcmcMonitorExec = do
 mcmcClose :: ToJSON a => Mcmc a ()
 mcmcClose = do
   s <- get
-  _ <- mcmcInfoClean <$> mcmcSummarizeCycle
+  mcmcSummarizeCycle >>= mcmcInfoClean
   mcmcInfo "Metropolis-Hastings sampler finished."
   let m = monitor s
   m' <- liftIO $ mClose m
