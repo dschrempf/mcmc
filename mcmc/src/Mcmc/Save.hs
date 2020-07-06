@@ -86,7 +86,7 @@ toSave (Status nm it i tr ac br at is f sv vb g _ _ _ _ c _) =
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
     -- the statistics package.
     g' = fromSeed $ unsafePerformIO $ save g
-    ts = [fmap tParam mt | mt <- map mvTuner $ ccProposals c]
+    ts = [fmap tParam mt | mt <- map pTuner $ ccProposals c]
 
 -- | Save a 'Status' to file.
 --

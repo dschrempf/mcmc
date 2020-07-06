@@ -26,7 +26,7 @@ import Statistics.Distribution.Gamma
 scaleSimple :: Lens' a Double -> Double -> Double -> Double -> ProposalSimple a
 scaleSimple l k th t = proposalGenericContinuous l (gammaDistr k (t * th)) (*) (/)
 
--- | Multiplicative proposal with Gamma distributed density.
+-- | Multiplicative proposal with Gamma distributed kernel.
 scale ::
   -- | Name.
   String ->
@@ -45,7 +45,7 @@ scale n w l k th t = Proposal n w (scaleSimple l k th 1.0) tnr
   where
     tnr = if t then Just $ tuner $ scaleSimple l k th else Nothing
 
--- | Multiplicative proposal with Gamma distributed density. The scale of the Gamma
+-- | Multiplicative proposal with Gamma distributed kernel. The scale of the Gamma
 -- distributions is set to (shape)^{-1}, so that the mean of the Gamma
 -- distribution is 1.0.
 scaleUnbiased ::

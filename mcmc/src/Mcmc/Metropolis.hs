@@ -44,8 +44,8 @@ mhRatioSymmetric lX lY = lY / lX
 
 mhPropose :: Proposal a -> Mcmc a ()
 mhPropose m = do
-  let p = mvSample $ mvSimple m
-      mq = mvDensity $ mvSimple m
+  let p = pSample $ pSimple m
+      mq = pKernel $ pSimple m
   s <- get
   let (Item x pX lX) = item s
       pF = priorF s
@@ -73,8 +73,8 @@ mhPropose m = do
 
 -- Run one iterations; perform all proposals in a Cycle.
 mhIter :: ToJSON a => [Proposal a] -> Mcmc a ()
-mhIter mvs = do
-  mapM_ mhPropose mvs
+mhIter ps = do
+  mapM_ mhPropose ps
   s <- get
   let i = item s
       t = trace s

@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
--- Technically, only a Getter is needed when calculating the density of the proposal
--- ('densCont', and similar functions). I tried splitting the lens into a getter
+-- Technically, only a Getter is needed when calculating the kernel of the proposal
+-- ('kernelCont', and similar functions). I tried splitting the lens into a getter
 -- and a setter. However, speed improvements were marginal, and some times not
 -- even measurable. Using a 'Lens'' is just easier, and has no real drawbacks.
 
@@ -43,7 +43,7 @@ jumpCont l d f x g = do
   return $ set l ((x ^. l) `f` dx) x
 {-# INLINEABLE jumpCont #-}
 
-densCont ::
+kernelCont ::
   (ContDistr d, ContGen d) =>
   Lens' a Double ->
   d ->
@@ -51,8 +51,8 @@ densCont ::
   a ->
   a ->
   Log Double
-densCont l d fInv x y = Exp $ logDensity d ((y ^. l) `fInv` (x ^. l))
-{-# INLINEABLE densCont #-}
+kernelCont l d fInv x y = Exp $ logDensity d ((y ^. l) `fInv` (x ^. l))
+{-# INLINEABLE kernelCont #-}
 
 -- | Generic function to create proposals for continuous parameters ('Double').
 proposalGenericContinuous ::
@@ -67,7 +67,7 @@ proposalGenericContinuous ::
   (Double -> Double -> Double) ->
   ProposalSimple a
 proposalGenericContinuous l d f fInv =
-  ProposalSimple (jumpCont l d f) (Just $ densCont l d fInv)
+  ProposalSimple (jumpCont l d f) (Just $ kernelCont l d fInv)
 
 -- | Generic function to create symmetric proposals for continuous parameters ('Double').
 proposalSymmetricGenericContinuous ::
@@ -95,7 +95,7 @@ jumpDiscrete l d f x g = do
   return $ set l ((x ^. l) `f` dx) x
 {-# INLINEABLE jumpDiscrete #-}
 
-densDiscrete ::
+kernelDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
   Lens' a Int ->
   d ->
@@ -103,9 +103,9 @@ densDiscrete ::
   a ->
   a ->
   Log Double
-densDiscrete l d fInv x y =
+kernelDiscrete l d fInv x y =
   Exp $ logProbability d ((y ^. l) `fInv` (x ^. l))
-{-# INLINEABLE densDiscrete #-}
+{-# INLINEABLE kernelDiscrete #-}
 
 -- | Generic function to create proposals for discrete parameters ('Int').
 proposalGenericDiscrete ::
@@ -120,7 +120,7 @@ proposalGenericDiscrete ::
   (Int -> Int -> Int) ->
   ProposalSimple a
 proposalGenericDiscrete l fd f fInv =
-  ProposalSimple (jumpDiscrete l fd f) (Just $ densDiscrete l fd fInv)
+  ProposalSimple (jumpDiscrete l fd f) (Just $ kernelDiscrete l fd fInv)
 
 -- | Generic function to create symmetric proposals for discrete parameters ('Int').
 proposalSymmetricGenericDiscrete ::

@@ -28,7 +28,7 @@ import Statistics.Distribution.Uniform
 slideSimple :: Lens' a Double -> Double -> Double -> Double -> ProposalSimple a
 slideSimple l m s t = proposalGenericContinuous l (normalDistr m (s * t)) (+) (-)
 
--- | Additive proposal with normally distributed density.
+-- | Additive proposal with normally distributed kernel.
 slide ::
   -- | Name.
   String ->
@@ -51,9 +51,9 @@ slide n w l m s t = Proposal n w (slideSimple l m s 1.0) tnr
 slideSymmetricSimple :: Lens' a Double -> Double -> Double -> ProposalSimple a
 slideSymmetricSimple l s t = proposalSymmetricGenericContinuous l (normalDistr 0.0 (s * t)) (+)
 
--- | Additive proposal with normally distributed density with mean zero. This proposal
--- is very fast, because the Metropolis-Hastings ratio does not include
--- calculation of the forwards and backwards densities.
+-- | Additive proposal with normally distributed kernel with mean zero. This
+-- proposal is very fast, because the Metropolis-Hastings ratio does not include
+-- calculation of the forwards and backwards kernels.
 slideSymmetric ::
   -- | Name.
   String ->
@@ -75,9 +75,9 @@ slideUniformSimple :: Lens' a Double -> Double -> Double -> ProposalSimple a
 slideUniformSimple l d t =
   proposalSymmetricGenericContinuous l (uniformDistr (- t * d) (t * d)) (+)
 
--- | Additive proposal with uniformly distributed density. This proposal is very fast,
+-- | Additive proposal with uniformly distributed kernel. This proposal is very fast,
 -- because the Metropolis-Hastings ratio does not include calculation of the
--- forwards and backwards densities.
+-- forwards and backwards kernels.
 slideUniform ::
   -- | Name.
   String ->

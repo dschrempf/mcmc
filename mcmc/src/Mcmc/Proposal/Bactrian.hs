@@ -70,13 +70,13 @@ bactrianAdditiveSimple l m s t
   | s <= 0 = error "bactrianAdditiveSimple: Standard deviation 0.0 or smaller."
   | otherwise = ProposalSimple (bactrianAdditive l m (t * s)) Nothing
 
--- | Additive symmetric proposal with density similar to the silhouette of a
+-- | Additive symmetric proposal with kernel similar to the silhouette of a
 -- Bactrian camel. The [Bactrian
--- density](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/figure/fig01)
+-- kernel](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/figure/fig01)
 -- is a mixture of two symmetrically arranged normal distributions. The spike
 -- parameter loosely determines the standard deviations of the individual humps
 -- while the other parameter refers to the standard deviation of the complete
--- Bactrian density.
+-- Bactrian kernel.
 --
 -- See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
 slideBactrian ::
@@ -108,18 +108,18 @@ bactrianMult l m s x g = do
   dx <- bactrianSample m s g
   return $ x & l %~ (* (1 + dx))
 
-bactrianDens :: Double -> Double -> Double -> Log Double
-bactrianDens m s x = Exp $ log $ dens1 + dens2
+bactrianKernel :: Double -> Double -> Double -> Log Double
+bactrianKernel m s x = Exp $ log $ kernel1 + kernel2
   where
     mn = m * s
     sd = sqrt (1 - m * m) * s
     dist1 = normalDistr (- mn) sd
     dist2 = normalDistr mn sd
-    dens1 = density dist1 x
-    dens2 = density dist2 x
+    kernel1 = density dist1 x
+    kernel2 = density dist2 x
 
-bactrianMultDens :: Lens' a Double -> Double -> Double -> a -> a -> Log Double
-bactrianMultDens l m s x y = bactrianDens m s dx
+bactrianMultKernel :: Lens' a Double -> Double -> Double -> a -> a -> Log Double
+bactrianMultKernel l m s x y = bactrianKernel m s dx
   where
     dx = y ^. l / x ^. l
 
@@ -128,9 +128,9 @@ bactrianMultSimple l m s t
   | m < 0 = error "bactrianMultSimple: Spike parameter negative."
   | m >= 1 = error "bactrianMultSimple: Spike parameter 1.0 or larger."
   | s <= 0 = error "bactrianMultSimple: Standard deviation 0.0 or smaller."
-  | otherwise = ProposalSimple (bactrianMult l m (t * s)) (Just $ bactrianMultDens l m (t * s))
+  | otherwise = ProposalSimple (bactrianMult l m (t * s)) (Just $ bactrianMultKernel l m (t * s))
 
--- | Multiplicative proposal with density similar to the silhouette of a Bactrian
+-- | Multiplicative proposal with kernel similar to the silhouette of a Bactrian
 -- camel. See 'slideBactrian'.
 scaleBactrian ::
   -- | Name.

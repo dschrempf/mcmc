@@ -31,4 +31,4 @@ spec =
   describe "slide"
     $ it "has a symmetric proposal distribution if mean is 0"
     $ property
-    $ prop_sym (fromJust $ mvDensity . mvSimple $ slideSym)
+    $ prop_sym (fromJust $ pKernel . pSimple $ slideSym)

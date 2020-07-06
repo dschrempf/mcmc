@@ -19,14 +19,14 @@ import Mcmc.Proposal.Slide
 import System.Random.MWC
 import Test.Hspec
 
-mv1 :: Proposal Double
-mv1 = slideSymmetric "test1" 1 id 1.0 True
+p1 :: Proposal Double
+p1 = slideSymmetric "test1" 1 id 1.0 True
 
-mv2 :: Proposal Double
-mv2 = slideSymmetric "test2" 3 id 1.0 True
+p2 :: Proposal Double
+p2 = slideSymmetric "test2" 3 id 1.0 True
 
 c :: Cycle Double
-c = fromList [mv1, mv2]
+c = fromList [p1, p2]
 
 spec :: Spec
 spec =
@@ -40,4 +40,4 @@ spec =
       l2 `shouldBe` 8
       o3 <- head <$> getNCycles (setOrder SequentialReversibleO c) 1 g
       length o3 `shouldBe` 8
-      o3 `shouldBe` [mv1, mv2, mv2, mv2, mv2, mv2, mv2, mv1]
+      o3 `shouldBe` [p1, p2, p2, p2, p2, p2, p2, p1]

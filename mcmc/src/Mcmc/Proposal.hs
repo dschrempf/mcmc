@@ -70,57 +70,57 @@ import Numeric.Log hiding (sum)
 import System.Random.MWC
 
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
--- state space @a@. Essentially, it is a probability density conditioned on the
--- current state.
+-- state space @a@. Essentially, it is a probability mass or probability density
+-- conditioned on the current state (i.e., a kernel).
 --
 -- A 'Proposal' may be tuneable in that it contains information about how to enlarge
 -- or shrink the step size to tune the acceptance ratio.
 data Proposal a
   = Proposal
       { -- | Name (no proposals with the same name are allowed in a 'Cycle').
-        mvName :: String,
+        pName :: String,
         -- | The weight determines how often a 'Proposal' is executed per iteration of
         -- the Markov chain.
-        mvWeight :: Int,
+        pWeight :: Int,
         -- | Simple proposal without tuning information.
-        mvSimple :: ProposalSimple a,
+        pSimple :: ProposalSimple a,
         -- | Tuning is disabled if set to 'Nothing'.
-        mvTuner :: Maybe (Tuner a)
+        pTuner :: Maybe (Tuner a)
       }
 
 instance Show (Proposal a) where
-  show m = show $ mvName m
+  show m = show $ pName m
 
 instance Eq (Proposal a) where
-  m == n = mvName m == mvName n
+  m == n = pName m == pName n
 
 instance Ord (Proposal a) where
-  compare = compare `on` mvName
+  compare = compare `on` pName
 
--- One could also use a different type for 'mvSample', so that 'mvDensity' can
+-- One could also use a different type for 'pSample', so that 'pKernel' can
 -- be avoided. In detail,
 --
 -- @
---   mvSample :: a -> GenIO -> IO (a, Log Double, Log, Double)
+--   pSample :: a -> GenIO -> IO (a, Log Double, Log, Double)
 -- @
 --
--- where the densities describe the probability of going there and back.
--- However, we may need more information about the proposal for other MCMC samplers
+-- where the kernels describe the probability of going there and back. However,
+-- we may need more information about the proposal for other MCMC samplers
 -- different from Metropolis-Hastings.
 
 -- | Simple proposal without tuning information.
 --
 -- In order to calculate the Metropolis-Hastings ratio, we need to know the
--- probability (density) of jumping forth, and the probability (density) of
--- jumping back.
+-- kernel (i.e., the probability mass or probability density) of jumping
+-- forwards and backwards.
 data ProposalSimple a
   = ProposalSimple
       { -- | Instruction about randomly moving from the current state to a new
         -- state, given some source of randomness.
-        mvSample :: a -> GenIO -> IO a,
-        -- | The density of going from one state to another. Set to 'Nothing' for
+        pSample :: a -> GenIO -> IO a,
+        -- | The kernel of going from one state to another. Set to 'Nothing' for
         -- symmetric proposals.
-        mvDensity :: Maybe (a -> a -> Log Double)
+        pKernel :: Maybe (a -> a -> Log Double)
       }
 
 -- | Tune the acceptance ratio of a 'Proposal'; see 'tune', or 'autotuneCycle'.
@@ -147,10 +147,10 @@ tune :: Double -> Proposal a -> Maybe (Proposal a)
 tune dt m
   | dt <= 0 = error $ "tune: Tuning parameter not positive: " <> show dt <> "."
   | otherwise = do
-    (Tuner t f) <- mvTuner m
+    (Tuner t f) <- pTuner m
     -- Ensure that the tuning parameter is not too small.
     let t' = max tuningParamMin (t * dt)
-    return $ m {mvSimple = f t', mvTuner = Just $ Tuner t' f}
+    return $ m {pSimple = f t', pTuner = Just $ Tuner t' f}
 
 -- XXX: The desired acceptance ratio 0.44 is optimal for one-dimensional
 -- 'Proposal's; one could also store the affected number of dimensions with the
@@ -206,7 +206,7 @@ fromList xs =
     then Cycle xs def
     else error "fromList: Proposals don't have unique names."
   where
-    nms = map mvName xs
+    nms = map pName xs
 
 -- | Set the order of 'Proposal's in a 'Cycle'.
 setOrder :: Order -> Cycle a -> Cycle a
@@ -215,26 +215,26 @@ setOrder o c = c {ccOrder = o}
 -- | Replicate 'Proposal's according to their weights and possibly shuffle them.
 getNCycles :: Cycle a -> Int -> GenIO -> IO [[Proposal a]]
 getNCycles (Cycle xs o) n g = case o of
-  RandomO -> shuffleN mvs n g
-  SequentialO -> return $ replicate n mvs
+  RandomO -> shuffleN ps n g
+  SequentialO -> return $ replicate n ps
   RandomReversibleO -> do
-    mvsRs <- shuffleN mvs n g
-    return [mvsR ++ reverse mvsR | mvsR <- mvsRs]
-  SequentialReversibleO -> return $ replicate n $ mvs ++ reverse mvs
+    psRs <- shuffleN ps n g
+    return [psR ++ reverse psR | psR <- psRs]
+  SequentialReversibleO -> return $ replicate n $ ps ++ reverse ps
   where
-    !mvs = concat [replicate (mvWeight m) m | m <- xs]
+    !ps = concat [replicate (pWeight m) m | m <- xs]
 
 -- | Tune 'Proposal's in the 'Cycle'. See 'tune'.
 tuneCycle :: Map (Proposal a) Double -> Cycle a -> Cycle a
 tuneCycle m c =
-  if sort (M.keys m) == sort mvs
-    then c {ccProposals = map tuneF mvs}
+  if sort (M.keys m) == sort ps
+    then c {ccProposals = map tuneF ps}
     else error "tuneCycle: Map contains proposals that are not in the cycle."
   where
-    mvs = ccProposals c
-    tuneF mv = case m M.!? mv of
-      Nothing -> mv
-      Just x -> fromMaybe mv (tune x mv)
+    ps = ccProposals c
+    tuneF p = case m M.!? p of
+      Nothing -> p
+      Just x -> fromMaybe p (tune x p)
 
 -- | Calculate acceptance ratios and auto tune the 'Proposal's in the 'Cycle'. For
 -- now, a 'Proposal' is enlarged when the acceptance ratio is above 0.44, and
@@ -259,12 +259,12 @@ proposalHeader =
 summarizeProposal :: Proposal a -> Maybe (Int, Int, Double) -> Text
 summarizeProposal m r = renderRow (T.pack name) weight nAccept nReject acceptRatio tuneParamStr
   where
-    name = mvName m
-    weight = B.toLazyText $ B.decimal $ mvWeight m
+    name = pName m
+    weight = B.toLazyText $ B.decimal $ pWeight m
     nAccept = B.toLazyText $ maybe "" (B.decimal . (^. _1)) r
     nReject = B.toLazyText $ maybe "" (B.decimal . (^. _2)) r
     acceptRatio = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3) . (^. _3)) r
-    tuneParamStr = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) (tParam <$> mvTuner m)
+    tuneParamStr = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) (tParam <$> pTuner m)
 
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance ratios.
 summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> Text
@@ -274,11 +274,11 @@ summarizeCycle a c =
       proposalHeader,
       "   " <> T.replicate (T.length proposalHeader - 3) "─"
     ]
-      ++ [summarizeProposal m (ar m) | m <- mvs]
+      ++ [summarizeProposal m (ar m) | m <- ps]
       ++ ["   " <> T.replicate (T.length proposalHeader - 3) "─"]
   where
-    mvs = ccProposals c
-    mpi = B.toLazyText $ B.decimal $ sum $ map mvWeight mvs
+    ps = ccProposals c
+    mpi = B.toLazyText $ B.decimal $ sum $ map pWeight ps
     ar m = acceptanceRatio m a
 
 -- | For each key @k@, store the number of accepted and rejected proposals.
