@@ -13,7 +13,10 @@
 -- Please refer to the corresponding [RevBayes
 -- tutorial](https://revbayes.github.io/tutorials/mcmc/archery.html). Here, the
 -- gamma distribution is not used to reduce computation of the posterior.
-module Main (main) where
+module Main
+  ( main,
+  )
+where
 
 import Control.Monad
 import Mcmc
@@ -53,10 +56,10 @@ lh xs p
   | p <= 0 = pzero
   | otherwise = product [Exp $ logDensity (exponential p) x | x <- xs]
 
--- The move cycle consists of one move only. A uniform distribution is used to
+-- The proposal cycle consists of one proposal only. A uniform distribution is used to
 -- slide the precision of the archer.
-moveCycle :: Cycle Precision
-moveCycle = fromList [slideUniform "mu; slide uniform" 1 id 1.0 True]
+proposals :: Cycle Precision
+proposals = fromList [slideUniform "mu; slide uniform" 1 id 1.0 True]
 
 -- Monitor the precision of the archer.
 monMu :: MonitorParameter Precision
@@ -100,6 +103,6 @@ main = do
   -- Simulate a list of observed arrow distances.
   xs <- distances g
   -- Combine all the objects defined above.
-  let s = noSave $ status "Archery" pr (lh xs) moveCycle mon 0.01 nBurnIn nAutoTune nIter g
+  let s = force $ noSave $ status "Archery" pr (lh xs) proposals mon 0.01 nBurnIn nAutoTune nIter g
   -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
   void $ mh s

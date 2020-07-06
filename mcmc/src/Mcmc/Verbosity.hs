@@ -19,8 +19,8 @@ module Mcmc.Verbosity
   )
 where
 
-import Data.Aeson.TH
 import Control.Monad
+import Data.Aeson.TH
 
 -- | Not much to say here.
 data Verbosity = Quiet | Warn | Info | Debug deriving (Show, Eq, Ord)

@@ -29,6 +29,7 @@ module Mcmc.Status
   ( Status (..),
     status,
     noSave,
+    force,
     quiet,
     debug,
   )
@@ -38,64 +39,74 @@ import Data.Maybe
 import Data.Time.Clock
 import Mcmc.Item
 import Mcmc.Monitor
-import Mcmc.Move
+import Mcmc.Proposal
 import Mcmc.Trace
-import Mcmc.Verbosity (Verbosity(..))
+import Mcmc.Verbosity (Verbosity (..))
 import Numeric.Log
+import System.IO
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
 
 -- | The 'Status' contains all information to run an MCMC chain. It is
 -- constructed using the function 'status'.
-data Status a = Status
-  { -- Variables saved to disc.
+data Status a
+  = Status
+      { -- MCMC related variables; saved.
 
-    -- | The name of the MCMC chain; used as file prefix.
-    name :: String,
-    -- | The current 'Item' of the chain combines the current state and the
-    -- current likelihood.
-    item :: Item a,
-    -- | The iteration is the number of completed cycles.
-    iteration :: Int,
-    -- | The 'Trace' of the Markov chain in reverse order, the most recent
-    -- 'Item' is at the head of the list.
-    trace :: Trace a,
-    -- | For each 'Move', store the list of accepted (True) and rejected (False)
-    -- proposals; for reasons of efficiency, the list is also stored in reverse
-    -- order.
-    acceptance :: Acceptance (Move a),
-    -- | Number of burn in iterations; deactivate burn in with 'Nothing'.
-    burnInIterations :: Maybe Int,
-    -- | Auto tuning period (only during burn in); deactivate auto tuning with
-    -- 'Nothing'.
-    autoTuningPeriod :: Maybe Int,
-    -- | Number of normal iterations excluding burn in. Note that auto tuning
-    -- only happens during burn in.
-    iterations :: Int,
-    -- | Starting time and starting iteration of chain; used to calculate
-    -- run time and ETA.
-    start :: Maybe (Int, UTCTime),
-    -- | Save the chain at the end of the run? Defaults to 'True'.
-    save :: Bool,
-    -- | Verbosity.
-    verbosity :: Verbosity,
-    -- | The random number generator.
-    generator :: GenIO,
-    -- Auxiliary functions.
+        -- | The name of the MCMC chain; used as file prefix.
+        name :: String,
+        -- | The current 'Item' of the chain combines the current state and the
+        -- current likelihood.
+        item :: Item a,
+        -- | The iteration is the number of completed cycles.
+        iteration :: Int,
+        -- | The 'Trace' of the Markov chain in reverse order, the most recent
+        -- 'Item' is at the head of the list.
+        trace :: Trace a,
+        -- | For each 'Proposal', store the list of accepted (True) and rejected (False)
+        -- proposals; for reasons of efficiency, the list is also stored in reverse
+        -- order.
+        acceptance :: Acceptance (Proposal a),
+        -- | Number of burn in iterations; deactivate burn in with 'Nothing'.
+        burnInIterations :: Maybe Int,
+        -- | Auto tuning period (only during burn in); deactivate auto tuning with
+        -- 'Nothing'.
+        autoTuningPeriod :: Maybe Int,
+        -- | Number of normal iterations excluding burn in. Note that auto tuning
+        -- only happens during burn in.
+        iterations :: Int,
+        -- Auxiliary variables; saved.
 
-    -- | The prior function. The un-normalized posterior is the product of the
-    -- prior and the likelihood.
-    priorF :: a -> Log Double,
-    -- | The likelihood function. The un-normalized posterior is the product of
-    -- the prior and the likelihood.
-    likelihoodF :: a -> Log Double,
-    -- Variables related to the algorithm.
+        -- | Overwrite output files? Default is 'False', change with 'force'.
+        forceOverwrite :: Bool,
+        -- | Save the chain at the end of the run? Default is 'True', change with 'noSave'.
+        save :: Bool,
+        -- | Verbosity.
+        verbosity :: Verbosity,
+        -- | The random number generator.
+        generator :: GenIO,
+        -- Auxiliary variables; not saved.
 
-    -- | A set of 'Move's form a 'Cycle'.
-    cycle :: Cycle a,
-    -- | A 'Monitor' observing the chain.
-    monitor :: Monitor a
-  }
+        -- | Starting time and starting iteration of chain; used to calculate
+        -- run time and ETA.
+        start :: Maybe (Int, UTCTime),
+        -- | Handle to log file.
+        logHandle :: Maybe Handle,
+        -- Auxiliary functions; not saved.
+
+        -- | The prior function. The un-normalized posterior is the product of the
+        -- prior and the likelihood.
+        priorF :: a -> Log Double,
+        -- | The likelihood function. The un-normalized posterior is the product of
+        -- the prior and the likelihood.
+        likelihoodF :: a -> Log Double,
+        -- Variables related to the algorithm; not saved.
+
+        -- | A set of 'Proposal's form a 'Cycle'.
+        cycle :: Cycle a,
+        -- | A 'Monitor' observing the chain.
+        monitor :: Monitor a
+      }
 
 -- | Initialize the 'Status' of a Markov chain Monte Carlo run.
 status ::
@@ -105,7 +116,7 @@ status ::
   (a -> Log Double) ->
   -- | The likelihood function.
   (a -> Log Double) ->
-  -- | A list of 'Move's executed in forward order. The
+  -- | A list of 'Proposal's executed in forward order. The
   -- chain will be logged after each cycle.
   Cycle a ->
   -- | A 'Monitor' observing the chain.
@@ -132,14 +143,16 @@ status n p l c m x mB mT nI g
       i
       0
       (singletonT i)
-      (emptyA $ ccMoves c)
+      (emptyA $ ccProposals c)
       mB
       mT
       nI
-      Nothing
+      False
       True
       Info
       g
+      Nothing
+      Nothing
       p
       l
       c
@@ -151,8 +164,13 @@ status n p l c m x mB mT nI g
 noSave :: Status a -> Status a
 noSave s = s {save = False}
 
--- | Do not print anything to standard output. File monitors and batch monitors
--- are executed normally.
+-- | Overwrite existing files; it is not necessary to use 'force', when a chain
+-- is continued.
+force :: Status a -> Status a
+force s = s {forceOverwrite = True}
+
+-- | Do not print anything to standard output. Do not create log file. File
+-- monitors and batch monitors are executed normally.
 quiet :: Status a -> Status a
 quiet s = s {verbosity = Quiet}
 

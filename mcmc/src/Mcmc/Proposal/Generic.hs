@@ -1,13 +1,13 @@
 {-# LANGUAGE RankNTypes #-}
 
--- Technically, only a Getter is needed when calculating the density of the move
+-- Technically, only a Getter is needed when calculating the density of the proposal
 -- ('densCont', and similar functions). I tried splitting the lens into a getter
 -- and a setter. However, speed improvements were marginal, and some times not
 -- even measurable. Using a 'Lens'' is just easier, and has no real drawbacks.
 
 -- |
--- Module      :  Mcmc.Move.Generic
--- Description :  Generic interface to create moves
+-- Module      :  Mcmc.Proposal.Generic
+-- Description :  Generic interface to create proposals
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -16,16 +16,16 @@
 -- Portability :  portable
 --
 -- Creation date: Thu May 14 20:26:27 2020.
-module Mcmc.Move.Generic
-  ( moveGenericContinuous,
-    moveSymmetricGenericContinuous,
-    moveGenericDiscrete,
-    moveSymmetricGenericDiscrete,
+module Mcmc.Proposal.Generic
+  ( proposalGenericContinuous,
+    proposalSymmetricGenericContinuous,
+    proposalGenericDiscrete,
+    proposalSymmetricGenericDiscrete,
   )
 where
 
 import Lens.Micro
-import Mcmc.Move
+import Mcmc.Proposal
 import Numeric.Log
 import Statistics.Distribution
 import System.Random.MWC
@@ -54,8 +54,8 @@ densCont ::
 densCont l d fInv x y = Exp $ logDensity d ((y ^. l) `fInv` (x ^. l))
 {-# INLINEABLE densCont #-}
 
--- | Generic function to create moves for continuous parameters ('Double').
-moveGenericContinuous ::
+-- | Generic function to create proposals for continuous parameters ('Double').
+proposalGenericContinuous ::
   (ContDistr d, ContGen d) =>
   -- | Instruction about which parameter to change.
   Lens' a Double ->
@@ -65,12 +65,12 @@ moveGenericContinuous ::
   (Double -> Double -> Double) ->
   -- | Inverse operator, e.g.,(-), so that y - dx = x.
   (Double -> Double -> Double) ->
-  MoveSimple a
-moveGenericContinuous l d f fInv =
-  MoveSimple (jumpCont l d f) (Just $ densCont l d fInv)
+  ProposalSimple a
+proposalGenericContinuous l d f fInv =
+  ProposalSimple (jumpCont l d f) (Just $ densCont l d fInv)
 
--- | Generic function to create symmetric moves for continuous parameters ('Double').
-moveSymmetricGenericContinuous ::
+-- | Generic function to create symmetric proposals for continuous parameters ('Double').
+proposalSymmetricGenericContinuous ::
   (ContDistr d, ContGen d) =>
   -- | Instruction about which parameter to change.
   Lens' a Double ->
@@ -78,9 +78,9 @@ moveSymmetricGenericContinuous ::
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
   (Double -> Double -> Double) ->
-  MoveSimple a
-moveSymmetricGenericContinuous l d f =
-  MoveSimple (jumpCont l d f) Nothing
+  ProposalSimple a
+proposalSymmetricGenericContinuous l d f =
+  ProposalSimple (jumpCont l d f) Nothing
 
 jumpDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
@@ -107,8 +107,8 @@ densDiscrete l d fInv x y =
   Exp $ logProbability d ((y ^. l) `fInv` (x ^. l))
 {-# INLINEABLE densDiscrete #-}
 
--- | Generic function to create moves for discrete parameters ('Int').
-moveGenericDiscrete ::
+-- | Generic function to create proposals for discrete parameters ('Int').
+proposalGenericDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
   -- | Instruction about which parameter to change.
   Lens' a Int ->
@@ -118,12 +118,12 @@ moveGenericDiscrete ::
   (Int -> Int -> Int) ->
   -- | Inverse operator, e.g.,(-), so that y - dx = x.
   (Int -> Int -> Int) ->
-  MoveSimple a
-moveGenericDiscrete l fd f fInv =
-  MoveSimple (jumpDiscrete l fd f) (Just $ densDiscrete l fd fInv)
+  ProposalSimple a
+proposalGenericDiscrete l fd f fInv =
+  ProposalSimple (jumpDiscrete l fd f) (Just $ densDiscrete l fd fInv)
 
--- | Generic function to create symmetric moves for discrete parameters ('Int').
-moveSymmetricGenericDiscrete ::
+-- | Generic function to create symmetric proposals for discrete parameters ('Int').
+proposalSymmetricGenericDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
   -- | Instruction about which parameter to change.
   Lens' a Int ->
@@ -131,6 +131,6 @@ moveSymmetricGenericDiscrete ::
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
   (Int -> Int -> Int) ->
-  MoveSimple a
-moveSymmetricGenericDiscrete l fd f =
-  MoveSimple (jumpDiscrete l fd f) Nothing
+  ProposalSimple a
+proposalSymmetricGenericDiscrete l fd f =
+  ProposalSimple (jumpDiscrete l fd f) Nothing

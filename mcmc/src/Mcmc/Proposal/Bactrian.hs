@@ -1,14 +1,14 @@
 {-# LANGUAGE RankNTypes #-}
 
--- TODO: Test these moves!
+-- TODO: Test these proposals!
 
--- TODO: Benchmark these moves!
+-- TODO: Benchmark these proposals!
 
 -- TODO: Remove standard output from benchmarks.
 
 -- |
--- Module      :  Mcmc.Move.Bactrian
--- Description :  Bactrian moves
+-- Module      :  Mcmc.Proposal.Bactrian
+-- Description :  Bactrian proposals
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -19,14 +19,14 @@
 -- Creation date: Thu Jun 25 15:49:48 2020.
 --
 -- See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
-module Mcmc.Move.Bactrian
+module Mcmc.Proposal.Bactrian
   ( slideBactrian,
     scaleBactrian,
   )
 where
 
 import Lens.Micro
-import Mcmc.Move
+import Mcmc.Proposal
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
@@ -63,14 +63,14 @@ bactrianAdditiveSimple ::
   Double ->
   Double ->
   Double ->
-  MoveSimple a
+  ProposalSimple a
 bactrianAdditiveSimple l m s t
   | m < 0 = error "bactrianAdditiveSimple: Spike parameter negative."
   | m >= 1 = error "bactrianAdditiveSimple: Spike parameter 1.0 or larger."
   | s <= 0 = error "bactrianAdditiveSimple: Standard deviation 0.0 or smaller."
-  | otherwise = MoveSimple (bactrianAdditive l m (t * s)) Nothing
+  | otherwise = ProposalSimple (bactrianAdditive l m (t * s)) Nothing
 
--- | Additive symmetric move with density similar to the silhouette of a
+-- | Additive symmetric proposal with density similar to the silhouette of a
 -- Bactrian camel. The [Bactrian
 -- density](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/figure/fig01)
 -- is a mixture of two symmetrically arranged normal distributions. The spike
@@ -92,9 +92,10 @@ slideBactrian ::
   Double ->
   -- | Enable tuning.
   Bool ->
-  Move a
-slideBactrian n w l m s t = Move n w (bactrianAdditiveSimple l m s 1.0) tnr
-  where tnr = if t then Just $ tuner (bactrianAdditiveSimple l m s) else Nothing
+  Proposal a
+slideBactrian n w l m s t = Proposal n w (bactrianAdditiveSimple l m s 1.0) tnr
+  where
+    tnr = if t then Just $ tuner (bactrianAdditiveSimple l m s) else Nothing
 
 bactrianMult ::
   Lens' a Double ->
@@ -122,14 +123,14 @@ bactrianMultDens l m s x y = bactrianDens m s dx
   where
     dx = y ^. l / x ^. l
 
-bactrianMultSimple :: Lens' a Double -> Double -> Double -> Double -> MoveSimple a
+bactrianMultSimple :: Lens' a Double -> Double -> Double -> Double -> ProposalSimple a
 bactrianMultSimple l m s t
   | m < 0 = error "bactrianMultSimple: Spike parameter negative."
   | m >= 1 = error "bactrianMultSimple: Spike parameter 1.0 or larger."
   | s <= 0 = error "bactrianMultSimple: Standard deviation 0.0 or smaller."
-  | otherwise = MoveSimple (bactrianMult l m (t * s)) (Just $ bactrianMultDens l m (t * s))
+  | otherwise = ProposalSimple (bactrianMult l m (t * s)) (Just $ bactrianMultDens l m (t * s))
 
--- | Multiplicative move with density similar to the silhouette of a Bactrian
+-- | Multiplicative proposal with density similar to the silhouette of a Bactrian
 -- camel. See 'slideBactrian'.
 scaleBactrian ::
   -- | Name.
@@ -144,6 +145,7 @@ scaleBactrian ::
   Double ->
   -- | Enable tuning.
   Bool ->
-  Move a
-scaleBactrian n w l m s t = Move n w (bactrianMultSimple l m s 1.0) tnr
-  where tnr = if t then Just $ tuner (bactrianMultSimple l m s) else Nothing
+  Proposal a
+scaleBactrian n w l m s t = Proposal n w (bactrianMultSimple l m s 1.0) tnr
+  where
+    tnr = if t then Just $ tuner (bactrianMultSimple l m s) else Nothing

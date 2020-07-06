@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- |
 -- Module      :  Mcmc.Metropolis
@@ -24,25 +25,25 @@ import Data.Aeson
 import Data.Maybe
 import Mcmc.Item
 import Mcmc.Mcmc
-import Mcmc.Move
+import Mcmc.Proposal
 import Mcmc.Status
 import Mcmc.Trace
 import Numeric.Log
 import System.Random.MWC
 import Prelude hiding (cycle)
 
--- For non-symmetric moves.
+-- For non-symmetric proposals.
 mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
 {-# INLINE mhRatio #-}
 
--- For symmetric moves.
+-- For symmetric proposals.
 mhRatioSymmetric :: Log Double -> Log Double -> Log Double
 mhRatioSymmetric lX lY = lY / lX
 {-# INLINE mhRatioSymmetric #-}
 
-mhMove :: Move a -> Mcmc a ()
-mhMove m = do
+mhPropose :: Proposal a -> Mcmc a ()
+mhPropose m = do
   let p = mvSample $ mvSimple m
       mq = mvDensity $ mvSimple m
   s <- get
@@ -70,10 +71,10 @@ mhMove m = do
 
 -- TODO: Splitmix. Split the generator here. See SaveSpec -> mhContinue.
 
--- Run one iterations; perform all moves in a Cycle.
-mhIter :: ToJSON a => [Move a] -> Mcmc a ()
+-- Run one iterations; perform all proposals in a Cycle.
+mhIter :: ToJSON a => [Proposal a] -> Mcmc a ()
 mhIter mvs = do
-  mapM_ mhMove mvs
+  mapM_ mhPropose mvs
   s <- get
   let i = item s
       t = trace s
@@ -93,12 +94,17 @@ mhNIter n = do
 mhBurnInN :: ToJSON a => Int -> Maybe Int -> Mcmc a ()
 mhBurnInN b (Just t)
   | t <= 0 = error "mhBurnInN: Auto tuning period smaller equal 0."
-  | b > t = mcmcResetA >> mhNIter t >> mcmcDebugA mcmcSummarizeCycle >> mcmcAutotune >> mhBurnInN (b - t) (Just t)
+  | b > t = do
+    mcmcResetA
+    mhNIter t
+    _ <- mcmcDebug <$> mcmcSummarizeCycle
+    mcmcAutotune
+    mhBurnInN (b - t) (Just t)
   | otherwise = do
-      mcmcResetA
-      mhNIter b
-      mcmcSummarizeCycle
-      mcmcInfo $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
+    mcmcResetA
+    mhNIter b
+    _ <- mcmcInfoClean <$> mcmcSummarizeCycle
+    mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
 mhBurnInN b Nothing = mhNIter b
 
 -- Initialize burn in for given number of iterations.
@@ -107,25 +113,25 @@ mhBurnIn b t
   | b < 0 = error "mhBurnIn: Negative number of burn in iterations."
   | b == 0 = return ()
   | otherwise = do
-    mcmcInfo $ "Burn in for " <> show b <> " cycles."
-    mcmcMonitorHeader
+    mcmcInfoS $ "Burn in for " <> show b <> " cycles."
+    mcmcMonitorStdOutHeader
     mhBurnInN b t
     mcmcInfo "Burn in finished."
 
 -- Run for given number of iterations.
 mhRun :: ToJSON a => Int -> Mcmc a ()
 mhRun n = do
-  mcmcInfo $ "Run chain for " <> show n <> " iterations."
-  mcmcMonitorHeader
+  mcmcInfoS $ "Run chain for " <> show n <> " iterations."
+  mcmcMonitorStdOutHeader
   mhNIter n
 
 mhT :: ToJSON a => Mcmc a ()
 mhT = do
-  s <- get
-  mcmcInfo "Start of Metropolis-Hastings sampler."
   mcmcInit
+  mcmcInfo "Start of Metropolis-Hastings sampler."
   mcmcReport
-  mcmcSummarizeCycle
+  _ <- mcmcInfoClean <$> mcmcSummarizeCycle
+  s <- get
   let b = fromMaybe 0 (burnInIterations s)
   mhBurnIn b (autoTuningPeriod s)
   let n = iterations s
@@ -135,12 +141,12 @@ mhT = do
 mhContinueT :: ToJSON a => Int -> Mcmc a ()
 mhContinueT dn = do
   mcmcInfo "Continue Metropolis-Hastings sampler."
-  mcmcInfo $ "Run chain for " <> show dn <> " additional iterations."
+  mcmcInfoS $ "Run chain for " <> show dn <> " additional iterations."
   s <- get
   let n = iterations s
   put s {iterations = n + dn}
   mcmcInit
-  mcmcSummarizeCycle
+  _ <- mcmcInfoClean <$> mcmcSummarizeCycle
   mhRun dn
   mcmcClose
 
@@ -162,7 +168,9 @@ mh ::
   -- | Initial (or last) status of the Markov chain.
   Status a ->
   IO (Status a)
-mh s = if iteration s == 0
-       then execStateT mhT s
-       else do putStrLn "To continue a Markov chain run, please use 'mhContinue'."
-               error $ "mh: Current iteration " ++ show (iteration s) ++ " is non-zero."
+mh s =
+  if iteration s == 0
+    then execStateT mhT s
+    else do
+      putStrLn "To continue a Markov chain run, please use 'mhContinue'."
+      error $ "mh: Current iteration " ++ show (iteration s) ++ " is non-zero."

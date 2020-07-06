@@ -30,8 +30,8 @@ import Algebra.Graph.Labelled.AdjacencyMap
 import Data.Aeson
 import Data.ByteString.Lazy (ByteString)
 import Data.Maybe
-import Data.Traversable
 import qualified Data.Set as S
+import Data.Traversable
 import Data.Tree
 import Lens.Micro.Platform
 import qualified Newick as N
@@ -80,8 +80,9 @@ fromTree o t = removeVertex (0, o) $ (edges . S.toList . go (0, o)) (label t)
     go p (Node (b, x) f) = S.insert (toD b, p, x) $ S.unions $ map (go x) f
 
 prune :: (Eq e, Num e) => Tree (e, a) -> Tree (e, a)
-prune t@(Node (b, _) [c]) | b == 0 = prune c
-                          | otherwise = t
+prune t@(Node (b, _) [c])
+  | b == 0 = prune c
+  | otherwise = t
 prune t = t
 
 -- | Parse @n@ Newick trees. To ensure unique node labels, 'Int' labels are

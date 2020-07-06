@@ -33,8 +33,8 @@ trueStdDev = 4
 lh :: Double -> Log Double
 lh = Exp . logDensity (normalDistr trueMean trueStdDev)
 
-moveCycle :: Cycle Double
-moveCycle =
+proposals :: Cycle Double
+proposals =
   fromList
     [ slideSymmetric "small" 5 id 0.1 True,
       slideSymmetric "medium" 2 id 1.0 True,
@@ -59,5 +59,5 @@ nIter = 20000
 
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  let s = quiet $ noSave $ status "Normal" (const 1) lh moveCycle mon 0 nBurn nAutoTune nIter g
+  let s = quiet $ noSave $ status "Normal" (const 1) lh proposals mon 0 nBurn nAutoTune nIter g
   void $ mh s

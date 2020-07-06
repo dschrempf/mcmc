@@ -36,8 +36,8 @@ trueStdDev = 4
 lh :: Double -> Log Double
 lh = Exp . logDensity (normalDistr trueMean trueStdDev)
 
-moveCycle :: Cycle Double
-moveCycle =
+proposals :: Cycle Double
+proposals =
   fromList
     [ slideSymmetric "small" 5 id 0.1 True,
       slideSymmetric "medium" 2 id 1.0 True,
@@ -66,29 +66,30 @@ spec =
     $ it "doesn't change the MCMC chain"
     $ do
       gen <- create
-      let s = quiet $ noSave $ status "SaveSpec" (const 1) lh moveCycle mon 0 nBurn nAutoTune nIter gen
+      let s =
+            force $ quiet $ noSave $
+              status "SaveSpec" (const 1) lh proposals mon 0 nBurn nAutoTune nIter gen
       saveStatus "SaveSpec.json" s
-      s' <- loadStatus (const 1) lh moveCycle mon "SaveSpec.json"
-      removeFile "SaveSpec.json"
+      s' <- loadStatus (const 1) lh proposals mon "SaveSpec.json"
       r <- mh s
       r' <- mh s'
+      removeFile "SaveSpec.json"
       item r `shouldBe` item r'
       iteration r `shouldBe` iteration r'
       trace r `shouldBe` trace r'
       g <- save $ generator r
       g' <- save $ generator r'
       g `shouldBe` g'
-
 -- -- TODO: Splitmix. This will only work with a splittable generator
 -- -- because getNCycles changes the generator.
 -- describe "mhContinue"
 --   $ it "mh 200 + mhContinue 200 == mh 400"
 --   $ do
 --     gen1 <- create
---     let s1 = noSave $ status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune 400 gen1
+--     let s1 = noSave $ status "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 400 gen1
 --     r1 <- mh s1
 --     gen2 <- create
---     let s2 = noSave $ status "SaveSpec" (const 1) likelihood moveCycle mon 0 nBurn nAutoTune 200 gen2
+--     let s2 = noSave $ status "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 200 gen2
 --     r2' <- mh s2
 --     r2 <- mhContinue 200 r2'
 --     item r1 `shouldBe` item r2

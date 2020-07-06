@@ -13,7 +13,10 @@
 -- Portability :  portable
 --
 -- Creation date: Wed Jun 10 22:07:11 2020.
-module Main (main) where
+module Main
+  ( main,
+  )
+where
 
 import Algebra.Graph.Label
 import Algebra.Graph.Labelled.AdjacencyMap
@@ -100,21 +103,21 @@ getEdgeLabels = map (fromD . (^. _1)) . edgeList
 getEdges :: Tree a -> [(Node, Node)]
 getEdges = map (\(_, x, y) -> (x, y)) . edgeList
 
--- Sliding move changing the length of a branch.
-slideBranch :: Node -> Node -> Move (Tree Length)
+-- Sliding proposal changing the length of a branch.
+slideBranch :: Node -> Node -> Proposal (Tree Length)
 slideBranch x y = slideSymmetric n 1 (getLens x y) 1.0 True
   where
     n = "Slide edge " <> show (x, y)
 
--- Bactrian move changing the length of a branch.
-bactrianBranch :: Node -> Node -> Move (Tree Length)
+-- Bactrian proposal changing the length of a branch.
+bactrianBranch :: Node -> Node -> Proposal (Tree Length)
 bactrianBranch x y = slideBactrian n 1 (getLens x y) 0.9 1.0 True
   where
     n = "Bactrian edge " <> show (x, y)
 
--- Collect all sliding moves into a cycle.
-moveCycle :: Cycle (Tree Length)
-moveCycle =
+-- Collect all sliding proposals into a cycle.
+proposals :: Cycle (Tree Length)
+proposals =
   fromList $
     map (uncurry slideBranch) (getEdges startingTree)
       ++ map (uncurry bactrianBranch) (getEdges startingTree)
@@ -195,19 +198,19 @@ main = do
     [] -> do
       g <- create
       -- Combine all the objects defined above.
-      let s = status nm pr (lh meanTree stdDevTree) moveCycle mon startingTree nBurnIn nAutoTune nIterations g
+      let s = force $ status nm pr (lh meanTree stdDevTree) proposals mon startingTree nBurnIn nAutoTune nIterations g
       -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
       void $ mh s
     ["continue", nStr] -> do
       -- Load a previously finished, and saved chain. We have to give the prior
-      -- and likelihood functions, as well as the move cycle and the monitors,
+      -- and likelihood functions, as well as the proposals and the monitors,
       -- because those cannot be saved consistently. The loading function checks
       -- the values of the prior and likelihood functions of the last state, to
       -- minimize the chance that wrong functions are used by accident. It also
-      -- sets the tuning parameters of the moves in the cycle. Using different
-      -- moves in the cycle, or using different monitors may lead to undefined
+      -- sets the tuning parameters of the proposals in the cycle. Using different
+      -- proposals in the cycle, or using different monitors may lead to undefined
       -- behavior and is not supported.
-      s <- loadStatus pr (lh meanTree stdDevTree) moveCycle mon (nm ++ ".mcmc")
+      s <- loadStatus pr (lh meanTree stdDevTree) proposals mon (nm ++ ".mcmc")
       -- Continue the chain for the given number of iterations.
       void $ mhContinue (read nStr) s
     xs -> do

@@ -47,14 +47,14 @@ lh :: I -> Log Double
 lh x =
   product [f ft yr x | (ft, yr) <- zip fatalities normalizedYears]
 
-moveAlpha :: Move I
-moveAlpha = slideSymmetric "alpha" 2 _1 0.2 False
+proposalAlpha :: Proposal I
+proposalAlpha = slideSymmetric "alpha" 2 _1 0.2 False
 
-moveBeta :: Move I
-moveBeta = slideSymmetric "beta" 1 _2 0.2 False
+proposalBeta :: Proposal I
+proposalBeta = slideSymmetric "beta" 1 _2 0.2 False
 
-moveCycle :: Cycle I
-moveCycle = fromList [moveAlpha, moveBeta]
+proposals :: Cycle I
+proposals = fromList [proposalAlpha, proposalBeta]
 
 initial :: I
 initial = (0, 0)
@@ -82,5 +82,5 @@ nIter = 10000
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  let s = quiet $ noSave $ status "Poisson" (const 1) lh moveCycle mon initial nBurn nAutoTune nIter g
+  let s = quiet $ noSave $ status "Poisson" (const 1) lh proposals mon initial nBurn nAutoTune nIter g
   void $ mh s

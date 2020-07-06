@@ -1,8 +1,8 @@
 {-# LANGUAGE RankNTypes #-}
 
 -- |
--- Module      :  Mcmc.Move.Scale
--- Description :  Scaling move with Gamma distribution
+-- Module      :  Mcmc.Proposal.Scale
+-- Description :  Scaling proposal with Gamma distribution
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -11,22 +11,22 @@
 -- Portability :  portable
 --
 -- Creation date: Thu May 14 21:49:23 2020.
-module Mcmc.Move.Scale
+module Mcmc.Proposal.Scale
   ( scale,
     scaleUnbiased,
   )
 where
 
 import Lens.Micro
-import Mcmc.Move
-import Mcmc.Move.Generic
+import Mcmc.Proposal
+import Mcmc.Proposal.Generic
 import Statistics.Distribution.Gamma
 
--- The actual move with tuning parameter.
-scaleSimple :: Lens' a Double -> Double -> Double -> Double -> MoveSimple a
-scaleSimple l k th t = moveGenericContinuous l (gammaDistr k (t * th)) (*) (/)
+-- The actual proposal with tuning parameter.
+scaleSimple :: Lens' a Double -> Double -> Double -> Double -> ProposalSimple a
+scaleSimple l k th t = proposalGenericContinuous l (gammaDistr k (t * th)) (*) (/)
 
--- | Multiplicative move with Gamma distributed density.
+-- | Multiplicative proposal with Gamma distributed density.
 scale ::
   -- | Name.
   String ->
@@ -40,11 +40,12 @@ scale ::
   Double ->
   -- | Enable tuning.
   Bool ->
-  Move a
-scale n w l k th t = Move n w (scaleSimple l k th 1.0) tnr
-  where tnr = if t then Just $ tuner $ scaleSimple l k th else Nothing
+  Proposal a
+scale n w l k th t = Proposal n w (scaleSimple l k th 1.0) tnr
+  where
+    tnr = if t then Just $ tuner $ scaleSimple l k th else Nothing
 
--- | Multiplicative move with Gamma distributed density. The scale of the Gamma
+-- | Multiplicative proposal with Gamma distributed density. The scale of the Gamma
 -- distributions is set to (shape)^{-1}, so that the mean of the Gamma
 -- distribution is 1.0.
 scaleUnbiased ::
@@ -58,6 +59,7 @@ scaleUnbiased ::
   Double ->
   -- | Enable tuning.
   Bool ->
-  Move a
-scaleUnbiased n w l k t = Move n w (scaleSimple l k (1 / k) 1.0) tnr
-  where tnr = if t then  Just $ tuner $ scaleSimple l k (1 / k) else Nothing
+  Proposal a
+scaleUnbiased n w l k t = Proposal n w (scaleSimple l k (1 / k) 1.0) tnr
+  where
+    tnr = if t then Just $ tuner $ scaleSimple l k (1 / k) else Nothing

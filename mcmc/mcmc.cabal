@@ -35,11 +35,11 @@ library
       Mcmc.Monitor.Parameter
       Mcmc.Monitor.ParameterBatch
       Mcmc.Monitor.Time
-      Mcmc.Move
-      Mcmc.Move.Bactrian
-      Mcmc.Move.Generic
-      Mcmc.Move.Scale
-      Mcmc.Move.Slide
+      Mcmc.Proposal
+      Mcmc.Proposal.Bactrian
+      Mcmc.Proposal.Generic
+      Mcmc.Proposal.Scale
+      Mcmc.Proposal.Slide
       Mcmc.Save
       Mcmc.Status
       Mcmc.Tools.Shuffle
@@ -74,8 +74,8 @@ test-suite mcmc-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Mcmc.Move.SlideSpec
-      Mcmc.MoveSpec
+      Mcmc.Proposal.SlideSpec
+      Mcmc.ProposalSpec
       Mcmc.SaveSpec
       Paths_mcmc
   hs-source-dirs:

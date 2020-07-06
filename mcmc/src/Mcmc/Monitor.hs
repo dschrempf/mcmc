@@ -52,21 +52,23 @@ import Prelude hiding (sum)
 -- | A 'Monitor' describes which part of the Markov chain should be logged and
 -- where. Further, they allow output of summary statistics per iteration in a
 -- flexible way.
-data Monitor a = Monitor
-  { -- | Monitor writing to standard output.
-    mStdOut :: MonitorStdOut a,
-    -- | Monitors writing to files.
-    mFiles :: [MonitorFile a],
-    -- | Monitors calculating batch means and
-    -- writing to files.
-    mBatches :: [MonitorBatch a]
-  }
+data Monitor a
+  = Monitor
+      { -- | Monitor writing to standard output.
+        mStdOut :: MonitorStdOut a,
+        -- | Monitors writing to files.
+        mFiles :: [MonitorFile a],
+        -- | Monitors calculating batch means and
+        -- writing to files.
+        mBatches :: [MonitorBatch a]
+      }
 
 -- | Monitor to standard output; constructed with 'monitorStdOut'.
-data MonitorStdOut a = MonitorStdOut
-  { msParams :: [MonitorParameter a],
-    msPeriod :: Int
-  }
+data MonitorStdOut a
+  = MonitorStdOut
+      { msParams :: [MonitorParameter a],
+        msPeriod :: Int
+      }
 
 -- | Monitor to standard output.
 monitorStdOut ::
@@ -90,8 +92,8 @@ msRenderRow xs = T.justifyRight msIWidth ' ' (head xs) <> T.concat vals
   where
     vals = map (T.justifyRight msWidth ' ') (tail xs)
 
-msHeader :: MonitorStdOut a -> IO ()
-msHeader m = T.hPutStr stdout $ T.unlines [row, sep]
+msHeader :: MonitorStdOut a -> Text
+msHeader m = T.intercalate "\n" [row, sep]
   where
     row =
       msRenderRow $
@@ -131,12 +133,13 @@ msExec i (Item x p l) (ss, st) j m
         ++ [renderDuration dt, eta]
 
 -- | Monitor to a file; constructed with 'monitorFile'.
-data MonitorFile a = MonitorFile
-  { mfName :: String,
-    mfHandle :: Maybe Handle,
-    mfParams :: [MonitorParameter a],
-    mfPeriod :: Int
-  }
+data MonitorFile a
+  = MonitorFile
+      { mfName :: String,
+        mfHandle :: Maybe Handle,
+        mfParams :: [MonitorParameter a],
+        mfPeriod :: Int
+      }
 
 -- XXX: The file monitor also includes iteration, prior, likelihood, and
 -- posterior. What if I want to log trees; or other complex objects? In this
@@ -158,9 +161,18 @@ monitorFile n ps p
 mfRenderRow :: [Text] -> Text
 mfRenderRow = T.intercalate "\t"
 
-mfOpen :: String -> MonitorFile a -> IO (MonitorFile a)
-mfOpen n m = do
-  h <- openFile (n <> mfName m <> ".monitor") WriteMode
+open' :: String -> Bool -> IO Handle
+open' n frc = do
+  fe <- doesFileExist n
+  case (fe, frc) of
+    (False, _) -> openFile n WriteMode
+    (True, True) -> openFile n WriteMode
+    (True, False) -> error $ "open': File \"" <> n <> "\" exists; probably use 'force'?"
+
+mfOpen :: String -> Bool -> MonitorFile a -> IO (MonitorFile a)
+mfOpen n frc m = do
+  let mfn = n <> mfName m <> ".monitor"
+  h <- open' mfn frc
   hSetBuffering h LineBuffering
   return $ m {mfHandle = Just h}
 
@@ -220,12 +232,13 @@ mfClose m = case mfHandle m of
 --
 -- Batch monitors are slow at the moment because the monitored parameter has to
 -- be extracted from the state for each iteration.
-data MonitorBatch a = MonitorBatch
-  { mbName :: String,
-    mbHandle :: Maybe Handle,
-    mbParams :: [MonitorParameterBatch a],
-    mbSize :: Int
-  }
+data MonitorBatch a
+  = MonitorBatch
+      { mbName :: String,
+        mbHandle :: Maybe Handle,
+        mbParams :: [MonitorParameterBatch a],
+        mbSize :: Int
+      }
 
 -- XXX: The batch monitor also includes iteration, prior, likelihood, and
 -- posterior. What if I want to log trees; or other complex objects? In this
@@ -245,9 +258,10 @@ monitorBatch n ps p
   | p < 2 = error "monitorBatch: Batch size has to be 2 or larger."
   | otherwise = MonitorBatch n Nothing ps p
 
-mbOpen :: String -> MonitorBatch a -> IO (MonitorBatch a)
-mbOpen n m = do
-  h <- openFile (n <> mbName m <> ".batch") WriteMode
+mbOpen :: String -> Bool -> MonitorBatch a -> IO (MonitorBatch a)
+mbOpen n frc m = do
+  let mfn = n <> mbName m <> ".batch"
+  h <- open' mfn frc
   hSetBuffering h LineBuffering
   return $ m {mbHandle = Just h}
 
@@ -314,11 +328,11 @@ mbClose m = case mbHandle m of
   Nothing -> error $ "mfClose: File was not opened for batch monitor: " <> mbName m <> "."
 
 -- | Open the files associated with the 'Monitor'.
-mOpen :: String -> Monitor a -> IO (Monitor a)
-mOpen n (Monitor s fs bs) = do
-  fs' <- mapM (mfOpen n) fs
+mOpen :: String -> Bool -> Monitor a -> IO (Monitor a)
+mOpen n frc (Monitor s fs bs) = do
+  fs' <- mapM (mfOpen n frc) fs
   mapM_ mfHeader fs'
-  bs' <- mapM (mbOpen n) bs
+  bs' <- mapM (mbOpen n frc) bs
   mapM_ mbHeader bs'
   return $ Monitor s fs' bs'
 
@@ -329,8 +343,8 @@ mAppend n (Monitor s fs bs) = do
   bs' <- mapM (mbAppend n) bs
   return $ Monitor s fs' bs'
 
--- | Print header line of 'Monitor' (standard output only).
-mHeader :: Monitor a -> IO ()
+-- | Get header line of 'MonitorStdOut'.
+mHeader :: Monitor a -> Text
 mHeader (Monitor s _ _) = msHeader s
 
 -- | Execute monitors; print status information to standard output and files.

@@ -14,7 +14,7 @@
 -- Creation date: Tue Jun 16 10:18:54 2020.
 --
 -- Save and load an MCMC run. It is easy to save and restore the current state and
--- likelihood (or the trace), but it is not feasible to store all the moves and so
+-- likelihood (or the trace), but it is not feasible to store all the proposals and so
 -- on, so they have to be provided again when continuing a run.
 module Mcmc.Save
   ( saveStatus,
@@ -29,14 +29,13 @@ import Data.Aeson.TH
 import qualified Data.ByteString.Lazy as B
 import Data.List hiding (cycle)
 import qualified Data.Map as M
-import Data.Time.Clock
 import Data.Vector.Unboxed (Vector)
 import Data.Word
--- TODO: Splitmix. Remove as soon as split mix is used and is available with the
+-- TODO: Splitmix. Reproposal as soon as split mix is used and is available with the
 -- statistics package.
 import Mcmc.Item
 import Mcmc.Monitor
-import Mcmc.Move
+import Mcmc.Proposal
 import Mcmc.Status hiding (save)
 import Mcmc.Trace
 import Mcmc.Verbosity
@@ -56,7 +55,7 @@ data Save a
       (Maybe Int) -- Burn in.
       (Maybe Int) -- Auto tune.
       Int -- Iterations.
-      (Maybe (Int, UTCTime)) -- Starting iteration and time.
+      Bool -- Force.
       Bool -- Save.
       Verbosity
       (Vector Word32) -- Current seed.
@@ -67,7 +66,7 @@ data Save a
 $(deriveJSON defaultOptions ''Save)
 
 toSave :: Status a -> Save a
-toSave (Status nm it i tr ac br at is st sv vb g _ _ c _) =
+toSave (Status nm it i tr ac br at is f sv vb g _ _ _ _ c _) =
   Save
     nm
     it
@@ -77,17 +76,17 @@ toSave (Status nm it i tr ac br at is st sv vb g _ _ c _) =
     br
     at
     is
-    st
+    f
     sv
     vb
     g'
     ts
   where
-    ac' = transformKeysA (ccMoves c) [0 ..] ac
+    ac' = transformKeysA (ccProposals c) [0 ..] ac
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
     -- the statistics package.
     g' = fromSeed $ unsafePerformIO $ save g
-    ts = [fmap tParam mt | mt <- map mvTuner $ ccMoves c]
+    ts = [fmap tParam mt | mt <- map mvTuner $ ccProposals c]
 
 -- | Save a 'Status' to file.
 --
@@ -115,7 +114,7 @@ fromSave ::
   Monitor a ->
   Save a ->
   Status a
-fromSave p l c m (Save nm it i tr ac' br at is st sv vb g' ts) =
+fromSave p l c m (Save nm it i tr ac' br at is f sv vb g' ts) =
   Status
     nm
     it
@@ -125,20 +124,22 @@ fromSave p l c m (Save nm it i tr ac' br at is st sv vb g' ts) =
     br
     at
     is
-    st
+    f
     sv
     vb
     g
+    Nothing
+    Nothing
     p
     l
     c'
     m
   where
-    ac = transformKeysA [0 ..] (ccMoves c) ac'
+    ac = transformKeysA [0 ..] (ccProposals c) ac'
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
     -- the statistics package.
     g = unsafePerformIO $ restore $ toSeed g'
-    c' = tuneCycle (M.mapMaybe id $ M.fromList $ zip (ccMoves c) ts) c
+    c' = tuneCycle (M.mapMaybe id $ M.fromList $ zip (ccProposals c) ts) c
 
 -- | Load a 'Status' from file.
 -- Important information that cannot be saved and has to be provided again when

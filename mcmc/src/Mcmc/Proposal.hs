@@ -2,20 +2,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
--- TODO: Moves on simplices: SimplexElementScale (?).
+-- TODO: Proposals on simplices: SimplexElementScale (?).
 
--- TODO: Moves on tree branch lengths.
+-- TODO: Proposals on tree branch lengths.
 -- - Slide a node on the tree.
 -- - Scale a tree.
 
--- TODO: Moves on tree topologies.
+-- TODO: Proposals on tree topologies.
 -- - NNI
 -- - Narrow (what is this, see RevBayes)
 -- - FNPR (dito)
 
 -- |
--- Module      :  Mcmc.Move
--- Description :  Moves and cycles
+-- Module      :  Mcmc.Proposal
+-- Description :  Proposals and cycles
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -24,17 +24,17 @@
 -- Portability :  portable
 --
 -- Creation date: Wed May 20 13:42:53 2020.
-module Mcmc.Move
-  ( -- * Move
-    Move (..),
-    MoveSimple (..),
+module Mcmc.Proposal
+  ( -- * Proposal
+    Proposal (..),
+    ProposalSimple (..),
     Tuner (tParam, tFunc),
     tuner,
     tune,
 
     -- * Cycle
     Order (..),
-    Cycle (ccMoves),
+    Cycle (ccProposals),
     fromList,
     setOrder,
     getNCycles,
@@ -69,31 +69,32 @@ import Mcmc.Tools.Shuffle
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
--- | A 'Move' is an instruction about how the Markov chain will traverse the
+-- | A 'Proposal' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability density conditioned on the
 -- current state.
 --
--- A 'Move' may be tuneable in that it contains information about how to enlarge
+-- A 'Proposal' may be tuneable in that it contains information about how to enlarge
 -- or shrink the step size to tune the acceptance ratio.
-data Move a = Move
-  { -- | Name (no moves with the same name are allowed in a 'Cycle').
-    mvName :: String,
-    -- | The weight determines how often a 'Move' is executed per iteration of
-    -- the Markov chain.
-    mvWeight :: Int,
-    -- | Simple move without tuning information.
-    mvSimple :: MoveSimple a,
-    -- | Tuning is disabled if set to 'Nothing'.
-    mvTuner :: Maybe (Tuner a)
-  }
+data Proposal a
+  = Proposal
+      { -- | Name (no proposals with the same name are allowed in a 'Cycle').
+        mvName :: String,
+        -- | The weight determines how often a 'Proposal' is executed per iteration of
+        -- the Markov chain.
+        mvWeight :: Int,
+        -- | Simple proposal without tuning information.
+        mvSimple :: ProposalSimple a,
+        -- | Tuning is disabled if set to 'Nothing'.
+        mvTuner :: Maybe (Tuner a)
+      }
 
-instance Show (Move a) where
+instance Show (Proposal a) where
   show m = show $ mvName m
 
-instance Eq (Move a) where
+instance Eq (Proposal a) where
   m == n = mvName m == mvName n
 
-instance Ord (Move a) where
+instance Ord (Proposal a) where
   compare = compare `on` mvName
 
 -- One could also use a different type for 'mvSample', so that 'mvDensity' can
@@ -104,43 +105,45 @@ instance Ord (Move a) where
 -- @
 --
 -- where the densities describe the probability of going there and back.
--- However, we may need more information about the move for other MCMC samplers
+-- However, we may need more information about the proposal for other MCMC samplers
 -- different from Metropolis-Hastings.
 
--- | Simple move without tuning information.
+-- | Simple proposal without tuning information.
 --
 -- In order to calculate the Metropolis-Hastings ratio, we need to know the
 -- probability (density) of jumping forth, and the probability (density) of
 -- jumping back.
-data MoveSimple a = MoveSimple
-  { -- | Instruction about randomly moving from the current state to a new
-    -- state, given some source of randomness.
-    mvSample :: a -> GenIO -> IO a,
-    -- | The density of going from one state to another. Set to 'Nothing' for
-    -- symmetric moves.
-    mvDensity :: Maybe (a -> a -> Log Double)
-  }
+data ProposalSimple a
+  = ProposalSimple
+      { -- | Instruction about randomly moving from the current state to a new
+        -- state, given some source of randomness.
+        mvSample :: a -> GenIO -> IO a,
+        -- | The density of going from one state to another. Set to 'Nothing' for
+        -- symmetric proposals.
+        mvDensity :: Maybe (a -> a -> Log Double)
+      }
 
--- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotuneCycle'.
-data Tuner a = Tuner
-  { tParam :: Double,
-    tFunc :: Double -> MoveSimple a
-  }
+-- | Tune the acceptance ratio of a 'Proposal'; see 'tune', or 'autotuneCycle'.
+data Tuner a
+  = Tuner
+      { tParam :: Double,
+        tFunc :: Double -> ProposalSimple a
+      }
 
 -- | Create a 'Tuner'. The tuning function accepts a tuning parameter, and
--- returns a corresponding 'MoveSimple'. The larger the tuning parameter, the
--- larger the 'Move', and vice versa.
-tuner :: (Double -> MoveSimple a) -> Tuner a
+-- returns a corresponding 'ProposalSimple'. The larger the tuning parameter, the
+-- larger the 'Proposal', and vice versa.
+tuner :: (Double -> ProposalSimple a) -> Tuner a
 tuner = Tuner 1.0
 
 -- Minimal tuning parameter; subject to change.
 tuningParamMin :: Double
 tuningParamMin = 1e-12
 
--- | Tune a 'Move'. Return 'Nothing' if 'Move' is not tuneable. If the parameter
---   @dt@ is larger than 1.0, the 'Move' is enlarged, if @0<dt<1.0@, it is
+-- | Tune a 'Proposal'. Return 'Nothing' if 'Proposal' is not tuneable. If the parameter
+--   @dt@ is larger than 1.0, the 'Proposal' is enlarged, if @0<dt<1.0@, it is
 --   shrunk. Negative tuning parameters are not allowed.
-tune :: Double -> Move a -> Maybe (Move a)
+tune :: Double -> Proposal a -> Maybe (Proposal a)
 tune dt m
   | dt <= 0 = error $ "tune: Tuning parameter not positive: " <> show dt <> "."
   | otherwise = do
@@ -150,66 +153,67 @@ tune dt m
     return $ m {mvSimple = f t', mvTuner = Just $ Tuner t' f}
 
 -- XXX: The desired acceptance ratio 0.44 is optimal for one-dimensional
--- 'Move's; one could also store the affected number of dimensions with the
--- 'Move' and tune towards an acceptance ratio accounting for the number of
+-- 'Proposal's; one could also store the affected number of dimensions with the
+-- 'Proposal' and tune towards an acceptance ratio accounting for the number of
 -- dimensions.
 ratioOpt :: Double
 ratioOpt = 0.44
 
--- | Define the order in which 'Move's are executed in a 'Cycle'. The total
--- number of 'Move's per 'Cycle' may differ between 'Order's (e.g., compare
+-- | Define the order in which 'Proposal's are executed in a 'Cycle'. The total
+-- number of 'Proposal's per 'Cycle' may differ between 'Order's (e.g., compare
 -- 'RandomO' and 'RandomReversibleO').
 data Order
-  = -- | Shuffle the 'Move's in the 'Cycle'. The 'Move's are replicated
-    -- according to their weights and executed in random order. If a 'Move' has
+  = -- | Shuffle the 'Proposal's in the 'Cycle'. The 'Proposal's are replicated
+    -- according to their weights and executed in random order. If a 'Proposal' has
     -- weight @w@, it is executed exactly @w@ times per iteration.
     RandomO
-  | -- | The 'Move's are executed sequentially, in the order they appear in the
-    -- 'Cycle'. 'Move's with weight @w>1@ are repeated immediately @w@ times
+  | -- | The 'Proposal's are executed sequentially, in the order they appear in the
+    -- 'Cycle'. 'Proposal's with weight @w>1@ are repeated immediately @w@ times
     -- (and not appended to the end of the list).
     SequentialO
   | -- | Similar to 'RandomO'. However, a reversed copy of the list of
-    --  shuffled 'Move's is appended such that the resulting Markov chain is
+    --  shuffled 'Proposal's is appended such that the resulting Markov chain is
     --  reversible.
-    --  Note: the total number of 'Move's executed per cycle is twice the number
+    --  Note: the total number of 'Proposal's executed per cycle is twice the number
     --  of 'RandomO'.
     RandomReversibleO
   | -- | Similar to 'SequentialO'. However, a reversed copy of the list of
-    -- sequentially ordered 'Move's is appended such that the resulting Markov
+    -- sequentially ordered 'Proposal's is appended such that the resulting Markov
     -- chain is reversible.
     SequentialReversibleO
   deriving (Eq, Show)
 
 instance Default Order where def = RandomO
 
--- | In brief, a 'Cycle' is a list of moves. The state of the Markov chain will
--- be logged only after all 'Move's in the 'Cycle' have been completed, and the
--- iteration counter will be increased by one. The order in which the 'Move's
+-- | In brief, a 'Cycle' is a list of proposals. The state of the Markov chain will
+-- be logged only after all 'Proposal's in the 'Cycle' have been completed, and the
+-- iteration counter will be increased by one. The order in which the 'Proposal's
 -- are executed is specified by 'Order'. The default is 'RandomO'.
 --
--- __Moves must have unique names__, so that they can be identified.
-data Cycle a = Cycle
-  { ccMoves :: [Move a],
-    ccOrder :: Order
-  }
+-- __Proposals must have unique names__, so that they can be identified.
+data Cycle a
+  = Cycle
+      { ccProposals :: [Proposal a],
+        ccOrder :: Order
+      }
 
--- | Create a 'Cycle' from a list of 'Move's.
-fromList :: [Move a] -> Cycle a
+-- | Create a 'Cycle' from a list of 'Proposal's.
+fromList :: [Proposal a] -> Cycle a
 fromList [] =
   error "fromList: Received an empty list but cannot create an empty Cycle."
 fromList xs =
   if length (nub nms) == length nms
     then Cycle xs def
-    else error "fromList: Moves don't have unique names."
+    else error "fromList: Proposals don't have unique names."
   where
     nms = map mvName xs
 
--- | Set the order of 'Move's in a 'Cycle'.
+-- | Set the order of 'Proposal's in a 'Cycle'.
 setOrder :: Order -> Cycle a -> Cycle a
 setOrder o c = c {ccOrder = o}
 
--- | Replicate 'Move's according to their weights and possibly shuffle them.
-getNCycles :: Cycle a -> Int -> GenIO -> IO [[Move a]]
+-- | Replicate 'Proposal's according to their weights and possibly shuffle them.
+getNCycles :: Cycle a -> Int -> GenIO -> IO [[Proposal a]]
 getNCycles (Cycle xs o) n g = case o of
   RandomO -> shuffleN mvs n g
   SequentialO -> return $ replicate n mvs
@@ -220,22 +224,22 @@ getNCycles (Cycle xs o) n g = case o of
   where
     !mvs = concat [replicate (mvWeight m) m | m <- xs]
 
--- | Tune 'Move's in the 'Cycle'. See 'tune'.
-tuneCycle :: Map (Move a) Double -> Cycle a -> Cycle a
+-- | Tune 'Proposal's in the 'Cycle'. See 'tune'.
+tuneCycle :: Map (Proposal a) Double -> Cycle a -> Cycle a
 tuneCycle m c =
   if sort (M.keys m) == sort mvs
-    then c {ccMoves = map tuneF mvs}
-    else error "tuneCycle: Map contains moves that are not in the cycle."
+    then c {ccProposals = map tuneF mvs}
+    else error "tuneCycle: Map contains proposals that are not in the cycle."
   where
-    mvs = ccMoves c
+    mvs = ccProposals c
     tuneF mv = case m M.!? mv of
       Nothing -> mv
       Just x -> fromMaybe mv (tune x mv)
 
--- | Calculate acceptance ratios and auto tune the 'Move's in the 'Cycle'. For
--- now, a 'Move' is enlarged when the acceptance ratio is above 0.44, and
--- shrunk otherwise. Do not change 'Move's that are not tuneable.
-autotuneCycle :: Acceptance (Move a) -> Cycle a -> Cycle a
+-- | Calculate acceptance ratios and auto tune the 'Proposal's in the 'Cycle'. For
+-- now, a 'Proposal' is enlarged when the acceptance ratio is above 0.44, and
+-- shrunk otherwise. Do not change 'Proposal's that are not tuneable.
+autotuneCycle :: Acceptance (Proposal a) -> Cycle a -> Cycle a
 autotuneCycle a = tuneCycle (M.map (\x -> exp $ x - ratioOpt) $ acceptanceRatios a)
 
 renderRow :: Text -> Text -> Text -> Text -> Text -> Text -> Text
@@ -248,12 +252,12 @@ renderRow name weight nAccept nReject acceptRatio tuneParam = "   " <> nm <> wt 
     ra = T.justifyRight 15 ' ' acceptRatio
     tp = T.justifyRight 20 ' ' tuneParam
 
-moveHeader :: Text
-moveHeader =
-  renderRow "Move name" "Weight" "Accepted" "Rejected" "Ratio" "Tuning parameter"
+proposalHeader :: Text
+proposalHeader =
+  renderRow "Proposal" "Weight" "Accepted" "Rejected" "Ratio" "Tuning parameter"
 
-summarizeMove :: Move a -> Maybe (Int, Int, Double) -> Text
-summarizeMove m r = renderRow (T.pack name) weight nAccept nReject acceptRatio tuneParamStr
+summarizeProposal :: Proposal a -> Maybe (Int, Int, Double) -> Text
+summarizeProposal m r = renderRow (T.pack name) weight nAccept nReject acceptRatio tuneParamStr
   where
     name = mvName m
     weight = B.toLazyText $ B.decimal $ mvWeight m
@@ -262,18 +266,18 @@ summarizeMove m r = renderRow (T.pack name) weight nAccept nReject acceptRatio t
     acceptRatio = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3) . (^. _3)) r
     tuneParamStr = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) (tParam <$> mvTuner m)
 
--- | Summarize the 'Move's in the 'Cycle'. Also report acceptance ratios.
-summarizeCycle :: Acceptance (Move a) -> Cycle a -> Text
+-- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance ratios.
+summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> Text
 summarizeCycle a c =
   T.unlines $
-    [ "-- Summary of move(s) in cycle. " <> mpi <> " move(s) per iteration.",
-      moveHeader,
-      "   " <> T.replicate (T.length moveHeader - 3) "─"
+    [ "-- Summary of proposal(s) in cycle. " <> mpi <> " proposal(s) per iteration.",
+      proposalHeader,
+      "   " <> T.replicate (T.length proposalHeader - 3) "─"
     ]
-      ++ [summarizeMove m (ar m) | m <- mvs]
-      ++ [ "   " <> T.replicate (T.length moveHeader - 3) "─"]
+      ++ [summarizeProposal m (ar m) | m <- mvs]
+      ++ ["   " <> T.replicate (T.length proposalHeader - 3) "─"]
   where
-    mvs = ccMoves c
+    mvs = ccProposals c
     mpi = B.toLazyText $ B.decimal $ sum $ map mvWeight mvs
     ar m = acceptanceRatio m a
 
@@ -313,13 +317,13 @@ transformKeys ks1 ks2 m = foldl' insrt M.empty $ zip ks1 ks2
 transformKeysA :: (Ord k1, Ord k2) => [k1] -> [k2] -> Acceptance k1 -> Acceptance k2
 transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
 
--- | Acceptance counts and ratio for a specific move.
+-- | Acceptance counts and ratio for a specific proposal.
 acceptanceRatio :: (Show k, Ord k) => k -> Acceptance k -> Maybe (Int, Int, Double)
 acceptanceRatio k a = case fromAcceptance a M.!? k of
   Just (0, 0) -> Nothing
   Just (as, rs) -> Just (as, rs, fromIntegral as / fromIntegral (as + rs))
   Nothing -> error $ "acceptanceRatio: Key not found in map: " ++ show k ++ "."
 
--- | Acceptance ratios for all moves.
+-- | Acceptance ratios for all proposals.
 acceptanceRatios :: Acceptance k -> Map k Double
 acceptanceRatios = M.map (\(as, rs) -> fromIntegral as / fromIntegral (as + rs)) . fromAcceptance

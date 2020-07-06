@@ -16,7 +16,10 @@
 -- The trees are read from a data file which is given relative to the @mcmc@ git
 -- repository base directory. Hence, the compiled binary has to be executed from
 -- this directory.
-module Main (main) where
+module Main
+  ( main,
+  )
+where
 
 import Algebra.Graph.Labelled.AdjacencyMap
 import Control.Monad
@@ -59,7 +62,7 @@ getPosteriorMatrix :: [T Double a] -> Matrix R
 getPosteriorMatrix = L.fromRows . map getEdges
 
 -- Uniform prior. Ensuring positive branch lengths. If this is too slow, the
--- positiveness of branches has to be ensured by the moves.
+-- positiveness of branches has to be ensured by the proposals.
 pr :: I -> Log Double
 pr xs
   | V.any (<= 0) xs = pzero
@@ -77,13 +80,13 @@ lh mu sigmaInv logSigmaDet xs = Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv)
     dxs = xs - mu
 
 -- Slide branch with given index.
-slideBranch :: Int -> Move I
+slideBranch :: Int -> Proposal I
 slideBranch i = slideSymmetric n 1 (singular $ ix i) 0.01 True
   where
     n = "Slide branch " <> show i
 
-moveCycle :: I -> Cycle I
-moveCycle v = fromList [slideBranch i | i <- [0 .. k]]
+proposals :: I -> Cycle I
+proposals v = fromList [slideBranch i | i <- [0 .. k]]
   where
     k = V.length v - 1
 
@@ -135,5 +138,5 @@ main = do
       let k = V.length mu
           start = V.replicate k (1.0 :: Double)
       -- putStrLn "Status of the chain."
-      let s = status "ApproximatePhylogeneticLikelihoodMultivariate" pr (lh mu sigmaInv logSigmaDet) (moveCycle start) (mon start) start nBurnIn nAutoTune nIterations g
+      let s = force $ status "ApproximatePhylogeneticLikelihoodMultivariate" pr (lh mu sigmaInv logSigmaDet) (proposals start) (mon start) start nBurnIn nAutoTune nIterations g
       void $ mh s
