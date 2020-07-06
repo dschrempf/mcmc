@@ -121,7 +121,7 @@ data MoveSimple a = MoveSimple
     mvDensity :: Maybe (a -> a -> Log Double)
   }
 
--- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotune'.
+-- | Tune the acceptance ratio of a 'Move'; see 'tune', or 'autotuneCycle'.
 data Tuner a = Tuner
   { tParam :: Double,
     tFunc :: Double -> MoveSimple a

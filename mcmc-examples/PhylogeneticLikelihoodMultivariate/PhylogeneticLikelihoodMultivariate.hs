@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 -- |
 -- Module      :  Main
 -- Description :  Approximate phylogenetic likelihood with multivariate normal distribution
@@ -23,6 +21,7 @@ module Main (main) where
 import Algebra.Graph.Labelled.AdjacencyMap
 import Control.Monad
 -- import Control.Monad.ST
+import Data.Aeson
 import qualified Data.Vector.Storable as V
 -- import qualified Data.Vector.Storable.Mutable as M
 import Data.Vector.Storable (Vector)
@@ -31,6 +30,7 @@ import Mcmc
 import qualified Numeric.LinearAlgebra as L
 import Numeric.LinearAlgebra ((<#), (<.>), Matrix, R)
 import Numeric.Log
+import System.Environment
 import System.Random.MWC
 import Tree
 
@@ -101,7 +101,8 @@ mon v = Monitor (monitorStdOut (take 3 bs) 50) [monitorFile "Branches" bs 10] []
 
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
-nBurnIn = Just 2000
+-- nBurnIn = Just 2000
+nBurnIn = Just 200
 
 -- Auto tuning period.
 nAutoTune :: Maybe Int
@@ -109,22 +110,30 @@ nAutoTune = Just 100
 
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
-nIterations = 10000
+-- nIterations = 10000
+nIterations = 100
 
 main :: IO ()
 main = do
   g <- create
-  -- putStrLn "Read trees."
-  !trs <- someNewick fn
-  -- putStrLn "Get the posterior means and the posterior covariance matrix."
-  let !pm = getPosteriorMatrix trs
-      !(mu, sigma) = L.meanCov pm
-      !(sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
-  putStrLn "Maximum likelihood values."
-  print mu
-  -- putStrLn "Choose a bad starting state for our chain."
-  let k = L.cols pm
-      start = V.replicate k (1.0 :: Double)
-  -- putStrLn "Status of the chain."
-  let s = status "ApproximatePhylogeneticLikelihoodMultivariate" pr (lh mu sigmaInv logSigmaDet) (moveCycle start) (mon start) start nBurnIn nAutoTune nIterations g
-  void $ mh s
+  as <- getArgs
+  case as of
+    ["calc"] -> do
+      putStrLn "Read trees."
+      trs <- someNewick fn
+      putStrLn "Get the posterior means and the posterior covariance matrix."
+      let pm = getPosteriorMatrix trs
+          (mu, sigma) = L.meanCov pm
+          (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
+      encodeFile "ApproximatePhylogeneticLikleihoodMultivariate.data" (mu, L.toRows sigmaInv, logSigmaDet)
+    _ -> do
+      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "ApproximatePhylogeneticLikleihoodMultivariate.data"
+      let sigmaInv = L.fromRows sigmaInvRows
+      putStrLn "Maximum likelihood values."
+      print mu
+      -- putStrLn "Choose a bad starting state for our chain."
+      let k = V.length mu
+          start = V.replicate k (1.0 :: Double)
+      -- putStrLn "Status of the chain."
+      let s = status "ApproximatePhylogeneticLikelihoodMultivariate" pr (lh mu sigmaInv logSigmaDet) (moveCycle start) (mon start) start nBurnIn nAutoTune nIterations g
+      void $ mh s

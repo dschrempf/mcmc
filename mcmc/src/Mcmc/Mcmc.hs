@@ -75,7 +75,7 @@ mcmcDebug :: String -> Mcmc a ()
 mcmcDebug s = gets verbosity >>= \v -> debug v (liftIO $ putStrLn $ "-- DEBUG: " <> s)
 
 -- | Auto tune the 'Move's in the 'Cycle' of the chain. Reset acceptance counts.
--- See 'autotune'.
+-- See 'autotuneCycle'.
 mcmcAutotune :: Mcmc a ()
 mcmcAutotune = do
   s <- get
