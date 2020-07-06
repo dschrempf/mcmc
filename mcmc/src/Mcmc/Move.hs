@@ -232,8 +232,9 @@ tuneCycle m c =
       Nothing -> mv
       Just x -> fromMaybe mv (tune x mv)
 
--- | Caculate acceptance ratios. Auto tune the 'Move's in the 'Cycle' with the
--- calculated acceptance ratios. See 'autotune'.
+-- | Calculate acceptance ratios and auto tune the 'Move's in the 'Cycle'. For
+-- now, a 'Move' is enlarged when the acceptance ratio is above 0.44, and
+-- shrunk otherwise. Do not change 'Move's that are not tuneable.
 autotuneCycle :: Acceptance (Move a) -> Cycle a -> Cycle a
 autotuneCycle a = tuneCycle (M.map (\x -> exp $ x - ratioOpt) $ acceptanceRatios a)
 
