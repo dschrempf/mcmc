@@ -152,8 +152,8 @@ mcmcOpenLog = do
   mcmcDebugS $ "Log file name: " ++ lfn ++ "."
   mcmcDebugT "Log file opened."
 
--- | Set the total number of iterations, the current time and open the
--- 'Monitor's of the chain. See 'mOpen'.
+-- Set the total number of iterations, the current time and open the 'Monitor's
+-- of the chain. See 'mOpen'.
 mcmcInit :: Mcmc a ()
 mcmcInit = do
   mcmcOpenLog
@@ -166,10 +166,7 @@ mcmcInit = do
       n = iteration s
       nm = name s
       frc = forceOverwrite s
-  m' <-
-    if n == 0
-      then liftIO $ mOpen nm frc m
-      else liftIO $ mAppend nm m
+  m' <- if n == 0 then liftIO $ mOpen nm frc m else liftIO $ mAppend nm m
   put $ s {monitor = m', start = Just (n, t)}
 
 -- | Report what is going to be done.
@@ -183,11 +180,7 @@ mcmcReport = do
     Just b' -> mcmcInfoS $ "Burn in for " <> show b' <> " iterations."
     Nothing -> return ()
   case t of
-    Just t' ->
-      mcmcInfoS $
-        "Auto tune every "
-          <> show t'
-          <> " iterations (during burn in only)."
+    Just t' -> mcmcInfoS $ "Auto tune every " <> show t' <> " iterations (during burn in only)."
     Nothing -> return ()
   mcmcInfoS $ "Run chain for " <> show n <> " iterations."
   mcmcInfoT "Initial state."
@@ -224,7 +217,7 @@ mcmcMonitorExec = do
   mt <- liftIO $ mExec vb i ss st tr j m
   forM_ mt mcmcOutT
 
--- | Close the 'Monitor's of the chain. See 'mClose'.
+-- Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: ToJSON a => Mcmc a ()
 mcmcClose = do
   s <- get
@@ -246,6 +239,7 @@ mcmcClose = do
 
 -- | Run an MCMC algorithm.
 mcmcRun :: ToJSON a => Mcmc a () -> Status a -> IO (Status a)
-mcmcRun algorithm = execStateT $ do mcmcInit
-                                    algorithm
-                                    mcmcClose
+mcmcRun algorithm = execStateT $ do
+  mcmcInit
+  algorithm
+  mcmcClose

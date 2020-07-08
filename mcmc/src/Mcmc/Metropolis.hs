@@ -85,6 +85,7 @@ mhIter ps = do
 -- Run N iterations.
 mhNIter :: ToJSON a => Int -> Mcmc a ()
 mhNIter n = do
+  mcmcDebugS $ "Run " <> show n <> " iterations."
   c <- gets cycle
   g <- gets generator
   cycles <- liftIO $ getNCycles c n g
@@ -114,6 +115,7 @@ mhBurnIn b t
   | b == 0 = return ()
   | otherwise = do
     mcmcInfoS $ "Burn in for " <> show b <> " cycles."
+    mcmcDebugS $ "Auto tuning period is " <> show t <> "."
     mcmcMonitorStdOutHeader
     mhBurnInN b t
     mcmcInfoT "Burn in finished."
@@ -133,8 +135,7 @@ mhT = do
   s <- get
   let b = fromMaybe 0 (burnInIterations s)
   mhBurnIn b (autoTuningPeriod s)
-  let n = iterations s
-  mhRun n
+  mhRun $ iterations s
 
 mhContinueT :: ToJSON a => Int -> Mcmc a ()
 mhContinueT dn = do
