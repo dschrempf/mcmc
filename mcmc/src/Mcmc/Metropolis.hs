@@ -20,7 +20,7 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.State.Strict
+import Control.Monad.Trans.State
 import Data.Aeson
 import Data.Maybe
 import Mcmc.Item
@@ -97,14 +97,14 @@ mhBurnInN b (Just t)
   | b > t = do
     mcmcResetA
     mhNIter t
-    mcmcDebug mcmcSummarizeCycle
+    mcmcSummarizeCycle >>= mcmcDebugT
     mcmcAutotune
     mhBurnInN (b - t) (Just t)
   | otherwise = do
     mcmcResetA
     mhNIter b
-    mcmcInfo mcmcSummarizeCycle
-    mcmcInfo $ mcmcOutS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
+    mcmcSummarizeCycle >>= mcmcInfoT
+    mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
 mhBurnInN b Nothing = mhNIter b
 
 -- Initialize burn in for given number of iterations.
@@ -113,23 +113,23 @@ mhBurnIn b t
   | b < 0 = error "mhBurnIn: Negative number of burn in iterations."
   | b == 0 = return ()
   | otherwise = do
-    mcmcInfo $ mcmcOutS $ "Burn in for " <> show b <> " cycles."
+    mcmcInfoS $ "Burn in for " <> show b <> " cycles."
     mcmcMonitorStdOutHeader
     mhBurnInN b t
-    mcmcInfo $ mcmcOut "Burn in finished."
+    mcmcInfoT "Burn in finished."
 
 -- Run for given number of iterations.
 mhRun :: ToJSON a => Int -> Mcmc a ()
 mhRun n = do
-  mcmcInfo $ mcmcOutS $ "Run chain for " <> show n <> " iterations."
+  mcmcInfoS $ "Run chain for " <> show n <> " iterations."
   mcmcMonitorStdOutHeader
   mhNIter n
 
 mhT :: ToJSON a => Mcmc a ()
 mhT = do
-  mcmcInfo $ mcmcOut "-- Metropolis-Hastings sampler."
+  mcmcInfoT "Metropolis-Hastings sampler."
   mcmcReport
-  mcmcInfo mcmcSummarizeCycle
+  mcmcSummarizeCycle >>= mcmcInfoT
   s <- get
   let b = fromMaybe 0 (burnInIterations s)
   mhBurnIn b (autoTuningPeriod s)
@@ -138,9 +138,9 @@ mhT = do
 
 mhContinueT :: ToJSON a => Int -> Mcmc a ()
 mhContinueT dn = do
-  mcmcInfo $ mcmcOut "-- Continuation of Metropolis-Hastings sampler."
-  mcmcInfo $ mcmcOutS $ "-- Run chain for " <> show dn <> " additional iterations."
-  mcmcInfo mcmcSummarizeCycle
+  mcmcInfoT "Continuation of Metropolis-Hastings sampler."
+  mcmcInfoS $ "Run chain for " <> show dn <> " additional iterations."
+  mcmcSummarizeCycle >>= mcmcInfoT
   mhRun dn
 
 -- | Continue a Markov chain for a given number of Metropolis-Hastings steps.

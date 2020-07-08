@@ -270,7 +270,7 @@ summarizeProposal m r = renderRow (T.pack name) weight nAccept nReject acceptRat
 summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> Text
 summarizeCycle a c =
   T.intercalate "\n" $
-    [ "-- Summary of proposal(s) in cycle. " <> mpi <> " proposal(s) per iteration.",
+    [ "Summary of proposal(s) in cycle. " <> mpi <> " proposal(s) per iteration.",
       proposalHeader,
       "   " <> T.replicate (T.length proposalHeader - 3) "─"
     ]
