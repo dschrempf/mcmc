@@ -34,12 +34,12 @@ import Prelude hiding (cycle)
 
 -- For non-symmetric proposals.
 mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
-mhRatio lX lY qXY qYX = lY * qYX / lX / qXY
+mhRatio fX fY qXY qYX = fY * qYX / fX / qXY
 {-# INLINE mhRatio #-}
 
 -- For symmetric proposals.
 mhRatioSymmetric :: Log Double -> Log Double -> Log Double
-mhRatioSymmetric lX lY = lY / lX
+mhRatioSymmetric fX fY = fY / fX
 {-# INLINE mhRatioSymmetric #-}
 
 mhPropose :: Proposal a -> Mcmc a ()
@@ -97,14 +97,14 @@ mhBurnInN b (Just t)
   | b > t = do
     mcmcResetA
     mhNIter t
-    mcmcSummarizeCycle >>= mcmcDebug
+    mcmcDebug mcmcSummarizeCycle
     mcmcAutotune
     mhBurnInN (b - t) (Just t)
   | otherwise = do
     mcmcResetA
     mhNIter b
-    mcmcSummarizeCycle >>= mcmcInfoClean
-    mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
+    mcmcInfo mcmcSummarizeCycle
+    mcmcInfo $ mcmcOutS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
 mhBurnInN b Nothing = mhNIter b
 
 -- Initialize burn in for given number of iterations.
@@ -113,42 +113,35 @@ mhBurnIn b t
   | b < 0 = error "mhBurnIn: Negative number of burn in iterations."
   | b == 0 = return ()
   | otherwise = do
-    mcmcInfoS $ "Burn in for " <> show b <> " cycles."
+    mcmcInfo $ mcmcOutS $ "Burn in for " <> show b <> " cycles."
     mcmcMonitorStdOutHeader
     mhBurnInN b t
-    mcmcInfo "Burn in finished."
+    mcmcInfo $ mcmcOut "Burn in finished."
 
 -- Run for given number of iterations.
 mhRun :: ToJSON a => Int -> Mcmc a ()
 mhRun n = do
-  mcmcInfoS $ "Run chain for " <> show n <> " iterations."
+  mcmcInfo $ mcmcOutS $ "Run chain for " <> show n <> " iterations."
   mcmcMonitorStdOutHeader
   mhNIter n
 
 mhT :: ToJSON a => Mcmc a ()
 mhT = do
-  mcmcInit
-  mcmcInfo "Start of Metropolis-Hastings sampler."
+  mcmcInfo $ mcmcOut "-- Metropolis-Hastings sampler."
   mcmcReport
-  mcmcSummarizeCycle >>= mcmcInfoClean
+  mcmcInfo mcmcSummarizeCycle
   s <- get
   let b = fromMaybe 0 (burnInIterations s)
   mhBurnIn b (autoTuningPeriod s)
   let n = iterations s
   mhRun n
-  mcmcClose
 
 mhContinueT :: ToJSON a => Int -> Mcmc a ()
 mhContinueT dn = do
-  mcmcInfo "Continue Metropolis-Hastings sampler."
-  mcmcInfoS $ "Run chain for " <> show dn <> " additional iterations."
-  s <- get
-  let n = iterations s
-  put s {iterations = n + dn}
-  mcmcInit
-  mcmcSummarizeCycle >>= mcmcInfoClean
+  mcmcInfo $ mcmcOut "-- Continuation of Metropolis-Hastings sampler."
+  mcmcInfo $ mcmcOutS $ "-- Run chain for " <> show dn <> " additional iterations."
+  mcmcInfo mcmcSummarizeCycle
   mhRun dn
-  mcmcClose
 
 -- | Continue a Markov chain for a given number of Metropolis-Hastings steps.
 mhContinue ::
@@ -158,9 +151,11 @@ mhContinue ::
   -- | Loaded status of the Markov chain.
   Status a ->
   IO (Status a)
-mhContinue dn
+mhContinue dn s
   | dn <= 0 = error "mhContinue: The number of iterations is zero or negative."
-  | otherwise = execStateT $ mhContinueT dn
+  | otherwise = mcmcRun (mhContinueT dn) s'
+    where n' = iterations s + dn
+          s' = s {iterations = n'}
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 mh ::
@@ -170,7 +165,7 @@ mh ::
   IO (Status a)
 mh s =
   if iteration s == 0
-    then execStateT mhT s
+    then mcmcRun mhT s
     else do
       putStrLn "To continue a Markov chain run, please use 'mhContinue'."
       error $ "mh: Current iteration " ++ show (iteration s) ++ " is non-zero."

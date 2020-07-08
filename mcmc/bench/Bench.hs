@@ -23,5 +23,6 @@ main = do
   g <- create
   defaultMain
     [ bench "Normal" $ nfIO (normalBench g),
+      bench "NormalBactrian" $ nfIO (normalBactrianBench g),
       bench "Poisson" $ nfIO (poissonBench g)
     ]

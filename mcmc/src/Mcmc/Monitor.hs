@@ -106,29 +106,28 @@ msHeader m = T.intercalate "\n" [row, sep]
 msExec ::
   Int ->
   Item a ->
-  (Int, UTCTime) ->
+  Int ->
+  UTCTime ->
   Int ->
   MonitorStdOut a ->
-  IO ()
-msExec i (Item x p l) (ss, st) j m
-  | i `mod` msPeriod m /= 0 =
-    return ()
+  IO (Maybe Text)
+msExec i (Item x p l) ss st j m
+  | i `mod` msPeriod m /= 0 = return Nothing
   | otherwise = do
-    ct <- getCurrentTime
-    let dt = ct `diffUTCTime` st
-        -- Careful, don't evaluate this when i == ss.
-        timePerIter = dt / fromIntegral (i - ss)
-        -- -- Always 0; doesn't make much sense.
-        -- tpi = if (i - ss) < 10
-        --       then ""
-        --       else renderDurationS timePerIter
-        eta =
-          if (i - ss) < 10
+      ct <- getCurrentTime
+      let dt = ct `diffUTCTime` st
+          -- Careful, don't evaluate this when i == ss.
+          timePerIter = dt / fromIntegral (i - ss)
+          -- -- Always 0; doesn't make much sense.
+          -- tpi = if (i - ss) < 10
+          --       then ""
+          --       else renderDurationS timePerIter
+          eta =
+            if (i - ss) < 10
             then ""
             else renderDuration $ timePerIter * fromIntegral (j - i)
-    T.hPutStrLn stdout
-      $ msRenderRow
-      $ [T.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
+      return $ Just $ msRenderRow $
+        [T.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
         ++ [T.toLazyText $ mpFunc mp x | mp <- msParams m]
         ++ [renderDuration dt, eta]
 
@@ -347,25 +346,30 @@ mAppend n (Monitor s fs bs) = do
 mHeader :: Monitor a -> Text
 mHeader (Monitor s _ _) = msHeader s
 
--- | Execute monitors; print status information to standard output and files.
+-- | Execute monitors; print status information to files and return text to be
+-- printed to standard output and log file.
 mExec ::
   -- | Verbosity
   Verbosity ->
   -- | Iteration.
   Int ->
-  -- | Starting state and time.
-  (Int, UTCTime) ->
+  -- | Starting state.
+  Int ->
+  -- | Starting time.
+  UTCTime ->
   -- | Trace of Markov chain.
   Trace a ->
   -- | Total number of iterations; to calculate ETA.
   Int ->
   -- | The monitor.
   Monitor a ->
-  IO ()
-mExec v i t xs j (Monitor s fs bs) = do
-  info v $ msExec i (headT xs) t j s
+  IO (Maybe Text)
+mExec v i ss st xs j (Monitor s fs bs) = do
   mapM_ (mfExec i $ headT xs) fs
   mapM_ (mbExec i xs) bs
+  if v == Quiet
+    then return Nothing
+    else msExec i (headT xs) ss st j s
 
 -- | Close the files associated with the 'Monitor'.
 mClose :: Monitor a -> IO (Monitor a)

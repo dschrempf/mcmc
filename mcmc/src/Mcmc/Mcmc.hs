@@ -14,21 +14,17 @@
 module Mcmc.Mcmc
   ( Mcmc,
     mcmcOut,
+    mcmcOutS,
     mcmcWarn,
-    mcmcWarnS,
-    mcmcInfoClean,
     mcmcInfo,
-    mcmcInfoS,
     mcmcDebug,
-    mcmcDebugS,
     mcmcAutotune,
     mcmcResetA,
     mcmcSummarizeCycle,
-    mcmcInit,
     mcmcReport,
     mcmcMonitorStdOutHeader,
     mcmcMonitorExec,
-    mcmcClose,
+    mcmcRun,
   )
 where
 
@@ -56,50 +52,27 @@ import Prelude hiding (cycle)
 -- required, but it is used by the different inference algorithms.
 type Mcmc a = StateT (Status a) IO
 
--- TODO: This setup is sub-optimal, so to speak. Can't I think of something
--- clean?
-
 -- | Write to standard output and log file.
 mcmcOut :: Text -> Mcmc a ()
 mcmcOut msg = do
   h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> gets logHandle
   liftIO $ T.putStrLn msg >> T.hPutStrLn h msg
 
--- | Print warning.
-mcmcWarn :: Text -> Mcmc a ()
-mcmcWarn msg = do
-  v <- gets verbosity
-  let msg' = T.intercalate "\n" $ map ("-- WARNING:" <>) $ T.lines msg
-  warn v $ mcmcOut msg'
+-- | Write to standard output and log file.
+mcmcOutS :: String -> Mcmc a ()
+mcmcOutS = mcmcOut . T.pack
 
--- | Print warning.
-mcmcWarnS :: String -> Mcmc a ()
-mcmcWarnS = mcmcWarn . T.pack
+-- | Perform warning action.
+mcmcWarn :: Mcmc a () -> Mcmc a ()
+mcmcWarn a = gets verbosity >>= \v -> warn v a
 
--- | Print info message without line prefix.
-mcmcInfoClean :: Text -> Mcmc a ()
-mcmcInfoClean msg = do
-  v <- gets verbosity
-  info v $ mcmcOut msg
+-- | Perform info action.
+mcmcInfo :: Mcmc a () -> Mcmc a ()
+mcmcInfo a = gets verbosity >>= \v -> info v a
 
--- | Print info message.
-mcmcInfo :: Text -> Mcmc a ()
-mcmcInfo = mcmcInfoClean . T.intercalate "\n" . map ("-- " <>) . T.lines
-
--- | Print info message.
-mcmcInfoS :: String -> Mcmc a ()
-mcmcInfoS = mcmcInfo . T.pack
-
--- | Print debug message.
-mcmcDebug :: Text -> Mcmc a ()
-mcmcDebug msg = do
-  v <- gets verbosity
-  let msg' = T.intercalate "\n" $ map ("-- DEBUG: " <>) $ T.lines msg
-  debug v $ mcmcOut msg'
-
--- | Print debug message.
-mcmcDebugS :: String -> Mcmc a ()
-mcmcDebugS = mcmcDebug . T.pack
+-- | Perform debug action.
+mcmcDebug :: Mcmc a () -> Mcmc a ()
+mcmcDebug a = gets verbosity >>= \v -> debug v a
 
 -- | Auto tune the 'Proposal's in the 'Cycle' of the chain. Reset acceptance counts.
 -- See 'autotuneCycle'.
@@ -118,26 +91,24 @@ mcmcResetA = do
   let a = acceptance s
   put $ s {acceptance = resetA a}
 
--- | Print short summary of 'Proposal's in 'Cycle'. If 'True', also print acceptance
--- ratios. See 'summarizeCycle'.
-mcmcSummarizeCycle :: Mcmc a Text
+-- | Print short summary of 'Proposal's in 'Cycle'. See 'summarizeCycle'.
+mcmcSummarizeCycle :: Mcmc a ()
 mcmcSummarizeCycle = do
   a <- gets acceptance
   c <- gets cycle
-  return $ summarizeCycle a c
+  mcmcOut $ summarizeCycle a c
 
 fTime :: FormatTime t => t -> String
 fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
 
--- | Set the total number of iterations, the current time and open the
--- 'Monitor's of the chain. See 'mOpen'.
-mcmcInit :: Mcmc a ()
-mcmcInit = do
+-- Open log file.
+mcmcOpenLog :: Mcmc a ()
+mcmcOpenLog = do
   s <- get
-  -- Log file.
   let lfn = name s ++ ".log"
       n = iteration s
       frc = forceOverwrite s
+  mcmcDebug $ mcmcOutS $ "Log file name: " ++ lfn ++ "."
   fe <- liftIO $ doesFileExist lfn
   mh <- liftIO $ case verbosity s of
     Quiet -> return Nothing
@@ -146,19 +117,27 @@ mcmcInit = do
       (True, 0, True) -> openFile lfn WriteMode
       (True, 0, False) -> error "mcmcInit: Log file exists; use 'force' to overwrite output files."
       (True, _, _) -> openFile lfn AppendMode
-  let s' = s {logHandle = mh}
-  put s'
+  put s {logHandle = mh}
+
+-- | Set the total number of iterations, the current time and open the
+-- 'Monitor's of the chain. See 'mOpen'.
+mcmcInit :: Mcmc a ()
+mcmcInit = do
+  mcmcOpenLog
+  s <- get
   -- Start time.
   t <- liftIO getCurrentTime
-  mcmcInfoS $ "Start time: " <> fTime t
+  mcmcInfo $ mcmcOutS $ "-- Start time: " <> fTime t
   -- Monitor.
-  let m = monitor s'
-      nm = name s'
+  let m = monitor s
+      n = iteration s
+      nm = name s
+      frc = forceOverwrite s
   m' <-
     if n == 0
       then liftIO $ mOpen nm frc m
       else liftIO $ mAppend nm m
-  put $ s' {monitor = m', start = Just (n, t)}
+  put $ s {monitor = m', start = Just (n, t)}
 
 -- | Report what is going to be done.
 mcmcReport :: ToJSON a => Mcmc a ()
@@ -168,17 +147,17 @@ mcmcReport = do
       t = autoTuningPeriod s
       n = iterations s
   case b of
-    Just b' -> mcmcInfoS $ "Burn in for " <> show b' <> " iterations."
+    Just b' -> mcmcInfo $ mcmcOutS $ "-- Burn in for " <> show b' <> " iterations."
     Nothing -> return ()
   case t of
     Just t' ->
-      mcmcInfoS $
-        "Auto tune every "
+      mcmcInfo $ mcmcOutS $
+        "-- Auto tune every "
           <> show t'
           <> " iterations (during burn in only)."
     Nothing -> return ()
-  mcmcInfoS $ "Run chain for " <> show n <> " iterations."
-  mcmcInfo "Initial state."
+  mcmcInfo $ mcmcOutS $ "-- Run chain for " <> show n <> " iterations."
+  mcmcInfo $ mcmcOut "-- Initial state."
   mcmcMonitorStdOutHeader
   mcmcMonitorExec
 
@@ -186,8 +165,7 @@ mcmcReport = do
 mcmcMonitorStdOutHeader :: Mcmc a ()
 mcmcMonitorStdOutHeader = do
   m <- gets monitor
-  v <- gets verbosity
-  info v $ mcmcOut $ mHeader m
+  mcmcInfo $ mcmcOut $ mHeader m
 
 -- Save the status of an MCMC run. See 'saveStatus'.
 mcmcSave :: ToJSON a => Mcmc a ()
@@ -195,10 +173,10 @@ mcmcSave = do
   s <- get
   if save s
     then do
-      mcmcInfo "Save Markov chain. For long chains, this may take a while."
+      mcmcInfo $ mcmcOut "-- Save Markov chain. For long chains, this may take a while."
       liftIO $ saveStatus (name s <> ".mcmc") s
-      mcmcInfo "Done saving Markov chain."
-    else mcmcInfo "Do not save the Markov chain."
+      mcmcInfo $ mcmcOut "-- Done saving Markov chain."
+    else mcmcInfo $ mcmcOut "-- Do not save the Markov chain."
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()
@@ -207,17 +185,18 @@ mcmcMonitorExec = do
   let i = iteration s
       j = iterations s + fromMaybe 0 (burnInIterations s)
       m = monitor s
-      st = fromMaybe (error "mcmcMonitorExec: Starting state and time not set.") (start s)
+      (ss, st) = fromMaybe (error "mcmcMonitorExec: Starting state and time not set.") (start s)
       tr = trace s
       vb = verbosity s
-  liftIO $ mExec vb i st tr j m
+  mt <- liftIO $ mExec vb i ss st tr j m
+  forM_ mt mcmcOut
 
 -- | Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: ToJSON a => Mcmc a ()
 mcmcClose = do
   s <- get
-  mcmcSummarizeCycle >>= mcmcInfoClean
-  mcmcInfo "Metropolis-Hastings sampler finished."
+  mcmcInfo mcmcSummarizeCycle
+  mcmcInfo $ mcmcOut "-- Metropolis-Hastings sampler finished."
   let m = monitor s
   m' <- liftIO $ mClose m
   put $ s {monitor = m'}
@@ -226,8 +205,14 @@ mcmcClose = do
   let rt = case start s of
         Nothing -> error "mcmcClose: Start time not set."
         Just (_, st) -> t `diffUTCTime` st
-  mcmcInfo $ "Wall clock run time: " <> renderDuration rt <> "."
-  mcmcInfoS $ "End time: " <> fTime t
+  mcmcInfo $ mcmcOut $ "-- Wall clock run time: " <> renderDuration rt <> "."
+  mcmcInfo $ mcmcOutS $ "-- End time: " <> fTime t
   case logHandle s of
     Just h -> liftIO $ hClose h
     Nothing -> return ()
+
+-- | Run an MCMC algorithm.
+mcmcRun :: ToJSON a => Mcmc a () -> Status a -> IO (Status a)
+mcmcRun algorithm = execStateT $ do mcmcInit
+                                    algorithm
+                                    mcmcClose

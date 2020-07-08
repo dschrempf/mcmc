@@ -4,7 +4,7 @@
 
 -- TODO: Proposals on simplices: SimplexElementScale (?).
 
--- TODO: Proposals on tree branch lengths.
+-- TODO: Proposals on trees:
 -- - Slide a node on the tree.
 -- - Scale a tree.
 

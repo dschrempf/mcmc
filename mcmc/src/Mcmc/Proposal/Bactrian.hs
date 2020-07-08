@@ -1,11 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
 
--- TODO: Test these proposals!
-
--- TODO: Benchmark these proposals!
-
--- TODO: Remove standard output from benchmarks.
-
 -- |
 -- Module      :  Mcmc.Proposal.Bactrian
 -- Description :  Bactrian proposals

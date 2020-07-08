@@ -11,6 +11,7 @@
 -- Creation date: Wed May  6 00:10:11 2020.
 module Normal
   ( normalBench,
+    normalBactrianBench,
   )
 where
 
@@ -36,14 +37,16 @@ lh = Exp . logDensity (normalDistr trueMean trueStdDev)
 proposals :: Cycle Double
 proposals =
   fromList
-    [ slideSymmetric "small" 5 id 0.1 True,
-      slideSymmetric "medium" 2 id 1.0 True,
-      slideSymmetric "large" 2 id 5.0 True,
-      slide "skewed" 1 id 1.0 4.0 True
-    ]
+    [slideSymmetric "medium" 1 id 1.0 True]
+
+mons :: [MonitorParameter Double]
+mons = [monitorRealFloat "mu" id]
 
 monStd :: MonitorStdOut Double
-monStd = monitorStdOut [monitorRealFloat "mu" id] 200
+monStd = monitorStdOut mons 200
+
+-- monFile :: MonitorFile Double
+-- monFile = monitorFile "Mu" mons 200
 
 mon :: Monitor Double
 mon = Monitor monStd [] []
@@ -60,4 +63,14 @@ nIter = 20000
 normalBench :: GenIO -> IO ()
 normalBench g = do
   let s = quiet $ noSave $ status "Normal" (const 1) lh proposals mon 0 nBurn nAutoTune nIter g
+  void $ mh s
+
+proposalsBactrian :: Cycle Double
+proposalsBactrian =
+  fromList
+    [slideBactrian "bactrian" 1 id 0.5 1.0 True]
+
+normalBactrianBench :: GenIO -> IO ()
+normalBactrianBench g = do
+  let s = quiet $ noSave $ status "NormalBactrian" (const 1) lh proposalsBactrian mon 0 nBurn nAutoTune nIter g
   void $ mh s
