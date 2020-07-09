@@ -70,8 +70,8 @@ getLens x y = lens (g x y) (s x y)
 label :: Traversable t => t (e, a) -> t (e, (Int, a))
 label = snd . mapAccumL (\i (b, x) -> (i + 1, (b, (i, x)))) (1 :: Int)
 
--- TODO: Removing the origin after insertion is a hack; but I had problems with
--- singular matrices when the root branch length is zero.
+-- XXX: Removing the origin after insertion is a hack. However, a shared root
+-- branch length of zero leads to singular covariance matrix.
 fromTree :: (Num e, Ord e, Ord a) => a -> Tree (e, a) -> T e (Int, a)
 fromTree o t = removeVertex (0, o) $ (edges . S.toList . go (0, o)) (label t)
   where

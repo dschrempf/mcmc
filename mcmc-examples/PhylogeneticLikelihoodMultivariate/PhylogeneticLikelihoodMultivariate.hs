@@ -105,16 +105,16 @@ mon v = Monitor (monitorStdOut (take 3 bs) 50) [monitorFile "Branches" bs 10] []
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
 -- nBurnIn = Just 2000
-nBurnIn = Just 200
+nBurnIn = Just 1600
 
 -- Auto tuning period.
 nAutoTune :: Maybe Int
-nAutoTune = Just 100
+nAutoTune = Just 200
 
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
 -- nIterations = 10000
-nIterations = 100
+nIterations = 10000
 
 main :: IO ()
 main = do
