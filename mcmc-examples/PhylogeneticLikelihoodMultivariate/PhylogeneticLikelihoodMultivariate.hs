@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 -- |
 -- Module      :  Main
 -- Description :  Approximate phylogenetic likelihood with multivariate normal distribution
@@ -21,17 +23,21 @@ module Main
   )
 where
 
+import Data.Maybe
 import Algebra.Graph.Labelled.AdjacencyMap
 import Control.Monad
--- import Control.Monad.ST
+import Control.Zipper
+import Criterion
+import Control.Lens hiding ((<.>))
 import Data.Aeson
-import qualified Data.Vector.Storable as V
--- import qualified Data.Vector.Storable.Mutable as M
+import Data.List
+import Data.Tree
 import Data.Vector.Storable (Vector)
-import Lens.Micro.Platform
+import qualified Data.Vector.Storable as V
 import Mcmc
+import Numeric.LinearAlgebra (Matrix, R, (<#), (<.>))
+import qualified Newick as N
 import qualified Numeric.LinearAlgebra as L
-import Numeric.LinearAlgebra ((<#), (<.>), Matrix, R)
 import Numeric.Log
 import System.Environment
 import System.Random.MWC
@@ -104,7 +110,6 @@ mon v = Monitor (monitorStdOut (take 3 bs) 50) [monitorFile "Branches" bs 10] []
 
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
--- nBurnIn = Just 2000
 nBurnIn = Just 1600
 
 -- Auto tuning period.
@@ -113,7 +118,6 @@ nAutoTune = Just 200
 
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
--- nIterations = 10000
 nIterations = 10000
 
 main :: IO ()
@@ -124,11 +128,42 @@ main = do
     ["calc"] -> do
       putStrLn "Read trees."
       trs <- someNewick fn
+      unless
+        (1 == length (nub $ map skeleton trs))
+        (error "Trees have different topologies.")
       putStrLn "Get the posterior means and the posterior covariance matrix."
       let pm = getPosteriorMatrix trs
           (mu, sigma) = L.meanCov pm
           (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
       encodeFile "ApproximatePhylogeneticLikleihoodMultivariate.data" (mu, L.toRows sigmaInv, logSigmaDet)
+    ["benchA"] -> do
+      trs <- nNewick 1 fn
+      let tr = gmap fst $ head trs
+      putStrLn "postSet 150"
+      benchmark $ nf (postSet 150) tr
+      putStrLn "preSet 150"
+      benchmark $ nf (preSet 150) tr
+      putStrLn "replaceEdge 1 12"
+      benchmark $ nf (replaceEdge 328 1 12) tr
+    ["benchT"] -> do
+      trs' <- N.nNewick 1 fn
+      let tr' = fmap (fst . snd) $ label $ head trs'
+      let ixs = itoList tr'
+      -- let !sv1 = ix $ fst $ ixs !! 150
+      -- benchmark $ nf (preview sv1) tr'
+      -- let !sv2 = ix $ fst $ ixs !! 222
+      -- print $ ixs !! 222
+      -- benchmark $ nf (preview sv2) tr'
+      -- print "Non-existent"
+      -- benchmark $ nf (preview $ ix [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) tr'
+      let !sv1 = ix $ fst $ ixs !! 150
+      -- let z = zipper tr' & downward (singular sv1) & focus .~ 999999 & rezip
+      let z' = preview focus . downward (singular sv1) . zipper
+      let z'' = rezip . set focus 999999 . downward (singular sv1) . zipper
+      putStrLn "Preview zipper 150"
+      benchmark $ nf z' tr'
+      putStrLn "Set zipper 150"
+      benchmark $ nf z'' tr'
     _ -> do
       (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "ApproximatePhylogeneticLikleihoodMultivariate.data"
       let sigmaInv = L.fromRows sigmaInvRows

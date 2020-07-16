@@ -20,25 +20,27 @@ module Tree
     toD,
     fromD,
     getLens,
+    label,
     nNewick,
     someNewick,
   )
 where
 
 import Algebra.Graph.Label
-import Algebra.Graph.Labelled.AdjacencyMap
+import AdjacencyMap
+import Control.DeepSeq
+import Control.Lens
 import Data.Aeson
 import Data.ByteString.Lazy (ByteString)
 import Data.Maybe
 import qualified Data.Set as S
 import Data.Traversable
 import Data.Tree
-import Lens.Micro.Platform
 import qualified Newick as N
 
 -- | Rooted (directed) tree with branch labels of type @e@ and node labels of
 -- type @a@.
-type T e a = AdjacencyMap (Distance e) a
+type T e = AdjacencyMap (Distance e)
 
 instance ToJSON a => ToJSON (Distance a) where
   toJSON = toJSON . fromD
@@ -46,6 +48,9 @@ instance ToJSON a => ToJSON (Distance a) where
 
 instance (FromJSON a, Num a, Ord a) => FromJSON (Distance a) where
   parseJSON d = toD <$> parseJSON d
+
+instance (NFData a) => NFData (Distance a) where
+  rnf = rnf . getFinite . getDistance
 
 instance (ToJSON e, ToJSONKey a) => ToJSON (AdjacencyMap e a)
 

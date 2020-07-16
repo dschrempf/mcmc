@@ -22,6 +22,8 @@ module Newick
     oneNewick,
     nNewick,
     someNewick,
+    find,
+    findPostSet,
   )
 where
 
@@ -30,6 +32,8 @@ import Data.ByteString.Internal (c2w)
 import qualified Data.ByteString.Lazy as L
 import Data.ByteString.Lazy (ByteString)
 import Data.Maybe
+import qualified Data.Set as S
+import Data.Set (Set)
 import Data.Tree
 import Data.Void
 import Data.Word
@@ -134,3 +138,10 @@ branchLength = optional $ w ':' *> (try float <|> decimalAsDouble)
 
 decimalAsDouble :: P Double
 decimalAsDouble = fromIntegral <$> (decimal :: P Int)
+
+find :: Eq a => a -> Tree a -> Maybe (Tree a)
+find l t | l == rootLabel t = Just t
+         | otherwise = listToMaybe $ mapMaybe (find l) (subForest t)
+
+findPostSet :: (Eq a, Ord a) => a -> Tree a -> Set a
+findPostSet l t = maybe S.empty (S.fromList . map rootLabel . subForest) (find l t)

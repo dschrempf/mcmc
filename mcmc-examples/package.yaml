@@ -65,13 +65,16 @@ executables:
       - base >= 4.7 && < 5
       - bytestring
       - containers
+      - criterion
+      - deepseq
       - hmatrix
+      - lens
       - log-domain
       - mcmc
       - megaparsec
-      - microlens-platform
       - mwc-random
       - vector
+      - zippers
       - zlib
     generated-other-modules: Paths_mcmc_examples
 
