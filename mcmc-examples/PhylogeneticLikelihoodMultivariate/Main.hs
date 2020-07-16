@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 -- |
 -- Module      :  Main
 -- Description :  Approximate phylogenetic likelihood with multivariate normal distribution
@@ -23,20 +21,15 @@ module Main
   )
 where
 
-import Data.Maybe
-import Algebra.Graph.Labelled.AdjacencyMap
+import AdjacencyIntMap
 import Control.Monad
-import Control.Zipper
-import Criterion
-import Control.Lens hiding ((<.>))
 import Data.Aeson
 import Data.List
-import Data.Tree
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
+import Lens.Micro.Platform
 import Mcmc
 import Numeric.LinearAlgebra (Matrix, R, (<#), (<.>))
-import qualified Newick as N
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 import System.Environment
@@ -61,10 +54,10 @@ type I = Vector R
 fn :: FilePath
 fn = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
 
-getEdges :: T Double a -> I
+getEdges :: T Double -> I
 getEdges = L.fromList . (map (fromD . (^. _1)) . edgeList)
 
-getPosteriorMatrix :: [T Double a] -> Matrix R
+getPosteriorMatrix :: [T Double] -> Matrix R
 getPosteriorMatrix = L.fromRows . map getEdges
 
 -- Uniform prior. Ensuring positive branch lengths. If this is too slow, the
@@ -120,6 +113,53 @@ nAutoTune = Just 200
 nIterations :: Int
 nIterations = 10000
 
+-- Benchmarks with criterion indicate the following:
+--
+-- 1. Algebraic graphs are slow, but the adjacency map with 'Int' node labels and branch labels is reasonably fast.
+-- 2. Lenses are fast, but don't allow access children, or the parent.
+-- 3. Zippers are very slow.
+--
+-- @
+-- AdjacencyIntMap; postSet 150
+-- benchmarking...
+-- time                 41.25 ns   (41.09 ns .. 41.58 ns)
+--                      1.000 R²   (0.999 R² .. 1.000 R²)
+-- mean                 41.21 ns   (41.13 ns .. 41.45 ns)
+-- std dev              467.6 ps   (126.7 ps .. 873.2 ps)
+-- variance introduced by outliers: 12% (moderately inflated)
+--
+-- AdjacencyIntMap; preSet 150
+-- benchmarking...
+-- time                 5.335 μs   (5.308 μs .. 5.372 μs)
+--                      0.999 R²   (0.998 R² .. 1.000 R²)
+-- mean                 5.335 μs   (5.310 μs .. 5.450 μs)
+-- std dev              146.3 ns   (31.19 ns .. 323.8 ns)
+-- variance introduced by outliers: 33% (moderately inflated)
+--
+-- AdjacencyIntMap; replaceEdge 1 12
+-- benchmarking...
+-- time                 5.693 μs   (5.617 μs .. 5.819 μs)
+--                      0.994 R²   (0.985 R² .. 0.999 R²)
+-- mean                 5.816 μs   (5.671 μs .. 6.089 μs)
+-- std dev              620.6 ns   (261.2 ns .. 1.094 μs)
+-- variance introduced by outliers: 89% (severely inflated)
+--
+-- Zipper; preview node 150
+-- benchmarking...
+-- time                 2.513 μs   (2.351 μs .. 2.678 μs)
+--                      0.978 R²   (0.972 R² .. 0.993 R²)
+-- mean                 2.432 μs   (2.345 μs .. 2.546 μs)
+-- std dev              336.4 ns   (248.6 ns .. 467.2 ns)
+-- variance introduced by outliers: 93% (severely inflated)
+--
+-- Zipper; set node 150
+-- benchmarking...
+-- time                 8.838 μs   (8.768 μs .. 8.937 μs)
+--                      0.999 R²   (0.998 R² .. 1.000 R²)
+-- mean                 8.815 μs   (8.770 μs .. 8.895 μs)
+-- std dev              205.4 ns   (116.7 ns .. 306.8 ns)
+-- variance introduced by outliers: 25% (moderately inflated)
+-- @
 main :: IO ()
 main = do
   g <- create
@@ -127,7 +167,7 @@ main = do
   case as of
     ["calc"] -> do
       putStrLn "Read trees."
-      trs <- someNewick fn
+      trs <- someTrees fn
       unless
         (1 == length (nub $ map skeleton trs))
         (error "Trees have different topologies.")
@@ -135,43 +175,16 @@ main = do
       let pm = getPosteriorMatrix trs
           (mu, sigma) = L.meanCov pm
           (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
-      encodeFile "ApproximatePhylogeneticLikleihoodMultivariate.data" (mu, L.toRows sigmaInv, logSigmaDet)
-    ["benchA"] -> do
-      trs <- nNewick 1 fn
-      let tr = gmap fst $ head trs
-      putStrLn "postSet 150"
-      benchmark $ nf (postSet 150) tr
-      putStrLn "preSet 150"
-      benchmark $ nf (preSet 150) tr
-      putStrLn "replaceEdge 1 12"
-      benchmark $ nf (replaceEdge 328 1 12) tr
-    ["benchT"] -> do
-      trs' <- N.nNewick 1 fn
-      let tr' = fmap (fst . snd) $ label $ head trs'
-      let ixs = itoList tr'
-      -- let !sv1 = ix $ fst $ ixs !! 150
-      -- benchmark $ nf (preview sv1) tr'
-      -- let !sv2 = ix $ fst $ ixs !! 222
-      -- print $ ixs !! 222
-      -- benchmark $ nf (preview sv2) tr'
-      -- print "Non-existent"
-      -- benchmark $ nf (preview $ ix [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) tr'
-      let !sv1 = ix $ fst $ ixs !! 150
-      -- let z = zipper tr' & downward (singular sv1) & focus .~ 999999 & rezip
-      let z' = preview focus . downward (singular sv1) . zipper
-      let z'' = rezip . set focus 999999 . downward (singular sv1) . zipper
-      putStrLn "Preview zipper 150"
-      benchmark $ nf z' tr'
-      putStrLn "Set zipper 150"
-      benchmark $ nf z'' tr'
+      encodeFile "plh-multivariate.data" (mu, L.toRows sigmaInv, logSigmaDet)
     _ -> do
-      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "ApproximatePhylogeneticLikleihoodMultivariate.data"
+      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
       let sigmaInv = L.fromRows sigmaInvRows
       putStrLn "Maximum likelihood values."
       print mu
-      -- putStrLn "Choose a bad starting state for our chain."
+      putStrLn "Choose a bad starting state for our chain."
       let k = V.length mu
           start = V.replicate k (1.0 :: Double)
-      -- putStrLn "Status of the chain."
-      let s = force $ status "ApproximatePhylogeneticLikelihoodMultivariate" pr (lh mu sigmaInv logSigmaDet) (proposals start) (mon start) start nBurnIn nAutoTune nIterations g
+      print start
+      putStrLn "Construct status of the chain."
+      let s = force $ status "plh-multivariate" pr (lh mu sigmaInv logSigmaDet) (proposals start) (mon start) start nBurnIn nAutoTune nIterations g
       void $ mh s

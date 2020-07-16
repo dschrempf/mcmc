@@ -65,10 +65,9 @@ executable plh
   default-language: Haskell2010
 
 executable plh-multivariate
-  main-is: PhylogeneticLikelihoodMultivariate.hs
+  main-is: Main.hs
   other-modules:
-      AdjacencyMap
-      Newick
+      AdjacencyIntMap
       Tree
       Paths_mcmc_examples
   autogen-modules:
@@ -82,15 +81,14 @@ executable plh-multivariate
     , base >=4.7 && <5
     , bytestring
     , containers
-    , criterion
     , deepseq
+    , elynx-tree
     , hmatrix
-    , lens
     , log-domain
     , mcmc
     , megaparsec
+    , microlens-platform
     , mwc-random
     , vector
-    , zippers
     , zlib
   default-language: Haskell2010
