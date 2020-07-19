@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- |
 -- Module      :  Main
 -- Description :  Approximate phylogenetic likelihood with multivariate normal distribution
@@ -10,8 +11,8 @@
 --
 -- Creation date: Fri Jul  3 21:27:38 2020.
 --
--- This example is a little more involved and includes estimation of a larger
--- phylogeny by fitting the posterior with a multivariate normal distribution.
+-- This example is more involved and includes estimation of a larger phylogeny
+-- by fitting the posterior with a multivariate normal distribution.
 --
 -- The trees are read from a data file which is given relative to the @mcmc@ git
 -- repository base directory. Hence, the compiled binary has to be executed from
@@ -21,23 +22,51 @@ module Main
   )
 where
 
-import AdjacencyIntMap
-import Control.Monad
-import Data.Aeson
-import Data.List
-import Data.Vector.Storable (Vector)
-import qualified Data.Vector.Storable as V
-import Lens.Micro.Platform
-import Mcmc
-import Numeric.LinearAlgebra (Matrix, R, (<#), (<.>))
-import qualified Numeric.LinearAlgebra as L
-import Numeric.Log
-import System.Environment
-import System.Random.MWC
+-- import AdjacencyIntMap
+-- import Control.Monad
+-- import Data.Aeson
+-- import Data.Bifoldable
+import qualified Data.ByteString.Lazy.Char8 as L
+import Data.ByteString.Lazy.Char8 (ByteString)
+-- import Data.List
+
+-- import qualified Data.Vector.Storable as V
+-- import Lens.Micro.Platform
+-- import Mcmc
+-- import Numeric.LinearAlgebra (Matrix, R, (<#), (<.>))
+
+-- import Numeric.Log
+-- import System.Environment
+-- import System.Random.MWC
+
+import Data.Set
+import qualified Data.Set as S
+-- import Data.Vector.Storable (Vector)
+import ELynx.Data.Tree
+import ELynx.Export.Tree.Newick
+-- import qualified Numeric.LinearAlgebra as L
 import Tree
 
--- We condense the branch lengths into a vector.
-type I = Vector R
+-- TODO: Birth-death prior on time-tree (substitution-tree)?
+
+-- -- We condense the branch lengths into a vector.
+-- data I = I
+--   { -- Height of root node measured in units of time.
+--     timeRoot :: Double,
+--     -- Global normalization of rate parameters. XXX: Is this necessary given we
+--     -- have a fully specified the gamma distribution with mean k*theta (see
+--     -- below)?
+--     rateMean :: Double,
+--     -- First parameter k of gamma distribution of rate parameters.
+--     rateGammaScale :: Double,
+--     -- Second parameter theta of gamma distribution of rate parameters.
+--     rateGammaShape :: Double,
+--     -- Tree.
+--     tree :: Tree Double Int
+--   }
+
+-- instance ToJSON I
+-- instance FromJSON I
 
 -- -- Does not work because the likelihood function will not be recomputed since
 -- -- it believes the vector has not changed.
@@ -54,64 +83,149 @@ type I = Vector R
 fn :: FilePath
 fn = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
 
-getEdges :: T Double -> I
-getEdges = L.fromList . (map (fromD . (^. _1)) . edgeList)
+outgroups :: Set ByteString
+outgroups =
+  S.fromList
+    [ "Nu_advena",
+      "Gi_biloba",
+      "Cy_micholi",
+      "Ps_nudum",
+      "Sc_dissect",
+      "Op_vulgatu",
+      "Pi_radiata",
+      "Pi_pondero",
+      "Pi_jeffrey",
+      "Ce_libani",
+      "Th_elegans",
+      "Cy_spinulo",
+      "Eq_diffusu",
+      "Ar_thalian",
+      "Yu_filamen",
+      "Po_acrosti",
+      "Di_truncat",
+      "Th_acumina",
+      "Ho_pycnoca",
+      "Gy_dryopte",
+      "Cy_utahens",
+      "Cy_fragili",
+      "Pt_vittata",
+      "Pt_ensigor",
+      "Ad_tenerum",
+      "Ad_aleutic",
+      "Di_villosa",
+      "Pe_borboni",
+      "Po_trichoc",
+      "Po_euphrat",
+      "Ep_sinica",
+      "Sc_vertici",
+      "Pi_parvifl",
+      "Ze_mays",
+      "So_bicolor",
+      "Ac_america",
+      "Sm_bona",
+      "Co_autumna",
+      "Lu_polyphy",
+      "Oe_specios",
+      "Oe_rosea",
+      "La_trident",
+      "Ne_nucifer",
+      "Vi_vinifer",
+      "Ko_scopari",
+      "Lu_angusti",
+      "Ro_chinens",
+      "Bo_nivea",
+      "Hi_cannabi",
+      "Ca_papaya",
+      "Di_malabar",
+      "Ta_parthen",
+      "In_heleniu",
+      "Ro_officin",
+      "So_tuberos",
+      "Ip_purpure",
+      "Ca_roseus",
+      "Al_cathart",
+      "Ju_scopulo",
+      "Cu_lanceol",
+      "Ho_cordata",
+      "Sa_bermuda",
+      "Or_sativa",
+      "Br_distach",
+      "Zo_marina",
+      "Po_peltatu",
+      "Es_califor",
+      "Ka_heteroc",
+      "Il_parvifl",
+      "Ma_attenua",
+      "Da_nodosa",
+      "Di_conjuga",
+      "Ta_baccata",
+      "Sa_henryi",
+      "Am_trichop",
+      "Pr_andina",
+      "Gn_montanu",
+      "Il_florida",
+      "Eq_hymale",
+      "Sa_glabra"
+    ]
 
-getPosteriorMatrix :: [T Double] -> Matrix R
-getPosteriorMatrix = L.fromRows . map getEdges
+-- getEdges :: Tree Double a -> Vector Double
+-- getEdges t = L.fromList $ bifoldr' (:) (flip const) [] t
 
--- Uniform prior. Ensuring positive branch lengths. If this is too slow, the
--- positiveness of branches has to be ensured by the proposals.
-pr :: I -> Log Double
-pr xs
-  | V.any (<= 0) xs = pzero
-  | otherwise = Exp 0
+-- getPosteriorMatrix :: [Tree Double Int] -> Matrix Double
+-- getPosteriorMatrix = L.fromRows . map getEdges
 
--- Phylogenetic likelihood using a multivariate normal distribution. See
--- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
---
--- The constant @k * log (2*pi)@ was left out on purpose.
---
--- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
-lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
-lh mu sigmaInv logSigmaDet xs = Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
-  where
-    dxs = xs - mu
+-- -- Uniform prior. Ensuring positive branch lengths. If this is too slow, the
+-- -- positiveness of branches has to be ensured by the proposals.
+-- pr :: I -> Log Double
+-- pr xs
+--   | V.any (<= 0) xs = pzero
+--   | otherwise = Exp 0
 
--- Slide branch with given index.
-slideBranch :: Int -> Proposal I
-slideBranch i = slideSymmetric n 1 (singular $ ix i) 0.01 True
-  where
-    n = "Slide branch " <> show i
+-- -- Phylogenetic likelihood using a multivariate normal distribution. See
+-- -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
+-- --
+-- -- The constant @k * log (2*pi)@ was left out on purpose.
+-- --
+-- -- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
+-- lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
+-- lh mu sigmaInv logSigmaDet xs = Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
+--   where
+--     dxs = xs - mu
 
-proposals :: I -> Cycle I
-proposals v = fromList [slideBranch i | i <- [0 .. k]]
-  where
-    k = V.length v - 1
+-- -- Slide branch with given index.
+-- slideBranch :: Int -> Proposal I
+-- slideBranch i = slideSymmetric n 1 (singular $ ix i) 0.01 True
+--   where
+--     n = "Slide branch " <> show i
 
--- Branch length monitors.
-branchMons :: I -> [MonitorParameter I]
-branchMons v = [monitorRealFloat (n i) (singular $ ix i) | i <- [0 .. k]]
-  where
-    n i = "Branch " <> show i
-    k = V.length v - 1
+-- proposals :: I -> Cycle I
+-- proposals v = fromList [slideBranch i | i <- [0 .. k]]
+--   where
+--     k = V.length v - 1
 
-mon :: I -> Monitor I
-mon v = Monitor (monitorStdOut (take 3 bs) 50) [monitorFile "Branches" bs 10] []
-  where
-    bs = branchMons v
+-- -- Branch length monitors.
+-- branchMons :: I -> [MonitorParameter I]
+-- branchMons v = [monitorRealFloat (n i) (singular $ ix i) | i <- [0 .. k]]
+--   where
+--     n i = "Branch " <> show i
+--     k = V.length v - 1
 
--- Number of burn in iterations.
-nBurnIn :: Maybe Int
-nBurnIn = Just 1600
+-- mon :: I -> Monitor I
+-- mon v = Monitor (monitorStdOut (take 3 bs) 50) [monitorFile "Branches" bs 10] []
+--   where
+--     bs = branchMons v
 
--- Auto tuning period.
-nAutoTune :: Maybe Int
-nAutoTune = Just 200
+-- -- Number of burn in iterations.
+-- nBurnIn :: Maybe Int
+-- nBurnIn = Just 1600
 
--- Number of Metropolis-Hasting iterations after burn in.
-nIterations :: Int
-nIterations = 10000
+-- -- Auto tuning period.
+-- nAutoTune :: Maybe Int
+-- nAutoTune = Just 200
+
+-- -- Number of Metropolis-Hasting iterations after burn in.
+-- nIterations :: Int
+-- nIterations = 10000
 
 -- Benchmarks with criterion indicate the following:
 --
@@ -162,29 +276,34 @@ nIterations = 10000
 -- @
 main :: IO ()
 main = do
-  g <- create
-  as <- getArgs
-  case as of
-    ["calc"] -> do
-      putStrLn "Read trees."
-      trs <- someTrees fn
-      unless
-        (1 == length (nub $ map skeleton trs))
-        (error "Trees have different topologies.")
-      putStrLn "Get the posterior means and the posterior covariance matrix."
-      let pm = getPosteriorMatrix trs
-          (mu, sigma) = L.meanCov pm
-          (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
-      encodeFile "plh-multivariate.data" (mu, L.toRows sigmaInv, logSigmaDet)
-    _ -> do
-      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
-      let sigmaInv = L.fromRows sigmaInvRows
-      putStrLn "Maximum likelihood values."
-      print mu
-      putStrLn "Choose a bad starting state for our chain."
-      let k = V.length mu
-          start = V.replicate k (1.0 :: Double)
-      print start
-      putStrLn "Construct status of the chain."
-      let s = force $ status "plh-multivariate" pr (lh mu sigmaInv logSigmaDet) (proposals start) (mon start) start nBurnIn nAutoTune nIterations g
-      void $ mh s
+  tr <- oneTree fn
+  print $ length $ leaves tr
+  let tr' = either error id $ outgroup outgroups "root" tr
+  L.putStrLn $ toNewick $ lengthToPhyloTree tr'
+
+-- g <- create
+-- as <- getArgs
+-- case as of
+--   ["calc"] -> do
+--     putStrLn "Read trees."
+--     trs <- someTrees fn
+--     unless
+--       (1 == length (nub $ map skeleton trs))
+--       (error "Trees have different topologies.")
+--     putStrLn "Get the posterior means and the posterior covariance matrix."
+--     let pm = getPosteriorMatrix trs
+--         (mu, sigma) = L.meanCov pm
+--         (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
+--     encodeFile "plh-multivariate.data" (mu, L.toRows sigmaInv, logSigmaDet)
+--   _ -> do
+--     (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+--     let sigmaInv = L.fromRows sigmaInvRows
+--     putStrLn "Maximum likelihood values."
+--     print mu
+--     putStrLn "Choose a bad starting state for our chain."
+--     let k = V.length mu
+--         start = V.replicate k (1.0 :: Double)
+--     print start
+--     putStrLn "Construct status of the chain."
+--     let s = force $ status "plh-multivariate" pr (lh mu sigmaInv logSigmaDet) (proposals start) (mon start) start nBurnIn nAutoTune nIterations g
+--     void $ mh s
