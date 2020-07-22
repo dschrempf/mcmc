@@ -1,5 +1,8 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |
@@ -22,11 +25,39 @@ module Tree
 where
 
 import Codec.Compression.GZip
+import Control.Lens
+-- import Control.Lens.Indexed
+-- import Control.Lens.At
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 import ELynx.Data.Tree
 import ELynx.Import.Tree.Newick
 import Text.Megaparsec
+
+instance FunctorWithIndex [Int] (Tree e) where
+  imap f (Node br lb ts) = Node br (f [] lb) $ imap (\i -> imap (f . (:) i)) ts
+  {-# INLINE imap #-}
+
+instance FoldableWithIndex [Int] (Tree e) where
+  ifoldMap f (Node _ lb ts) = f [] lb `mappend` ifoldMap (\i -> ifoldMap (f . (:) i)) ts
+  {-# INLINE ifoldMap #-}
+
+instance TraversableWithIndex [Int] (Tree e) where
+  itraverse f (Node br lb ts) = Node br <$> f [] lb <*> itraverse (\i -> itraverse (f . (:) i)) ts
+  {-# INLINE itraverse #-}
+
+type instance IxValue (Tree e a) = (e, a)
+
+type instance Index (Tree e a) = [Int]
+
+instance Ixed (Tree e a) where
+  ix xs0 f = go xs0
+    where
+      go [] (Node br lb ts) = f (br, lb) <&> \(br', lb') -> Node br' lb' ts
+      go (i : is) t@(Node br lb ts)
+        | i < 0 = pure t
+        | otherwise = Node br lb <$> ix i (go is) ts
+  {-# INLINE ix #-}
 
 parseFileWith :: (ShowErrorComponent e) => String -> Parsec e ByteString a -> FilePath -> IO a
 parseFileWith s p f = do
@@ -42,7 +73,7 @@ oneTree p = do
   return $ either error id $ phyloToLengthTree pt
 
 -- | Parse one or more Newick trees until end of file.
-someTrees :: FilePath -> IO [Tree Length Int]
+someTrees :: FilePath -> IO [Tree Length ByteString]
 someTrees p = do
   pts <- parseFileWith "someNewick" (someNewick Standard) p
-  return $ map (either error id . phyloToLengthTree . identify) pts
+  return $ map (either error id . phyloToLengthTree) pts

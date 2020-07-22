@@ -68,12 +68,13 @@ executables:
       - deepseq
       - elynx-tree
       - hmatrix
+      - lens
       - log-domain
       - mcmc
       - megaparsec
-      - microlens-platform
       - mwc-random
       - vector
+      - zippers
       - zlib
     generated-other-modules: Paths_mcmc_examples
 

@@ -84,11 +84,12 @@ executable plh-multivariate
     , deepseq
     , elynx-tree
     , hmatrix
+    , lens
     , log-domain
     , mcmc
     , megaparsec
-    , microlens-platform
     , mwc-random
     , vector
+    , zippers
     , zlib
   default-language: Haskell2010

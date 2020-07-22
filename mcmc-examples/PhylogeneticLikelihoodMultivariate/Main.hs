@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -- |
 -- Module      :  Main
 -- Description :  Approximate phylogenetic likelihood with multivariate normal distribution
@@ -23,28 +24,32 @@ module Main
 where
 
 -- import AdjacencyIntMap
--- import Control.Monad
--- import Data.Aeson
--- import Data.Bifoldable
-import qualified Data.ByteString.Lazy.Char8 as L
-import Data.ByteString.Lazy.Char8 (ByteString)
 -- import Data.List
-
--- import qualified Data.Vector.Storable as V
 -- import Lens.Micro.Platform
 -- import Mcmc
--- import Numeric.LinearAlgebra (Matrix, R, (<#), (<.>))
-
 -- import Numeric.Log
--- import System.Environment
+-- import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
 -- import System.Random.MWC
 
-import Data.Set
+import Control.Lens
+import Control.Monad
+import Control.Zipper
+import Data.Aeson
+import Data.Bifoldable
+import Data.ByteString.Lazy.Char8 (ByteString)
+import qualified Data.ByteString.Lazy.Char8 as L
+import Data.List
+import Data.Maybe
+import Data.Set (Set)
 import qualified Data.Set as S
--- import Data.Vector.Storable (Vector)
+import Data.Vector.Storable (Vector)
+import qualified Data.Vector.Storable as V
 import ELynx.Data.Tree
+import qualified ELynx.Data.Topology.Rooted as T
 import ELynx.Export.Tree.Newick
--- import qualified Numeric.LinearAlgebra as L
+import Numeric.LinearAlgebra (Matrix)
+import qualified Numeric.LinearAlgebra as L
+import System.Environment
 import Tree
 
 -- TODO: Birth-death prior on time-tree (substitution-tree)?
@@ -168,11 +173,17 @@ outgroups =
       "Sa_glabra"
     ]
 
--- getEdges :: Tree Double a -> Vector Double
--- getEdges t = L.fromList $ bifoldr' (:) (flip const) [] t
+-- Get the vecotr of branch lengths.
+--
+-- Ignore the stem, and sum the two branches leading to the root.
+getBranches :: Measurable e => Tree e a -> Vector Double
+getBranches (Node _ _ [l, r]) = V.fromList $ (getStem l + getStem r) : concatMap go (forest l) ++ concatMap go (forest r)
+  where
+    go = bifoldr' (\x acc -> getLen x : acc) (flip const) []
+getBranches _ = error "getBranches: Root node is not bifurcating."
 
--- getPosteriorMatrix :: [Tree Double Int] -> Matrix Double
--- getPosteriorMatrix = L.fromRows . map getEdges
+getPosteriorMatrix :: [Tree Length a] -> Matrix Double
+getPosteriorMatrix = L.fromRows . map getBranches
 
 -- -- Uniform prior. Ensuring positive branch lengths. If this is too slow, the
 -- -- positiveness of branches has to be ensured by the proposals.
@@ -274,36 +285,55 @@ outgroups =
 -- std dev              205.4 ns   (116.7 ns .. 306.8 ns)
 -- variance introduced by outliers: 25% (moderately inflated)
 -- @
+fnData :: String
+fnData = "plh-multivariate.data"
+
 main :: IO ()
 main = do
-  tr <- oneTree fn
-  print $ length $ leaves tr
-  let tr' = either error id $ outgroup outgroups "root" tr
-  L.putStrLn $ toNewick $ lengthToPhyloTree tr'
+  as <- getArgs
 
--- g <- create
--- as <- getArgs
--- case as of
---   ["calc"] -> do
---     putStrLn "Read trees."
---     trs <- someTrees fn
---     unless
---       (1 == length (nub $ map skeleton trs))
---       (error "Trees have different topologies.")
---     putStrLn "Get the posterior means and the posterior covariance matrix."
---     let pm = getPosteriorMatrix trs
---         (mu, sigma) = L.meanCov pm
---         (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
---     encodeFile "plh-multivariate.data" (mu, L.toRows sigmaInv, logSigmaDet)
---   _ -> do
---     (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
---     let sigmaInv = L.fromRows sigmaInvRows
---     putStrLn "Maximum likelihood values."
---     print mu
---     putStrLn "Choose a bad starting state for our chain."
---     let k = V.length mu
---         start = V.replicate k (1.0 :: Double)
---     print start
+  case as of
+    ["inspect"] -> do
+      tr <- oneTree fn
+      putStrLn $ "The tree has " <> show (length $ leaves tr) <> " leaves."
+      let trRooted = either error id $ outgroup outgroups "root" tr
+      L.putStrLn $ toNewick $ lengthToPhyloTree trRooted
+      print $ getBranches trRooted
+      let xs = itoList trRooted
+      print xs
+      let (pth, _) = fromMaybe (error "Gn_montanu not found.") $ ifind (\_ n -> n == "Gn_montanu") tr
+      print pth
+      let zp = zipper tr & downward (singular $ ix pth) & fromWithin _2 & focus .~ "BLAAAAAAAAAAAAAAAA" & rezip
+      print zp
+    ["read"] -> do
+      putStrLn "Read trees."
+      trs <- someTrees fn
+      let l = length $ nub $ map T.fromLabeledTree trs
+      unless (l == 1) (error "Trees have different topologies.")
+      let trsRooted = map (either error id . outgroup outgroups "root") trs
+
+      putStrLn "Get the posterior means and the posterior covariance matrix."
+      let pm = getPosteriorMatrix trsRooted
+          (mu, sigma) = L.meanCov pm
+          (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
+
+      putStrLn "The posterior means of the branch lengths are:"
+      print mu
+
+      putStrLn $ "Save posterior means an covariances to " <> fnData <> "."
+      encodeFile fnData (mu, L.toRows sigmaInv, logSigmaDet)
+    _ -> putStrLn "inspect|read"
+
+-- _ -> do
+--   g <- create
+--   (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+--   let sigmaInv = L.fromRows sigmaInvRows
+--   putStrLn "The posterior means of the branch lengths are:"
+--   print mu
+--   putStrLn "Choose a (bad) starting state for our chain."
+--   let k = V.length mu
+--       start = V.replicate k (1.0 :: Double)
+--   print start
 --     putStrLn "Construct status of the chain."
 --     let s = force $ status "plh-multivariate" pr (lh mu sigmaInv logSigmaDet) (proposals start) (mon start) start nBurnIn nAutoTune nIterations g
 --     void $ mh s
