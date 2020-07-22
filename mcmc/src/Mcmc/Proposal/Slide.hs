@@ -18,15 +18,14 @@ module Mcmc.Proposal.Slide
   )
 where
 
-import Lens.Micro
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Statistics.Distribution.Normal
 import Statistics.Distribution.Uniform
 
 -- The actual proposal with tuning parameter.
-slideSimple :: Lens' a Double -> Double -> Double -> Double -> ProposalSimple a
-slideSimple l m s t = proposalGenericContinuous l (normalDistr m (s * t)) (+) (-)
+slideSimple :: Double -> Double -> Double -> ProposalSimple Double
+slideSimple m s t = proposalGenericContinuous (normalDistr m (s * t)) (+) (-)
 
 -- | Additive proposal with normally distributed kernel.
 slide ::
@@ -34,22 +33,20 @@ slide ::
   String ->
   -- | Weight.
   Int ->
-  -- | Instruction about which parameter to change.
-  Lens' a Double ->
   -- | Mean.
   Double ->
   -- | Standard deviation.
   Double ->
   -- | Enable tuning.
   Bool ->
-  Proposal a
-slide n w l m s t = Proposal n w (slideSimple l m s 1.0) tnr
+  Proposal Double
+slide n w m s t = Proposal n w (slideSimple m s 1.0) tnr
   where
-    tnr = if t then Just $ tuner (slideSimple l m s) else Nothing
+    tnr = if t then Just $ tuner (slideSimple m s) else Nothing
 
 -- The actual proposal with tuning parameter.
-slideSymmetricSimple :: Lens' a Double -> Double -> Double -> ProposalSimple a
-slideSymmetricSimple l s t = proposalSymmetricGenericContinuous l (normalDistr 0.0 (s * t)) (+)
+slideSymmetricSimple :: Double -> Double -> ProposalSimple Double
+slideSymmetricSimple s t = proposalSymmetricGenericContinuous (normalDistr 0.0 (s * t)) (+)
 
 -- | Additive proposal with normally distributed kernel with mean zero. This
 -- proposal is very fast, because the Metropolis-Hastings ratio does not include
@@ -59,21 +56,19 @@ slideSymmetric ::
   String ->
   -- | Weight.
   Int ->
-  -- | Instruction about which parameter to change.
-  Lens' a Double ->
   -- | Standard deviation.
   Double ->
   -- | Enable tuning.
   Bool ->
-  Proposal a
-slideSymmetric n w l s t = Proposal n w (slideSymmetricSimple l s 1.0) tnr
+  Proposal Double
+slideSymmetric n w s t = Proposal n w (slideSymmetricSimple s 1.0) tnr
   where
-    tnr = if t then Just $ tuner (slideSymmetricSimple l s) else Nothing
+    tnr = if t then Just $ tuner (slideSymmetricSimple s) else Nothing
 
 -- The actual proposal with tuning parameter.
-slideUniformSimple :: Lens' a Double -> Double -> Double -> ProposalSimple a
-slideUniformSimple l d t =
-  proposalSymmetricGenericContinuous l (uniformDistr (- t * d) (t * d)) (+)
+slideUniformSimple :: Double -> Double -> ProposalSimple Double
+slideUniformSimple d t =
+  proposalSymmetricGenericContinuous (uniformDistr (- t * d) (t * d)) (+)
 
 -- | Additive proposal with uniformly distributed kernel. This proposal is very fast,
 -- because the Metropolis-Hastings ratio does not include calculation of the
@@ -83,13 +78,11 @@ slideUniform ::
   String ->
   -- | Weight.
   Int ->
-  -- | Instruction about which parameter to change.
-  Lens' a Double ->
   -- | Delta.
   Double ->
   -- | Enable tuning.
   Bool ->
-  Proposal a
-slideUniform n w l d t = Proposal n w (slideUniformSimple l d 1.0) tnr
+  Proposal Double
+slideUniform n w d t = Proposal n w (slideUniformSimple d 1.0) tnr
   where
-    tnr = if t then Just $ tuner (slideUniformSimple l d) else Nothing
+    tnr = if t then Just $ tuner (slideUniformSimple d) else Nothing

@@ -19,7 +19,6 @@ module Mcmc.Proposal.Bactrian
   )
 where
 
-import Lens.Micro
 import Mcmc.Proposal
 import Numeric.Log
 import Statistics.Distribution
@@ -41,28 +40,26 @@ bactrianSample m s g = do
   return $ if b then x else (- x)
 
 bactrianAdditive ::
-  Lens' a Double ->
   Double ->
   Double ->
-  a ->
+  Double ->
   GenIO ->
-  IO a
-bactrianAdditive l m s x g = do
+  IO Double
+bactrianAdditive m s x g = do
   dx <- bactrianSample m s g
-  return $ x & l +~ dx
+  return $ x + dx
 
 -- bactrianSimple lens spike stdDev tune forwardOp backwardOp
 bactrianAdditiveSimple ::
-  Lens' a Double ->
   Double ->
   Double ->
   Double ->
-  ProposalSimple a
-bactrianAdditiveSimple l m s t
+  ProposalSimple Double
+bactrianAdditiveSimple m s t
   | m < 0 = error "bactrianAdditiveSimple: Spike parameter negative."
   | m >= 1 = error "bactrianAdditiveSimple: Spike parameter 1.0 or larger."
   | s <= 0 = error "bactrianAdditiveSimple: Standard deviation 0.0 or smaller."
-  | otherwise = ProposalSimple (bactrianAdditive l m (t * s)) Nothing
+  | otherwise = ProposalSimple (bactrianAdditive m (t * s)) Nothing
 
 -- | Additive symmetric proposal with kernel similar to the silhouette of a
 -- Bactrian camel. The [Bactrian
@@ -78,29 +75,26 @@ slideBactrian ::
   String ->
   -- | Weight.
   Int ->
-  -- | Instruction about which parameter to change.
-  Lens' a Double ->
   -- | Spike parameter.
   Double ->
   -- | Standard deviation.
   Double ->
   -- | Enable tuning.
   Bool ->
-  Proposal a
-slideBactrian n w l m s t = Proposal n w (bactrianAdditiveSimple l m s 1.0) tnr
+  Proposal Double
+slideBactrian n w m s t = Proposal n w (bactrianAdditiveSimple m s 1.0) tnr
   where
-    tnr = if t then Just $ tuner (bactrianAdditiveSimple l m s) else Nothing
+    tnr = if t then Just $ tuner (bactrianAdditiveSimple m s) else Nothing
 
 bactrianMult ::
-  Lens' a Double ->
   Double ->
   Double ->
-  a ->
+  Double ->
   GenIO ->
-  IO a
-bactrianMult l m s x g = do
+  IO Double
+bactrianMult m s x g = do
   dx <- bactrianSample m s g
-  return $ x & l %~ (* (1 + dx))
+  return $ x * (1 + dx)
 
 bactrianKernel :: Double -> Double -> Double -> Log Double
 bactrianKernel m s x = Exp $ log $ kernel1 + kernel2
@@ -112,17 +106,15 @@ bactrianKernel m s x = Exp $ log $ kernel1 + kernel2
     kernel1 = density dist1 x
     kernel2 = density dist2 x
 
-bactrianMultKernel :: Lens' a Double -> Double -> Double -> a -> a -> Log Double
-bactrianMultKernel l m s x y = bactrianKernel m s dx
-  where
-    dx = y ^. l / x ^. l
+bactrianMultKernel :: Double -> Double -> Double -> Double -> Log Double
+bactrianMultKernel m s x y = bactrianKernel m s (y / x)
 
-bactrianMultSimple :: Lens' a Double -> Double -> Double -> Double -> ProposalSimple a
-bactrianMultSimple l m s t
+bactrianMultSimple :: Double -> Double -> Double -> ProposalSimple Double
+bactrianMultSimple m s t
   | m < 0 = error "bactrianMultSimple: Spike parameter negative."
   | m >= 1 = error "bactrianMultSimple: Spike parameter 1.0 or larger."
   | s <= 0 = error "bactrianMultSimple: Standard deviation 0.0 or smaller."
-  | otherwise = ProposalSimple (bactrianMult l m (t * s)) (Just $ bactrianMultKernel l m (t * s))
+  | otherwise = ProposalSimple (bactrianMult m (t * s)) (Just $ bactrianMultKernel m (t * s))
 
 -- | Multiplicative proposal with kernel similar to the silhouette of a Bactrian
 -- camel. See 'slideBactrian'.
@@ -131,15 +123,13 @@ scaleBactrian ::
   String ->
   -- | Weight.
   Int ->
-  -- | Instruction about which parameter to change.
-  Lens' a Double ->
   -- | Spike parameter.
   Double ->
   -- | Standard deviation.
   Double ->
   -- | Enable tuning.
   Bool ->
-  Proposal a
-scaleBactrian n w l m s t = Proposal n w (bactrianMultSimple l m s 1.0) tnr
+  Proposal Double
+scaleBactrian n w m s t = Proposal n w (bactrianMultSimple m s 1.0) tnr
   where
-    tnr = if t then Just $ tuner (bactrianMultSimple l m s) else Nothing
+    tnr = if t then Just $ tuner (bactrianMultSimple m s) else Nothing

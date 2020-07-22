@@ -98,8 +98,8 @@ instance Eq (Proposal a) where
 instance Ord (Proposal a) where
   compare = compare `on` pName
 
-overP :: Lens' b a -> Proposal a -> Proposal b
-overP l (Proposal n w s t) = Proposal n w (overS l s) (overT l <$> t)
+convertP :: Lens' b a -> Proposal a -> Proposal b
+convertP l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
 
 -- | Convert a proposal from one data type to another using a lens.
 --
@@ -108,8 +108,8 @@ overP l (Proposal n w s t) = Proposal n w (overS l s) (overT l <$> t)
 -- @
 -- scaleFirstEntryOfTuple = scale >>> _1
 -- @
-(>>>) :: Lens' b a -> Proposal a -> Proposal b
-(>>>) = overP
+(>>>) :: Proposal a -> Lens' b a -> Proposal b
+(>>>) p l = convertP l p
 
 -- One could also use a different type for 'pSample', so that 'pKernel' can
 -- be avoided. In detail,
@@ -137,8 +137,8 @@ data ProposalSimple a
         pKernel :: Maybe (a -> a -> Log Double)
       }
 
-overS :: Lens' b a -> ProposalSimple a -> ProposalSimple b
-overS l (ProposalSimple s mk) = ProposalSimple s' mk'
+convertS :: Lens' b a -> ProposalSimple a -> ProposalSimple b
+convertS l (ProposalSimple s mk) = ProposalSimple s' mk'
   where s' v g = do x' <- s (v ^. l) g
                     return $ set l x' v
         mk' = case mk of
@@ -152,9 +152,9 @@ data Tuner a
         tFunc :: Double -> ProposalSimple a
       }
 
-overT :: Lens' b a -> Tuner a -> Tuner b
-overT l (Tuner p f) = Tuner p f'
-  where f' x = overS l $ f x
+convertT :: Lens' b a -> Tuner a -> Tuner b
+convertT l (Tuner p f) = Tuner p f'
+  where f' x = convertS l $ f x
 
 -- | Create a 'Tuner'. The tuning function accepts a tuning parameter, and
 -- returns a corresponding 'ProposalSimple'. The larger the tuning parameter, the

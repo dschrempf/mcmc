@@ -24,7 +24,6 @@ module Mcmc.Proposal.Generic
   )
 where
 
-import Lens.Micro
 import Mcmc.Proposal
 import Numeric.Log
 import Statistics.Distribution
@@ -32,105 +31,93 @@ import System.Random.MWC
 
 jumpCont ::
   (ContDistr d, ContGen d) =>
-  Lens' a Double ->
   d ->
   (Double -> Double -> Double) ->
-  a ->
+  Double ->
   GenIO ->
-  IO a
-jumpCont l d f x g = do
+  IO Double
+jumpCont d f x g = do
   dx <- genContVar d g
-  return $ set l ((x ^. l) `f` dx) x
+  return $ x `f` dx
 {-# INLINEABLE jumpCont #-}
 
 kernelCont ::
   (ContDistr d, ContGen d) =>
-  Lens' a Double ->
   d ->
   (Double -> Double -> Double) ->
-  a ->
-  a ->
+  Double ->
+  Double ->
   Log Double
-kernelCont l d fInv x y = Exp $ logDensity d ((y ^. l) `fInv` (x ^. l))
+kernelCont d fInv x y = Exp $ logDensity d (y `fInv` x)
 {-# INLINEABLE kernelCont #-}
 
 -- | Generic function to create proposals for continuous parameters ('Double').
 proposalGenericContinuous ::
   (ContDistr d, ContGen d) =>
-  -- | Instruction about which parameter to change.
-  Lens' a Double ->
   -- | Probability distribution
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
   (Double -> Double -> Double) ->
   -- | Inverse operator, e.g.,(-), so that y - dx = x.
   (Double -> Double -> Double) ->
-  ProposalSimple a
-proposalGenericContinuous l d f fInv =
-  ProposalSimple (jumpCont l d f) (Just $ kernelCont l d fInv)
+  ProposalSimple Double
+proposalGenericContinuous d f fInv =
+  ProposalSimple (jumpCont d f) (Just $ kernelCont d fInv)
 
 -- | Generic function to create symmetric proposals for continuous parameters ('Double').
 proposalSymmetricGenericContinuous ::
   (ContDistr d, ContGen d) =>
-  -- | Instruction about which parameter to change.
-  Lens' a Double ->
   -- | Probability distribution
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
   (Double -> Double -> Double) ->
-  ProposalSimple a
-proposalSymmetricGenericContinuous l d f =
-  ProposalSimple (jumpCont l d f) Nothing
+  ProposalSimple Double
+proposalSymmetricGenericContinuous d f =
+  ProposalSimple (jumpCont d f) Nothing
 
 jumpDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
-  Lens' a Int ->
   d ->
   (Int -> Int -> Int) ->
-  a ->
+  Int ->
   GenIO ->
-  IO a
-jumpDiscrete l d f x g = do
+  IO Int
+jumpDiscrete d f x g = do
   dx <- genDiscreteVar d g
-  return $ set l ((x ^. l) `f` dx) x
+  return $ x `f` dx
 {-# INLINEABLE jumpDiscrete #-}
 
 kernelDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
-  Lens' a Int ->
   d ->
   (Int -> Int -> Int) ->
-  a ->
-  a ->
+  Int ->
+  Int ->
   Log Double
-kernelDiscrete l d fInv x y =
-  Exp $ logProbability d ((y ^. l) `fInv` (x ^. l))
+kernelDiscrete d fInv x y =
+  Exp $ logProbability d (y `fInv` x)
 {-# INLINEABLE kernelDiscrete #-}
 
 -- | Generic function to create proposals for discrete parameters ('Int').
 proposalGenericDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
-  -- | Instruction about which parameter to change.
-  Lens' a Int ->
   -- | Probability distribution.
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
   (Int -> Int -> Int) ->
   -- | Inverse operator, e.g.,(-), so that y - dx = x.
   (Int -> Int -> Int) ->
-  ProposalSimple a
-proposalGenericDiscrete l fd f fInv =
-  ProposalSimple (jumpDiscrete l fd f) (Just $ kernelDiscrete l fd fInv)
+  ProposalSimple Int
+proposalGenericDiscrete fd f fInv =
+  ProposalSimple (jumpDiscrete fd f) (Just $ kernelDiscrete fd fInv)
 
 -- | Generic function to create symmetric proposals for discrete parameters ('Int').
 proposalSymmetricGenericDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
-  -- | Instruction about which parameter to change.
-  Lens' a Int ->
   -- | Probability distribution.
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
   (Int -> Int -> Int) ->
-  ProposalSimple a
-proposalSymmetricGenericDiscrete l fd f =
-  ProposalSimple (jumpDiscrete l fd f) Nothing
+  ProposalSimple Int
+proposalSymmetricGenericDiscrete fd f =
+  ProposalSimple (jumpDiscrete fd f) Nothing

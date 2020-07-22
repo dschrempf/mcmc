@@ -37,7 +37,7 @@ lh = Exp . logDensity (normalDistr trueMean trueStdDev)
 proposals :: Cycle Double
 proposals =
   fromList
-    [slideSymmetric "medium" 1 id 1.0 True]
+    [slideSymmetric "medium" 1 1.0 True]
 
 mons :: [MonitorParameter Double]
 mons = [monitorRealFloat "mu" id]
@@ -68,7 +68,7 @@ normalBench g = do
 proposalsBactrian :: Cycle Double
 proposalsBactrian =
   fromList
-    [slideBactrian "bactrian" 1 id 0.5 1.0 True]
+    [slideBactrian "bactrian" 1 0.5 1.0 True]
 
 normalBactrianBench :: GenIO -> IO ()
 normalBactrianBench g = do
