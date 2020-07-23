@@ -28,7 +28,6 @@ where
 -- import Data.List
 -- import Lens.Micro.Platform
 -- import Mcmc
--- import Numeric.Log
 -- import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
 -- import System.Random.MWC
 
@@ -51,12 +50,14 @@ import ELynx.Export.Tree.Newick
 import GHC.Generics
 import Numeric.LinearAlgebra (Matrix)
 import qualified Numeric.LinearAlgebra as L
+import Numeric.Log
+import Prior
 import System.Environment
 import Tree
 
+-- State space.
 data I = I
-  {
-    -- Birth rate parameter of time tree.
+  { -- Birth rate parameter of time tree.
     timeBirthRate :: Double,
     -- Height of root node measured in units of time.
     timeRootHeight :: Double,
@@ -73,8 +74,21 @@ data I = I
   }
   deriving (Generic)
 
+-- Prior.
+pr :: I -> Log Double
+pr (I l h t k m r) =
+  product'
+    [ exponentialWith 1.0 l,
+      exponentialWith 10.0 h,
+      branchesWith (exponentialWith l) t,
+      exponentialWith 10.0 k,
+      gammaWith k (1/k) m,
+      branchesWith (gammaWith k (1/k)) r
+    ]
+
 instance ToJSON I
 instance FromJSON I
+
 
 fn :: FilePath
 fn = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
@@ -168,8 +182,9 @@ outgroups =
 -- are the first two entries of the vector. Ignore the root branch.
 getBranches :: Tree Double a -> Vector Double
 getBranches (Node _ _ [l, r]) = V.fromList $ head ls : head rs : tail ls ++ tail rs
-  where ls = branches l
-        rs = branches r
+  where
+    ls = branches l
+    rs = branches r
 getBranches _ = error "getBranches: Root node is not bifurcating."
 
 -- Sum the first two elements of a vector.
@@ -178,13 +193,6 @@ sumFirstTwo v = (v V.! 0 + v V.! 1) `V.cons` V.drop 2 v
 
 getPosteriorMatrix :: [Tree Double a] -> Matrix Double
 getPosteriorMatrix = L.fromRows . map (sumFirstTwo . getBranches)
-
--- -- Uniform prior. Ensuring positive branch lengths. If this is too slow, the
--- -- positiveness of branches has to be ensured by the proposals.
--- pr :: I -> Log Double
--- pr xs
---   | V.any (<= 0) xs = pzero
---   | otherwise = Exp 0
 
 -- -- Phylogenetic likelihood using a multivariate normal distribution. See
 -- -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
@@ -320,10 +328,16 @@ main = do
         print xs
         let (pth, _) = fromMaybe (error "Gn_montanu not found.") $ ifind (\_ n -> n == "Gn_montanu") trRooted
         print pth
-        let bf1 = toTree . insertLabel "BLAAAAAAAAAAAAAAA" .
-                 fromMaybe (error "Dohh") . goPath pth . fromTree
-        let bf2 = label . current .
-                 fromMaybe (error "Dohh") . goPath pth . fromTree
+        let bf1 =
+              toTree . insertLabel "BLAAAAAAAAAAAAAAA"
+                . fromMaybe (error "Dohh")
+                . goPath pth
+                . fromTree
+        let bf2 =
+              label . current
+                . fromMaybe (error "Dohh")
+                . goPath pth
+                . fromTree
         print $ bf1 trRooted
         print $ bf2 trRooted
         benchmark $ nf bf1 trRooted

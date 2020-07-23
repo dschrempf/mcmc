@@ -10,21 +10,38 @@
 --
 -- Creation date: Thu Jul 23 13:26:14 2020.
 module Prior
-  ( exponentialWith,
+  ( -- * Prior distributions
+    uniformWith,
+    exponentialWith,
     gammaWith,
     branchesWith,
+
+    -- * Auxiliary functions
+    product',
   )
 where
 
-import Data.Foldable
 import ELynx.Data.Tree
--- import Mcmc
+import Mcmc
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Exponential
 import Statistics.Distribution.Gamma
 
--- | Prior with exponential distribution.
+-- | Uniform prior in [a, b].
+uniformWith ::
+  -- | Lower bound a.
+  Double ->
+  -- | Upper bound b.
+  Double ->
+  Double ->
+  Log Double
+uniformWith a b x
+  | x <= a = pzero
+  | x >= b = pzero
+  | otherwise = Exp 0
+
+-- | Exponentail prior.
 exponentialWith ::
   -- | Rate.
   Double ->
@@ -34,7 +51,7 @@ exponentialWith l x = Exp $ logDensity d x
   where
     d = exponential l
 
--- | Prior with gamma distribution.
+-- | Gamma distributed prior.
 gammaWith ::
   -- | Shape.
   Double ->
@@ -55,3 +72,11 @@ branchesWith ::
   Tree Double a ->
   Log Double
 branchesWith f = product . map f . tail . branches
+
+-- | Intelligent product that stops when encountering a zero.
+product' :: [Log Double] -> Log Double
+product' [] = 0
+product' [x] = x
+product' (x : xs)
+  | x == 0 = 0
+  | otherwise = x * product' xs
