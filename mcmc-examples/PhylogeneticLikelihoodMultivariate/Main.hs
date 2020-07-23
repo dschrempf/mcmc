@@ -24,12 +24,6 @@ module Main
   )
 where
 
--- import AdjacencyIntMap
--- import Data.List
--- import Lens.Micro.Platform
--- import Mcmc
--- import System.Random.MWC
-
 import Control.Lens hiding ((<.>))
 import Control.Monad
 import Criterion
@@ -43,8 +37,9 @@ import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
-import ELynx.Data.Tree
+import Debug.Trace
 import qualified ELynx.Data.Topology.Rooted as T
+import ELynx.Data.Tree
 import ELynx.Export.Tree.Newick
 import GHC.Generics
 import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
@@ -61,7 +56,8 @@ data I = I
     -- Height of root node measured in units of time.
     timeRootHeight :: Double,
     -- Time tree.
-    timeTree :: Tree Double Int,
+    -- TODO: The types are all wrong.
+    timeTree :: Tree Length Int,
     -- Shape parameter k of gamma distribution of rate parameters. The scale
     -- parameter is determined such that the mean of the gamma distribution is
     -- 1.
@@ -82,16 +78,14 @@ initWith :: Tree Length Int -> I
 initWith t =
   I
     { timeBirthRate = 1.0,
-      timeRootHeight = height t * rm,
-      timeTree = first (* rm) t',
+      timeRootHeight = height t',
+      timeTree = t',
       rateGammaShape = 1.0,
       rateMean = 1.0,
-      rateTree = first (const 1.0) t'
+      rateTree = first (const 1.0) t
     }
   where
-    rm = 1.0
-    -- TODO: The types are all wrong.
-    t' = first fromLength t
+    t' = makeUltrametric t
 
 -- Prior.
 pr :: I -> Log Double
@@ -99,14 +93,17 @@ pr (I l h t k m r) =
   product'
     [ exponentialWith 1.0 l,
       exponentialWith 10.0 h,
-      branchesWith (exponentialWith l) t,
+      branchesWith (exponentialWith l) (first fromLength t),
       exponentialWith 10.0 k,
       gammaWith k (1 / k) m,
       branchesWith (gammaWith k (1 / k)) r
     ]
 
-fn :: FilePath
-fn = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
+fnMaximumCredibilityTree :: FilePath
+fnMaximumCredibilityTree = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/MaximumCredibility.tree"
+
+fnTreeList :: FilePath
+fnTreeList = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
 
 outgroups :: Set ByteString
 outgroups =
@@ -216,9 +213,9 @@ getPosteriorMatrix = L.fromRows . map (sumFirstTwo . getBranches)
 --
 -- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
 lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
-lh mu sigmaInv logSigmaDet x = Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
+lh mu sigmaInv logSigmaDet x = traceShow dxs $ Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
   where
-    times = getBranches $ timeTree x
+    times = getBranches $ first fromLength $ timeTree x
     rates = getBranches $ rateTree x
     multiplier = timeRootHeight x * rateMean x
     distances = sumFirstTwo $ V.map (* multiplier) $ V.zipWith (*) times rates
@@ -339,7 +336,7 @@ main = do
   case as of
     ["inspect"] ->
       do
-        tr <- oneTree fn
+        tr <- oneTree fnMaximumCredibilityTree
         putStrLn $ "The tree has " <> show (length $ leaves tr) <> " leaves."
         let trRooted = either error id $ outgroup outgroups "root" tr
         putStrLn "The rooted tree is:"
@@ -351,23 +348,24 @@ main = do
                 ifind (\_ n -> n == "Gn_montanu") trRooted
         putStrLn "The path to \"Gn_montanu\" is:"
         print pth
-        let bf1 =
-              toTree . insertLabel "Bla"
-                . fromMaybe (error "Path does not lead to a leaf.")
-                . goPath pth
-                . fromTree
-        putStrLn $ "Change a leaf: " <> show (bf1 trRooted) <> "."
-        putStrLn "Benchmark change a leaf."
-        benchmark $ nf bf1 trRooted
-        let bf2 =
-              label . current
-                . fromMaybe (error "Path does not lead to a leaf.")
-                . goPath pth
-                . fromTree
-        putStrLn $ "Leaf to get: " <> show (bf2 trRooted) <> "."
-        putStrLn "Benchmark get a leaf."
-        benchmark $ nf bf2 trRooted
+        -- let bf1 =
+        --       toTree . insertLabel "Bla"
+        --         . fromMaybe (error "Path does not lead to a leaf.")
+        --         . goPath pth
+        --         . fromTree
+        -- putStrLn $ "Change a leaf: " <> show (bf1 trRooted) <> "."
+        -- putStrLn "Benchmark change a leaf."
+        -- benchmark $ nf bf1 trRooted
+        -- let bf2 =
+        --       label . current
+        --         . fromMaybe (error "Path does not lead to a leaf.")
+        --         . goPath pth
+        --         . fromTree
+        -- putStrLn $ "Leaf to get: " <> show (bf2 trRooted) <> "."
+        -- putStrLn "Benchmark get a leaf."
+        -- benchmark $ nf bf2 trRooted
         let i = initWith $ identify trRooted
+        putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ timeTree i)
         putStrLn $ "Initial prior: " <> show (pr i) <> "."
         putStrLn "Benchmark calculation of prior."
         benchmark $ nf pr i
@@ -377,11 +375,12 @@ main = do
             lh' = lh mu sigmaInv logSigmaDet
         -- TODO: Likelihood is zero?
         putStrLn $ "Initial likelihood: " <> show (lh' i) <> "."
-        putStrLn "Benchmark calculation of likelihood."
-        benchmark $ nf lh' i
+    -- putStrLn "Benchmark calculation of likelihood."
+    -- benchmark $ nf lh' i
     ["read"] -> do
+      -- TODO: Skip burn in.
       putStrLn "Read trees."
-      trs <- someTrees fn
+      trs <- someTrees fnTreeList
       let l = length $ nub $ map T.fromLabeledTree trs
       unless (l == 1) (error "Trees have different topologies.")
       let trsRooted = map (either error id . outgroup outgroups "root") trs
