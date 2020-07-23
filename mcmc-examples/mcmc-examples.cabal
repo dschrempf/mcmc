@@ -67,7 +67,7 @@ executable plh
 executable plh-multivariate
   main-is: Main.hs
   other-modules:
-      AdjacencyIntMap
+      Prior
       Proposal
       Tree
       Paths_mcmc_examples
@@ -91,6 +91,7 @@ executable plh-multivariate
     , mcmc
     , megaparsec
     , mwc-random
+    , statistics
     , vector
     , zippers
     , zlib

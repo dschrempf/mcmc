@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
@@ -35,7 +36,7 @@ import Control.Lens
 import Control.Monad
 import Criterion
 import Data.Aeson
-import Data.Bifoldable
+import Data.Bifunctor
 import Data.ByteString.Lazy.Char8 (ByteString)
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List
@@ -47,43 +48,33 @@ import qualified Data.Vector.Storable as V
 import ELynx.Data.Tree
 import qualified ELynx.Data.Topology.Rooted as T
 import ELynx.Export.Tree.Newick
+import GHC.Generics
 import Numeric.LinearAlgebra (Matrix)
 import qualified Numeric.LinearAlgebra as L
 import System.Environment
 import Tree
 
--- TODO: Birth-death prior on time-tree (substitution-tree)?
+data I = I
+  {
+    -- Birth rate parameter of time tree.
+    timeBirthRate :: Double,
+    -- Height of root node measured in units of time.
+    timeRootHeight :: Double,
+    -- Time tree.
+    timeTree :: Tree Double Int,
+    -- Shape parameter k of gamma distribution of rate parameters. The scale
+    -- parameter is determined such that the mean of the gamma distribution is
+    -- 1.
+    rateGammaShape :: Double,
+    -- Global mean of rate parameters.
+    rateMean :: Double,
+    -- Rate tree.
+    rateTree :: Tree Double Int
+  }
+  deriving (Generic)
 
--- -- We condense the branch lengths into a vector.
--- data I = I
---   { -- Height of root node measured in units of time.
---     timeRoot :: Double,
---     -- Global normalization of rate parameters. XXX: Is this necessary given we
---     -- have a fully specified the gamma distribution with mean k*theta (see
---     -- below)?
---     rateMean :: Double,
---     -- First parameter k of gamma distribution of rate parameters.
---     rateGammaScale :: Double,
---     -- Second parameter theta of gamma distribution of rate parameters.
---     rateGammaShape :: Double,
---     -- Tree.
---     tree :: Tree Double Int
---   }
-
--- instance ToJSON I
--- instance FromJSON I
-
--- -- Does not work because the likelihood function will not be recomputed since
--- -- it believes the vector has not changed.
--- unsafeSet :: Int -> Vector R -> Double -> Vector R
--- unsafeSet i v x = runST $ do
---   mv <- V.unsafeThaw v
---   M.write mv i x
---   V.unsafeFreeze mv
-
--- -- Custom mutable lens.
--- unsafeIx :: Int -> Lens' (Vector R) R
--- unsafeIx i = lens (V.! i) (unsafeSet i)
+instance ToJSON I
+instance FromJSON I
 
 fn :: FilePath
 fn = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
@@ -173,17 +164,20 @@ outgroups =
       "Sa_glabra"
     ]
 
--- Get the vecotr of branch lengths.
---
--- Ignore the stem, and sum the two branches leading to the root.
-getBranches :: Measurable e => Tree e a -> Vector Double
-getBranches (Node _ _ [l, r]) = V.fromList $ (getStem l + getStem r) : concatMap go (forest l) ++ concatMap go (forest r)
-  where
-    go = bifoldr' (\x acc -> getLen x : acc) (flip const) []
+-- Get all branches of the tree such that the two branches leading to the root
+-- are the first two entries of the vector. Ignore the root branch.
+getBranches :: Tree Double a -> Vector Double
+getBranches (Node _ _ [l, r]) = V.fromList $ head ls : head rs : tail ls ++ tail rs
+  where ls = branches l
+        rs = branches r
 getBranches _ = error "getBranches: Root node is not bifurcating."
 
-getPosteriorMatrix :: [Tree Length a] -> Matrix Double
-getPosteriorMatrix = L.fromRows . map getBranches
+-- Sum the first two elements of a vector.
+sumFirstTwo :: Vector Double -> Vector Double
+sumFirstTwo v = (v V.! 0 + v V.! 1) `V.cons` V.drop 2 v
+
+getPosteriorMatrix :: [Tree Double a] -> Matrix Double
+getPosteriorMatrix = L.fromRows . map (sumFirstTwo . getBranches)
 
 -- -- Uniform prior. Ensuring positive branch lengths. If this is too slow, the
 -- -- positiveness of branches has to be ensured by the proposals.
@@ -321,7 +315,7 @@ main = do
         putStrLn $ "The tree has " <> show (length $ leaves tr) <> " leaves."
         let trRooted = either error id $ outgroup outgroups "root" tr
         L.putStrLn $ toNewick $ lengthToPhyloTree trRooted
-        print $ getBranches trRooted
+        print $ getBranches $ first fromLength trRooted
         let xs = itoList trRooted
         print xs
         let (pth, _) = fromMaybe (error "Gn_montanu not found.") $ ifind (\_ n -> n == "Gn_montanu") trRooted
@@ -342,7 +336,7 @@ main = do
       let trsRooted = map (either error id . outgroup outgroups "root") trs
 
       putStrLn "Get the posterior means and the posterior covariance matrix."
-      let pm = getPosteriorMatrix trsRooted
+      let pm = getPosteriorMatrix $ map (first fromLength) trsRooted
           (mu, sigma) = L.meanCov pm
           (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
 

@@ -74,6 +74,7 @@ executables:
       - mcmc
       - megaparsec
       - mwc-random
+      - statistics
       - vector
       - zippers
       - zlib
