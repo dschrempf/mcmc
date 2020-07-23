@@ -257,7 +257,6 @@ fnData = "plh-multivariate.data"
 main :: IO ()
 main = do
   as <- getArgs
-
   case as of
     ["mean"] -> do
       putStrLn "Read trees; skip a burn in of 1000 trees."
@@ -274,52 +273,52 @@ main = do
       print meanTree
       putStrLn $ "Save the tree to " <> fnMeanTree <> "."
       L.writeFile fnMeanTree (toNewick $ lengthToPhyloTree $ first Length meanTree)
-    ["inspect"] ->
-      do
-        -- TODO: Midpoint root.
-        tr <- oneTree fnTreeList
-        putStrLn $ "The tree has " <> show (length $ leaves tr) <> " leaves."
-        -- let trRooted = either error id $ outgroup outgroups "root" tr
-        putStrLn "The rooted tree is:"
-        L.putStrLn $ toNewick $ lengthToPhyloTree tr
-        putStrLn "The branch lengths are:"
-        print $ getBranches $ first fromLength tr
-        let (pth, _) =
-              fromMaybe (error "Gn_montanu not found.") $
-                ifind (\_ n -> n == "Gn_montanu") tr
-        putStrLn "The path to \"Gn_montanu\" is:"
-        print pth
-        -- let bf1 =
-        --       toTree . insertLabel "Bla"
-        --         . fromMaybe (error "Path does not lead to a leaf.")
-        --         . goPath pth
-        --         . fromTree
-        -- putStrLn $ "Change a leaf: " <> show (bf1 trRooted) <> "."
-        -- putStrLn "Benchmark change a leaf."
-        -- benchmark $ nf bf1 trRooted
-        -- let bf2 =
-        --       label . current
-        --         . fromMaybe (error "Path does not lead to a leaf.")
-        --         . goPath pth
-        --         . fromTree
-        -- putStrLn $ "Leaf to get: " <> show (bf2 trRooted) <> "."
-        -- putStrLn "Benchmark get a leaf."
-        -- benchmark $ nf bf2 trRooted
-        let i = initWith $ identify tr
-        putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ timeTree i)
-        putStrLn $ "Initial prior: " <> show (pr i) <> "."
-        putStrLn "Benchmark calculation of prior."
-        benchmark $ nf pr i
-        putStrLn "Load posterior means and covariances."
-        (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
-        let sigmaInv = L.fromRows sigmaInvRows
-            lh' = lh mu sigmaInv logSigmaDet
-        -- TODO: Likelihood is zero?
-        putStrLn $ "Initial likelihood: " <> show (lh' i) <> "."
+    ["inspect"] -> do
+      -- TODO: Midpoint root.
+      tr <- oneTree fnTreeList
+      putStrLn $ "The tree has " <> show (length $ leaves tr) <> " leaves."
+      -- let trRooted = either error id $ outgroup outgroups "root" tr
+      putStrLn "The rooted tree is:"
+      L.putStrLn $ toNewick $ lengthToPhyloTree tr
+      putStrLn "The branch lengths are:"
+      print $ getBranches $ first fromLength tr
+      let (pth, _) =
+            fromMaybe (error "Gn_montanu not found.") $
+              ifind (\_ n -> n == "Gn_montanu") tr
+      putStrLn "The path to \"Gn_montanu\" is:"
+      print pth
+      -- let bf1 =
+      --       toTree . insertLabel "Bla"
+      --         . fromMaybe (error "Path does not lead to a leaf.")
+      --         . goPath pth
+      --         . fromTree
+      -- putStrLn $ "Change a leaf: " <> show (bf1 trRooted) <> "."
+      -- putStrLn "Benchmark change a leaf."
+      -- benchmark $ nf bf1 trRooted
+      -- let bf2 =
+      --       label . current
+      --         . fromMaybe (error "Path does not lead to a leaf.")
+      --         . goPath pth
+      --         . fromTree
+      -- putStrLn $ "Leaf to get: " <> show (bf2 trRooted) <> "."
+      -- putStrLn "Benchmark get a leaf."
+      -- benchmark $ nf bf2 trRooted
+      let i = initWith $ identify tr
+      putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ timeTree i)
+      putStrLn $ "Initial prior: " <> show (pr i) <> "."
+      putStrLn "Benchmark calculation of prior."
+      benchmark $ nf pr i
+      putStrLn "Load posterior means and covariances."
+      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+      let sigmaInv = L.fromRows sigmaInvRows
+          lh' = lh mu sigmaInv logSigmaDet
+      -- TODO: Likelihood is zero?
+      putStrLn $ "Initial likelihood: " <> show (lh' i) <> "."
     -- putStrLn "Benchmark calculation of likelihood."
     -- benchmark $ nf lh' i
     ["read"] -> do
-      tr <- oneTree fnTreeList
+      -- TODO: Midpoint root.
+      tr <- oneTree fnMeanTree
       let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
       putStrLn "Read trees; skip a burn in of 1000 trees."
       trs <- drop 1000 <$> someTrees fnTreeList

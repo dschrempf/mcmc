@@ -76,7 +76,7 @@ parseFileWith s p f = do
 -- | Parse first Newick tree in file.
 oneTree :: FilePath -> IO (Tree Length ByteString)
 oneTree p = do
-  pt <- parseFileWith "newick" (newick RevBayes) p
+  pt <- parseFileWith "newick" (newick Standard) p
   return $ either error id $ phyloToLengthTree pt
 
 -- | Parse one or more Newick trees until end of file.
