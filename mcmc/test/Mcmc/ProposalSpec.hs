@@ -20,10 +20,10 @@ import System.Random.MWC
 import Test.Hspec
 
 p1 :: Proposal Double
-p1 = slideSymmetric "test1" 1 id 1.0 True
+p1 = slideSymmetric "test1" 1 1.0 True
 
 p2 :: Proposal Double
-p2 = slideSymmetric "test2" 3 id 1.0 True
+p2 = slideSymmetric "test2" 3 1.0 True
 
 c :: Cycle Double
 c = fromList [p1, p2]

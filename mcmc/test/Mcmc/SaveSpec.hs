@@ -39,10 +39,10 @@ lh = Exp . logDensity (normalDistr trueMean trueStdDev)
 proposals :: Cycle Double
 proposals =
   fromList
-    [ slideSymmetric "small" 5 id 0.1 True,
-      slideSymmetric "medium" 2 id 1.0 True,
-      slideSymmetric "large" 2 id 5.0 True,
-      slide "skewed" 1 id 1.0 4.0 True
+    [ slideSymmetric "small" 5 0.1 True,
+      slideSymmetric "medium" 2 1.0 True,
+      slideSymmetric "large" 2 5.0 True,
+      slide "skewed" 1 1.0 4.0 True
     ]
 
 monStd :: MonitorStdOut Double

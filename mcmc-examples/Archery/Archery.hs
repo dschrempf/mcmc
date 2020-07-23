@@ -59,7 +59,7 @@ lh xs p
 -- The proposal cycle consists of one proposal only. A uniform distribution is used to
 -- slide the precision of the archer.
 proposals :: Cycle Precision
-proposals = fromList [slideUniform "mu; slide uniform" 1 id 1.0 True]
+proposals = fromList [slideUniform "mu; slide uniform" 1 1.0 True]
 
 -- Monitor the precision of the archer.
 monMu :: MonitorParameter Precision

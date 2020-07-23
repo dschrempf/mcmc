@@ -105,13 +105,13 @@ getEdges = map (\(_, x, y) -> (x, y)) . edgeList
 
 -- Sliding proposal changing the length of a branch.
 slideBranch :: Node -> Node -> Proposal (Tree Length)
-slideBranch x y = slideSymmetric n 1 (getLens x y) 1.0 True
+slideBranch x y = getLens x y >>> slideSymmetric n 1 1.0 True
   where
     n = "Slide edge " <> show (x, y)
 
 -- Bactrian proposal changing the length of a branch.
 bactrianBranch :: Node -> Node -> Proposal (Tree Length)
-bactrianBranch x y = slideBactrian n 1 (getLens x y) 0.9 1.0 True
+bactrianBranch x y = getLens x y >>> slideBactrian n 1 0.9 1.0 True
   where
     n = "Bactrian edge " <> show (x, y)
 

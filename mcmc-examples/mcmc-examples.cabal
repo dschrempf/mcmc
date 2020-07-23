@@ -69,6 +69,7 @@ executable plh-multivariate
   other-modules:
       AdjacencyIntMap
       Tree
+      Zipper
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples

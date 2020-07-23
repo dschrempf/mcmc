@@ -108,8 +108,8 @@ convertP l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
 -- @
 -- scaleFirstEntryOfTuple = scale >>> _1
 -- @
-(>>>) :: Proposal a -> Lens' b a -> Proposal b
-(>>>) p l = convertP l p
+(>>>) :: Lens' b a -> Proposal a -> Proposal b
+(>>>) = convertP
 
 -- One could also use a different type for 'pSample', so that 'pKernel' can
 -- be avoided. In detail,

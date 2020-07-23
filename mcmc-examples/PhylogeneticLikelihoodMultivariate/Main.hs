@@ -33,7 +33,6 @@ where
 
 import Control.Lens
 import Control.Monad
-import Control.Zipper
 import Data.Aeson
 import Data.Bifoldable
 import Data.ByteString.Lazy.Char8 (ByteString)
@@ -50,6 +49,7 @@ import ELynx.Export.Tree.Newick
 import Numeric.LinearAlgebra (Matrix)
 import qualified Numeric.LinearAlgebra as L
 import System.Environment
+import Zipper
 import Tree
 
 -- TODO: Birth-death prior on time-tree (substitution-tree)?
@@ -293,18 +293,29 @@ main = do
   as <- getArgs
 
   case as of
-    ["inspect"] -> do
-      tr <- oneTree fn
-      putStrLn $ "The tree has " <> show (length $ leaves tr) <> " leaves."
-      let trRooted = either error id $ outgroup outgroups "root" tr
-      L.putStrLn $ toNewick $ lengthToPhyloTree trRooted
-      print $ getBranches trRooted
-      let xs = itoList trRooted
-      print xs
-      let (pth, _) = fromMaybe (error "Gn_montanu not found.") $ ifind (\_ n -> n == "Gn_montanu") tr
-      print pth
-      let zp = zipper tr & downward (singular $ ix pth) & fromWithin _2 & focus .~ "BLAAAAAAAAAAAAAAAA" & rezip
-      print zp
+    ["inspect"] ->
+      do
+        tr <- oneTree fn
+        putStrLn $ "The tree has " <> show (length $ leaves tr) <> " leaves."
+        let trRooted = either error id $ outgroup outgroups "root" tr
+        L.putStrLn $ toNewick $ lengthToPhyloTree trRooted
+        print $ getBranches trRooted
+        let xs = itoList trRooted
+        print xs
+        let (pth, _) = fromMaybe (error "Gn_montanu not found.") $ ifind (\_ n -> n == "Gn_montanu") trRooted
+        print pth
+        let b = focus (fromTree trRooted) pth
+            b' = toTree <$> focus (fromTree trRooted) pth
+        print b
+        print (Just trRooted == b')
+        let t = Node 0 0 [Node 1 1 [Node 4 4 [], Node 5 5 []], Node 2 2 [], Node 3 3 []]
+            p = do
+              c <- child (fromTree t) 0
+              r <- right c
+              l <- left r
+              return $ toTree l
+        print p
+        print (Just t == p)
     ["read"] -> do
       putStrLn "Read trees."
       trs <- someTrees fn
