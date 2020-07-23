@@ -28,10 +28,9 @@ where
 -- import Data.List
 -- import Lens.Micro.Platform
 -- import Mcmc
--- import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
 -- import System.Random.MWC
 
-import Control.Lens
+import Control.Lens hiding ((<.>))
 import Control.Monad
 import Criterion
 import Data.Aeson
@@ -48,7 +47,7 @@ import ELynx.Data.Tree
 import qualified ELynx.Data.Topology.Rooted as T
 import ELynx.Export.Tree.Newick
 import GHC.Generics
-import Numeric.LinearAlgebra (Matrix)
+import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 import Prior
@@ -74,6 +73,26 @@ data I = I
   }
   deriving (Generic)
 
+instance ToJSON I
+
+instance FromJSON I
+
+-- Initial state.
+initWith :: Tree Length Int -> I
+initWith t =
+  I
+    { timeBirthRate = 1.0,
+      timeRootHeight = height t * rm,
+      timeTree = first (* rm) t',
+      rateGammaShape = 1.0,
+      rateMean = 1.0,
+      rateTree = first (const 1.0) t'
+    }
+  where
+    rm = 1.0
+    -- TODO: The types are all wrong.
+    t' = first fromLength t
+
 -- Prior.
 pr :: I -> Log Double
 pr (I l h t k m r) =
@@ -82,13 +101,9 @@ pr (I l h t k m r) =
       exponentialWith 10.0 h,
       branchesWith (exponentialWith l) t,
       exponentialWith 10.0 k,
-      gammaWith k (1/k) m,
-      branchesWith (gammaWith k (1/k)) r
+      gammaWith k (1 / k) m,
+      branchesWith (gammaWith k (1 / k)) r
     ]
-
-instance ToJSON I
-instance FromJSON I
-
 
 fn :: FilePath
 fn = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
@@ -194,16 +209,20 @@ sumFirstTwo v = (v V.! 0 + v V.! 1) `V.cons` V.drop 2 v
 getPosteriorMatrix :: [Tree Double a] -> Matrix Double
 getPosteriorMatrix = L.fromRows . map (sumFirstTwo . getBranches)
 
--- -- Phylogenetic likelihood using a multivariate normal distribution. See
--- -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
--- --
--- -- The constant @k * log (2*pi)@ was left out on purpose.
--- --
--- -- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
--- lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
--- lh mu sigmaInv logSigmaDet xs = Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
---   where
---     dxs = xs - mu
+-- Phylogenetic likelihood using a multivariate normal distribution. See
+-- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
+--
+-- The constant @k * log (2*pi)@ was left out on purpose.
+--
+-- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
+lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
+lh mu sigmaInv logSigmaDet x = Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
+  where
+    times = getBranches $ timeTree x
+    rates = getBranches $ rateTree x
+    multiplier = timeRootHeight x * rateMean x
+    distances = sumFirstTwo $ V.map (* multiplier) $ V.zipWith (*) times rates
+    dxs = distances - mu
 
 -- -- Slide branch with given index.
 -- slideBranch :: Int -> Proposal I
@@ -309,6 +328,7 @@ getPosteriorMatrix = L.fromRows . map (sumFirstTwo . getBranches)
 -- and 100k iterations, we spend 300 seconds traversing and changing the tree
 -- without calculating anything else. I guess that's OK.
 -- @
+
 fnData :: String
 fnData = "plh-multivariate.data"
 
@@ -322,26 +342,43 @@ main = do
         tr <- oneTree fn
         putStrLn $ "The tree has " <> show (length $ leaves tr) <> " leaves."
         let trRooted = either error id $ outgroup outgroups "root" tr
+        putStrLn "The rooted tree is:"
         L.putStrLn $ toNewick $ lengthToPhyloTree trRooted
+        putStrLn "The branch lengths are:"
         print $ getBranches $ first fromLength trRooted
-        let xs = itoList trRooted
-        print xs
-        let (pth, _) = fromMaybe (error "Gn_montanu not found.") $ ifind (\_ n -> n == "Gn_montanu") trRooted
+        let (pth, _) =
+              fromMaybe (error "Gn_montanu not found.") $
+                ifind (\_ n -> n == "Gn_montanu") trRooted
+        putStrLn "The path to \"Gn_montanu\" is:"
         print pth
         let bf1 =
-              toTree . insertLabel "BLAAAAAAAAAAAAAAA"
-                . fromMaybe (error "Dohh")
+              toTree . insertLabel "Bla"
+                . fromMaybe (error "Path does not lead to a leaf.")
                 . goPath pth
                 . fromTree
+        putStrLn $ "Change a leaf: " <> show (bf1 trRooted) <> "."
+        putStrLn "Benchmark change a leaf."
+        benchmark $ nf bf1 trRooted
         let bf2 =
               label . current
-                . fromMaybe (error "Dohh")
+                . fromMaybe (error "Path does not lead to a leaf.")
                 . goPath pth
                 . fromTree
-        print $ bf1 trRooted
-        print $ bf2 trRooted
-        benchmark $ nf bf1 trRooted
+        putStrLn $ "Leaf to get: " <> show (bf2 trRooted) <> "."
+        putStrLn "Benchmark get a leaf."
         benchmark $ nf bf2 trRooted
+        let i = initWith $ identify trRooted
+        putStrLn $ "Initial prior: " <> show (pr i) <> "."
+        putStrLn "Benchmark calculation of prior."
+        benchmark $ nf pr i
+        putStrLn "Load posterior means and covariances."
+        (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+        let sigmaInv = L.fromRows sigmaInvRows
+            lh' = lh mu sigmaInv logSigmaDet
+        -- TODO: Likelihood is zero?
+        putStrLn $ "Initial likelihood: " <> show (lh' i) <> "."
+        putStrLn "Benchmark calculation of likelihood."
+        benchmark $ nf lh' i
     ["read"] -> do
       putStrLn "Read trees."
       trs <- someTrees fn
