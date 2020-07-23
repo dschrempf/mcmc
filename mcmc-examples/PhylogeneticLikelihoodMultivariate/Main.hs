@@ -33,6 +33,7 @@ where
 
 import Control.Lens
 import Control.Monad
+import Criterion
 import Data.Aeson
 import Data.Bifoldable
 import Data.ByteString.Lazy.Char8 (ByteString)
@@ -268,7 +269,7 @@ getPosteriorMatrix = L.fromRows . map getBranches
 -- std dev              620.6 ns   (261.2 ns .. 1.094 μs)
 -- variance introduced by outliers: 89% (severely inflated)
 --
--- Zipper; preview node 150
+-- Control.Zipper; preview node 150
 -- benchmarking...
 -- time                 2.513 μs   (2.351 μs .. 2.678 μs)
 --                      0.978 R²   (0.972 R² .. 0.993 R²)
@@ -276,13 +277,35 @@ getPosteriorMatrix = L.fromRows . map getBranches
 -- std dev              336.4 ns   (248.6 ns .. 467.2 ns)
 -- variance introduced by outliers: 93% (severely inflated)
 --
--- Zipper; set node 150
+-- Control.Zipper; set node 150
 -- benchmarking...
 -- time                 8.838 μs   (8.768 μs .. 8.937 μs)
 --                      0.999 R²   (0.998 R² .. 1.000 R²)
 -- mean                 8.815 μs   (8.770 μs .. 8.895 μs)
 -- std dev              205.4 ns   (116.7 ns .. 306.8 ns)
 -- variance introduced by outliers: 25% (moderately inflated)
+--
+-- Specialized zipper; read a leaf node label
+-- benchmarking...
+-- time                 348.7 ns   (320.3 ns .. 386.3 ns)
+--                      0.947 R²   (0.933 R² .. 0.974 R²)
+-- mean                 351.8 ns   (330.0 ns .. 373.6 ns)
+-- std dev              75.84 ns   (58.43 ns .. 88.84 ns)
+-- variance introduced by outliers: 98% (severely inflated)
+--
+-- Specialized zipper; change a leaf node (this is not possible with
+-- Control.Zipper).
+-- benchmarking...
+-- time                 5.389 μs   (5.382 μs .. 5.401 μs)
+--                      0.999 R²   (0.999 R² .. 1.000 R²)
+-- mean                 5.466 μs   (5.386 μs .. 5.686 μs)
+-- std dev              415.0 ns   (15.48 ns .. 773.6 ns)
+-- variance introduced by outliers: 79% (severely inflated)
+--
+--
+-- Given the last benchmark, this would mean that for 500 changes per iteration
+-- and 100k iterations, we spend 300 seconds traversing and changing the tree
+-- without calculating anything else. I guess that's OK.
 -- @
 fnData :: String
 fnData = "plh-multivariate.data"
@@ -303,18 +326,14 @@ main = do
         print xs
         let (pth, _) = fromMaybe (error "Gn_montanu not found.") $ ifind (\_ n -> n == "Gn_montanu") trRooted
         print pth
-        let b = focus (fromTree trRooted) pth
-            b' = toTree <$> focus (fromTree trRooted) pth
-        print b
-        print (Just trRooted == b')
-        let t = Node 0 0 [Node 1 1 [Node 4 4 [], Node 5 5 []], Node 2 2 [], Node 3 3 []]
-            p = do
-              c <- child (fromTree t) 0
-              r <- right c
-              l <- left r
-              return $ toTree l
-        print p
-        print (Just t == p)
+        let bf1 = toTree . insertLabel "BLAAAAAAAAAAAAAAA" .
+                 fromMaybe (error "Dohh") . goPath pth . fromTree
+        let bf2 = label . current .
+                 fromMaybe (error "Dohh") . goPath pth . fromTree
+        print $ bf1 trRooted
+        print $ bf2 trRooted
+        benchmark $ nf bf1 trRooted
+        benchmark $ nf bf2 trRooted
     ["read"] -> do
       putStrLn "Read trees."
       trs <- someTrees fn
