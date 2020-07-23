@@ -49,7 +49,6 @@ import ELynx.Export.Tree.Newick
 import Numeric.LinearAlgebra (Matrix)
 import qualified Numeric.LinearAlgebra as L
 import System.Environment
-import Zipper
 import Tree
 
 -- TODO: Birth-death prior on time-tree (substitution-tree)?
