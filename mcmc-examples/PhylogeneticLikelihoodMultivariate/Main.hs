@@ -24,27 +24,20 @@ module Main
   )
 where
 
--- import AdjacencyIntMap
--- import Data.List
--- import Lens.Micro.Platform
--- import Mcmc
--- import System.Random.MWC
-
 import Control.Lens hiding ((<.>))
 import Control.Monad
 import Criterion
 import Data.Aeson
 import Data.Bifunctor
-import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.Bitraversable
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List
 import Data.Maybe
-import Data.Set (Set)
-import qualified Data.Set as S
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
-import ELynx.Data.Tree
+import Debug.Trace
 import qualified ELynx.Data.Topology.Rooted as T
+import ELynx.Data.Tree
 import ELynx.Export.Tree.Newick
 import GHC.Generics
 import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
@@ -61,7 +54,8 @@ data I = I
     -- Height of root node measured in units of time.
     timeRootHeight :: Double,
     -- Time tree.
-    timeTree :: Tree Double Int,
+    -- TODO: The types are all wrong.
+    timeTree :: Tree Length Int,
     -- Shape parameter k of gamma distribution of rate parameters. The scale
     -- parameter is determined such that the mean of the gamma distribution is
     -- 1.
@@ -82,16 +76,14 @@ initWith :: Tree Length Int -> I
 initWith t =
   I
     { timeBirthRate = 1.0,
-      timeRootHeight = height t * rm,
-      timeTree = first (* rm) t',
+      timeRootHeight = height t',
+      timeTree = t',
       rateGammaShape = 1.0,
       rateMean = 1.0,
-      rateTree = first (const 1.0) t'
+      rateTree = first (const 1.0) t
     }
   where
-    rm = 1.0
-    -- TODO: The types are all wrong.
-    t' = first fromLength t
+    t' = makeUltrametric t
 
 -- Prior.
 pr :: I -> Log Double
@@ -99,99 +91,17 @@ pr (I l h t k m r) =
   product'
     [ exponentialWith 1.0 l,
       exponentialWith 10.0 h,
-      branchesWith (exponentialWith l) t,
+      branchesWith (exponentialWith l) (first fromLength t),
       exponentialWith 10.0 k,
       gammaWith k (1 / k) m,
       branchesWith (gammaWith k (1 / k)) r
     ]
 
-fn :: FilePath
-fn = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
+fnTreeList :: FilePath
+fnTreeList = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
 
-outgroups :: Set ByteString
-outgroups =
-  S.fromList
-    [ "Nu_advena",
-      "Gi_biloba",
-      "Cy_micholi",
-      "Ps_nudum",
-      "Sc_dissect",
-      "Op_vulgatu",
-      "Pi_radiata",
-      "Pi_pondero",
-      "Pi_jeffrey",
-      "Ce_libani",
-      "Th_elegans",
-      "Cy_spinulo",
-      "Eq_diffusu",
-      "Ar_thalian",
-      "Yu_filamen",
-      "Po_acrosti",
-      "Di_truncat",
-      "Th_acumina",
-      "Ho_pycnoca",
-      "Gy_dryopte",
-      "Cy_utahens",
-      "Cy_fragili",
-      "Pt_vittata",
-      "Pt_ensigor",
-      "Ad_tenerum",
-      "Ad_aleutic",
-      "Di_villosa",
-      "Pe_borboni",
-      "Po_trichoc",
-      "Po_euphrat",
-      "Ep_sinica",
-      "Sc_vertici",
-      "Pi_parvifl",
-      "Ze_mays",
-      "So_bicolor",
-      "Ac_america",
-      "Sm_bona",
-      "Co_autumna",
-      "Lu_polyphy",
-      "Oe_specios",
-      "Oe_rosea",
-      "La_trident",
-      "Ne_nucifer",
-      "Vi_vinifer",
-      "Ko_scopari",
-      "Lu_angusti",
-      "Ro_chinens",
-      "Bo_nivea",
-      "Hi_cannabi",
-      "Ca_papaya",
-      "Di_malabar",
-      "Ta_parthen",
-      "In_heleniu",
-      "Ro_officin",
-      "So_tuberos",
-      "Ip_purpure",
-      "Ca_roseus",
-      "Al_cathart",
-      "Ju_scopulo",
-      "Cu_lanceol",
-      "Ho_cordata",
-      "Sa_bermuda",
-      "Or_sativa",
-      "Br_distach",
-      "Zo_marina",
-      "Po_peltatu",
-      "Es_califor",
-      "Ka_heteroc",
-      "Il_parvifl",
-      "Ma_attenua",
-      "Da_nodosa",
-      "Di_conjuga",
-      "Ta_baccata",
-      "Sa_henryi",
-      "Am_trichop",
-      "Pr_andina",
-      "Gn_montanu",
-      "Il_florida",
-      "Eq_hymale",
-      "Sa_glabra"
-    ]
+fnMeanTree :: FilePath
+fnMeanTree = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/Mean.tree"
 
 -- Get all branches of the tree such that the two branches leading to the root
 -- are the first two entries of the vector. Ignore the root branch.
@@ -206,8 +116,20 @@ getBranches _ = error "getBranches: Root node is not bifurcating."
 sumFirstTwo :: Vector Double -> Vector Double
 sumFirstTwo v = (v V.! 0 + v V.! 1) `V.cons` V.drop 2 v
 
+getPosteriorMatrixRooted :: [Tree Double a] -> Matrix Double
+getPosteriorMatrixRooted = L.fromRows . map (sumFirstTwo . getBranches)
+
 getPosteriorMatrix :: [Tree Double a] -> Matrix Double
-getPosteriorMatrix = L.fromRows . map (sumFirstTwo . getBranches)
+getPosteriorMatrix = L.fromRows . map (V.fromList . branches)
+
+-- | Apply a function with different effect on each node to a 'Traversable'.
+-- Based on https://stackoverflow.com/a/41523456.
+tZipWith :: Bitraversable t => [a] -> t b c -> Maybe (t a c)
+tZipWith xs = bisequenceA . snd . bimapAccumL pair noChange xs
+  where
+    pair [] _ = ([], Nothing)
+    pair (y : ys) _ = (ys, Just y)
+    noChange ys z = (ys, Just z)
 
 -- Phylogenetic likelihood using a multivariate normal distribution. See
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
@@ -216,9 +138,9 @@ getPosteriorMatrix = L.fromRows . map (sumFirstTwo . getBranches)
 --
 -- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
 lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
-lh mu sigmaInv logSigmaDet x = Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
+lh mu sigmaInv logSigmaDet x = traceShow dxs $ Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
   where
-    times = getBranches $ timeTree x
+    times = getBranches $ first fromLength $ timeTree x
     rates = getBranches $ rateTree x
     multiplier = timeRootHeight x * rateMean x
     distances = sumFirstTwo $ V.map (* multiplier) $ V.zipWith (*) times rates
@@ -337,37 +259,54 @@ main = do
   as <- getArgs
 
   case as of
+    ["mean"] -> do
+      putStrLn "Read trees; skip a burn in of 1000 trees."
+      trs <- drop 1000 <$> someTrees fnTreeList
+      let l = length $ nub $ map T.fromLabeledTree trs
+      unless (l == 1) (error "Trees have different topologies.")
+      let pm = getPosteriorMatrix $ map (first fromLength) trs
+          (mu, _) = L.meanCov pm
+      print mu
+      let meanTree =
+            fromMaybe (error "Could not label tree with mean branch lengths") $
+              tZipWith (V.toList mu) (head trs)
+      putStrLn "The tree with mean branch lengths:"
+      print meanTree
+      putStrLn $ "Save the tree to " <> fnMeanTree <> "."
+      L.writeFile fnMeanTree (toNewick $ lengthToPhyloTree $ first Length meanTree)
     ["inspect"] ->
       do
-        tr <- oneTree fn
+        -- TODO: Midpoint root.
+        tr <- oneTree fnTreeList
         putStrLn $ "The tree has " <> show (length $ leaves tr) <> " leaves."
-        let trRooted = either error id $ outgroup outgroups "root" tr
+        -- let trRooted = either error id $ outgroup outgroups "root" tr
         putStrLn "The rooted tree is:"
-        L.putStrLn $ toNewick $ lengthToPhyloTree trRooted
+        L.putStrLn $ toNewick $ lengthToPhyloTree tr
         putStrLn "The branch lengths are:"
-        print $ getBranches $ first fromLength trRooted
+        print $ getBranches $ first fromLength tr
         let (pth, _) =
               fromMaybe (error "Gn_montanu not found.") $
-                ifind (\_ n -> n == "Gn_montanu") trRooted
+                ifind (\_ n -> n == "Gn_montanu") tr
         putStrLn "The path to \"Gn_montanu\" is:"
         print pth
-        let bf1 =
-              toTree . insertLabel "Bla"
-                . fromMaybe (error "Path does not lead to a leaf.")
-                . goPath pth
-                . fromTree
-        putStrLn $ "Change a leaf: " <> show (bf1 trRooted) <> "."
-        putStrLn "Benchmark change a leaf."
-        benchmark $ nf bf1 trRooted
-        let bf2 =
-              label . current
-                . fromMaybe (error "Path does not lead to a leaf.")
-                . goPath pth
-                . fromTree
-        putStrLn $ "Leaf to get: " <> show (bf2 trRooted) <> "."
-        putStrLn "Benchmark get a leaf."
-        benchmark $ nf bf2 trRooted
-        let i = initWith $ identify trRooted
+        -- let bf1 =
+        --       toTree . insertLabel "Bla"
+        --         . fromMaybe (error "Path does not lead to a leaf.")
+        --         . goPath pth
+        --         . fromTree
+        -- putStrLn $ "Change a leaf: " <> show (bf1 trRooted) <> "."
+        -- putStrLn "Benchmark change a leaf."
+        -- benchmark $ nf bf1 trRooted
+        -- let bf2 =
+        --       label . current
+        --         . fromMaybe (error "Path does not lead to a leaf.")
+        --         . goPath pth
+        --         . fromTree
+        -- putStrLn $ "Leaf to get: " <> show (bf2 trRooted) <> "."
+        -- putStrLn "Benchmark get a leaf."
+        -- benchmark $ nf bf2 trRooted
+        let i = initWith $ identify tr
+        putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ timeTree i)
         putStrLn $ "Initial prior: " <> show (pr i) <> "."
         putStrLn "Benchmark calculation of prior."
         benchmark $ nf pr i
@@ -377,17 +316,19 @@ main = do
             lh' = lh mu sigmaInv logSigmaDet
         -- TODO: Likelihood is zero?
         putStrLn $ "Initial likelihood: " <> show (lh' i) <> "."
-        putStrLn "Benchmark calculation of likelihood."
-        benchmark $ nf lh' i
+    -- putStrLn "Benchmark calculation of likelihood."
+    -- benchmark $ nf lh' i
     ["read"] -> do
-      putStrLn "Read trees."
-      trs <- someTrees fn
-      let l = length $ nub $ map T.fromLabeledTree trs
-      unless (l == 1) (error "Trees have different topologies.")
+      tr <- oneTree fnTreeList
+      let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
+      putStrLn "Read trees; skip a burn in of 1000 trees."
+      trs <- drop 1000 <$> someTrees fnTreeList
+      -- let l = length $ nub $ map T.fromLabeledTree trs
+      -- unless (l == 1) (error "Trees have different topologies.")
       let trsRooted = map (either error id . outgroup outgroups "root") trs
 
       putStrLn "Get the posterior means and the posterior covariance matrix."
-      let pm = getPosteriorMatrix $ map (first fromLength) trsRooted
+      let pm = getPosteriorMatrixRooted $ map (first fromLength) trsRooted
           (mu, sigma) = L.meanCov pm
           (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
 

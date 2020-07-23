@@ -26,6 +26,8 @@ where
 
 import Codec.Compression.GZip
 import Control.Lens
+import Data.Aeson
+import Data.List
 -- import Control.Lens.Indexed
 -- import Control.Lens.At
 import Data.ByteString.Lazy (ByteString)
@@ -59,9 +61,14 @@ instance Ixed (Tree e a) where
         | otherwise = Node br lb <$> ix i (go is) ts
   {-# INLINE ix #-}
 
+instance ToJSON Length
+instance FromJSON Length
+
 parseFileWith :: (ShowErrorComponent e) => String -> Parsec e ByteString a -> FilePath -> IO a
 parseFileWith s p f = do
-  l <- decompress <$> L.readFile f
+  l <- if "gz" `isSuffixOf` f
+    then decompress <$> L.readFile f
+    else L.readFile f
   return $ case parse p s l of
     Left err -> error $ errorBundlePretty err
     Right val -> val
