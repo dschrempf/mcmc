@@ -35,7 +35,8 @@ nodeAt :: [Int] -> Lens' (Tree e a) (Tree e a)
 nodeAt pth =
   lens
     (current . unsafeGoPath pth . fromTree)
-    (\t t' -> let pos = unsafeGoPath pth . fromTree t in toTree $ pos {current = t'})
+    (\t t' -> let pos = unsafeGoPath pth $ fromTree t
+              in toTree $ pos {current = t'})
 
 -- Lens to the branch of the root node.
 rootBranch :: Lens' (Tree e a) e
@@ -94,4 +95,4 @@ slideBranch ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double a)
-slideBranch pth n w s t = (nodeAt pth ^. rootBranch) >>> slideSymmetric n w s t
+slideBranch pth n w s t = (nodeAt pth . rootBranch) >>> slideSymmetric n w s t
