@@ -31,13 +31,14 @@ import Criterion
 import Data.Aeson
 import Data.Bifunctor
 import Data.Bitraversable
+import qualified Data.ByteString.Conversion.From as L
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List
 import Data.Maybe
+import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Set as S
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
-import Debug.Trace
 import qualified ELynx.Data.Topology.Rooted as T
 import ELynx.Data.Tree
 import ELynx.Export.Tree.Newick
@@ -49,6 +50,7 @@ import Numeric.Log
 import Prior
 import Proposal
 import System.Environment
+import System.Random.MWC
 import Tree
 
 -- State space.
@@ -92,7 +94,7 @@ initWith t =
 
 -- Prior.
 pr :: I -> Log Double
-pr (I l h t k m r) =
+pr (I l h k m t r) =
   product'
     [ exponentialWith 1.0 l,
       exponentialWith 10.0 h,
@@ -141,8 +143,7 @@ tZipWith xs = bisequenceA . snd . bimapAccumL pair noChange xs
 -- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
 lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
 lh mu sigmaInv logSigmaDet x =
-  traceShow dxs $
-    Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
+  Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
   where
     times = getBranches $ x ^. timeTree
     rates = getBranches $ x ^. rateTree
@@ -150,23 +151,26 @@ lh mu sigmaInv logSigmaDet x =
     distances = sumFirstTwo $ V.map (* multiplier) $ V.zipWith (*) times rates
     dxs = distances - mu
 
-dropLeavesOnly :: Tree e a -> Maybe (Tree e a)
-dropLeavesOnly (Node _ _ []) = Nothing
-dropLeavesOnly (Node br lb ts) = Just $ Node br lb ts'
-  where
-    ts' = mapMaybe dropLeavesOnly ts
-
--- Get paths to all internal nodes. In detail, exclude the root node, and all
--- leaves.
-getPaths :: Tree e a -> [[Int]]
-getPaths t = [pth | (pth, _) <- itoList t', not (null pth)]
-  where
-    t' = fromMaybe (error "getPaths: Tree is a leaf.") $ dropLeavesOnly t
-
 proposalsTimeTree :: Tree e a -> [Proposal I]
-proposalsTimeTree t = [timeTree >>> slideNode pth (n pth) 1 | pth <- getPaths t]
+proposalsTimeTree t =
+  [ timeTree >>> slideNode pth (n pth) 1
+    | (pth, _) <- itoList t,
+      -- Path does not lead to the root.
+      not (null pth),
+      -- Path does not lead to a leaf.
+      not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
+  ]
   where
     n pth = "timeTreeSlideNode " ++ show pth
+
+proposalsRateTree :: Tree e a -> [Proposal I]
+proposalsRateTree t =
+  [ rateTree >>> slideBranch pth (n pth) 1 1.0 True
+    | (pth, _) <- itoList t,
+      not (null pth)
+  ]
+  where
+    n pth = "rateTreeSlideBranch " ++ show pth
 
 ccl :: Tree e a -> Cycle I
 ccl t =
@@ -174,20 +178,10 @@ ccl t =
     [ timeBirthRate >>> slideSymmetric "timeBirthRate" 1 0.5 True,
       timeRootHeight >>> slideSymmetric "timeRootHeight" 1 0.5 True,
       rateGammaShape >>> slideSymmetric "rateGammaShape" 1 0.5 True,
-      rateMean >>> slideSymmetric "rateMean" 1 0.5 True,
+      rateMean >>> slideSymmetric "rateMean" 1 0.5 True
     ]
       ++ proposalsTimeTree t
-
--- -- Slide branch with given index.
--- slideBranch :: Int -> Proposal I
--- slideBranch i = slideSymmetric n 1 (singular $ ix i) 0.01 True
---   where
---     n = "Slide branch " <> show i
-
--- proposals :: I -> Cycle I
--- proposals v = fromList [slideBranch i | i <- [0 .. k]]
---   where
---     k = V.length v - 1
+      ++ proposalsRateTree t
 
 -- -- Branch length monitors.
 -- branchMons :: I -> [MonitorParameter I]
@@ -196,22 +190,33 @@ ccl t =
 --     n i = "Branch " <> show i
 --     k = V.length v - 1
 
--- mon :: I -> Monitor I
--- mon v = Monitor (monitorStdOut (take 3 bs) 50) [monitorFile "Branches" bs 10] []
---   where
---     bs = branchMons v
+monTimeTree :: MonitorParameter I
+monTimeTree =
+  MonitorParameter
+    "timeTree"
+    ( \x ->
+        B.fromText $
+          f $
+            toNewick $
+              lengthToPhyloTree $ first Length $ x ^. timeTree
+    )
+  where
+    f s = fromMaybe (error "conversion failed") $ L.fromByteString $ L.toStrict s
 
--- -- Number of burn in iterations.
--- nBurnIn :: Maybe Int
--- nBurnIn = Just 1600
+mon :: Monitor I
+mon = Monitor (monitorStdOut [monTimeTree] 1) [] []
 
--- -- Auto tuning period.
--- nAutoTune :: Maybe Int
--- nAutoTune = Just 200
+-- Number of burn in iterations.
+nBurnIn :: Maybe Int
+nBurnIn = Just 800
 
--- -- Number of Metropolis-Hasting iterations after burn in.
--- nIterations :: Int
--- nIterations = 10000
+-- Auto tuning period.
+nAutoTune :: Maybe Int
+nAutoTune = Just 200
+
+-- Number of Metropolis-Hasting iterations after burn in.
+nIterations :: Int
+nIterations = 1000
 
 fnData :: String
 fnData = "plh-multivariate.data"
@@ -298,19 +303,33 @@ main = do
       let sigmaInv = L.fromRows sigmaInvRows
           lh' = lh mu sigmaInv logSigmaDet
       putStrLn $ "Initial log-likelihood: " <> show (ln $ lh' i) <> "."
-    -- ["run"] -> do
-    --   g <- create
-    --   (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
-    --   let sigmaInv = L.fromRows sigmaInvRows
-    --   putStrLn "The posterior means of the branch lengths are:"
-    --   print mu
-    --   putStrLn "Choose a (bad) starting state for our chain."
-    --   let k = V.length mu
-    --       start = V.replicate k (1.0 :: Double)
-    --   print start
-    --     putStrLn "Construct status of the chain."
-    --     let s = force $ status "plh-multivariate" pr (lh mu sigmaInv logSigmaDet) (proposals start) (mon start) start nBurnIn nAutoTune nIterations g
-    --     void $ mh s
+    -- let tr' = fromMaybe (error "Could not drop leaves.") $ dropLeavesOnly tr
+    -- putStrLn "Tree without leaves:"
+    -- L.putStrLn $ toNewick $ lengthToPhyloTree $ bimap Length (L.pack . show) $ identify tr'
+    -- putStrLn $ "Number of leaves: " ++ show (length $ leaves tr')
+    ["run"] -> do
+      tr <- first fromLength <$> oneTree fnMeanTree
+      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+      let sigmaInv = L.fromRows sigmaInvRows
+      putStrLn "The posterior means of the branch lengths are:"
+      print mu
+      let start = initWith $ identify tr
+      g <- create
+      putStrLn "Construct status of the chain."
+      let s =
+            force $
+              status
+                "plh-multivariate"
+                pr
+                (lh mu sigmaInv logSigmaDet)
+                (ccl tr)
+                mon
+                start
+                nBurnIn
+                nAutoTune
+                nIterations
+                g
+      void $ mh s
     _ -> putStrLn "read|bench|inspect|run"
 
 -- Benchmarks with criterion indicate the following:

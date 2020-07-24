@@ -13,13 +13,14 @@
 -- Creation date: Thu Jul 23 09:10:07 2020.
 module Proposal
   ( slideNode,
+    slideBranch,
   )
 where
 
 import Control.Lens
+import ELynx.Data.Tree
 import Mcmc.Proposal
 import Mcmc.Proposal.Slide
-import ELynx.Data.Tree
 import System.Random.MWC
 
 -- TODO: Think about how a (truncated) normal distribution could be used.
@@ -35,8 +36,10 @@ nodeAt :: [Int] -> Lens' (Tree e a) (Tree e a)
 nodeAt pth =
   lens
     (current . unsafeGoPath pth . fromTree)
-    (\t t' -> let pos = unsafeGoPath pth $ fromTree t
-              in toTree $ pos {current = t'})
+    ( \t t' ->
+        let pos = unsafeGoPath pth $ fromTree t
+         in toTree $ pos {current = t'}
+    )
 
 -- Lens to the branch of the root node.
 rootBranch :: Lens' (Tree e a) e

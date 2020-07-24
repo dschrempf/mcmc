@@ -81,6 +81,7 @@ executable plh-multivariate
     , algebraic-graphs
     , base >=4.7 && <5
     , bytestring
+    , bytestring-conversion
     , containers
     , criterion
     , deepseq
@@ -92,6 +93,7 @@ executable plh-multivariate
     , megaparsec
     , mwc-random
     , statistics
+    , text
     , vector
     , zippers
     , zlib

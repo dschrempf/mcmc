@@ -64,6 +64,7 @@ executables:
       - algebraic-graphs
       - base >= 4.7 && < 5
       - bytestring
+      - bytestring-conversion
       - containers
       - criterion
       - deepseq
@@ -75,6 +76,7 @@ executables:
       - megaparsec
       - mwc-random
       - statistics
+      - text
       - vector
       - zippers
       - zlib
