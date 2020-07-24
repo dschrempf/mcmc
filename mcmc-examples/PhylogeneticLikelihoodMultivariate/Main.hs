@@ -33,6 +33,7 @@ import Data.Bitraversable
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List
 import Data.Maybe
+import qualified Data.Set as S
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
 import Debug.Trace
@@ -99,9 +100,6 @@ pr (I l h t k m r) =
 
 fnTreeList :: FilePath
 fnTreeList = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
-
-fnMeanTree :: FilePath
-fnMeanTree = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/Mean.tree"
 
 -- Get all branches of the tree such that the two branches leading to the root
 -- are the first two entries of the vector. Ignore the root branch.
@@ -254,30 +252,55 @@ lh mu sigmaInv logSigmaDet x = traceShow dxs $ Exp $ (-0.5) * (logSigmaDet + ((d
 fnData :: String
 fnData = "plh-multivariate.data"
 
+fnMeanTree :: FilePath
+fnMeanTree = "plh-multivariate.meantree"
+
 main :: IO ()
 main = do
   as <- getArgs
   case as of
-    ["mean"] -> do
+    ["read"] -> do
       putStrLn "Read trees; skip a burn in of 1000 trees."
       trs <- drop 1000 <$> someTrees fnTreeList
       let l = length $ nub $ map T.fromLabeledTree trs
       unless (l == 1) (error "Trees have different topologies.")
+
+      putStrLn "Calculate mean branch lengths."
       let pm = getPosteriorMatrix $ map (first fromLength) trs
-          (mu, _) = L.meanCov pm
-      print mu
+          (means, _) = L.meanCov pm
+      putStrLn "The mean branch lengths are:"
+      print means
       let meanTree =
             fromMaybe (error "Could not label tree with mean branch lengths") $
-              tZipWith (V.toList mu) (head trs)
-      putStrLn "The tree with mean branch lengths:"
-      print meanTree
-      putStrLn $ "Save the tree to " <> fnMeanTree <> "."
-      L.writeFile fnMeanTree (toNewick $ lengthToPhyloTree $ first Length meanTree)
+              tZipWith (map Length $ V.toList means) (head trs)
+          lvs = leaves meanTree
+          trOutgroup = either error id $ outgroup (S.singleton $ head lvs) "root" meanTree
+          tr = either error id $ midpoint trOutgroup
+      putStrLn "The tree with mean branch lengths rooted at the midpoint:"
+      print $ toNewick $ lengthToPhyloTree tr
+      putStrLn $ "Save the mean tree to " <> fnMeanTree <> "."
+      L.writeFile fnMeanTree (toNewick $ lengthToPhyloTree tr)
+
+      putStrLn "Root the trees at the midpoint of the mean tree."
+      let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
+          trsRooted = map (either error id . outgroup outgroups "root") trs
+
+      putStrLn "Get the posterior means and the posterior covariance matrix."
+      let pmR = getPosteriorMatrixRooted $ map (first fromLength) trsRooted
+          (mu, sigma) = L.meanCov pmR
+          (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
+
+      putStrLn $ "Save the posterior means and covariances to " <> fnData <> "."
+      encodeFile fnData (mu, L.toRows sigmaInv, logSigmaDet)
     ["inspect"] -> do
-      -- TODO: Midpoint root.
-      tr <- oneTree fnTreeList
-      putStrLn $ "The tree has " <> show (length $ leaves tr) <> " leaves."
-      -- let trRooted = either error id $ outgroup outgroups "root" tr
+      tr' <- oneTree fnTreeList
+      let lvs = leaves tr'
+      putStrLn $ "The tree has " <> show (length lvs) <> " leaves."
+      let trO = either error id $ outgroup (S.singleton $ head lvs) "root" tr'
+          tr = either error id $ midpoint trO
+      print $ branches tr
+      print $ filter (< 0) $ branches tr
+      print $ map (map branch . forest) $ either error id $ roots trO
       putStrLn "The rooted tree is:"
       L.putStrLn $ toNewick $ lengthToPhyloTree tr
       putStrLn "The branch lengths are:"
@@ -316,26 +339,6 @@ main = do
       putStrLn $ "Initial likelihood: " <> show (lh' i) <> "."
     -- putStrLn "Benchmark calculation of likelihood."
     -- benchmark $ nf lh' i
-    ["read"] -> do
-      -- TODO: Midpoint root.
-      tr <- oneTree fnMeanTree
-      let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
-      putStrLn "Read trees; skip a burn in of 1000 trees."
-      trs <- drop 1000 <$> someTrees fnTreeList
-      -- let l = length $ nub $ map T.fromLabeledTree trs
-      -- unless (l == 1) (error "Trees have different topologies.")
-      let trsRooted = map (either error id . outgroup outgroups "root") trs
-
-      putStrLn "Get the posterior means and the posterior covariance matrix."
-      let pm = getPosteriorMatrixRooted $ map (first fromLength) trsRooted
-          (mu, sigma) = L.meanCov pm
-          (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
-
-      putStrLn "The posterior means of the branch lengths are:"
-      print mu
-
-      putStrLn $ "Save posterior means an covariances to " <> fnData <> "."
-      encodeFile fnData (mu, L.toRows sigmaInv, logSigmaDet)
     _ -> putStrLn "inspect|read"
 
 -- _ -> do
