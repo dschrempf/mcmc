@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- |
 -- Module      :  Main
@@ -41,47 +42,50 @@ import qualified ELynx.Data.Topology.Rooted as T
 import ELynx.Data.Tree
 import ELynx.Export.Tree.Newick
 import GHC.Generics
+import Mcmc
 import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 import Prior
+import Proposal
 import System.Environment
 import Tree
 
 -- State space.
 data I = I
   { -- Birth rate parameter of time tree.
-    timeBirthRate :: Double,
+    _timeBirthRate :: Double,
     -- Height of root node measured in units of time.
-    timeRootHeight :: Double,
-    -- Time tree.
-    -- TODO: The types are all wrong.
-    timeTree :: Tree Length Int,
+    _timeRootHeight :: Double,
     -- Shape parameter k of gamma distribution of rate parameters. The scale
     -- parameter is determined such that the mean of the gamma distribution is
     -- 1.
-    rateGammaShape :: Double,
+    _rateGammaShape :: Double,
     -- Global mean of rate parameters.
-    rateMean :: Double,
+    _rateMean :: Double,
+    -- Time tree.
+    _timeTree :: Tree Double Int,
     -- Rate tree.
-    rateTree :: Tree Double Int
+    _rateTree :: Tree Double Int
   }
   deriving (Generic)
+
+makeLenses ''I
 
 instance ToJSON I
 
 instance FromJSON I
 
 -- Initial state.
-initWith :: Tree Length Int -> I
+initWith :: Tree Double Int -> I
 initWith t =
   I
-    { timeBirthRate = 1.0,
-      timeRootHeight = height t',
-      timeTree = t',
-      rateGammaShape = 1.0,
-      rateMean = 1.0,
-      rateTree = first (const 1.0) t
+    { _timeBirthRate = 1.0,
+      _timeRootHeight = height t',
+      _timeTree = t',
+      _rateGammaShape = 1.0,
+      _rateMean = 1.0,
+      _rateTree = first (const 1.0) t
     }
   where
     t' = makeUltrametric t
@@ -92,7 +96,7 @@ pr (I l h t k m r) =
   product'
     [ exponentialWith 1.0 l,
       exponentialWith 10.0 h,
-      branchesWith (exponentialWith l) (first fromLength t),
+      branchesWith (exponentialWith l) t,
       exponentialWith 10.0 k,
       gammaWith k (1 / k) m,
       branchesWith (gammaWith k (1 / k)) r
@@ -136,13 +140,43 @@ tZipWith xs = bisequenceA . snd . bimapAccumL pair noChange xs
 --
 -- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
 lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
-lh mu sigmaInv logSigmaDet x = traceShow dxs $ Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
+lh mu sigmaInv logSigmaDet x =
+  traceShow dxs $
+    Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
   where
-    times = getBranches $ first fromLength $ timeTree x
-    rates = getBranches $ rateTree x
-    multiplier = timeRootHeight x * rateMean x
+    times = getBranches $ x ^. timeTree
+    rates = getBranches $ x ^. rateTree
+    multiplier = x ^. timeRootHeight * x ^. rateMean
     distances = sumFirstTwo $ V.map (* multiplier) $ V.zipWith (*) times rates
     dxs = distances - mu
+
+dropLeavesOnly :: Tree e a -> Maybe (Tree e a)
+dropLeavesOnly (Node _ _ []) = Nothing
+dropLeavesOnly (Node br lb ts) = Just $ Node br lb ts'
+  where
+    ts' = mapMaybe dropLeavesOnly ts
+
+-- Get paths to all internal nodes. In detail, exclude the root node, and all
+-- leaves.
+getPaths :: Tree e a -> [[Int]]
+getPaths t = [pth | (pth, _) <- itoList t', not (null pth)]
+  where
+    t' = fromMaybe (error "getPaths: Tree is a leaf.") $ dropLeavesOnly t
+
+proposalsTimeTree :: Tree e a -> [Proposal I]
+proposalsTimeTree t = [timeTree >>> slideNode pth (n pth) 1 | pth <- getPaths t]
+  where
+    n pth = "timeTreeSlideNode " ++ show pth
+
+ccl :: Tree e a -> Cycle I
+ccl t =
+  fromList $
+    [ timeBirthRate >>> slideSymmetric "timeBirthRate" 1 0.5 True,
+      timeRootHeight >>> slideSymmetric "timeRootHeight" 1 0.5 True,
+      rateGammaShape >>> slideSymmetric "rateGammaShape" 1 0.5 True,
+      rateMean >>> slideSymmetric "rateMean" 1 0.5 True,
+    ]
+      ++ proposalsTimeTree t
 
 -- -- Slide branch with given index.
 -- slideBranch :: Int -> Proposal I
@@ -178,6 +212,106 @@ lh mu sigmaInv logSigmaDet x = traceShow dxs $ Exp $ (-0.5) * (logSigmaDet + ((d
 -- -- Number of Metropolis-Hasting iterations after burn in.
 -- nIterations :: Int
 -- nIterations = 10000
+
+fnData :: String
+fnData = "plh-multivariate.data"
+
+fnMeanTree :: FilePath
+fnMeanTree = "plh-multivariate.meantree"
+
+main :: IO ()
+main = do
+  as <- getArgs
+  case as of
+    ["read"] -> do
+      putStrLn "Read trees; skip a burn in of 1000 trees."
+      trs <- drop 1000 <$> someTrees fnTreeList
+      let l = length $ nub $ map T.fromLabeledTree trs
+      unless (l == 1) (error "Trees have different topologies.")
+
+      putStrLn "Calculate mean branch lengths."
+      let pm = getPosteriorMatrix $ map (first fromLength) trs
+          (means, _) = L.meanCov pm
+      putStrLn "The mean branch lengths are:"
+      print means
+      let meanTree =
+            fromMaybe (error "Could not label tree with mean branch lengths") $
+              tZipWith (map Length $ V.toList means) (head trs)
+          lvs = leaves meanTree
+          trOutgroup = either error id $ outgroup (S.singleton $ head lvs) "root" meanTree
+          tr = either error id $ midpoint trOutgroup
+      putStrLn "The tree with mean branch lengths rooted at the midpoint:"
+      print $ toNewick $ lengthToPhyloTree tr
+      putStrLn $ "Save the mean tree to " <> fnMeanTree <> "."
+      L.writeFile fnMeanTree (toNewick $ lengthToPhyloTree tr)
+
+      putStrLn "Root the trees at the midpoint of the mean tree."
+      let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
+          trsRooted = map (either error id . outgroup outgroups "root") trs
+
+      putStrLn "Get the posterior means and the posterior covariance matrix."
+      let pmR = getPosteriorMatrixRooted $ map (first fromLength) trsRooted
+          (mu, sigma) = L.meanCov pmR
+          (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
+
+      putStrLn $ "Save the posterior means and covariances to " <> fnData <> "."
+      encodeFile fnData (mu, L.toRows sigmaInv, logSigmaDet)
+    ["bench"] -> do
+      tr <- first fromLength <$> oneTree fnMeanTree
+      let (pth, _) =
+            fromMaybe (error "Gn_montanu not found.") $
+              ifind (\_ n -> n == "Gn_montanu") tr
+      putStrLn $ "The path to \"Gn_montanu\" is: " <> show pth
+      let bf1 =
+            toTree . insertLabel "Bla"
+              . fromMaybe (error "Path does not lead to a leaf.")
+              . goPath pth
+              . fromTree
+      putStrLn $ "Change a leaf: " <> show (bf1 tr) <> "."
+      putStrLn "Benchmark change a leaf."
+      benchmark $ nf bf1 tr
+      let bf2 =
+            label . current
+              . fromMaybe (error "Path does not lead to a leaf.")
+              . goPath pth
+              . fromTree
+      putStrLn $ "Leaf to get: " <> show (bf2 tr) <> "."
+      putStrLn "Benchmark get a leaf."
+      benchmark $ nf bf2 tr
+      putStrLn "Benchmark calculation of prior."
+      let i = initWith $ identify tr
+      benchmark $ nf pr i
+      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+      let sigmaInv = L.fromRows sigmaInvRows
+          lh' = lh mu sigmaInv logSigmaDet
+      putStrLn "Benchmark calculation of likelihood."
+      benchmark $ nf lh' i
+    ["inspect"] -> do
+      tr <- first fromLength <$> oneTree fnMeanTree
+      let lvs = leaves tr
+      putStrLn $ "The tree has " <> show (length lvs) <> " leaves."
+      let i = initWith $ identify tr
+      putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ i ^. timeTree)
+      putStrLn $ "Initial prior: " <> show (pr i) <> "."
+      putStrLn "Load posterior means and covariances."
+      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+      let sigmaInv = L.fromRows sigmaInvRows
+          lh' = lh mu sigmaInv logSigmaDet
+      putStrLn $ "Initial log-likelihood: " <> show (ln $ lh' i) <> "."
+    -- ["run"] -> do
+    --   g <- create
+    --   (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+    --   let sigmaInv = L.fromRows sigmaInvRows
+    --   putStrLn "The posterior means of the branch lengths are:"
+    --   print mu
+    --   putStrLn "Choose a (bad) starting state for our chain."
+    --   let k = V.length mu
+    --       start = V.replicate k (1.0 :: Double)
+    --   print start
+    --     putStrLn "Construct status of the chain."
+    --     let s = force $ status "plh-multivariate" pr (lh mu sigmaInv logSigmaDet) (proposals start) (mon start) start nBurnIn nAutoTune nIterations g
+    --     void $ mh s
+    _ -> putStrLn "read|bench|inspect|run"
 
 -- Benchmarks with criterion indicate the following:
 --
@@ -248,109 +382,3 @@ lh mu sigmaInv logSigmaDet x = traceShow dxs $ Exp $ (-0.5) * (logSigmaDet + ((d
 -- and 100k iterations, we spend 300 seconds traversing and changing the tree
 -- without calculating anything else. I guess that's OK.
 -- @
-
-fnData :: String
-fnData = "plh-multivariate.data"
-
-fnMeanTree :: FilePath
-fnMeanTree = "plh-multivariate.meantree"
-
-main :: IO ()
-main = do
-  as <- getArgs
-  case as of
-    ["read"] -> do
-      putStrLn "Read trees; skip a burn in of 1000 trees."
-      trs <- drop 1000 <$> someTrees fnTreeList
-      let l = length $ nub $ map T.fromLabeledTree trs
-      unless (l == 1) (error "Trees have different topologies.")
-
-      putStrLn "Calculate mean branch lengths."
-      let pm = getPosteriorMatrix $ map (first fromLength) trs
-          (means, _) = L.meanCov pm
-      putStrLn "The mean branch lengths are:"
-      print means
-      let meanTree =
-            fromMaybe (error "Could not label tree with mean branch lengths") $
-              tZipWith (map Length $ V.toList means) (head trs)
-          lvs = leaves meanTree
-          trOutgroup = either error id $ outgroup (S.singleton $ head lvs) "root" meanTree
-          tr = either error id $ midpoint trOutgroup
-      putStrLn "The tree with mean branch lengths rooted at the midpoint:"
-      print $ toNewick $ lengthToPhyloTree tr
-      putStrLn $ "Save the mean tree to " <> fnMeanTree <> "."
-      L.writeFile fnMeanTree (toNewick $ lengthToPhyloTree tr)
-
-      putStrLn "Root the trees at the midpoint of the mean tree."
-      let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
-          trsRooted = map (either error id . outgroup outgroups "root") trs
-
-      putStrLn "Get the posterior means and the posterior covariance matrix."
-      let pmR = getPosteriorMatrixRooted $ map (first fromLength) trsRooted
-          (mu, sigma) = L.meanCov pmR
-          (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
-
-      putStrLn $ "Save the posterior means and covariances to " <> fnData <> "."
-      encodeFile fnData (mu, L.toRows sigmaInv, logSigmaDet)
-    ["inspect"] -> do
-      tr' <- oneTree fnTreeList
-      let lvs = leaves tr'
-      putStrLn $ "The tree has " <> show (length lvs) <> " leaves."
-      let trO = either error id $ outgroup (S.singleton $ head lvs) "root" tr'
-          tr = either error id $ midpoint trO
-      print $ branches tr
-      print $ filter (< 0) $ branches tr
-      print $ map (map branch . forest) $ either error id $ roots trO
-      putStrLn "The rooted tree is:"
-      L.putStrLn $ toNewick $ lengthToPhyloTree tr
-      putStrLn "The branch lengths are:"
-      print $ getBranches $ first fromLength tr
-      let (pth, _) =
-            fromMaybe (error "Gn_montanu not found.") $
-              ifind (\_ n -> n == "Gn_montanu") tr
-      putStrLn "The path to \"Gn_montanu\" is:"
-      print pth
-      -- let bf1 =
-      --       toTree . insertLabel "Bla"
-      --         . fromMaybe (error "Path does not lead to a leaf.")
-      --         . goPath pth
-      --         . fromTree
-      -- putStrLn $ "Change a leaf: " <> show (bf1 trRooted) <> "."
-      -- putStrLn "Benchmark change a leaf."
-      -- benchmark $ nf bf1 trRooted
-      -- let bf2 =
-      --       label . current
-      --         . fromMaybe (error "Path does not lead to a leaf.")
-      --         . goPath pth
-      --         . fromTree
-      -- putStrLn $ "Leaf to get: " <> show (bf2 trRooted) <> "."
-      -- putStrLn "Benchmark get a leaf."
-      -- benchmark $ nf bf2 trRooted
-      let i = initWith $ identify tr
-      putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ timeTree i)
-      putStrLn $ "Initial prior: " <> show (pr i) <> "."
-      putStrLn "Benchmark calculation of prior."
-      benchmark $ nf pr i
-      putStrLn "Load posterior means and covariances."
-      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
-      let sigmaInv = L.fromRows sigmaInvRows
-          lh' = lh mu sigmaInv logSigmaDet
-      -- TODO: Likelihood is zero?
-      putStrLn $ "Initial likelihood: " <> show (lh' i) <> "."
-    -- putStrLn "Benchmark calculation of likelihood."
-    -- benchmark $ nf lh' i
-    _ -> putStrLn "inspect|read"
-
--- _ -> do
---   g <- create
---   (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
---   let sigmaInv = L.fromRows sigmaInvRows
---   putStrLn "The posterior means of the branch lengths are:"
---   print mu
---   putStrLn "Choose a (bad) starting state for our chain."
---   let k = V.length mu
---       start = V.replicate k (1.0 :: Double)
---   print start
---     putStrLn "Construct status of the chain."
---     let s = force $ status "plh-multivariate" pr (lh mu sigmaInv logSigmaDet) (proposals start) (mon start) start nBurnIn nAutoTune nIterations g
---     void $ mh s
