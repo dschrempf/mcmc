@@ -27,6 +27,8 @@ where
 
 -- TODO: Provide relative node constraints node calibrations.
 
+-- TODO: Think about priors and scales.
+
 -- Ormolu automatically formats the source code. We don't want it to mess up the
 -- comments describing of the used libraries.
 {- ORMOLU_DISABLE -}
@@ -37,11 +39,9 @@ import Control.Monad
 import Criterion
 import Data.Aeson
 import Data.Bifunctor
-import qualified Data.ByteString.Conversion.From as L
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List
 import Data.Maybe
-import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Set as S
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
@@ -61,8 +61,9 @@ import ELynx.Export.Tree.Newick
 import Mcmc
 
 -- Local libraries provided together with this module.
+import MonitorTree
 import Prior
-import Proposal
+import ProposalTree
 import Tree
 {- ORMOLU_ENABLE -}
 
@@ -210,7 +211,7 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  [ timeTree >>> slideNode pth (n lb) 1
+  [ timeTree @~ slideNode pth (n lb) 1
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
@@ -225,7 +226,7 @@ proposalsTimeTree t =
 -- Since the stem does not change the likelihood, we do not slide the stem.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  [ rateTree >>> slideBranch pth (n lb) 1 1.0 True
+  [ rateTree @~ slideBranch pth (n lb) 1 1.0 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth)
@@ -238,42 +239,32 @@ proposalsRateTree t =
 ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
-    [ timeBirthRate >>> slideSymmetric "time birth rate" 4 0.5 True,
-      timeRootHeight >>> slideSymmetric "time root height" 4 0.5 True,
-      rateGammaShape >>> slideSymmetric "rate gamma shape" 4 0.5 True,
-      rateMean >>> slideSymmetric "rate mean" 4 0.5 True
+    [ timeBirthRate @~ scaleUnbiased "time birth rate" 50 10 True,
+      timeRootHeight @~ scaleUnbiased "time root height" 50 10 True,
+      rateGammaShape @~ scaleUnbiased "rate gamma shape" 50 10 True,
+      rateMean @~ scaleUnbiased "rate mean" 50 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
 
--- TODO: Provide more elaborate monitors.
+monStdOut :: MonitorStdOut I
+monStdOut = monitorStdOut
+            [ timeBirthRate @. monitorRealFloat "TimeBirthRate",
+              timeRootHeight @. monitorRealFloat "TimeRootHeight",
+              rateGammaShape @. monitorRealFloat "RateGammaShape",
+              rateMean @. monitorRealFloat "RateMean"
+            ] 1
 
--- TODO: Move this function into the library.
-
--- For now, only monitor the time tree.
-monTimeTree :: MonitorParameter I
-monTimeTree =
-  MonitorParameter
-    "TimeTree"
-    ( \x ->
-        B.fromText $
-          f $
-            toNewick $
-              lengthToPhyloTree $ first Length $ x ^. timeTree
-    )
-  where
-    f s = fromMaybe (error "conversion failed") $ L.fromByteString $ L.toStrict s
-
-fmonTimeTree :: MonitorFile I
-fmonTimeTree = monitorFile "-timetree" [monTimeTree] 1
+monFileTimeTree :: MonitorFile I
+monFileTimeTree = monitorFile "-timetree" [timeTree @. monitorTree "TimeTree"] 1
 
 -- Collect monitors to standard output and files, as well as batch monitors.
 mon :: Monitor I
-mon = Monitor (monitorStdOut [] 1) [fmonTimeTree] []
+mon = Monitor monStdOut [monFileTimeTree] []
 
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
-nBurnIn = Just 800
+nBurnIn = Just 1000
 
 -- Auto tuning period.
 nAutoTune :: Maybe Int
@@ -398,7 +389,7 @@ main = do
       g <- create
       putStrLn "Construct the status of the Markov chain."
       let s =
-            force $
+            force $ debug $
               -- Have a look at the 'status' function to understand the
               -- different parameters.
               status

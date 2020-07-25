@@ -67,8 +67,9 @@ executable plh
 executable plh-multivariate
   main-is: Main.hs
   other-modules:
+      MonitorTree
       Prior
-      Proposal
+      ProposalTree
       Tree
       Paths_mcmc_examples
   autogen-modules:

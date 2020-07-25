@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 -- |
--- Module      :  Proposal
+-- Module      :  ProposalTree
 -- Description :  Proposals on trees
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -11,7 +11,7 @@
 -- Portability :  portable
 --
 -- Creation date: Thu Jul 23 09:10:07 2020.
-module Proposal
+module ProposalTree
   ( slideNode,
     slideBranch,
   )
@@ -81,7 +81,7 @@ slideNode ::
   -- | Weight.
   Int ->
   Proposal (Tree Double a)
-slideNode pth n w = nodeAt pth >>> Proposal n w slideRootSimple Nothing
+slideNode pth n w = nodeAt pth @~ Proposal n w slideRootSimple Nothing
 
 -- | Scale the branch of the node.
 --
@@ -98,4 +98,4 @@ slideBranch ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double a)
-slideBranch pth n w s t = (nodeAt pth . rootBranch) >>> slideSymmetric n w s t
+slideBranch pth n w s t = (nodeAt pth . rootBranch) @~ slideSymmetric n w s t

@@ -105,13 +105,13 @@ getEdges = map (\(_, x, y) -> (x, y)) . edgeList
 
 -- Sliding proposal changing the length of a branch.
 slideBranch :: Node -> Node -> Proposal (Tree Length)
-slideBranch x y = getLens x y >>> slideSymmetric n 1 1.0 True
+slideBranch x y = getLens x y @~ slideSymmetric n 1 1.0 True
   where
     n = "Slide edge " <> show (x, y)
 
 -- Bactrian proposal changing the length of a branch.
 bactrianBranch :: Node -> Node -> Proposal (Tree Length)
-bactrianBranch x y = getLens x y >>> slideBactrian n 1 0.9 1.0 True
+bactrianBranch x y = getLens x y @~ slideBactrian n 1 0.9 1.0 True
   where
     n = "Bactrian edge " <> show (x, y)
 
@@ -145,7 +145,7 @@ stdDevTree = (0 -< toD 2.0 >- 1) + (0 -< toD 2.0 >- 2)
 
 -- Branch length monitors.
 branchMons :: [MonitorParameter (Tree Length)]
-branchMons = [monitorRealFloat (n x y) (getLens x y) | (x, y) <- getEdges startingTree]
+branchMons = [getLens x y @. monitorRealFloat (n x y) | (x, y) <- getEdges startingTree]
   where
     n x y = show (x, y)
 
@@ -160,7 +160,7 @@ monFile = monitorFile "Branches" branchMons 10
 -- Monitor batch means of branch lengths.
 branchBatchMons :: [MonitorParameterBatch (Tree Length)]
 branchBatchMons =
-  [monitorBatchMeanRealFloat (n x y) (getLens x y) | (x, y) <- getEdges startingTree]
+  [ getLens x y @# monitorBatchMeanRealFloat (n x y) | (x, y) <- getEdges startingTree]
   where
     n x y = "Mean " <> show (x, y)
 
