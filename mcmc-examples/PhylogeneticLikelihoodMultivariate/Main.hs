@@ -25,6 +25,11 @@ module Main
   )
 where
 
+-- Ormolu automatically formats the source code. We don't want it to mess up the
+-- comments describing of the used libraries.
+{- ORMOLU_DISABLE -}
+
+-- Global libraries.
 import Control.Lens hiding ((<.>))
 import Control.Monad
 import Criterion
@@ -39,18 +44,25 @@ import qualified Data.Set as S
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
 import qualified ELynx.Data.Topology.Rooted as T
-import ELynx.Data.Tree
-import ELynx.Export.Tree.Newick
 import GHC.Generics
-import Mcmc
 import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
-import Prior
-import Proposal
 import System.Environment
 import System.Random.MWC
+
+-- ELynx library providing functions to work with trees.
+import ELynx.Data.Tree
+import ELynx.Export.Tree.Newick
+
+-- Mcmc library.
+import Mcmc
+
+-- Local libraries provided together with this module.
+import Prior
+import Proposal
 import Tree
+{- ORMOLU_ENABLE -}
 
 -- State space containing all parameters.
 --
