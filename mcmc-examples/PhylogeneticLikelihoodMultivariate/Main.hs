@@ -25,6 +25,8 @@ module Main
   )
 where
 
+-- TODO: Provide relative node constraints node calibrations.
+
 -- Ormolu automatically formats the source code. We don't want it to mess up the
 -- comments describing of the used libraries.
 {- ORMOLU_DISABLE -}
