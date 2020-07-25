@@ -23,9 +23,9 @@ import Mcmc.Proposal
 import Mcmc.Proposal.Slide
 import System.Random.MWC
 
--- TODO: Think about how a (truncated) normal distribution could be used.
+-- TODO: Use a truncated normal distribution to slide nodes.
 
--- TODO: Think about how tuning could be enabled?
+-- TODO: Then, tuning could probably be enabled?
 
 -- Minimum branch length.
 eps :: Double
@@ -72,7 +72,7 @@ slideRootSimple = ProposalSimple slideRootSample Nothing
 -- | Slide the node up and down using a uniform distribution truncated at
 -- the parent node and the closest daughter node.
 --
--- The node is specified by a path.
+-- The node to slide is specified by a path.
 slideNode ::
   -- | Path to node on tree.
   [Int] ->
@@ -85,7 +85,7 @@ slideNode pth n w = nodeAt pth >>> Proposal n w slideRootSimple Nothing
 
 -- | Scale the branch of the node.
 --
--- The node is specified by a path.
+-- The node to slide is specified by a path.
 slideBranch ::
   -- | Path to node on tree.
   [Int] ->

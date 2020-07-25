@@ -9,6 +9,8 @@
 -- Portability :  portable
 --
 -- Creation date: Thu Jul 23 13:26:14 2020.
+--
+-- This module provides prior distributions.
 module Prior
   ( -- * Prior distributions
     uniformWith,

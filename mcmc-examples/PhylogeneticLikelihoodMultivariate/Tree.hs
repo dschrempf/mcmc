@@ -1,8 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |
@@ -16,8 +13,6 @@
 -- Portability :  portable
 --
 -- Creation date: Fri Jul  3 09:05:09 2020.
---
--- __The import of this module alone should cover most use cases.__
 module Tree
   ( oneTree,
     someTrees,
@@ -46,19 +41,6 @@ instance FoldableWithIndex [Int] (Tree e) where
 instance TraversableWithIndex [Int] (Tree e) where
   itraverse f (Node br lb ts) = Node br <$> f [] lb <*> itraverse (\i -> itraverse (f . (:) i)) ts
   {-# INLINE itraverse #-}
-
-type instance IxValue (Tree e a) = (e, a)
-
-type instance Index (Tree e a) = [Int]
-
-instance Ixed (Tree e a) where
-  ix xs0 f = go xs0
-    where
-      go [] (Node br lb ts) = f (br, lb) <&> \(br', lb') -> Node br' lb' ts
-      go (i : is) t@(Node br lb ts)
-        | i < 0 = pure t
-        | otherwise = Node br lb <$> ix i (go is) ts
-  {-# INLINE ix #-}
 
 instance ToJSON Length
 instance FromJSON Length
