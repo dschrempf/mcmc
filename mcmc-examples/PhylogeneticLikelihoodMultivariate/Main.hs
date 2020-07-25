@@ -280,15 +280,20 @@ main :: IO ()
 main = do
   -- Get arguments.
   as <- getArgs
+
   case as of
+    -- Read in all trees, calculate posterior means and covariances of the
+    -- branch lengths, and find the midpoint root of the mean tree.
     ["read"] -> do
       putStrLn "Read trees; skip a burn in of 1000 trees."
       trs <- drop 1000 <$> someTrees fnTreeList
+
+      -- Check if trees have the same topology.
       let l = length $ nub $ map T.fromLabeledTree trs
       unless (l == 1) (error "Trees have different topologies.")
 
       putStrLn "Calculate mean branch lengths."
-      let pm = getPosteriorMatrix $ map (first fromLength) trs
+      let pm = getPosteriorMatrix trs
           (means, _) = L.meanCov pm
       putStrLn "The mean branch lengths are:"
       print means
@@ -305,17 +310,18 @@ main = do
 
       putStrLn "Root the trees at the midpoint of the mean tree."
       let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
-          trsRooted = map (either error id . outgroup outgroups "root") trs
-
+          trsRooted = map (first fromLength . either error id . outgroup outgroups "root" . first Length) trs
       putStrLn "Get the posterior means and the posterior covariance matrix."
-      let pmR = getPosteriorMatrixRooted $ map (first fromLength) trsRooted
+      let pmR = getPosteriorMatrixRooted trsRooted
           (mu, sigma) = L.meanCov pmR
           (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
 
       putStrLn $ "Save the posterior means and covariances to " <> fnData <> "."
       encodeFile fnData (mu, L.toRows sigmaInv, logSigmaDet)
+
+    -- Benchmark different functions used by the MCMC sampler.
     ["bench"] -> do
-      tr <- first fromLength <$> oneTree fnMeanTree
+      tr <- oneTree fnMeanTree
       let (pth, _) =
             fromMaybe (error "Gn_montanu not found.") $
               ifind (\_ n -> n == "Gn_montanu") tr
@@ -344,8 +350,10 @@ main = do
           lh' = lh mu sigmaInv logSigmaDet
       putStrLn "Benchmark calculation of likelihood."
       benchmark $ nf lh' i
+
+    -- Inspect different objects; useful for debugging.
     ["inspect"] -> do
-      tr <- first fromLength <$> oneTree fnMeanTree
+      tr <- oneTree fnMeanTree
       let lvs = leaves tr
       putStrLn $ "The tree has " <> show (length lvs) <> " leaves."
       let i = initWith $ identify tr
@@ -356,35 +364,44 @@ main = do
       let sigmaInv = L.fromRows sigmaInvRows
           lh' = lh mu sigmaInv logSigmaDet
       putStrLn $ "Initial log-likelihood: " <> show (ln $ lh' i) <> "."
-    -- let tr' = fromMaybe (error "Could not drop leaves.") $ dropLeavesOnly tr
-    -- putStrLn "Tree without leaves:"
-    -- L.putStrLn $ toNewick $ lengthToPhyloTree $ bimap Length (L.pack . show) $ identify tr'
-    -- putStrLn $ "Number of leaves: " ++ show (length $ leaves tr')
+
+    -- Run the Metropolis-Hastings sampler.
     ["run"] -> do
-      tr <- first fromLength <$> oneTree fnMeanTree
+      -- Read the mean tree and the posterior means and covariances.
+      meanTree <- oneTree fnMeanTree
       (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
       let sigmaInv = L.fromRows sigmaInvRows
       putStrLn "The posterior means of the branch lengths are:"
       print mu
-      let start = initWith $ identify tr
+      -- Initialize a starting state using the mean tree.
+      let start = initWith $ identify meanTree
+      -- Create a seed value for the random number generator. Actually, the
+      -- 'create' function is deterministic, but useful during development. For
+      -- real analyses, use 'createSystemRandom'.
       g <- create
-      putStrLn "Construct status of the chain."
+      putStrLn "Construct the status of the Markov chain."
       let s =
             force $
+              -- Have a look at the 'status' function to understand the
+              -- different parameters.
               status
                 "plh-multivariate"
                 pr
                 (lh mu sigmaInv logSigmaDet)
-                (ccl tr)
+                (ccl meanTree)
                 mon
                 start
                 nBurnIn
                 nAutoTune
                 nIterations
                 g
+      -- Run the Markov chain.
       void $ mh s
-    _ -> putStrLn "read|bench|inspect|run"
+    -- Print usage instructions if none of the previous commands was entered.
+    _ -> putStrLn "Use one command of: [read|bench|inspect|run]!"
 
+-- Post scriptum:
+--
 -- Benchmarks with criterion indicate the following:
 --
 -- 1. Algebraic graphs are slow, but the adjacency map with 'Int' node labels and branch labels is reasonably fast.
