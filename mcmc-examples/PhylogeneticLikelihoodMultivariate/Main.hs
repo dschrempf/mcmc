@@ -265,7 +265,7 @@ monTimeTree =
     f s = fromMaybe (error "conversion failed") $ L.fromByteString $ L.toStrict s
 
 fmonTimeTree :: MonitorFile I
-fmonTimeTree = monitorFile "timetree" [monTimeTree] 1
+fmonTimeTree = monitorFile "-timetree" [monTimeTree] 1
 
 -- Collect monitors to standard output and files, as well as batch monitors.
 mon :: Monitor I
