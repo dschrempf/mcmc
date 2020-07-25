@@ -12,7 +12,9 @@
 --
 -- Creation date: Fri May 29 11:11:49 2020.
 module Mcmc.Monitor.Parameter
-  ( MonitorParameter (..),
+  ( -- * Parameter monitors
+    MonitorParameter (..),
+    (@.),
     monitorInt,
     monitorRealFloat,
     monitorRealFloatF,
@@ -34,52 +36,50 @@ data MonitorParameter a
         mpFunc :: a -> Builder
       }
 
+-- | Convert a parameter monitor from one data type to another using a lens.
+--
+-- For example, to monitor a real float value being the first entry of a tuple:
+--
+-- @
+-- mon = _1 @@ monitorRealFloat
+-- @
+(@.) :: Lens' b a -> MonitorParameter a -> MonitorParameter b
+(@.) l (MonitorParameter n f) = MonitorParameter n (\x -> f $ x^.l)
+
 -- | Monitor integral parameters such as 'Int'.
 monitorInt ::
-  Integral b =>
+  Integral a =>
   -- | Name of monitor.
   String ->
-  -- | Instruction about which parameter to monitor.
-  Lens' a b ->
   MonitorParameter a
-monitorInt n l = MonitorParameter n (\x -> T.decimal $ x ^. l)
-{-# SPECIALIZE monitorInt :: String -> Lens' a Int -> MonitorParameter a #-}
+monitorInt n = MonitorParameter n T.decimal
+{-# SPECIALIZE monitorInt :: String -> MonitorParameter Int #-}
 
 -- | Monitor real float parameters such as 'Double' with eight decimal places
 -- (half precision).
 monitorRealFloat ::
-  RealFloat b =>
+  RealFloat a =>
   -- | Name of monitor.
   String ->
-  -- | Instruction about which parameter to monitor.
-  Lens' a b ->
   MonitorParameter a
-monitorRealFloat n l =
-  MonitorParameter n (\x -> T.formatRealFloat T.Fixed (Just 8) $ x ^. l)
-{-# SPECIALIZE monitorRealFloat :: String -> Lens' a Double -> MonitorParameter a #-}
+monitorRealFloat n = MonitorParameter n (T.formatRealFloat T.Fixed (Just 8))
+{-# SPECIALIZE monitorRealFloat :: String -> MonitorParameter Double #-}
 
 -- | Monitor real float parameters such as 'Double' with full precision.
 monitorRealFloatF ::
-  RealFloat b =>
+  RealFloat a =>
   -- | Name of monitor.
   String ->
-  -- | Instruction about which parameter to monitor.
-  Lens' a b ->
   MonitorParameter a
-monitorRealFloatF n l = MonitorParameter n (\x -> T.realFloat $ x ^. l)
-{-# SPECIALIZE monitorRealFloatF :: String -> Lens' a Double -> MonitorParameter a #-}
+monitorRealFloatF n = MonitorParameter n T.realFloat
+{-# SPECIALIZE monitorRealFloatF :: String -> MonitorParameter Double #-}
 
 -- | Monitor real float parameters such as 'Double' with scientific notation and
 -- eight decimal places.
 monitorRealFloatS ::
-  RealFloat b =>
+  RealFloat a =>
   -- | Name of monitor.
   String ->
-  -- | Instruction about which parameter to monitor.
-  Lens' a b ->
   MonitorParameter a
-monitorRealFloatS n l =
-  MonitorParameter
-    n
-    (\x -> T.formatRealFloat T.Exponent (Just 8) $ x ^. l)
-{-# SPECIALIZE monitorRealFloatS :: String -> Lens' a Double -> MonitorParameter a #-}
+monitorRealFloatS n = MonitorParameter n (T.formatRealFloat T.Exponent (Just 8))
+{-# SPECIALIZE monitorRealFloatS :: String -> MonitorParameter Double #-}

@@ -27,7 +27,7 @@
 module Mcmc.Proposal
   ( -- * Proposal
     Proposal (..),
-    (>>>),
+    (@~),
     ProposalSimple (..),
     Tuner (tParam, tFunc),
     tuner,
@@ -107,8 +107,8 @@ convertP l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
 -- @
 -- scaleFirstEntryOfTuple = scale >>> _1
 -- @
-(>>>) :: Lens' b a -> Proposal a -> Proposal b
-(>>>) = convertP
+(@~) :: Lens' b a -> Proposal a -> Proposal b
+(@~) = convertP
 
 -- One could also use a different type for 'pSample', so that 'pKernel' can
 -- be avoided. In detail,
