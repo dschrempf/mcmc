@@ -30,7 +30,6 @@ import Control.Monad
 import Criterion
 import Data.Aeson
 import Data.Bifunctor
-import Data.Bitraversable
 import qualified Data.ByteString.Conversion.From as L
 import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List
@@ -53,7 +52,11 @@ import System.Environment
 import System.Random.MWC
 import Tree
 
--- State space.
+-- State space containing all parameters.
+--
+-- The topologies of the time and rate tree are equal. This is, however, not
+-- ensured by the types. In the future, we may just use one tree storing both,
+-- the times and the rates.
 data I = I
   { -- Birth rate parameter of time tree.
     _timeBirthRate :: Double,
@@ -72,21 +75,28 @@ data I = I
   }
   deriving (Generic)
 
+-- Create accessors (lenses) to the parameters in the state space.
 makeLenses ''I
 
+-- Allow storage of the trace as JSON.
 instance ToJSON I
 
 instance FromJSON I
 
 -- Initial state.
+--
+-- The given tree is used to initiate the time and rate trees. For the time
+-- tree, the terminal branches are elongated such that the tree becomes
+-- ultrametric ('makeUltrametric'). For the rate tree, we just use the topology
+-- and set all rates to 1.0.
 initWith :: Tree Double Int -> I
 initWith t =
   I
     { _timeBirthRate = 1.0,
       _timeRootHeight = height t',
-      _timeTree = t',
       _rateGammaShape = 1.0,
       _rateMean = 1.0,
+      _timeTree = t',
       _rateTree = first (const 1.0) t
     }
   where
@@ -96,19 +106,29 @@ initWith t =
 pr :: I -> Log Double
 pr (I l h k m t r) =
   product'
-    [ exponentialWith 1.0 l,
+    [ -- Exponential prior on the birth rate of the time tree.
+      exponentialWith 1.0 l,
+      -- Exponential prior on the root height of the time tree.
       exponentialWith 10.0 h,
-      branchesWith (exponentialWith l) t,
+      -- Exponential prior on the shape of the gamma distribution.
       exponentialWith 10.0 k,
+      -- The rate mean prior is a gamma distribution with shape k and mean one.
       gammaWith k (1 / k) m,
+      -- Birth process prior on the branches of the time tree.
+      branchesWith (exponentialWith l) t,
+      -- The prior of the branch-wise rates is also gamma distributed.
       branchesWith (gammaWith k (1 / k)) r
     ]
 
+-- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
+-- The posterior means and covariances of the branch lengths are obtained from
+-- these trees and used to approximate the phylogenetic likelihood.
 fnTreeList :: FilePath
 fnTreeList = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
 
--- Get all branches of the tree such that the two branches leading to the root
--- are the first two entries of the vector. Ignore the root branch.
+-- Helper function. Get all branches of a rooted tree. Store the branches in a
+-- vector such that the two branches leading to the root are the first two
+-- entries of the vector. Ignore the root branch.
 getBranches :: Tree Double a -> Vector Double
 getBranches (Node _ _ [l, r]) = V.fromList $ head ls : head rs : tail ls ++ tail rs
   where
@@ -116,80 +136,107 @@ getBranches (Node _ _ [l, r]) = V.fromList $ head ls : head rs : tail ls ++ tail
     rs = branches r
 getBranches _ = error "getBranches: Root node is not bifurcating."
 
--- Sum the first two elements of a vector.
+-- Sum the first two elements of a vector. Needed to merge the two branches
+-- leading to the root.
 sumFirstTwo :: Vector Double -> Vector Double
 sumFirstTwo v = (v V.! 0 + v V.! 1) `V.cons` V.drop 2 v
 
+-- Get the posterior matrix of branch lengths of rooted trees. Merge the two
+-- branch lengths leading to the root.
 getPosteriorMatrixRooted :: [Tree Double a] -> Matrix Double
 getPosteriorMatrixRooted = L.fromRows . map (sumFirstTwo . getBranches)
 
+-- Get the posterior matrix of branch lengths of unrooted trees (trees with
+-- multifurcating root nodes). Before midpoint rooting, the mean branch lengths
+-- of the unrooted trees have to be determined.
 getPosteriorMatrix :: [Tree Double a] -> Matrix Double
 getPosteriorMatrix = L.fromRows . map (V.fromList . branches)
 
--- | Apply a function with different effect on each node to a 'Traversable'.
--- Based on https://stackoverflow.com/a/41523456.
-tZipWith :: Bitraversable t => [a] -> t b c -> Maybe (t a c)
-tZipWith xs = bisequenceA . snd . bimapAccumL pair noChange xs
-  where
-    pair [] _ = ([], Nothing)
-    pair (y : ys) _ = (ys, Just y)
-    noChange ys z = (ys, Just z)
-
--- Phylogenetic likelihood using a multivariate normal distribution. See
+-- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
 --
 -- The constant @k * log (2*pi)@ was left out on purpose.
---
--- lh meanVector invertedCovarianceMatrix logOfDeterminantOfCovarianceMatrix
-lh :: Vector Double -> Matrix Double -> Double -> I -> Log Double
-lh mu sigmaInv logSigmaDet x =
+logDensityMultivariateNormal ::
+  -- Mean vector.
+  Vector Double ->
+  -- Inverted covariance matrix.
+  Matrix Double ->
+  -- Log of determinant of covariance matrix.
+  Double ->
+  -- Value vector.
+  Vector Double ->
+  Log Double
+logDensityMultivariateNormal mu sigmaInv logSigmaDet xs =
   Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
+  where
+    dxs = xs - mu
+
+-- Phylogenetic likelihood using a multivariate normal distribution.
+lh ::
+  -- Mean vector.
+  Vector Double ->
+  -- Inverted covariance matrix.
+  Matrix Double ->
+  -- Log of determinant of covariance matrix.
+  Double ->
+  -- Current state.
+  I ->
+  Log Double
+lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigmaDet distances
   where
     times = getBranches $ x ^. timeTree
     rates = getBranches $ x ^. rateTree
     multiplier = x ^. timeRootHeight * x ^. rateMean
     distances = sumFirstTwo $ V.map (* multiplier) $ V.zipWith (*) times rates
-    dxs = distances - mu
 
-proposalsTimeTree :: Tree e a -> [Proposal I]
+-- Slide node proposals for the time tree.
+--
+-- Since the stem does not change the likelihood, we do not slide the root node.
+--
+-- Also, we do not slide leaf nodes, since this would break ultrametricity.
+proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  [ timeTree >>> slideNode pth (n pth) 1
-    | (pth, _) <- itoList t,
+  [ timeTree >>> slideNode pth (n lb) 1
+    | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
       -- Path does not lead to a leaf.
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
   where
-    n pth = "timeTreeSlideNode " ++ show pth
+    n x = "timetree slide node " ++ show x
 
-proposalsRateTree :: Tree e a -> [Proposal I]
+-- Slide branch proposals for the rate tree.
+--
+-- Since the stem does not change the likelihood, we do not slide the stem.
+proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  [ rateTree >>> slideBranch pth (n pth) 1 1.0 True
-    | (pth, _) <- itoList t,
+  [ rateTree >>> slideBranch pth (n lb) 1 1.0 True
+    | (pth, lb) <- itoList t,
+      -- Path does not lead to the root.
       not (null pth)
   ]
   where
-    n pth = "rateTreeSlideBranch " ++ show pth
+    n x = "ratetree slide branch " ++ show x
 
-ccl :: Tree e a -> Cycle I
+-- The complete cycle includes slide proposals of higher weights for the other
+-- parameters.
+ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
-    [ timeBirthRate >>> slideSymmetric "timeBirthRate" 1 0.5 True,
-      timeRootHeight >>> slideSymmetric "timeRootHeight" 1 0.5 True,
-      rateGammaShape >>> slideSymmetric "rateGammaShape" 1 0.5 True,
-      rateMean >>> slideSymmetric "rateMean" 1 0.5 True
+    [ timeBirthRate >>> slideSymmetric "time birth rate" 4 0.5 True,
+      timeRootHeight >>> slideSymmetric "time root height" 4 0.5 True,
+      rateGammaShape >>> slideSymmetric "rate gamma shape" 4 0.5 True,
+      rateMean >>> slideSymmetric "rate mean" 4 0.5 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
 
--- -- Branch length monitors.
--- branchMons :: I -> [MonitorParameter I]
--- branchMons v = [monitorRealFloat (n i) (singular $ ix i) | i <- [0 .. k]]
---   where
---     n i = "Branch " <> show i
---     k = V.length v - 1
+-- TODO: Provide more elaborate monitors.
 
+-- TODO: Move this function into the library.
+
+-- For now, only monitor the time tree.
 monTimeTree :: MonitorParameter I
 monTimeTree =
   MonitorParameter
@@ -203,6 +250,7 @@ monTimeTree =
   where
     f s = fromMaybe (error "conversion failed") $ L.fromByteString $ L.toStrict s
 
+-- Collect monitors to standard output and files, as well as batch monitors.
 mon :: Monitor I
 mon = Monitor (monitorStdOut [monTimeTree] 1) [] []
 
@@ -218,14 +266,19 @@ nAutoTune = Just 200
 nIterations :: Int
 nIterations = 1000
 
+-- The posterior branch length means and covariances will be stored in a file
+-- with this name.
 fnData :: String
 fnData = "plh-multivariate.data"
 
+-- The rooted tree with posterior mean branch lengths will be stored in a file
+-- with this name.
 fnMeanTree :: FilePath
 fnMeanTree = "plh-multivariate.meantree"
 
 main :: IO ()
 main = do
+  -- Get arguments.
   as <- getArgs
   case as of
     ["read"] -> do
@@ -241,7 +294,7 @@ main = do
       print means
       let meanTree =
             fromMaybe (error "Could not label tree with mean branch lengths") $
-              tZipWith (map Length $ V.toList means) (head trs)
+              setBranches (map Length $ V.toList means) (head trs)
           lvs = leaves meanTree
           trOutgroup = either error id $ outgroup (S.singleton $ head lvs) "root" meanTree
           tr = either error id $ midpoint trOutgroup
