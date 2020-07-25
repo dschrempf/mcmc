@@ -254,7 +254,7 @@ ccl t =
 monTimeTree :: MonitorParameter I
 monTimeTree =
   MonitorParameter
-    "timeTree"
+    "TimeTree"
     ( \x ->
         B.fromText $
           f $
@@ -264,9 +264,12 @@ monTimeTree =
   where
     f s = fromMaybe (error "conversion failed") $ L.fromByteString $ L.toStrict s
 
+fmonTimeTree :: MonitorFile I
+fmonTimeTree = monitorFile "timetree" [monTimeTree] 1
+
 -- Collect monitors to standard output and files, as well as batch monitors.
 mon :: Monitor I
-mon = Monitor (monitorStdOut [monTimeTree] 1) [] []
+mon = Monitor (monitorStdOut [] 1) [fmonTimeTree] []
 
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
@@ -382,13 +385,13 @@ main = do
     -- Run the Metropolis-Hastings sampler.
     ["run"] -> do
       -- Read the mean tree and the posterior means and covariances.
-      meanTree <- oneTree fnMeanTree
+      meanTree <- identify <$> oneTree fnMeanTree
       (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
       let sigmaInv = L.fromRows sigmaInvRows
       putStrLn "The posterior means of the branch lengths are:"
       print mu
       -- Initialize a starting state using the mean tree.
-      let start = initWith $ identify meanTree
+      let start = initWith meanTree
       -- Create a seed value for the random number generator. Actually, the
       -- 'create' function is deterministic, but useful during development. For
       -- real analyses, use 'createSystemRandom'.

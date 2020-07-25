@@ -76,18 +76,17 @@ import System.Random.MWC
 --
 -- A 'Proposal' may be tuneable in that it contains information about how to enlarge
 -- or shrink the step size to tune the acceptance ratio.
-data Proposal a
-  = Proposal
-      { -- | Name (no proposals with the same name are allowed in a 'Cycle').
-        pName :: String,
-        -- | The weight determines how often a 'Proposal' is executed per iteration of
-        -- the Markov chain.
-        pWeight :: Int,
-        -- | Simple proposal without tuning information.
-        pSimple :: ProposalSimple a,
-        -- | Tuning is disabled if set to 'Nothing'.
-        pTuner :: Maybe (Tuner a)
-      }
+data Proposal a = Proposal
+  { -- | Name (no proposals with the same name are allowed in a 'Cycle').
+    pName :: String,
+    -- | The weight determines how often a 'Proposal' is executed per iteration of
+    -- the Markov chain.
+    pWeight :: Int,
+    -- | Simple proposal without tuning information.
+    pSimple :: ProposalSimple a,
+    -- | Tuning is disabled if set to 'Nothing'.
+    pTuner :: Maybe (Tuner a)
+  }
 
 instance Show (Proposal a) where
   show m = show $ pName m
@@ -127,34 +126,35 @@ convertP l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
 -- In order to calculate the Metropolis-Hastings ratio, we need to know the
 -- kernel (i.e., the probability mass or probability density) of jumping
 -- forwards and backwards.
-data ProposalSimple a
-  = ProposalSimple
-      { -- | Instruction about randomly moving from the current state to a new
-        -- state, given some source of randomness.
-        pSample :: a -> GenIO -> IO a,
-        -- | The kernel of going from one state to another. Set to 'Nothing' for
-        -- symmetric proposals.
-        pKernel :: Maybe (a -> a -> Log Double)
-      }
+data ProposalSimple a = ProposalSimple
+  { -- | Instruction about randomly moving from the current state to a new
+    -- state, given some source of randomness.
+    pSample :: a -> GenIO -> IO a,
+    -- | The kernel of going from one state to another. Set to 'Nothing' for
+    -- symmetric proposals.
+    pKernel :: Maybe (a -> a -> Log Double)
+  }
 
 convertS :: Lens' b a -> ProposalSimple a -> ProposalSimple b
 convertS l (ProposalSimple s mk) = ProposalSimple s' mk'
-  where s' v g = do x' <- s (v ^. l) g
-                    return $ set l x' v
-        mk' = case mk of
-          Nothing -> Nothing
-          Just k -> Just $ \x y -> k (x ^. l) (y ^. l)
+  where
+    s' v g = do
+      x' <- s (v ^. l) g
+      return $ set l x' v
+    mk' = case mk of
+      Nothing -> Nothing
+      Just k -> Just $ \x y -> k (x ^. l) (y ^. l)
 
 -- | Tune the acceptance ratio of a 'Proposal'; see 'tune', or 'autotuneCycle'.
-data Tuner a
-  = Tuner
-      { tParam :: Double,
-        tFunc :: Double -> ProposalSimple a
-      }
+data Tuner a = Tuner
+  { tParam :: Double,
+    tFunc :: Double -> ProposalSimple a
+  }
 
 convertT :: Lens' b a -> Tuner a -> Tuner b
 convertT l (Tuner p f) = Tuner p f'
-  where f' x = convertS l $ f x
+  where
+    f' x = convertS l $ f x
 
 -- | Create a 'Tuner'. The tuning function accepts a tuning parameter, and
 -- returns a corresponding 'ProposalSimple'. The larger the tuning parameter, the
@@ -217,11 +217,10 @@ instance Default Order where def = RandomO
 -- are executed is specified by 'Order'. The default is 'RandomO'.
 --
 -- __Proposals must have unique names__, so that they can be identified.
-data Cycle a
-  = Cycle
-      { ccProposals :: [Proposal a],
-        ccOrder :: Order
-      }
+data Cycle a = Cycle
+  { ccProposals :: [Proposal a],
+    ccOrder :: Order
+  }
 
 -- | Create a 'Cycle' from a list of 'Proposal's.
 fromList :: [Proposal a] -> Cycle a
