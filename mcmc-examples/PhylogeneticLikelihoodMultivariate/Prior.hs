@@ -14,6 +14,7 @@
 module Prior
   ( -- * Prior distributions
     uniformWith,
+    normalWith,
     exponentialWith,
     gammaWith,
     branchesWith,
@@ -29,6 +30,7 @@ import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Exponential
 import Statistics.Distribution.Gamma
+import Statistics.Distribution.Normal
 
 -- | Uniform prior in [a, b].
 uniformWith ::
@@ -42,6 +44,18 @@ uniformWith a b x
   | x <= a = pzero
   | x >= b = pzero
   | otherwise = Exp 0
+
+-- | Normal distributed prior.
+normalWith ::
+  -- | Mean.
+  Double ->
+  -- | Standard deviation.
+  Double ->
+  Double ->
+  Log Double
+normalWith m s x = Exp $ logDensity d x
+  where d = normalDistr m s
+
 
 -- | Exponentail prior.
 exponentialWith ::

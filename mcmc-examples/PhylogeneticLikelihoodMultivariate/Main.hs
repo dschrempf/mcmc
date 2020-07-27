@@ -108,9 +108,9 @@ initWith :: Tree Double Int -> I
 initWith t =
   I
     { _timeBirthRate = 1.0,
-      _timeRootHeight = height t',
+      _timeRootHeight = 10.0,
       _rateGammaShape = 1.0,
-      _rateMean = 1.0,
+      _rateMean = 0.01,
       _timeTree = t',
       _rateTree = first (const 1.0) t
     }
@@ -124,8 +124,9 @@ pr (I l h k m t r) =
     [ -- Exponential prior on the birth rate of the time tree.
       exponentialWith 1.0 l,
       -- Exponential prior on the root height of the time tree.
-      exponentialWith 10.0 h,
-      -- Exponential prior on the shape of the gamma distribution.
+      normalWith 10.0 1.0 h,
+      -- Exponential prior on the shape of the gamma distribution of the mean
+      -- rate and the branch rates.
       exponentialWith 10.0 k,
       -- The rate mean prior is a gamma distribution with shape k and mean one.
       gammaWith k (1 / k) m,
@@ -166,6 +167,8 @@ getPosteriorMatrixRooted = L.fromRows . map (sumFirstTwo . getBranches)
 -- of the unrooted trees have to be determined.
 getPosteriorMatrix :: [Tree Double a] -> Matrix Double
 getPosteriorMatrix = L.fromRows . map (V.fromList . branches)
+
+
 
 -- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
@@ -211,7 +214,7 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  [ timeTree @~ slideNode pth (n lb) 1
+  [ timeTree @~ slideNode pth (n lb) 1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
@@ -239,10 +242,10 @@ proposalsRateTree t =
 ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
-    [ timeBirthRate @~ scaleUnbiased "time birth rate" 50 10 True,
-      timeRootHeight @~ scaleUnbiased "time root height" 50 10 True,
-      rateGammaShape @~ scaleUnbiased "rate gamma shape" 50 10 True,
-      rateMean @~ scaleUnbiased "rate mean" 50 10 True
+    [ timeBirthRate @~ scaleUnbiased "time birth rate" 40 50 True,
+      timeRootHeight @~ scaleUnbiased "time root height" 40 50 True,
+      rateGammaShape @~ scaleUnbiased "rate gamma shape" 40 50 True,
+      rateMean @~ scaleUnbiased "rate mean" 40 50 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
@@ -268,7 +271,7 @@ nBurnIn = Just 1000
 
 -- Auto tuning period.
 nAutoTune :: Maybe Int
-nAutoTune = Just 200
+nAutoTune = Just 100
 
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
@@ -283,6 +286,14 @@ fnData = "plh-multivariate.data"
 -- with this name.
 fnMeanTree :: FilePath
 fnMeanTree = "plh-multivariate.meantree"
+
+-- Read the mean tree and the posterior means and covariances.
+readMeans :: IO (Tree Double Int, Vector Double, Matrix Double, Double)
+readMeans = do
+  meanTree <- identify <$> oneTree fnMeanTree
+  (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+  let sigmaInv = L.fromRows sigmaInvRows
+  return (meanTree, mu, sigmaInv, logSigmaDet)
 
 main :: IO ()
 main = do
@@ -376,9 +387,7 @@ main = do
     -- Run the Metropolis-Hastings sampler.
     ["run"] -> do
       -- Read the mean tree and the posterior means and covariances.
-      meanTree <- identify <$> oneTree fnMeanTree
-      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
-      let sigmaInv = L.fromRows sigmaInvRows
+      (meanTree, mu, sigmaInv, logSigmaDet) <- readMeans
       putStrLn "The posterior means of the branch lengths are:"
       print mu
       -- Initialize a starting state using the mean tree.
@@ -387,7 +396,7 @@ main = do
       -- 'create' function is deterministic, but useful during development. For
       -- real analyses, use 'createSystemRandom'.
       g <- create
-      putStrLn "Construct the status of the Markov chain."
+      -- Construct the status of the Markov chain.
       let s =
             force $ debug $
               -- Have a look at the 'status' function to understand the
@@ -405,8 +414,13 @@ main = do
                 g
       -- Run the Markov chain.
       void $ mh s
+    ["continue", n] -> do
+      (meanTree, mu, sigmaInv, logSigmaDet) <- readMeans
+      -- Load the MCMC status.
+      s <- loadStatus pr (lh mu sigmaInv logSigmaDet) (ccl meanTree) mon "plh-multivariate.mcmc"
+      void $ mhContinue (read n) s
     -- Print usage instructions if none of the previous commands was entered.
-    _ -> putStrLn "Use one command of: [read|bench|inspect|run]!"
+    _ -> putStrLn "Use one command of: [read|bench|inspect|run|continue N]!"
 
 -- Post scriptum:
 --

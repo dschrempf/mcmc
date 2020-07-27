@@ -17,13 +17,13 @@ module ProposalTree
   )
 where
 
+import Control.Monad.Primitive
 import Control.Lens
 import ELynx.Data.Tree
 import Mcmc.Proposal
 import Mcmc.Proposal.Slide
 import System.Random.MWC
-
--- TODO: Use a truncated normal distribution to slide nodes.
+import System.Random.MWC.Distributions
 
 -- TODO: Then, tuning could probably be enabled?
 
@@ -45,29 +45,37 @@ nodeAt pth =
 rootBranch :: Lens' (Tree e a) e
 rootBranch = lens branch (\(Node _ lb ts) br -> Node br lb ts)
 
+-- Be careful, this will loop forever if the parameters are not well chosen.
+truncatedNormal :: PrimMonad m => Double -> Double -> Double -> Double -> Gen (PrimState m) -> m Double
+truncatedNormal a b m s g = do
+  x' <- normal m s g
+  case x' of
+    x
+      | x < a -> truncatedNormal a b m s g
+      | x > b -> truncatedNormal a b m s g
+      | otherwise -> return x
+
 modifyBranch :: (e -> e) -> Tree e a -> Tree e a
 modifyBranch f (Node br lb ts) = Node (f br) lb ts
 
 slideRootSample ::
+  Double ->
   Tree Double a ->
   GenIO ->
   IO (Tree Double a)
-slideRootSample (Node _ _ []) _ = error "slideRootSample: Cannot slide leaf node."
-slideRootSample (Node br lb ts) g = do
+slideRootSample _ (Node _ _ []) _ = error "slideRootSample: Cannot slide leaf node."
+slideRootSample t (Node br lb ts) g = do
   let br' = minimum $ map branch ts
-  dx <- uniformR (negate $ br - eps, br' - eps) g
+      a = negate $ br - eps
+      b = br' - eps
+      -- Don't let the standard deviation be too high, because then the normal
+      -- variable will be rejected many times in 'truncatedNormal'.
+      s = min (b - a) (t / 2 * (b - a))
+  dx <- truncatedNormal a b 0 s g
   return $ Node (br + dx) lb (map (modifyBranch (subtract dx)) ts)
 
--- slideNodeSample :: [Int] -> Tree Double a -> GenIO -> IO (Tree Double a)
--- slideNodeSample pth t g = case goPath pth $ fromTree t of
---   Nothing -> error $ "slideNodeSample: Could not find node with path " ++ show pth ++ "."
---   Just pos -> do
---     let ct = current pos
---     ct' <- slideRootSample ct g
---     return $ toTree $ insertTree ct' pos
-
-slideRootSimple :: ProposalSimple (Tree Double a)
-slideRootSimple = ProposalSimple slideRootSample Nothing
+slideRootSimple :: Double -> ProposalSimple (Tree Double a)
+slideRootSimple t = ProposalSimple (slideRootSample t) Nothing
 
 -- | Slide the node up and down using a uniform distribution truncated at
 -- the parent node and the closest daughter node.
@@ -80,8 +88,12 @@ slideNode ::
   String ->
   -- | Weight.
   Int ->
+  -- | Tune the move.
+  Bool ->
   Proposal (Tree Double a)
-slideNode pth n w = nodeAt pth @~ Proposal n w slideRootSimple Nothing
+slideNode pth n w t = nodeAt pth @~ Proposal n w (slideRootSimple 1.0) tnr
+  where
+    tnr = if t then Just $ tuner slideRootSimple else Nothing
 
 -- | Scale the branch of the node.
 --

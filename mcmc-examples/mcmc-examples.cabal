@@ -93,6 +93,7 @@ executable plh-multivariate
     , mcmc
     , megaparsec
     , mwc-random
+    , primitive
     , statistics
     , text
     , vector

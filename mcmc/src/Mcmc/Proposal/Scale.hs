@@ -21,9 +21,10 @@ import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Statistics.Distribution.Gamma
 
--- The actual proposal with tuning parameter.
+-- The actual proposal with tuning parameter. The tuning parameter does not
+-- change the mean.
 scaleSimple :: Double -> Double -> Double -> ProposalSimple Double
-scaleSimple k th t = proposalGenericContinuous (gammaDistr k (t * th)) (*) (/)
+scaleSimple k th t = proposalGenericContinuous (gammaDistr (k / t) (t * th)) (*) (/)
 
 -- | Multiplicative proposal with Gamma distributed kernel.
 scale ::
