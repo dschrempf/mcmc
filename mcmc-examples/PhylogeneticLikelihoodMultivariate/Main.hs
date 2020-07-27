@@ -25,12 +25,11 @@ module Main
   )
 where
 
--- TODO: Provide relative node constraints node calibrations.
+-- TODO: Provide relative node constraints.
 
--- TODO: Think about priors and scales.
+-- The source code formatter Ormolu messes up the comments describing the used
+-- libraries.
 
--- Ormolu automatically formats the source code. We don't want it to mess up the
--- comments describing of the used libraries.
 {- ORMOLU_DISABLE -}
 
 -- Global libraries.
@@ -261,9 +260,12 @@ monStdOut = monitorStdOut
 monFileTimeTree :: MonitorFile I
 monFileTimeTree = monitorFile "-timetree" [timeTree @. monitorTree "TimeTree"] 1
 
+monFileRateTree :: MonitorFile I
+monFileRateTree = monitorFile "-ratetree" [rateTree @. monitorTree "RateTree"] 1
+
 -- Collect monitors to standard output and files, as well as batch monitors.
 mon :: Monitor I
-mon = Monitor monStdOut [monFileTimeTree] []
+mon = Monitor monStdOut [monFileTimeTree, monFileRateTree] []
 
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
