@@ -116,6 +116,8 @@ initWith t =
   where
     t' = makeUltrametric t
 
+-- TODO: Add some calibrations and constraints.
+
 -- Prior.
 pr :: I -> Log Double
 pr (I l h k m t r) =
