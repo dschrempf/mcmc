@@ -68,6 +68,7 @@ executable plh-multivariate
   main-is: Main.hs
   other-modules:
       MonitorTree
+      NodePrior
       Prior
       ProposalTree
       Tree
@@ -83,6 +84,7 @@ executable plh-multivariate
     , base >=4.7 && <5
     , bytestring
     , bytestring-conversion
+    , comonad
     , containers
     , criterion
     , deepseq

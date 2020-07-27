@@ -65,6 +65,7 @@ executables:
       - base >= 4.7 && < 5
       - bytestring
       - bytestring-conversion
+      - comonad
       - containers
       - criterion
       - deepseq
