@@ -21,7 +21,6 @@ where
 
 import Codec.Compression.GZip
 import Control.Lens
-import Data.Aeson
 import Data.Bifunctor
 import Data.List
 import Data.ByteString.Lazy (ByteString)

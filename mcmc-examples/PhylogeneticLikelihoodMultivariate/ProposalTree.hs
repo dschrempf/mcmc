@@ -22,10 +22,10 @@ import Control.Lens
 import ELynx.Data.Tree
 import Mcmc.Proposal
 import Mcmc.Proposal.Slide
+-- import Mcmc.Proposal.Generic
+-- import Statistics.Distribution.Gamma
 import System.Random.MWC
 import System.Random.MWC.Distributions
-
--- TODO: Then, tuning could probably be enabled?
 
 -- Minimum branch length.
 eps :: Double
@@ -95,9 +95,9 @@ slideNode pth n w t = nodeAt pth @~ Proposal n w (slideRootSimple 1.0) tnr
   where
     tnr = if t then Just $ tuner slideRootSimple else Nothing
 
--- | Scale the branch of the node.
+-- | Slide the branch of the node.
 --
--- The node to slide is specified by a path.
+-- The branch to slide is specified by a path to the node.
 slideBranch ::
   -- | Path to node on tree.
   [Int] ->
@@ -111,3 +111,22 @@ slideBranch ::
   Bool ->
   Proposal (Tree Double a)
 slideBranch pth n w s t = (nodeAt pth . rootBranch) @~ slideSymmetric n w s t
+
+-- TODO: Before I can provide this, I need to change the implementation of
+-- proposals. See the TODO item in Proposals.hs.
+
+-- scaleTreeSimple :: Double -> Double -> Double -> ProposalSimple (Tree Double a)
+-- scaleTreeSimple k th t = proposalGenericContinuous (gammaDistr (k / t) (th * t)) undefined undefined
+
+-- -- | Scale all branches of a tree.
+-- scaleTree ::
+--   -- | Name.
+--   String ->
+--   -- | Weight.
+--   Int ->
+--   -- | Standard deviation.
+--   Double ->
+--   -- | Enable tuning.
+--   Bool ->
+--   Proposal (Tree Double a)
+-- scaleTree n w s t = undefined

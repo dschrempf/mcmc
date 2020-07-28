@@ -10,9 +10,11 @@
 --
 -- Creation date: Mon Jul 27 10:49:11 2020.
 module NodePrior
-  ( NodePos,
+  ( Path,
+    root,
     mrca,
-    constrain,
+    constrainHard,
+    constrainSoft,
     calibrate,
   )
 where
@@ -24,52 +26,84 @@ import qualified Data.Set as S
 import ELynx.Data.Tree
 import Numeric.Log
 import Statistics.Distribution
+import Statistics.Distribution.Exponential
 import Statistics.Distribution.Normal
 
+import Debug.Trace
+
 isAncestor :: Ord a => [a] -> Tree e a -> Bool
-isAncestor xs t = any (`S.notMember` lvs) xs
+isAncestor xs t = not $ any (`S.notMember` lvs) xs
   where
     lvs = S.fromList $ leaves t
 
 isMrca :: Ord a => [a] -> Tree e a -> Bool
 isMrca xs t = isAncestor xs t && all (not . isAncestor xs) (forest t)
 
-type Path = [Int]
-
--- | The position of a node on a tree.
+-- | Path from the root of a tree to the node of the tree.
 --
 -- The position is specific to a tree topology. If the topology changes, the
 -- position becomes invalid.
-newtype NodePos = NP Path
+type Path = [Int]
+
+-- | The position of the root.
+root :: Path
+root = []
 
 -- | Get the path to the MRCA of the given list of node labels on the given
 -- tree.
-mrca :: Ord a => [a] -> Tree e a -> Maybe NodePos
-mrca xs = (return . NP) <=< go 0
+mrca :: Ord a => [a] -> Tree e a -> Maybe Path
+mrca xs = (return . tail) <=< go 0
   where
     go i t
-      | isMrca xs t = Just []
+      | isMrca xs t = Just [i]
       | isAncestor xs t = Just $ i : head (catMaybes [go j t' | (j, t') <- zip [0 ..] (forest t)])
       | otherwise = Nothing
 
 getHeight :: Measurable e => [Int] -> Tree e a -> Double
-getHeight p = height . current . unsafeGoPath p . fromTree
+getHeight p = rootHeight . current . unsafeGoPath p . fromTree
 
--- | Constrain order of nodes with given paths using a truncated uniform
+-- | Hard constrain order of nodes with given paths using a truncated uniform
 -- distribution.
-constrain ::
+--
+-- Assume the given tree is ultrametric.
+constrainHard ::
   Measurable e =>
   -- | Young node (closer to the leaves).
-  NodePos ->
+  Path ->
   -- | Old node (closer to the root).
-  NodePos ->
+  Path ->
   Tree e a ->
   Log Double
-constrain (NP y) (NP o) t
+constrainHard y o t
   | y `isPrefixOf` o = error "constrain: Young node is direct ancestor of old node (?)."
   | o `isPrefixOf` y = error "constrain: No need to constrain old node which is direct ancestor of young node."
   | getHeight y t < getHeight o t = 1
   | otherwise = 0
+
+-- | Soft constrain order of nodes with given paths.
+--
+-- - When the node order is correct, a uniform uniform distribution is used.
+--
+-- - When the node order is incorrect, an exponential distribution with given rate is used.
+--
+-- Assume the given tree is ultrametric.
+constrainSoft ::
+  Measurable e =>
+  -- | Rate of exponential decay.
+  Double ->
+  -- | Young node (closer to the leaves).
+  Path ->
+  -- | Old node (closer to the root).
+  Path ->
+  Tree e a ->
+  Log Double
+constrainSoft l y o t
+  | y `isPrefixOf` o = error "constrain: Young node is direct ancestor of old node (?)."
+  | o `isPrefixOf` y = error "constrain: No need to constrain old node which is direct ancestor of young node."
+  | hY < hO = 1
+  | otherwise = Exp $ (/l) $ logDensity (exponential l) (hY - hO)
+  where hY = getHeight y t
+        hO = getHeight o t
 
 -- | Calibrate height of a node with given path using the normal distribution.
 calibrate ::
@@ -78,7 +112,7 @@ calibrate ::
   Double ->
   -- | Standard deviation.
   Double ->
-  NodePos ->
+  Path ->
   Tree e a ->
   Log Double
-calibrate m s (NP p) = Exp . logDensity (normalDistr m s) . getHeight p
+calibrate m s p = Exp . logDensity (normalDistr m s) . traceShowId . getHeight p
