@@ -25,8 +25,6 @@ module Main
   )
 where
 
--- TODO: Provide relative node constraints.
-
 -- The source code formatter Ormolu messes up the comments describing the used
 -- libraries.
 
@@ -42,6 +40,8 @@ import qualified Data.ByteString.Lazy.Char8 as L
 import Data.List
 import Data.Maybe
 import qualified Data.Set as S
+import qualified Data.Text.Lazy as T
+import Data.Text.Lazy (Text)
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
 import qualified ELynx.Data.Topology.Rooted as T
@@ -118,6 +118,14 @@ initWith t =
 
 -- TODO: Add some calibrations and constraints.
 
+-- Constraints:
+
+-- Slight difference.
+-- 179, 183 younger than 245 247.
+
+-- More extreme difference.
+-- 34, 38 younger than 62, 64.
+
 -- Prior.
 pr :: I -> Log Double
 pr (I l h k m t r) =
@@ -168,8 +176,6 @@ getPosteriorMatrixRooted = L.fromRows . map (sumFirstTwo . getBranches)
 -- of the unrooted trees have to be determined.
 getPosteriorMatrix :: [Tree Double a] -> Matrix Double
 getPosteriorMatrix = L.fromRows . map (V.fromList . branches)
-
-
 
 -- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
@@ -252,12 +258,14 @@ ccl t =
       ++ proposalsRateTree t
 
 monStdOut :: MonitorStdOut I
-monStdOut = monitorStdOut
-            [ timeBirthRate @. monitorRealFloat "TimeBirthRate",
-              timeRootHeight @. monitorRealFloat "TimeRootHeight",
-              rateGammaShape @. monitorRealFloat "RateGammaShape",
-              rateMean @. monitorRealFloat "RateMean"
-            ] 1
+monStdOut =
+  monitorStdOut
+    [ timeBirthRate @. monitorRealFloat "TimeBirthRate",
+      timeRootHeight @. monitorRealFloat "TimeRootHeight",
+      rateGammaShape @. monitorRealFloat "RateGammaShape",
+      rateMean @. monitorRealFloat "RateMean"
+    ]
+    1
 
 monFileTimeTree :: MonitorFile I
 monFileTimeTree = monitorFile "-timetree" [timeTree @. monitorTree "TimeTree"] 1
@@ -292,9 +300,9 @@ fnMeanTree :: FilePath
 fnMeanTree = "plh-multivariate.meantree"
 
 -- Read the mean tree and the posterior means and covariances.
-readMeans :: IO (Tree Double Int, Vector Double, Matrix Double, Double)
+readMeans :: IO (Tree Double Text, Vector Double, Matrix Double, Double)
 readMeans = do
-  meanTree <- identify <$> oneTree fnMeanTree
+  meanTree <- second toText <$> oneTree fnMeanTree
   (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
   let sigmaInv = L.fromRows sigmaInvRows
   return (meanTree, mu, sigmaInv, logSigmaDet)
@@ -395,36 +403,42 @@ main = do
       putStrLn "The posterior means of the branch lengths are:"
       print mu
       -- Initialize a starting state using the mean tree.
-      let start = initWith meanTree
+      let start = initWith $ identify meanTree
       -- Create a seed value for the random number generator. Actually, the
       -- 'create' function is deterministic, but useful during development. For
       -- real analyses, use 'createSystemRandom'.
       g <- create
       -- Construct the status of the Markov chain.
       let s =
-            force $ debug $
-              -- Have a look at the 'status' function to understand the
-              -- different parameters.
-              status
-                "plh-multivariate"
-                pr
-                (lh mu sigmaInv logSigmaDet)
-                (ccl meanTree)
-                mon
-                start
-                nBurnIn
-                nAutoTune
-                nIterations
-                g
+            force $
+              debug $
+                -- Have a look at the 'status' function to understand the
+                -- different parameters.
+                status
+                  "plh-multivariate"
+                  pr
+                  (lh mu sigmaInv logSigmaDet)
+                  (ccl $ identify meanTree)
+                  mon
+                  start
+                  nBurnIn
+                  nAutoTune
+                  nIterations
+                  g
       -- Run the Markov chain.
       void $ mh s
     ["continue", n] -> do
       (meanTree, mu, sigmaInv, logSigmaDet) <- readMeans
       -- Load the MCMC status.
-      s <- loadStatus pr (lh mu sigmaInv logSigmaDet) (ccl meanTree) mon "plh-multivariate.mcmc"
+      s <- loadStatus pr (lh mu sigmaInv logSigmaDet) (ccl $ identify meanTree) mon "plh-multivariate.mcmc"
       void $ mhContinue (read n) s
     -- Print usage instructions if none of the previous commands was entered.
-    _ -> putStrLn "Use one command of: [read|bench|inspect|run|continue N]!"
+    ["convert"] -> do
+      -- Print conversion of leaves.
+      (meanTree, _, _, _) <- readMeans
+      let tbl = zip (map T.unpack $ leaves meanTree) (map show $ leaves $ identify meanTree)
+      putStr $ unlines $ map show tbl
+    _ -> putStrLn "Use one command of: [read|bench|inspect|run|continue N|convert]!"
 
 -- Post scriptum:
 --

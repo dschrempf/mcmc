@@ -42,9 +42,6 @@ instance TraversableWithIndex [Int] (Tree e) where
   itraverse f (Node br lb ts) = Node br <$> f [] lb <*> itraverse (\i -> itraverse (f . (:) i)) ts
   {-# INLINE itraverse #-}
 
-instance ToJSON Length
-instance FromJSON Length
-
 parseFileWith :: (ShowErrorComponent e) => String -> Parsec e ByteString a -> FilePath -> IO a
 parseFileWith s p f = do
   l <- if "gz" `isSuffixOf` f
