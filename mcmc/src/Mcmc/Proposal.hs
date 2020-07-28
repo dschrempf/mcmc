@@ -110,6 +110,8 @@ convertP l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
 (@~) :: Lens' b a -> Proposal a -> Proposal b
 (@~) = convertP
 
+-- TODO.
+--
 -- One could also use a different type for 'pSample', so that 'pKernel' can
 -- be avoided. In detail,
 --

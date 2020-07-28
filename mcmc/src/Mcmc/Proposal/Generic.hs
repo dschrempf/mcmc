@@ -32,10 +32,10 @@ import System.Random.MWC
 jumpCont ::
   (ContDistr d, ContGen d) =>
   d ->
-  (Double -> Double -> Double) ->
-  Double ->
+  (a -> Double -> a) ->
+  a ->
   GenIO ->
-  IO Double
+  IO a
 jumpCont d f x g = do
   dx <- genContVar d g
   return $ x `f` dx
@@ -44,9 +44,9 @@ jumpCont d f x g = do
 kernelCont ::
   (ContDistr d, ContGen d) =>
   d ->
-  (Double -> Double -> Double) ->
-  Double ->
-  Double ->
+  (a -> a -> Double) ->
+  a ->
+  a ->
   Log Double
 kernelCont d fInv x y = Exp $ logDensity d (y `fInv` x)
 {-# INLINEABLE kernelCont #-}
@@ -57,10 +57,10 @@ proposalGenericContinuous ::
   -- | Probability distribution
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
-  (Double -> Double -> Double) ->
-  -- | Inverse operator, e.g.,(-), so that y - dx = x.
-  (Double -> Double -> Double) ->
-  ProposalSimple Double
+  (a -> Double -> a) ->
+  -- | Inverse operator, e.g.,(-), so that y - x = dx.
+  (a -> a -> Double) ->
+  ProposalSimple a
 proposalGenericContinuous d f fInv =
   ProposalSimple (jumpCont d f) (Just $ kernelCont d fInv)
 
@@ -70,18 +70,18 @@ proposalSymmetricGenericContinuous ::
   -- | Probability distribution
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
-  (Double -> Double -> Double) ->
-  ProposalSimple Double
+  (a -> Double -> a) ->
+  ProposalSimple a
 proposalSymmetricGenericContinuous d f =
   ProposalSimple (jumpCont d f) Nothing
 
 jumpDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
   d ->
-  (Int -> Int -> Int) ->
-  Int ->
+  (a -> Int -> a) ->
+  a ->
   GenIO ->
-  IO Int
+  IO a
 jumpDiscrete d f x g = do
   dx <- genDiscreteVar d g
   return $ x `f` dx
@@ -90,9 +90,9 @@ jumpDiscrete d f x g = do
 kernelDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
   d ->
-  (Int -> Int -> Int) ->
-  Int ->
-  Int ->
+  (a -> a -> Int) ->
+  a ->
+  a ->
   Log Double
 kernelDiscrete d fInv x y =
   Exp $ logProbability d (y `fInv` x)
@@ -104,10 +104,10 @@ proposalGenericDiscrete ::
   -- | Probability distribution.
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
-  (Int -> Int -> Int) ->
+  (a -> Int -> a) ->
   -- | Inverse operator, e.g.,(-), so that y - dx = x.
-  (Int -> Int -> Int) ->
-  ProposalSimple Int
+  (a -> a -> Int) ->
+  ProposalSimple a
 proposalGenericDiscrete fd f fInv =
   ProposalSimple (jumpDiscrete fd f) (Just $ kernelDiscrete fd fInv)
 
@@ -117,7 +117,7 @@ proposalSymmetricGenericDiscrete ::
   -- | Probability distribution.
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
-  (Int -> Int -> Int) ->
-  ProposalSimple Int
+  (a -> Int -> a) ->
+  ProposalSimple a
 proposalSymmetricGenericDiscrete fd f =
   ProposalSimple (jumpDiscrete fd f) Nothing
