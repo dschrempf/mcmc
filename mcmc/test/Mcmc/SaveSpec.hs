@@ -46,7 +46,7 @@ proposals =
     ]
 
 monStd :: MonitorStdOut Double
-monStd = monitorStdOut [monitorRealFloat "mu" id] 10
+monStd = monitorStdOut [monitorRealFloat "mu"] 10
 
 mon :: Monitor Double
 mon = Monitor monStd [] []
