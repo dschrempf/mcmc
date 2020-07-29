@@ -137,8 +137,8 @@ cals (I _ h _ _ _ _) = [normalWith 10 0.1 h]
 -- More extreme difference: 34, 38 younger than 62, 64.
 consts :: I -> [Log Double]
 consts s =
-  [ constrainSoft 10 y1 o1 t,
-    constrainSoft 10 y2 o2 t
+  [ constrainSoft 0.001 y1 o1 t,
+    constrainSoft 0.001 y2 o2 t
   ]
   where
     t = s ^. timeTree
@@ -153,8 +153,8 @@ pr s@(I l _ k m t r) =
   product' $
     [ -- Exponential prior on the birth rate of the time tree.
       exponentialWith 1.0 l,
-      -- Exponential prior on the shape of the gamma distribution of the mean
-      -- rate and the branch rates.
+      -- Exponential prior on the shape of the gamma distribution of the
+      -- rate normalization parameter and the branch rates.
       exponentialWith 1.0 k,
       -- Normal prior on global rate normalization parameter.
       normalWith 1.0 1.0 m,

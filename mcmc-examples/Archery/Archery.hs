@@ -47,13 +47,13 @@ distances = replicateM nArrows . genContVar (exponential muTrue)
 -- Uninformative prior for positive precision values.
 pr :: Precision -> Log Double
 pr x
-  | x <= 0 = pzero
+  | x <= 0 = 0
   | otherwise = Exp 0
 
 -- Likelihood function.
 lh :: [Distance] -> Precision -> Log Double
 lh xs p
-  | p <= 0 = pzero
+  | p <= 0 = 0
   | otherwise = product [Exp $ logDensity (exponential p) x | x <- xs]
 
 -- The proposal cycle consists of one proposal only. A uniform distribution is used to
@@ -103,6 +103,6 @@ main = do
   -- Simulate a list of observed arrow distances.
   xs <- distances g
   -- Combine all the objects defined above.
-  let s = debug $ force $ noSave $ status "Archery" pr (lh xs) proposals mon 0.01 nBurnIn nAutoTune nIter g
+  let s = force $ noSave $ status "Archery" pr (lh xs) proposals mon 0.01 nBurnIn nAutoTune nIter g
   -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
   void $ mh s

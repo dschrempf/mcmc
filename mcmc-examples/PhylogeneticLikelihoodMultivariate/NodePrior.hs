@@ -26,7 +26,6 @@ import qualified Data.Set as S
 import ELynx.Data.Tree
 import Numeric.Log
 import Statistics.Distribution
-import Statistics.Distribution.Exponential
 import Statistics.Distribution.Normal
 
 import Debug.Trace
@@ -84,7 +83,8 @@ constrainHard y o t
 --
 -- - When the node order is correct, a uniform uniform distribution is used.
 --
--- - When the node order is incorrect, an exponential distribution with given rate is used.
+-- - When the node order is incorrect, a one-sided normal distribution with
+-- - given standard deviation is used.
 --
 -- Assume the given tree is ultrametric.
 constrainSoft ::
@@ -101,7 +101,7 @@ constrainSoft l y o t
   | y `isPrefixOf` o = error "constrain: Young node is direct ancestor of old node (?)."
   | o `isPrefixOf` y = error "constrain: No need to constrain old node which is direct ancestor of young node."
   | hY < hO = 1
-  | otherwise = Exp $ (/l) $ logDensity (exponential l) (hY - hO)
+  | otherwise = Exp $ logDensity (normalDistr 0 l) (hY - hO)
   where hY = getHeight y t
         hO = getHeight o t
 
