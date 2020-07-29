@@ -4,10 +4,6 @@
 
 -- TODO: Proposals on simplices: SimplexElementScale (?).
 
--- TODO: Proposals on trees:
--- - Slide a node on the tree.
--- - Scale a tree.
-
 -- TODO: Proposals on tree topologies.
 -- - NNI
 -- - Narrow (what is this, see RevBayes)
@@ -110,42 +106,24 @@ convertP l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
 (@~) :: Lens' b a -> Proposal a -> Proposal b
 (@~) = convertP
 
--- TODO.
---
--- One could also use a different type for 'pSample', so that 'pKernel' can
--- be avoided. In detail,
---
--- @
---   pSample :: a -> GenIO -> IO (a, Log Double, Log, Double)
--- @
---
--- where the kernels describe the probability of going there and back. However,
--- we may need more information about the proposal for other MCMC samplers
--- different from Metropolis-Hastings.
-
 -- | Simple proposal without tuning information.
 --
+-- Instruction about randomly moving from the current state to a new state,
+-- given some source of randomness.
+--
 -- In order to calculate the Metropolis-Hastings ratio, we need to know the
--- kernel (i.e., the probability mass or probability density) of jumping
--- forwards and backwards.
-data ProposalSimple a = ProposalSimple
-  { -- | Instruction about randomly moving from the current state to a new
-    -- state, given some source of randomness.
-    pSample :: a -> GenIO -> IO a,
-    -- | The kernel of going from one state to another. Set to 'Nothing' for
-    -- symmetric proposals.
-    pKernel :: Maybe (a -> a -> Log Double)
+-- ratio of the backward to forward kernels (i.e., the probability masses or
+-- probability densities). For unbiased proposals, this ratio is 1.0.
+newtype ProposalSimple a = ProposalSimple
+  {     pSample :: a -> GenIO -> IO (a, Log Double)
   }
 
 convertS :: Lens' b a -> ProposalSimple a -> ProposalSimple b
-convertS l (ProposalSimple s mk) = ProposalSimple s' mk'
+convertS l (ProposalSimple s) = ProposalSimple s'
   where
     s' v g = do
-      x' <- s (v ^. l) g
-      return $ set l x' v
-    mk' = case mk of
-      Nothing -> Nothing
-      Just k -> Just $ \x y -> k (x ^. l) (y ^. l)
+      (x', r) <- s (v ^. l) g
+      return (set l x' v, r)
 
 -- | Tune the acceptance ratio of a 'Proposal'; see 'tune', or 'autotuneCycle'.
 data Tuner a = Tuner

@@ -26,28 +26,38 @@ import Statistics.Distribution.Normal
 import System.Random.MWC
 import System.Random.MWC.Distributions
 
-bactrianSample ::
+genBactrian ::
   Double ->
   Double ->
   GenIO ->
   IO Double
-bactrianSample m s g = do
+genBactrian m s g = do
   let mn = m * s
       sd = sqrt (1 - m * m) * s
       d = normalDistr mn sd
   x <- genContVar d g
   b <- bernoulli 0.5 g
-  return $ if b then x else (- x)
+  return $ if b then x else - x
+
+logDensityBactrian :: Double -> Double -> Double -> Log Double
+logDensityBactrian m s x = Exp $ log $ kernel1 + kernel2
+  where
+    mn = m * s
+    sd = sqrt (1 - m * m) * s
+    dist1 = normalDistr (- mn) sd
+    dist2 = normalDistr mn sd
+    kernel1 = density dist1 x
+    kernel2 = density dist2 x
 
 bactrianAdditive ::
   Double ->
   Double ->
   Double ->
   GenIO ->
-  IO Double
+  IO (Double, Log Double)
 bactrianAdditive m s x g = do
-  dx <- bactrianSample m s g
-  return $ x + dx
+  dx <- genBactrian m s g
+  return (x + dx, 1.0)
 
 -- bactrianSimple lens spike stdDev tune forwardOp backwardOp
 bactrianAdditiveSimple ::
@@ -59,7 +69,7 @@ bactrianAdditiveSimple m s t
   | m < 0 = error "bactrianAdditiveSimple: Spike parameter negative."
   | m >= 1 = error "bactrianAdditiveSimple: Spike parameter 1.0 or larger."
   | s <= 0 = error "bactrianAdditiveSimple: Standard deviation 0.0 or smaller."
-  | otherwise = ProposalSimple (bactrianAdditive m (t * s)) Nothing
+  | otherwise = ProposalSimple (bactrianAdditive m (t * s))
 
 -- | Additive symmetric proposal with kernel similar to the silhouette of a
 -- Bactrian camel. The [Bactrian
@@ -86,6 +96,7 @@ slideBactrian n w m s t = Proposal n w (bactrianAdditiveSimple m s 1.0) tnr
   where
     tnr = if t then Just $ tuner (bactrianAdditiveSimple m s) else Nothing
 
+-- TODO: Go on here.
 bactrianMult ::
   Double ->
   Double ->
@@ -93,18 +104,10 @@ bactrianMult ::
   GenIO ->
   IO Double
 bactrianMult m s x g = do
-  dx <- bactrianSample m s g
-  return $ x * (1 + dx)
-
-bactrianKernel :: Double -> Double -> Double -> Log Double
-bactrianKernel m s x = Exp $ log $ kernel1 + kernel2
-  where
-    mn = m * s
-    sd = sqrt (1 - m * m) * s
-    dist1 = normalDistr (- mn) sd
-    dist2 = normalDistr mn sd
-    kernel1 = density dist1 x
-    kernel2 = density dist2 x
+  dx <- genBactrian m s g
+  let qXY = logDensityBactrian m s dx
+      qYX = logDensityBactrian m s (recip dx)
+  return (x * (1 + dx), qYX / qXY)
 
 bactrianMultKernel :: Double -> Double -> Double -> Double -> Log Double
 bactrianMultKernel m s x y = bactrianKernel m s (y / x)

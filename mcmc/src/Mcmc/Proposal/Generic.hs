@@ -18,9 +18,7 @@
 -- Creation date: Thu May 14 20:26:27 2020.
 module Mcmc.Proposal.Generic
   ( proposalGenericContinuous,
-    proposalSymmetricGenericContinuous,
     proposalGenericDiscrete,
-    proposalSymmetricGenericDiscrete,
   )
 where
 
@@ -29,27 +27,24 @@ import Numeric.Log
 import Statistics.Distribution
 import System.Random.MWC
 
-jumpCont ::
+sampleCont ::
   (ContDistr d, ContGen d) =>
   d ->
   (a -> Double -> a) ->
+  Maybe (Double -> Double) ->
   a ->
   GenIO ->
-  IO a
-jumpCont d f x g = do
+  IO (a, Log Double)
+sampleCont d f mfInv x g = do
   dx <- genContVar d g
-  return $ x `f` dx
-{-# INLINEABLE jumpCont #-}
-
-kernelCont ::
-  (ContDistr d, ContGen d) =>
-  d ->
-  (a -> a -> Double) ->
-  a ->
-  a ->
-  Log Double
-kernelCont d fInv x y = Exp $ logDensity d (y `fInv` x)
-{-# INLINEABLE kernelCont #-}
+  case mfInv of
+    Nothing -> return (x `f` dx, 1.0)
+    Just fInv -> do
+      let dxInv = fInv dx
+          qXY = Exp $ logDensity d dx
+          qYX = Exp $ logDensity d dxInv
+      return (x `f` dx, qYX / qXY)
+{-# INLINEABLE sampleCont #-}
 
 -- | Generic function to create proposals for continuous parameters ('Double').
 proposalGenericContinuous ::
@@ -58,45 +53,30 @@ proposalGenericContinuous ::
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
   (a -> Double -> a) ->
-  -- | Inverse operator, e.g.,(-), so that y - x = dx.
-  (a -> a -> Double) ->
+  -- | Inverse operator, e.g., 'negate' or 'recip'; only required for biased
+  -- proposals.
+  Maybe (Double -> Double) ->
   ProposalSimple a
-proposalGenericContinuous d f fInv =
-  ProposalSimple (jumpCont d f) (Just $ kernelCont d fInv)
+proposalGenericContinuous d f fInv = ProposalSimple (sampleCont d f fInv)
 
--- | Generic function to create symmetric proposals for continuous parameters ('Double').
-proposalSymmetricGenericContinuous ::
-  (ContDistr d, ContGen d) =>
-  -- | Probability distribution
-  d ->
-  -- | Forward operator, e.g. (+), so that x + dx = y.
-  (a -> Double -> a) ->
-  ProposalSimple a
-proposalSymmetricGenericContinuous d f =
-  ProposalSimple (jumpCont d f) Nothing
-
-jumpDiscrete ::
+sampleDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
   d ->
   (a -> Int -> a) ->
+  Maybe (Int -> Int) ->
   a ->
   GenIO ->
-  IO a
-jumpDiscrete d f x g = do
+  IO (a, Log Double)
+sampleDiscrete d f mfInv x g = do
   dx <- genDiscreteVar d g
-  return $ x `f` dx
-{-# INLINEABLE jumpDiscrete #-}
-
-kernelDiscrete ::
-  (DiscreteDistr d, DiscreteGen d) =>
-  d ->
-  (a -> a -> Int) ->
-  a ->
-  a ->
-  Log Double
-kernelDiscrete d fInv x y =
-  Exp $ logProbability d (y `fInv` x)
-{-# INLINEABLE kernelDiscrete #-}
+  case mfInv of
+    Nothing -> return (x `f` dx, 1.0)
+    Just fInv -> do
+      let dxInv = fInv dx
+          qXY = Exp $ logProbability d dx
+          qYX = Exp $ logProbability d dxInv
+      return (x `f` dx, qYX / qXY)
+{-# INLINEABLE sampleDiscrete #-}
 
 -- | Generic function to create proposals for discrete parameters ('Int').
 proposalGenericDiscrete ::
@@ -105,19 +85,7 @@ proposalGenericDiscrete ::
   d ->
   -- | Forward operator, e.g. (+), so that x + dx = y.
   (a -> Int -> a) ->
-  -- | Inverse operator, e.g.,(-), so that y - dx = x.
-  (a -> a -> Int) ->
+  -- | Inverse operator, e.g., 'negate'; only required for biased proposals.
+  Maybe (Int -> Int) ->
   ProposalSimple a
-proposalGenericDiscrete fd f fInv =
-  ProposalSimple (jumpDiscrete fd f) (Just $ kernelDiscrete fd fInv)
-
--- | Generic function to create symmetric proposals for discrete parameters ('Int').
-proposalSymmetricGenericDiscrete ::
-  (DiscreteDistr d, DiscreteGen d) =>
-  -- | Probability distribution.
-  d ->
-  -- | Forward operator, e.g. (+), so that x + dx = y.
-  (a -> Int -> a) ->
-  ProposalSimple a
-proposalSymmetricGenericDiscrete fd f =
-  ProposalSimple (jumpDiscrete fd f) Nothing
+proposalGenericDiscrete fd f fInv = ProposalSimple (sampleDiscrete fd f fInv)
