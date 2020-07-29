@@ -115,4 +115,4 @@ calibrate ::
   Path ->
   Tree e a ->
   Log Double
-calibrate m s p = Exp . logDensity (normalDistr m s) . traceShowId . getHeight p
+calibrate m s p = Exp . logDensity (normalDistr m s) . getHeight p

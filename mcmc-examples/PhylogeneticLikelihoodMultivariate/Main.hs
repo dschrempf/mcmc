@@ -69,25 +69,15 @@ import Tree
 
 -- State space containing all parameters.
 --
--- The time and rate trees are normalized with respective global normalization
--- parameters. Strictly, this is not necessary, but the normalization parameters
--- are handy to create fast, global proposals. This may change in the future
--- with specialized, global proposals.
---
 -- The topologies of the time and rate tree are equal. This is, however, not
 -- ensured by the types. In the future, we may just use one tree storing both,
 -- the times and the rates.
 data I = I
   { -- Birth rate parameter of time tree.
     _timeBirthRate :: Double,
-    -- Global normalization parameter of times. The time tree below is
-    -- normalized to have a total height of 1.0.
-    _timeNorm :: Double,
     -- Shape parameter k of gamma distribution of rate parameters. The scale
     -- parameter is determined such that the mean is 1.0.
     _rateGammaShape :: Double,
-    -- Global normalization parameter of rates.
-    _rateNorm :: Double,
     -- Tree containing times relative to the height of the tree.
     _timeTree :: Tree Double Int,
     -- Rate tree.
@@ -113,9 +103,7 @@ initWith :: Tree Double Int -> I
 initWith t =
   I
     { _timeBirthRate = 1.0,
-      _timeNorm = 1.0,
       _rateGammaShape = 1.0,
-      _rateNorm = 1.0,
       _timeTree = t',
       _rateTree = first (const 0.01) t
     }
@@ -128,7 +116,7 @@ initWith t =
 --
 -- Calibration of non-root nodes can be done with 'calibrate'.
 cals :: I -> [Log Double]
-cals (I _ h _ _ _ _) = [normalWith 10 0.1 h]
+cals s = [calibrate 10 0.1 root $ s ^. timeTree]
 
 -- Constraints.
 --
@@ -149,15 +137,13 @@ consts s =
 
 -- Prior.
 pr :: I -> Log Double
-pr s@(I l _ k m t r) =
+pr s@(I l k t r) =
   product' $
     [ -- Exponential prior on the birth rate of the time tree.
       exponentialWith 1.0 l,
       -- Exponential prior on the shape of the gamma distribution of the
       -- rate normalization parameter and the branch rates.
       exponentialWith 1.0 k,
-      -- Normal prior on global rate normalization parameter.
-      normalWith 1.0 1.0 m,
       -- Birth process prior on the branches of the time tree.
       branchesWith (exponentialWith l) t,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
@@ -232,8 +218,7 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
   where
     times = getBranches $ x ^. timeTree
     rates = getBranches $ x ^. rateTree
-    multiplier = x ^. timeNorm * x ^. rateNorm
-    distances = sumFirstTwo $ V.map (* multiplier) $ V.zipWith (*) times rates
+    distances = sumFirstTwo $ V.zipWith (*) times rates
 
 -- Slide node proposals for the time tree.
 --
@@ -250,7 +235,7 @@ proposalsTimeTree t =
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
   where
-    n x = "timetree slide node " ++ show x
+    n x = "time tree slide node " ++ show x
 
 -- Slide branch proposals for the rate tree.
 --
@@ -263,7 +248,7 @@ proposalsRateTree t =
       not (null pth)
   ]
   where
-    n x = "ratetree slide branch " ++ show x
+    n x = "rate tree slide branch " ++ show x
 
 -- The complete cycle includes slide proposals of higher weights for the other
 -- parameters.
@@ -271,19 +256,21 @@ ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
     [ timeBirthRate @~ scaleUnbiased "time birth rate" 30 40 True,
-      timeNorm @~ scaleUnbiased "time norm" 30 40 True,
       rateGammaShape @~ scaleUnbiased "rate gamma shape" 30 40 True,
-      rateNorm @~ scaleUnbiased "rate norm" 30 40 True
+      timeTree @~ scaleTree "time tree" 10 10 0.1 True,
+      rateTree @~ scaleTree "rate tree" 10 10 0.1 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
 
+-- TODO: Monitor heights of time and rate tree with lenses.
+
+-- TODO: Profile.
+
 monParams :: [MonitorParameter I]
 monParams =
   [ timeBirthRate @. monitorRealFloat "TimeBirthRate",
-    timeNorm @. monitorRealFloat "TimeNorm",
-    rateGammaShape @. monitorRealFloat "RateGammaShape",
-    rateNorm @. monitorRealFloat "RateNorm"
+    rateGammaShape @. monitorRealFloat "RateGammaShape"
   ]
 
 monStdOut :: MonitorStdOut I
