@@ -39,9 +39,7 @@ scale ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-scale n w k th t = Proposal n w (scaleSimple k th 1.0) tnr
-  where
-    tnr = if t then Just $ tuner $ scaleSimple k th else Nothing
+scale n w k th = createProposal n w (scaleSimple k th)
 
 -- | Multiplicative proposal with Gamma distributed kernel. The scale of the Gamma
 -- distributions is set to (shape)^{-1}, so that the mean of the Gamma
@@ -56,6 +54,4 @@ scaleUnbiased ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-scaleUnbiased n w k t = Proposal n w (scaleSimple k (1 / k) 1.0) tnr
-  where
-    tnr = if t then Just $ tuner $ scaleSimple k (1 / k) else Nothing
+scaleUnbiased n w k = createProposal n w (scaleSimple k (1 / k))

@@ -90,9 +90,7 @@ slideBactrian ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slideBactrian n w m s t = Proposal n w (bactrianAdditiveSimple m s 1.0) tnr
-  where
-    tnr = if t then Just $ tuner (bactrianAdditiveSimple m s) else Nothing
+slideBactrian n w m s = createProposal n w (bactrianAdditiveSimple m s)
 
 -- We have:
 -- x  (1+dx ) = x'
@@ -136,6 +134,4 @@ scaleBactrian ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-scaleBactrian n w m s t = Proposal n w (bactrianMultSimple m s 1.0) tnr
-  where
-    tnr = if t then Just $ tuner (bactrianMultSimple m s) else Nothing
+scaleBactrian n w m s = createProposal n w (bactrianMultSimple m s)

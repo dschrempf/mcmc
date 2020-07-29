@@ -26,7 +26,7 @@ module Mcmc.Proposal
     (@~),
     ProposalSimple (..),
     Tuner (tParam, tFunc),
-    tuner,
+    createProposal,
     tune,
 
     -- * Cycle
@@ -136,11 +136,21 @@ convertT l (Tuner p f) = Tuner p f'
   where
     f' x = convertS l $ f x
 
--- | Create a 'Tuner'. The tuning function accepts a tuning parameter, and
--- returns a corresponding 'ProposalSimple'. The larger the tuning parameter, the
--- larger the 'Proposal', and vice versa.
-tuner :: (Double -> ProposalSimple a) -> Tuner a
-tuner = Tuner 1.0
+-- | Create a possibly tuneable proposal.
+createProposal ::
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
+  -- | Function creating a simple proposal for a given tuning parameter. The
+  -- larger the tuning parameter, the larger the proposal (and the lower the
+  -- expected acceptance ratio), and vice versa.
+  (Double -> ProposalSimple a) ->
+  -- | Activate tuning?
+  Bool ->
+  Proposal a
+createProposal n w f True = Proposal n w (f 1.0) (Just $ Tuner 1.0 f)
+createProposal n w f False = Proposal n w (f 1.0) Nothing
 
 -- Minimal tuning parameter; subject to change.
 tuningParamMin :: Double

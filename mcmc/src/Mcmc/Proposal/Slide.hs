@@ -40,9 +40,7 @@ slide ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slide n w m s t = Proposal n w (slideSimple m s 1.0) tnr
-  where
-    tnr = if t then Just $ tuner (slideSimple m s) else Nothing
+slide n w m s = createProposal n w (slideSimple m s)
 
 -- The actual proposal with tuning parameter.
 slideSymmetricSimple :: Double -> Double -> ProposalSimple Double
@@ -61,9 +59,7 @@ slideSymmetric ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slideSymmetric n w s t = Proposal n w (slideSymmetricSimple s 1.0) tnr
-  where
-    tnr = if t then Just $ tuner (slideSymmetricSimple s) else Nothing
+slideSymmetric n w s = createProposal n w (slideSymmetricSimple s)
 
 -- The actual proposal with tuning parameter.
 slideUniformSimple :: Double -> Double -> ProposalSimple Double
@@ -83,6 +79,4 @@ slideUniform ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slideUniform n w d t = Proposal n w (slideUniformSimple d 1.0) tnr
-  where
-    tnr = if t then Just $ tuner (slideUniformSimple d) else Nothing
+slideUniform n w d = createProposal n w (slideUniformSimple d)

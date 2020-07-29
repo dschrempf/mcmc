@@ -95,9 +95,7 @@ slideNode ::
   -- | Tune the move.
   Bool ->
   Proposal (Tree Double a)
-slideNode pth n w t = nodeAt pth @~ Proposal n w (slideRootSimple 1.0) tnr
-  where
-    tnr = if t then Just $ tuner slideRootSimple else Nothing
+slideNode pth n w t = nodeAt pth @~ createProposal n w slideRootSimple t
 
 -- | Slide the branch of the node.
 --
@@ -136,6 +134,4 @@ scaleTree ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double a)
-scaleTree n w k th t = Proposal n w (scaleTreeSimple k th 1.0) tnr
-  where
-    tnr = if t then Just $ tuner $ scaleTreeSimple k th else Nothing
+scaleTree n w k th = createProposal n w (scaleTreeSimple k th)
