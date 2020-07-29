@@ -33,19 +33,15 @@ import System.Random.MWC
 import Prelude hiding (cycle)
 
 -- For non-symmetric proposals.
-mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
-mhRatio fX fY qXY qYX = fY * qYX / fX / qXY
+--
+-- q = qYX / qXY
+mhRatio :: Log Double -> Log Double -> Log Double -> Log Double
+mhRatio fX fY q = fY * q / fX
 {-# INLINE mhRatio #-}
-
--- For symmetric proposals.
-mhRatioSymmetric :: Log Double -> Log Double -> Log Double
-mhRatioSymmetric fX fY = fY / fX
-{-# INLINE mhRatioSymmetric #-}
 
 mhPropose :: Proposal a -> Mcmc a ()
 mhPropose m = do
   let p = pSample $ pSimple m
-      mq = pKernel $ pSimple m
   s <- get
   let (Item x pX lX) = item s
       pF = priorF s
@@ -53,13 +49,11 @@ mhPropose m = do
       a = acceptance s
       g = generator s
   -- 1. Sample new state.
-  !y <- liftIO $ p x g
+  (!y, !q) <- liftIO $ p x g
   -- 2. Calculate Metropolis-Hastings ratio.
   let !pY = pF y
       !lY = lF y
-      !r = case mq of
-        Nothing -> mhRatioSymmetric (pX * lX) (pY * lY)
-        Just q -> mhRatio (pX * lX) (pY * lY) (q x y) (q y x)
+      !r = mhRatio (pX * lX) (pY * lY) q
   -- 3. Accept or reject.
   if ln r >= 0.0
     then put $ s {item = Item y pY lY, acceptance = pushA m True a}

@@ -1,5 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
-
 -- Technically, only a Getter is needed when calculating the kernel of the proposal
 -- ('kernelCont', and similar functions). I tried splitting the lens into a getter
 -- and a setter. However, speed improvements were marginal, and some times not
@@ -37,13 +35,13 @@ sampleCont ::
   IO (a, Log Double)
 sampleCont d f mfInv x g = do
   dx <- genContVar d g
-  case mfInv of
-    Nothing -> return (x `f` dx, 1.0)
-    Just fInv -> do
-      let dxInv = fInv dx
-          qXY = Exp $ logDensity d dx
-          qYX = Exp $ logDensity d dxInv
-      return (x `f` dx, qYX / qXY)
+  let r = case mfInv of
+        Nothing -> 1.0
+        Just fInv ->
+          let qXY = Exp $ logDensity d dx
+              qYX = Exp $ logDensity d (fInv dx)
+           in qYX / qXY
+  return (x `f` dx, r)
 {-# INLINEABLE sampleCont #-}
 
 -- | Generic function to create proposals for continuous parameters ('Double').
@@ -51,13 +49,13 @@ proposalGenericContinuous ::
   (ContDistr d, ContGen d) =>
   -- | Probability distribution
   d ->
-  -- | Forward operator, e.g. (+), so that x + dx = y.
+  -- | Forward operator, e.g. (+), so that x + dx = x'.
   (a -> Double -> a) ->
-  -- | Inverse operator, e.g., 'negate' or 'recip'; only required for biased
-  -- proposals.
+  -- | Inverse operator, e.g., 'negate', so that x' + (negate dx) = x. Only
+  -- required for biased proposals.
   Maybe (Double -> Double) ->
   ProposalSimple a
-proposalGenericContinuous d f fInv = ProposalSimple (sampleCont d f fInv)
+proposalGenericContinuous d f fInv = ProposalSimple $ sampleCont d f fInv
 
 sampleDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
@@ -69,13 +67,13 @@ sampleDiscrete ::
   IO (a, Log Double)
 sampleDiscrete d f mfInv x g = do
   dx <- genDiscreteVar d g
-  case mfInv of
-    Nothing -> return (x `f` dx, 1.0)
-    Just fInv -> do
-      let dxInv = fInv dx
-          qXY = Exp $ logProbability d dx
-          qYX = Exp $ logProbability d dxInv
-      return (x `f` dx, qYX / qXY)
+  let r = case mfInv of
+        Nothing -> 1.0
+        Just fInv ->
+          let qXY = Exp $ logProbability d dx
+              qYX = Exp $ logProbability d (fInv dx)
+           in qYX / qXY
+  return (x `f` dx, r)
 {-# INLINEABLE sampleDiscrete #-}
 
 -- | Generic function to create proposals for discrete parameters ('Int').
@@ -83,9 +81,10 @@ proposalGenericDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
   -- | Probability distribution.
   d ->
-  -- | Forward operator, e.g. (+), so that x + dx = y.
+  -- | Forward operator, e.g. (+), so that x + dx = x'.
   (a -> Int -> a) ->
-  -- | Inverse operator, e.g., 'negate'; only required for biased proposals.
+  -- | Inverse operator, e.g., 'negate', so that x' + (negate dx) = x. Only
+  -- required for biased proposals.
   Maybe (Int -> Int) ->
   ProposalSimple a
-proposalGenericDiscrete fd f fInv = ProposalSimple (sampleDiscrete fd f fInv)
+proposalGenericDiscrete fd f fInv = ProposalSimple $ sampleDiscrete fd f fInv

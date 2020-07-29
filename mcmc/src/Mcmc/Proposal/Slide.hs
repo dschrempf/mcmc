@@ -25,7 +25,7 @@ import Statistics.Distribution.Uniform
 
 -- The actual proposal with tuning parameter.
 slideSimple :: Double -> Double -> Double -> ProposalSimple Double
-slideSimple m s t = proposalGenericContinuous (normalDistr m (s * t)) (+) (-)
+slideSimple m s t = proposalGenericContinuous (normalDistr m (s * t)) (+) (Just negate)
 
 -- | Additive proposal with normally distributed kernel.
 slide ::
@@ -46,7 +46,7 @@ slide n w m s t = Proposal n w (slideSimple m s 1.0) tnr
 
 -- The actual proposal with tuning parameter.
 slideSymmetricSimple :: Double -> Double -> ProposalSimple Double
-slideSymmetricSimple s t = proposalSymmetricGenericContinuous (normalDistr 0.0 (s * t)) (+)
+slideSymmetricSimple s t = proposalGenericContinuous (normalDistr 0.0 (s * t)) (+) Nothing
 
 -- | Additive proposal with normally distributed kernel with mean zero. This
 -- proposal is very fast, because the Metropolis-Hastings ratio does not include
@@ -68,7 +68,7 @@ slideSymmetric n w s t = Proposal n w (slideSymmetricSimple s 1.0) tnr
 -- The actual proposal with tuning parameter.
 slideUniformSimple :: Double -> Double -> ProposalSimple Double
 slideUniformSimple d t =
-  proposalSymmetricGenericContinuous (uniformDistr (- t * d) (t * d)) (+)
+  proposalGenericContinuous (uniformDistr (- t * d) (t * d)) (+) Nothing
 
 -- | Additive proposal with uniformly distributed kernel. This proposal is very fast,
 -- because the Metropolis-Hastings ratio does not include calculation of the

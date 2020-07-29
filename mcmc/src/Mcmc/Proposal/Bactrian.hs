@@ -1,5 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
-
 -- |
 -- Module      :  Mcmc.Proposal.Bactrian
 -- Description :  Bactrian proposals
@@ -69,7 +67,7 @@ bactrianAdditiveSimple m s t
   | m < 0 = error "bactrianAdditiveSimple: Spike parameter negative."
   | m >= 1 = error "bactrianAdditiveSimple: Spike parameter 1.0 or larger."
   | s <= 0 = error "bactrianAdditiveSimple: Standard deviation 0.0 or smaller."
-  | otherwise = ProposalSimple (bactrianAdditive m (t * s))
+  | otherwise = ProposalSimple $ bactrianAdditive m (t * s)
 
 -- | Additive symmetric proposal with kernel similar to the silhouette of a
 -- Bactrian camel. The [Bactrian
@@ -96,28 +94,33 @@ slideBactrian n w m s t = Proposal n w (bactrianAdditiveSimple m s 1.0) tnr
   where
     tnr = if t then Just $ tuner (bactrianAdditiveSimple m s) else Nothing
 
--- TODO: Go on here.
+-- We have:
+-- x  (1+dx ) = x'
+-- x' (1+dx') = x.
+--
+-- Hence,
+-- dx' = 1/(1-dx) - 1.
+fInv :: Double -> Double
+fInv dx = recip (1-dx) - 1
+
 bactrianMult ::
   Double ->
   Double ->
   Double ->
   GenIO ->
-  IO Double
+  IO (Double, Log Double)
 bactrianMult m s x g = do
   dx <- genBactrian m s g
   let qXY = logDensityBactrian m s dx
-      qYX = logDensityBactrian m s (recip dx)
+      qYX = logDensityBactrian m s (fInv dx)
   return (x * (1 + dx), qYX / qXY)
-
-bactrianMultKernel :: Double -> Double -> Double -> Double -> Log Double
-bactrianMultKernel m s x y = bactrianKernel m s (y / x)
 
 bactrianMultSimple :: Double -> Double -> Double -> ProposalSimple Double
 bactrianMultSimple m s t
   | m < 0 = error "bactrianMultSimple: Spike parameter negative."
   | m >= 1 = error "bactrianMultSimple: Spike parameter 1.0 or larger."
   | s <= 0 = error "bactrianMultSimple: Standard deviation 0.0 or smaller."
-  | otherwise = ProposalSimple (bactrianMult m (t * s)) (Just $ bactrianMultKernel m (t * s))
+  | otherwise = ProposalSimple $ bactrianMult m (t * s)
 
 -- | Multiplicative proposal with kernel similar to the silhouette of a Bactrian
 -- camel. See 'slideBactrian'.

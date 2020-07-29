@@ -40,7 +40,7 @@ proposals =
     [slideSymmetric "medium" 1 1.0 True]
 
 mons :: [MonitorParameter Double]
-mons = [monitorRealFloat "mu" id]
+mons = [monitorRealFloat "mu"]
 
 monStd :: MonitorStdOut Double
 monStd = monitorStdOut mons 200

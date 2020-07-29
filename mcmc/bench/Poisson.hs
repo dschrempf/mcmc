@@ -48,10 +48,10 @@ lh x =
   product [f ft yr x | (ft, yr) <- zip fatalities normalizedYears]
 
 proposalAlpha :: Proposal I
-proposalAlpha = _1 >>> slideSymmetric "alpha" 2 0.2 False
+proposalAlpha = _1 @~ slideSymmetric "alpha" 2 0.2 False
 
 proposalBeta :: Proposal I
-proposalBeta = _2 >>> slideSymmetric "beta" 1 0.2 False
+proposalBeta = _2 @~ slideSymmetric "beta" 1 0.2 False
 
 proposals :: Cycle I
 proposals = fromList [proposalAlpha, proposalBeta]
@@ -60,10 +60,10 @@ initial :: I
 initial = (0, 0)
 
 monAlpha :: MonitorParameter I
-monAlpha = monitorRealFloat "alpha" _1
+monAlpha = _1 @. monitorRealFloat "alpha"
 
 monBeta :: MonitorParameter I
-monBeta = monitorRealFloat "beta" _2
+monBeta = _2 @. monitorRealFloat "beta"
 
 monStd :: MonitorStdOut I
 monStd = monitorStdOut [monAlpha, monBeta] 150

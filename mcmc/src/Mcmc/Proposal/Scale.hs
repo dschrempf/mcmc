@@ -24,7 +24,7 @@ import Statistics.Distribution.Gamma
 -- The actual proposal with tuning parameter. The tuning parameter does not
 -- change the mean.
 scaleSimple :: Double -> Double -> Double -> ProposalSimple Double
-scaleSimple k th t = proposalGenericContinuous (gammaDistr (k / t) (th * t)) (*) (/)
+scaleSimple k th t = proposalGenericContinuous (gammaDistr (k / t) (th * t)) (*) (Just recip)
 
 -- | Multiplicative proposal with Gamma distributed kernel.
 scale ::

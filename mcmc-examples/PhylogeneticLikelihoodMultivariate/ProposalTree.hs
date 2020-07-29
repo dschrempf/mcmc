@@ -14,16 +14,19 @@
 module ProposalTree
   ( slideNode,
     slideBranch,
+    scaleTree,
   )
 where
 
 import Control.Monad.Primitive
+import Data.Bifunctor
 import Control.Lens
 import ELynx.Data.Tree
 import Mcmc.Proposal
+import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Slide
--- import Mcmc.Proposal.Generic
--- import Statistics.Distribution.Gamma
+import Numeric.Log
+import Statistics.Distribution.Gamma
 import System.Random.MWC
 import System.Random.MWC.Distributions
 
@@ -62,7 +65,7 @@ slideRootSample ::
   Double ->
   Tree Double a ->
   GenIO ->
-  IO (Tree Double a)
+  IO (Tree Double a, Log Double)
 slideRootSample _ (Node _ _ []) _ = error "slideRootSample: Cannot slide leaf node."
 slideRootSample t (Node br lb ts) g = do
   let br' = minimum $ map branch ts
@@ -72,10 +75,11 @@ slideRootSample t (Node br lb ts) g = do
       -- variable will be rejected many times in 'truncatedNormal'.
       s = min (b - a) (t / 2 * (b - a))
   dx <- truncatedNormal a b 0 s g
-  return $ Node (br + dx) lb (map (modifyBranch (subtract dx)) ts)
+  let t' = Node (br + dx) lb (map (modifyBranch (subtract dx)) ts)
+  return (t', 1.0)
 
 slideRootSimple :: Double -> ProposalSimple (Tree Double a)
-slideRootSimple t = ProposalSimple (slideRootSample t) Nothing
+slideRootSimple t = ProposalSimple $ slideRootSample t
 
 -- | Slide the node up and down using a uniform distribution truncated at
 -- the parent node and the closest daughter node.
@@ -112,21 +116,26 @@ slideBranch ::
   Proposal (Tree Double a)
 slideBranch pth n w s t = (nodeAt pth . rootBranch) @~ slideSymmetric n w s t
 
--- TODO: Before I can provide this, I need to change the implementation of
--- proposals. See the TODO item in Proposals.hs.
+scaleTreeSimple :: Double -> Double -> Double -> ProposalSimple (Tree Double a)
+scaleTreeSimple k th t =
+  proposalGenericContinuous
+    (gammaDistr (k / t) (th * t))
+    (\tr x -> first (* x) tr)
+    (Just recip)
 
--- scaleTreeSimple :: Double -> Double -> Double -> ProposalSimple (Tree Double a)
--- scaleTreeSimple k th t = proposalGenericContinuous (gammaDistr (k / t) (th * t)) undefined undefined
-
--- -- | Scale all branches of a tree.
--- scaleTree ::
---   -- | Name.
---   String ->
---   -- | Weight.
---   Int ->
---   -- | Standard deviation.
---   Double ->
---   -- | Enable tuning.
---   Bool ->
---   Proposal (Tree Double a)
--- scaleTree n w s t = undefined
+-- | Scale all branches of a tree with a Gamma distributed kernel.
+scaleTree ::
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
+  -- | Shape.
+  Double ->
+  -- | Scale.
+  Double ->
+  -- | Enable tuning.
+  Bool ->
+  Proposal (Tree Double a)
+scaleTree n w k th t = Proposal n w (scaleTreeSimple k th 1.0) tnr
+  where
+    tnr = if t then Just $ tuner $ scaleTreeSimple k th else Nothing
