@@ -263,10 +263,6 @@ ccl t =
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
 
--- TODO: Monitor heights of time and rate tree with lenses.
-
--- TODO: Profile.
-
 monParams :: [MonitorParameter I]
 monParams =
   [ timeBirthRate @. monitorRealFloat "TimeBirthRate",
