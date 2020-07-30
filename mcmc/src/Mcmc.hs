@@ -142,7 +142,6 @@ module Mcmc
     mhContinue,
 
     -- * Misc
-    pzero,
     loadStatus,
   )
 where
@@ -157,8 +156,3 @@ import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Slide
 import Mcmc.Save
 import Mcmc.Status
-import Numeric.Log
-
--- | Because we need a probability of zero for likelihoods of really bad proposals.
-pzero :: Fractional a => Log a
-pzero = Exp $ - (1 / 0)

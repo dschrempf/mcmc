@@ -87,7 +87,7 @@ pr = const 1
 -- Branch likelihood, a normal distribution with given mean and standard deviation.
 lhBranch :: Mean -> StdDev -> Length -> Log Double
 lhBranch m s l
-  | l <= 0 = pzero
+  | l <= 0 = 0
   | otherwise = Exp $ logDensity (normalDistr m s) l
 
 -- Likelihood of the tree for two given trees containing the branch length

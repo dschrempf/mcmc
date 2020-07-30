@@ -73,12 +73,14 @@ import Tree
 -- ensured by the types. In the future, we may just use one tree storing both,
 -- the times and the rates.
 data I = I
-  { -- Birth rate parameter of time tree.
+  { -- Birth rate of time tree.
     _timeBirthRate :: Double,
-    -- Shape parameter k of gamma distribution of rate parameters. The scale
-    -- parameter is determined such that the mean is 1.0.
+    -- Death rate of time tree.
+    _timeDeathRate :: Double,
+    -- Shape k of gamma distribution of rate parameters. The scale is determined
+    -- such that the mean is 1.0.
     _rateGammaShape :: Double,
-    -- Tree containing times relative to the height of the tree.
+    -- Tree containing times.
     _timeTree :: Tree Double Int,
     -- Rate tree.
     _rateTree :: Tree Double Int
@@ -103,6 +105,7 @@ initWith :: Tree Double Int -> I
 initWith t =
   I
     { _timeBirthRate = 1.0,
+      _timeDeathRate = 1.0,
       _rateGammaShape = 1.0,
       _timeTree = t',
       _rateTree = first (const 0.01) t
@@ -137,15 +140,17 @@ consts s =
 
 -- Prior.
 pr :: I -> Log Double
-pr s@(I l k t r) =
+pr s@(I l m k t r) =
   product' $
     [ -- Exponential prior on the birth rate of the time tree.
       exponentialWith 1.0 l,
+      -- Exponential prior on the death rate of the time tree.
+      exponentialWith 1.0 m,
       -- Exponential prior on the shape of the gamma distribution of the
       -- rate normalization parameter and the branch rates.
       exponentialWith 1.0 k,
       -- Birth process prior on the branches of the time tree.
-      branchesWith (exponentialWith l) t,
+      birthAndDeathWith l m t,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
       branchesWith (gammaWith k (1 / k)) r
     ]
@@ -256,6 +261,7 @@ ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
     [ timeBirthRate @~ scaleUnbiased "time birth rate" 30 40 True,
+      timeDeathRate @~ scaleUnbiased "time death rate" 30 40 True,
       rateGammaShape @~ scaleUnbiased "rate gamma shape" 30 40 True,
       timeTree @~ scaleTree "time tree" 10 10 0.1 True,
       rateTree @~ scaleTree "rate tree" 10 10 0.1 True
@@ -266,6 +272,7 @@ ccl t =
 monParams :: [MonitorParameter I]
 monParams =
   [ timeBirthRate @. monitorRealFloat "TimeBirthRate",
+    timeDeathRate @. monitorRealFloat "TimeDeathRate",
     rateGammaShape @. monitorRealFloat "RateGammaShape"
   ]
 

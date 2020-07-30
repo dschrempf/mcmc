@@ -28,8 +28,6 @@ import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
 
-import Debug.Trace
-
 isAncestor :: Ord a => [a] -> Tree e a -> Bool
 isAncestor xs t = not $ any (`S.notMember` lvs) xs
   where

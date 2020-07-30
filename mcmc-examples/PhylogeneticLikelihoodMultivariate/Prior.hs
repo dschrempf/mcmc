@@ -13,10 +13,12 @@
 -- This module provides prior distributions.
 module Prior
   ( -- * Prior distributions
+    positive,
     uniformWith,
     normalWith,
     exponentialWith,
     gammaWith,
+    birthAndDeathWith,
     branchesWith,
 
     -- * Auxiliary functions
@@ -25,12 +27,16 @@ module Prior
 where
 
 import ELynx.Data.Tree
-import Mcmc
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Exponential
 import Statistics.Distribution.Gamma
 import Statistics.Distribution.Normal
+
+-- | Larger than 0.
+positive :: Double -> Log Double
+positive x | x <= 0 = 0
+           | otherwise = 1
 
 -- | Uniform prior in [a, b].
 uniformWith ::
@@ -41,8 +47,8 @@ uniformWith ::
   Double ->
   Log Double
 uniformWith a b x
-  | x <= a = pzero
-  | x >= b = pzero
+  | x <= a = 0
+  | x >= b = 0
   | otherwise = Exp 0
 
 -- | Normal distributed prior.
@@ -55,7 +61,6 @@ normalWith ::
   Log Double
 normalWith m s x = Exp $ logDensity d x
   where d = normalDistr m s
-
 
 -- | Exponentail prior.
 exponentialWith ::
@@ -78,6 +83,27 @@ gammaWith ::
 gammaWith k t x = Exp $ logDensity d x
   where
     d = gammaDistr k t
+
+-- TODO: First the heights have to be accessible on the tree. Then use the birth
+-- and death distribution from elynx-tree with origin or root height.
+--
+-- Question: Is the birth death distribution of the point process adequate, if
+-- the topology is given?
+--
+-- How do we handle the critical, or nearly critical process? Is it fast enough
+-- to combine the three distributions into one, and check during calculation of
+-- the density? Or is it better to check for the three different possibilities
+-- here, and then use the adequate distribution (status quo)?
+
+-- | Birth and death prior.
+birthAndDeathWith ::
+  -- | Birth rate lambda.
+  Double ->
+  -- | Death rate mu.
+  Double ->
+  Tree e a ->
+  Log Double
+birthAndDeathWith l m t = undefined
 
 -- | Branch length prior with given distribution.
 --
