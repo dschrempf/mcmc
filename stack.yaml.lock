@@ -34,7 +34,7 @@ packages:
     hackage: elynx-tree-0.3.0
 snapshots:
 - completed:
-    size: 531662
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2020/6/10.yaml
-    sha256: 3f0c6f4389c12730cb0a4bfb6d50da0ef8f725993410e0b4502dc2c3529221c0
-  original: nightly-2020-06-10
+    size: 518258
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2020/7/30.yaml
+    sha256: 3ee781bdbf2504ecdff35ba16d8a1571abccae1002cf85760ae7cd32cd5c4691
+  original: nightly-2020-07-30
