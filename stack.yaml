@@ -46,7 +46,8 @@ extra-deps:
   - pava-0.1.0.0
   - elynx-nexus-0.3.0
   - elynx-tools-0.3.0
-  - elynx-tree-0.3.0
+  # - elynx-tree-0.3.0
+  - ../elynx/elynx-tree
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

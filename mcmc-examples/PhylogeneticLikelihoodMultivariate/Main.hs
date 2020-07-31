@@ -31,6 +31,7 @@ where
 {- ORMOLU_DISABLE -}
 
 -- Global libraries.
+import Control.Comonad
 import Control.Lens hiding ((<.>))
 import Control.Monad
 import Criterion
@@ -75,15 +76,16 @@ import Tree
 data I = I
   { -- Birth rate of time tree.
     _timeBirthRate :: Double,
-    -- Death rate of time tree.
-    _timeDeathRate :: Double,
+    -- -- Death rate of time tree.
+    -- _timeDeathRate :: Double,
     -- Shape k of gamma distribution of rate parameters. The scale is determined
     -- such that the mean is 1.0.
     _rateGammaShape :: Double,
-    -- Tree containing times.
-    _timeTree :: Tree Double Int,
-    -- Rate tree.
-    _rateTree :: Tree Double Int
+    -- Tree with branch labels denoting time, and node labels denoting node
+    -- height.
+    _timeTree :: Tree Double Double,
+    -- Rate tree, with branches denoting the rates do not use node labels.
+    _rateTree :: Tree Double ()
   }
   deriving (Generic)
 
@@ -105,13 +107,13 @@ initWith :: Tree Double Int -> I
 initWith t =
   I
     { _timeBirthRate = 1.0,
-      _timeDeathRate = 1.0,
+      -- _timeDeathRate = 1.0,
       _rateGammaShape = 1.0,
       _timeTree = t',
-      _rateTree = first (const 0.01) t
+      _rateTree = bimap (const 0.01) (const ()) t
     }
   where
-    t' = normalizeHeight $ makeUltrametric t
+    t' = extend rootHeight $ normalizeHeight $ makeUltrametric t
 
 -- Calibrations.
 --
@@ -140,17 +142,18 @@ consts s =
 
 -- Prior.
 pr :: I -> Log Double
-pr s@(I l m k t r) =
+-- pr s@(I l m k t r) =
+pr s@(I l k t r) =
   product' $
     [ -- Exponential prior on the birth rate of the time tree.
       exponentialWith 1.0 l,
-      -- Exponential prior on the death rate of the time tree.
-      exponentialWith 1.0 m,
       -- Exponential prior on the shape of the gamma distribution of the
       -- rate normalization parameter and the branch rates.
       exponentialWith 1.0 k,
       -- Birth process prior on the branches of the time tree.
-      birthAndDeathWith l m t,
+      branchesWith (exponentialWith l) t,
+      -- -- Birth and death process prior on the time tree.
+      -- birthAndDeathWith l m t,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
       branchesWith (gammaWith k (1 / k)) r
     ]
@@ -232,7 +235,7 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  [ timeTree @~ slideNode pth (n lb) 1 True
+  [ timeTree @~ slideNodeWithHeight pth (n lb) 1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
@@ -261,10 +264,10 @@ ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
     [ timeBirthRate @~ scaleUnbiased "time birth rate" 30 40 True,
-      timeDeathRate @~ scaleUnbiased "time death rate" 30 40 True,
+      -- timeDeathRate @~ scaleUnbiased "time death rate" 30 40 True,
       rateGammaShape @~ scaleUnbiased "rate gamma shape" 30 40 True,
-      timeTree @~ scaleTree "time tree" 10 10 0.1 True,
-      rateTree @~ scaleTree "rate tree" 10 10 0.1 True
+      timeTree @~ scaleTreeWithHeight "time tree" 20 10 0.1 True,
+      rateTree @~ scaleTree "rate tree" 20 10 0.1 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
@@ -272,8 +275,9 @@ ccl t =
 monParams :: [MonitorParameter I]
 monParams =
   [ timeBirthRate @. monitorRealFloat "TimeBirthRate",
-    timeDeathRate @. monitorRealFloat "TimeDeathRate",
-    rateGammaShape @. monitorRealFloat "RateGammaShape"
+    -- timeDeathRate @. monitorRealFloat "TimeDeathRate",
+    rateGammaShape @. monitorRealFloat "RateGammaShape",
+    (timeTree . rootLabel) @. monitorRealFloat "TimeTreeHeight"
   ]
 
 monStdOut :: MonitorStdOut I

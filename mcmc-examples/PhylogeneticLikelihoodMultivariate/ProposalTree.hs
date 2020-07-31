@@ -12,9 +12,11 @@
 --
 -- Creation date: Thu Jul 23 09:10:07 2020.
 module ProposalTree
-  ( slideNode,
+  ( rootLabel,
+    slideNodeWithHeight,
     slideBranch,
     scaleTree,
+    scaleTreeWithHeight,
   )
 where
 
@@ -34,6 +36,8 @@ import System.Random.MWC.Distributions
 eps :: Double
 eps = 1e-8
 
+-- TODO: Provide a proper module with lenses.
+
 -- Lens to a specific node.
 nodeAt :: [Int] -> Lens' (Tree e a) (Tree e a)
 nodeAt pth =
@@ -44,7 +48,11 @@ nodeAt pth =
          in toTree $ pos {current = t'}
     )
 
--- Lens to the branch of the root node.
+-- | Lens to the label of the root node.
+rootLabel :: Lens' (Tree e a) a
+rootLabel = lens label (\(Node br _ ts) lb -> Node br lb ts)
+
+-- | Lens to the branch of the root node.
 rootBranch :: Lens' (Tree e a) e
 rootBranch = lens branch (\(Node _ lb ts) br -> Node br lb ts)
 
@@ -61,13 +69,13 @@ truncatedNormal a b m s g = do
 modifyBranch :: (e -> e) -> Tree e a -> Tree e a
 modifyBranch f (Node br lb ts) = Node (f br) lb ts
 
-slideRootSample ::
+slideRootWithHeightSample ::
   Double ->
-  Tree Double a ->
+  Tree Double Double ->
   GenIO ->
-  IO (Tree Double a, Log Double)
-slideRootSample _ (Node _ _ []) _ = error "slideRootSample: Cannot slide leaf node."
-slideRootSample t (Node br lb ts) g = do
+  IO (Tree Double Double, Log Double)
+slideRootWithHeightSample _ (Node _ _ []) _ = error "slideRootSample: Cannot slide leaf node."
+slideRootWithHeightSample t (Node br lb ts) g = do
   let br' = minimum $ map branch ts
       a = negate $ br - eps
       b = br' - eps
@@ -75,17 +83,20 @@ slideRootSample t (Node br lb ts) g = do
       -- variable will be rejected many times in 'truncatedNormal'.
       s = min (b - a) (t / 2 * (b - a))
   dx <- truncatedNormal a b 0 s g
-  let t' = Node (br + dx) lb (map (modifyBranch (subtract dx)) ts)
+  let t' = Node (br + dx) (lb - dx) (map (modifyBranch (subtract dx)) ts)
   return (t', 1.0)
 
-slideRootSimple :: Double -> ProposalSimple (Tree Double a)
-slideRootSimple t = ProposalSimple $ slideRootSample t
+slideRootWithHeightSimple :: Double -> ProposalSimple (Tree Double Double)
+slideRootWithHeightSimple t = ProposalSimple $ slideRootWithHeightSample t
 
 -- | Slide the node up and down using a uniform distribution truncated at
 -- the parent node and the closest daughter node.
 --
 -- The node to slide is specified by a path.
-slideNode ::
+--
+-- Assume the branch and node labels denote branch length and node height,
+-- respecitvely.
+slideNodeWithHeight ::
   -- | Path to node on tree.
   [Int] ->
   -- | Name.
@@ -94,8 +105,8 @@ slideNode ::
   Int ->
   -- | Tune the move.
   Bool ->
-  Proposal (Tree Double a)
-slideNode pth n w t = nodeAt pth @~ createProposal n w slideRootSimple t
+  Proposal (Tree Double Double)
+slideNodeWithHeight pth n w t = nodeAt pth @~ createProposal n w slideRootWithHeightSimple t
 
 -- | Slide the branch of the node.
 --
@@ -135,3 +146,28 @@ scaleTree ::
   Bool ->
   Proposal (Tree Double a)
 scaleTree n w k th = createProposal n w (scaleTreeSimple k th)
+
+
+scaleTreeWithHeightSimple :: Double -> Double -> Double -> ProposalSimple (Tree Double Double)
+scaleTreeWithHeightSimple k th t =
+  proposalGenericContinuous
+    (gammaDistr (k / t) (th * t))
+    (\tr x -> bimap (* x) (* x) tr)
+    (Just recip)
+
+-- | Scale all branches of a tree with a Gamma distributed kernel.
+--
+-- Assume node labels denote node height.
+scaleTreeWithHeight ::
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
+  -- | Shape.
+  Double ->
+  -- | Scale.
+  Double ->
+  -- | Enable tuning.
+  Bool ->
+  Proposal (Tree Double Double)
+scaleTreeWithHeight n w k th = createProposal n w (scaleTreeWithHeightSimple k th)

@@ -25,13 +25,6 @@ packages:
       sha256: a0d3b0063cd6ff8a14c3b27ac0604a57bf631e5d5179d3abf31a9b53d0cf0242
   original:
     hackage: elynx-tools-0.3.0
-- completed:
-    hackage: elynx-tree-0.3.0@sha256:b685d130494e816872e2cc8419d09b815cad2ec3337258b7cfe6d04ee317ea8b,3413
-    pantry-tree:
-      size: 3203
-      sha256: 9eca9676cc159f24c42a8572c77e7f1046ed171489f8ecb99e7cb158e1605ce1
-  original:
-    hackage: elynx-tree-0.3.0
 snapshots:
 - completed:
     size: 518258

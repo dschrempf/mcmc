@@ -56,25 +56,25 @@ mrca xs = (return . tail) <=< go 0
       | isAncestor xs t = Just $ i : head (catMaybes [go j t' | (j, t') <- zip [0 ..] (forest t)])
       | otherwise = Nothing
 
-getHeight :: Measurable e => [Int] -> Tree e a -> Double
-getHeight p = rootHeight . current . unsafeGoPath p . fromTree
+getHeightFromNode :: [Int] -> Tree Double Double -> Double
+getHeightFromNode p = label . current . unsafeGoPath p . fromTree
 
 -- | Hard constrain order of nodes with given paths using a truncated uniform
 -- distribution.
 --
--- Assume the given tree is ultrametric.
+-- Assume the branch and node labels denote branch length and node height,
+-- respecitvely.
 constrainHard ::
-  Measurable e =>
   -- | Young node (closer to the leaves).
   Path ->
   -- | Old node (closer to the root).
   Path ->
-  Tree e a ->
+  Tree Double Double ->
   Log Double
 constrainHard y o t
   | y `isPrefixOf` o = error "constrain: Young node is direct ancestor of old node (?)."
   | o `isPrefixOf` y = error "constrain: No need to constrain old node which is direct ancestor of young node."
-  | getHeight y t < getHeight o t = 1
+  | getHeightFromNode y t < getHeightFromNode o t = 1
   | otherwise = 0
 
 -- | Soft constrain order of nodes with given paths.
@@ -84,33 +84,35 @@ constrainHard y o t
 -- - When the node order is incorrect, a one-sided normal distribution with
 -- - given standard deviation is used.
 --
--- Assume the given tree is ultrametric.
+-- Assume the branch and node labels denote branch length and node height,
+-- respecitvely.
 constrainSoft ::
-  Measurable e =>
   -- | Rate of exponential decay.
   Double ->
   -- | Young node (closer to the leaves).
   Path ->
   -- | Old node (closer to the root).
   Path ->
-  Tree e a ->
+  Tree Double Double ->
   Log Double
 constrainSoft l y o t
   | y `isPrefixOf` o = error "constrain: Young node is direct ancestor of old node (?)."
   | o `isPrefixOf` y = error "constrain: No need to constrain old node which is direct ancestor of young node."
   | hY < hO = 1
   | otherwise = Exp $ logDensity (normalDistr 0 l) (hY - hO)
-  where hY = getHeight y t
-        hO = getHeight o t
+  where hY = getHeightFromNode y t
+        hO = getHeightFromNode o t
 
 -- | Calibrate height of a node with given path using the normal distribution.
+--
+-- Assume the branch and node labels denote branch length and node height,
+-- respecitvely.
 calibrate ::
-  Measurable e =>
   -- | Mean.
   Double ->
   -- | Standard deviation.
   Double ->
   Path ->
-  Tree e a ->
+  Tree Double Double ->
   Log Double
-calibrate m s p = Exp . logDensity (normalDistr m s) . getHeight p
+calibrate m s p = Exp . logDensity (normalDistr m s) . getHeightFromNode p

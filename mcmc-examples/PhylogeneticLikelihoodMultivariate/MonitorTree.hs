@@ -33,12 +33,11 @@ toText = T.fromStrict . fromMaybe (error "conversion failed") . L.fromByteString
 
 -- | Monitor a tree in Newick format.
 monitorTree ::
+  Named a =>
   -- | Name.
   String ->
-  MonitorParameter (Tree Double Int)
+  MonitorParameter (Tree Double a)
 monitorTree n =
   MonitorParameter
     n
-    ( B.fromLazyText . toText . toNewick . lengthToPhyloTree
-        . first Length
-    )
+    (B.fromLazyText . toText . toNewick . lengthToPhyloTree . first Length)
