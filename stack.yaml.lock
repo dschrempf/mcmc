@@ -13,7 +13,7 @@ packages:
     hackage: pava-0.1.0.0
 snapshots:
 - completed:
-    size: 518258
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2020/7/30.yaml
-    sha256: 3ee781bdbf2504ecdff35ba16d8a1571abccae1002cf85760ae7cd32cd5c4691
-  original: nightly-2020-07-30
+    size: 524160
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2020/8/3.yaml
+    sha256: ae1e29b65f6a27a86b9b9ff736536f9f80167bb163e9a46042e57605c67fda50
+  original: nightly-2020-08-03

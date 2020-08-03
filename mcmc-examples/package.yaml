@@ -1,5 +1,5 @@
 name:                mcmc-examples
-version:             0.2.0
+version:             0.2.1
 github:              "dschrempf/mcmc"
 license:             GPL-3.0-or-later
 author:              "Dominik Schrempf"

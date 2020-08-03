@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: nightly-2020-07-30
+resolver: nightly-2020-08-03
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -44,9 +44,9 @@ packages:
 #
 extra-deps:
   - pava-0.1.0.0
-  # - elynx-nexus-0.3.0
-  # - elynx-tools-0.3.0
-  # - elynx-tree-0.3.0
+  # - elynx-nexus-0.3.1
+  # - elynx-tools-0.3.1
+  # - elynx-tree-0.3.1
   - ../elynx/elynx-nexus
   - ../elynx/elynx-tools
   - ../elynx/elynx-tree
@@ -75,5 +75,5 @@ extra-deps:
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
 
-# Weeder 1.0.
-ghc-options: {"$locals": -ddump-to-file -ddump-hi}
+# # Weeder 1.0.
+# ghc-options: {"$locals": -ddump-to-file -ddump-hi}
