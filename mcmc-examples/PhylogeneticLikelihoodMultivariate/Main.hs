@@ -82,10 +82,9 @@ data I = I
     _rateGammaShape :: Double,
     -- Scale theta of gamma distribution of rate parameters.
     _rateGammaScale :: Double,
-    -- Tree with branch labels denoting time, and node labels denoting node
-    -- height.
+    -- Time tree. Branch labels denote time; node labels denote node height.
     _timeTree :: Tree Double Double,
-    -- Rate tree, with branches denoting the rates do not use node labels.
+    -- Rate tree. Branch labels denote rate; node labels are unused.
     _rateTree :: Tree Double ()
   }
   deriving (Generic)
