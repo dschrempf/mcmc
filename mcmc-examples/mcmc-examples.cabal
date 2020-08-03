@@ -65,6 +65,7 @@ executable plh
 executable plh-multivariate
   main-is: Main.hs
   other-modules:
+      Calibration
       MonitorTree
       NodePrior
       Prior

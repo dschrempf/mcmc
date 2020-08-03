@@ -13,8 +13,15 @@
 -- Creation date: Thu Jul 23 09:10:07 2020.
 module ProposalTree
   ( rootLabel,
+
+    -- * Nodes
     slideNodeWithHeight,
+
+    -- * Branches
+    scaleBranch,
     slideBranch,
+
+    -- * Trees
     scaleTree,
     scaleTreeWithHeight,
   )
@@ -26,6 +33,7 @@ import Control.Lens
 import ELynx.Data.Tree
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
+import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Slide
 import Numeric.Log
 import Statistics.Distribution.Gamma
@@ -110,10 +118,31 @@ slideNodeWithHeight ::
   Proposal (Tree Double Double)
 slideNodeWithHeight pth n w t = nodeAt pth @~ createProposal n w slideRootWithHeightSimple t
 
--- | Slide the branch of the node using a normal distributed proposal
--- distribution with mean 0 and given standard deviation.
+-- | Scale a branch.
 --
--- The branch to slide is specified by a path to the node.
+-- The gamma distribution with given shape is used. The scale is set such that
+-- the mean of the distribution is 1.0.
+--
+-- The branch to scale is specified by a path to a node.
+scaleBranch ::
+  -- | Path to node on tree.
+  [Int] ->
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
+  -- | Shape.
+  Double ->
+  -- | Enable tuning.
+  Bool ->
+  Proposal (Tree Double a)
+scaleBranch pth n w s t = (nodeAt pth . rootBranch) @~ scaleUnbiased n w s t
+
+-- | Slide a branch.
+--
+-- Use a normal distribution with mean 0 and given standard deviation.
+--
+-- The branch to slide is specified by a path to a node.
 slideBranch ::
   -- | Path to node on tree.
   [Int] ->

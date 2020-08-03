@@ -60,6 +60,7 @@ import ELynx.Export.Tree.Newick
 import Mcmc
 
 -- Local libraries provided together with this module.
+import Calibration
 import NodePrior
 import MonitorTree
 import Prior
@@ -77,9 +78,10 @@ data I = I
     _timeBirthRate :: Double,
     -- -- Death rate of time tree.
     -- _timeDeathRate :: Double,
-    -- Shape k of gamma distribution of rate parameters. The scale is determined
-    -- such that the mean is 1.0.
+    -- Shape k of gamma distribution of rate parameters.
     _rateGammaShape :: Double,
+    -- Scale theta of gamma distribution of rate parameters.
+    _rateGammaScale :: Double,
     -- Tree with branch labels denoting time, and node labels denoting node
     -- height.
     _timeTree :: Tree Double Double,
@@ -108,56 +110,67 @@ initWith t =
     { _timeBirthRate = 1.0,
       -- _timeDeathRate = 1.0,
       _rateGammaShape = 1.0,
+      _rateGammaScale = 1.0,
       _timeTree = t',
       _rateTree = bimap (const 0.01) (const ()) t
     }
   where
     t' = extend rootHeight $ normalizeHeight $ makeUltrametric t
 
--- Calibrations.
---
--- Root node at 10.
---
--- Calibration of non-root nodes can be done with 'calibrate'.
-cals :: I -> [Log Double]
-cals s = [calibrate 10 0.01 root $ s ^. timeTree]
+-- Calibrations are defined in 'Calibrations'. See 'calibratedNodes'.
 
--- Constraints.
+-- Calibration prior with uniform bounds.
+cals :: [Calibration] -> I -> [Log Double]
+cals xs s = [calibrateUniformSoft 0.01 a b x $ s ^. timeTree | (x, a, b) <- xs]
+
+-- Constraints define node orders.
 --
--- Slight difference: 179, 183 younger than 245 247.
---
--- More extreme difference: 34, 38 younger than 62, 64.
-consts :: I -> [Log Double]
-consts s =
-  [ constrainSoft 0.01 y1 o1 t,
-    constrainSoft 0.01 y2 o2 t
-  ]
+-- (a, b) ensures node a to be younger than node b.
+type Constraint = (Path, Path)
+
+-- The constraint induced by a horizontal gene transfer does not contradict the
+-- node order of the substitution-like tree obtained from the sequences.
+constrainedNodes :: Tree e BS.ByteString -> [Constraint]
+constrainedNodes t = [(young, old)]
   where
-    t = s ^. timeTree
-    y1 = [1,1,1,1,1,1,1,1,0]
-    o1 = [1,1,1,1,1,1,1,1,1]
-    y2 = [1,1,1,1,1,0]
-    o2 = [1,1,1,1,1,1,0,0,0]
+    young =
+      fromMaybe
+        (error "constrainedNodes: No MRCA young.")
+        (mrca ["Pt_vittata", "Po_acrosti"] t)
+        -- (mrca [213, 200])
+    old =
+      fromMaybe
+        (error "constrainedNodes: No MRCA old.")
+        (mrca ["Me_tosanus", "Me_vincent", "No_aenigma"] t)
+        -- (mrca [144, 143, 142])
+
+-- Constraint prior.
+consts :: [Constraint] -> I -> [Log Double]
+consts xs s =
+  [constrainSoft 0.01 y o $ s ^. timeTree | (y, o) <- xs]
 
 -- Prior.
-pr :: I -> Log Double
+pr :: [Calibration] -> [Constraint] -> I -> Log Double
 -- pr s@(I l m k t r) =
-pr s@(I l k t r) =
+pr cb cs s@(I l k th t r) =
   product' $
     [ -- Exponential prior on the birth rate of the time tree.
-      exponentialWith 1.0 l,
+      exponentialWith 0.1 l,
       -- Exponential prior on the shape of the gamma distribution of the
       -- rate normalization parameter and the branch rates.
       exponentialWith 1.0 k,
+      -- Exponential prior on the scale of the gamma distribution of the
+      -- rate normalization parameter and the branch rates.
+      exponentialWith 1.0 th,
       -- Birth process prior on the branches of the time tree.
       branchesWith (exponentialWith l) t,
       -- -- Birth and death process prior on the time tree.
       -- birthAndDeathWith l m t,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
-      branchesWith (gammaWith k (1 / k)) r
+      branchesWith (gammaWith k th) r
     ]
-      ++ cals s
-      ++ consts s
+      ++ cals cb s
+      ++ consts cs s
 
 -- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from
@@ -249,13 +262,13 @@ proposalsTimeTree t =
 -- Since the stem does not change the likelihood, we do not slide the stem.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  [ rateTree @~ slideBranch pth (n lb) 1 1.0 True
+  [ rateTree @~ scaleBranch pth (n lb) 1 5.0 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth)
   ]
   where
-    n x = "rate tree slide branch " ++ show x
+    n x = "rate tree scale branch " ++ show x
 
 -- The complete cycle includes slide proposals of higher weights for the other
 -- parameters.
@@ -265,6 +278,7 @@ ccl t =
     [ timeBirthRate @~ scaleUnbiased "time birth rate" 10 40 True,
       -- timeDeathRate @~ scaleUnbiased "time death rate" 10 40 True,
       rateGammaShape @~ scaleUnbiased "rate gamma shape" 10 40 True,
+      rateGammaScale @~ scaleUnbiased "rate gamma scale" 10 40 True,
       timeTree @~ scaleTreeWithHeight "time tree" 10 60 True,
       rateTree @~ scaleTree "rate tree" 10 40 True
     ]
@@ -276,6 +290,7 @@ monParams =
   [ timeBirthRate @. monitorDouble "TimeBirthRate",
     -- timeDeathRate @. monitorDouble "TimeDeathRate",
     rateGammaShape @. monitorDouble "RateGammaShape",
+    rateGammaScale @. monitorDouble "RateGammaScale",
     (timeTree . rootLabel) @. monitorDouble "TimeTreeHeight"
   ]
 
@@ -286,7 +301,7 @@ monFileParams :: MonitorFile I
 monFileParams = monitorFile "-params" monParams 1
 
 monFileTimeTree :: MonitorFile I
-monFileTimeTree = monitorFile "-timetree" [timeTree @. monitorTree "TimeTree"] 1
+monFileTimeTree = monitorFile "-timetree" [timeTree @. monitorTreeWith identify "TimeTree"] 1
 
 monFileRateTree :: MonitorFile I
 monFileRateTree = monitorFile "-ratetree" [rateTree @. monitorTree "RateTree"] 1
@@ -393,12 +408,16 @@ main = do
       benchmark $ nf bf2 tr
       putStrLn "Benchmark calculation of prior."
       let i = initWith $ identify tr
-      benchmark $ nf pr i
+          pr' = pr (calibratedNodes tr) (constrainedNodes tr)
+      benchmark $ nf pr' i
       (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
       let sigmaInv = L.fromRows sigmaInvRows
           lh' = lh mu sigmaInv logSigmaDet
       putStrLn "Benchmark calculation of likelihood."
       benchmark $ nf lh' i
+
+      putStrLn "Benchmark identify."
+      benchmark $ nf identify tr
 
     -- Inspect different objects; useful for debugging.
     ["inspect"] -> do
@@ -407,8 +426,9 @@ main = do
       putStrLn $ "The mean tree has " <> show (length lvs) <> " leaves."
 
       let i = initWith $ identify tr
+          pr' = pr (calibratedNodes tr) (constrainedNodes tr)
       putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ i ^. timeTree)
-      putStrLn $ "Initial prior: " <> show (pr i) <> "."
+      putStrLn $ "Initial prior: " <> show (pr' i) <> "."
       putStrLn "Load posterior means and covariances."
       (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
       let sigmaInv = L.fromRows sigmaInvRows
@@ -431,6 +451,9 @@ main = do
       print mu
       -- Initialize a starting state using the mean tree.
       let start = initWith $ identify meanTree
+          pr' = pr (calibratedNodes meanTree) (constrainedNodes meanTree)
+          lh' = lh mu sigmaInv logSigmaDet
+          ccl' = ccl $ identify meanTree
       -- Create a seed value for the random number generator. Actually, the
       -- 'create' function is deterministic, but useful during development. For
       -- real analyses, use 'createSystemRandom'.
@@ -443,9 +466,9 @@ main = do
                 -- different parameters.
                 status
                   "plh-multivariate"
-                  pr
-                  (lh mu sigmaInv logSigmaDet)
-                  (ccl $ identify meanTree)
+                  pr'
+                  lh'
+                  ccl'
                   mon
                   start
                   nBurnIn
@@ -457,7 +480,13 @@ main = do
     ["continue", n] -> do
       (meanTree, mu, sigmaInv, logSigmaDet) <- readMeans
       -- Load the MCMC status.
-      s <- loadStatus pr (lh mu sigmaInv logSigmaDet) (ccl $ identify meanTree) mon "plh-multivariate.mcmc"
+      s <-
+        loadStatus
+          (pr (calibratedNodes meanTree) (constrainedNodes meanTree))
+          (lh mu sigmaInv logSigmaDet)
+          (ccl $ identify meanTree)
+          mon
+          "plh-multivariate.mcmc"
       void $ mhContinue (read n) s
     -- Print usage instructions if none of the previous commands was entered.
     ["convert"] -> do

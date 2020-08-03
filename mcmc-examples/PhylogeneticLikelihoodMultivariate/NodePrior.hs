@@ -16,6 +16,8 @@ module NodePrior
     constrainHard,
     constrainSoft,
     calibrate,
+    calibrateUniform,
+    calibrateUniformSoft,
   )
 where
 
@@ -79,15 +81,18 @@ constrainHard y o t
 
 -- | Soft constrain order of nodes with given paths.
 --
--- - When the node order is correct, a uniform uniform distribution is used.
+-- - When the node order is correct, a uniform distribution is used.
 --
 -- - When the node order is incorrect, a one-sided normal distribution with
--- - given standard deviation is used.
+--   given standard deviation is used. The normal distribution is normalized
+--   such that the complete distribution of the constrained is continuous. Use
+--   of the normal distribution also ensures that the first derivative is
+--   continuous.
 --
 -- Assume the branch and node labels denote branch length and node height,
 -- respecitvely.
 constrainSoft ::
-  -- | Rate of exponential decay.
+  -- | Standard deviation of one sided normal distribution.
   Double ->
   -- | Young node (closer to the leaves).
   Path ->
@@ -95,13 +100,14 @@ constrainSoft ::
   Path ->
   Tree Double Double ->
   Log Double
-constrainSoft l y o t
+constrainSoft s y o t
   | y `isPrefixOf` o = error "constrain: Young node is direct ancestor of old node (?)."
   | o `isPrefixOf` y = error "constrain: No need to constrain old node which is direct ancestor of young node."
   | hY < hO = 1
-  | otherwise = Exp $ logDensity (normalDistr 0 l) (hY - hO)
+  | otherwise = Exp $ logDensity d (hY - hO) - logDensity d 0
   where hY = getHeightFromNode y t
         hO = getHeightFromNode o t
+        d = normalDistr 0 s
 
 -- | Calibrate height of a node with given path using the normal distribution.
 --
@@ -116,3 +122,47 @@ calibrate ::
   Tree Double Double ->
   Log Double
 calibrate m s p = Exp . logDensity (normalDistr m s) . getHeightFromNode p
+
+-- | Calibrate height of a node with given path using the uniform distribution.
+--
+-- Assume the branch and node labels denote branch length and node height,
+-- respecitvely.
+calibrateUniform ::
+  -- | Lower bound.
+  Double ->
+  -- | Upper bound.
+  Double ->
+  Path ->
+  Tree Double Double ->
+  Log Double
+calibrateUniform a b p t | h > b = 0
+                         | h < a = 0
+                         | otherwise = 1
+  where h = getHeightFromNode p t
+
+-- | Calibrate height of a node with given path.
+--
+-- - When the node is in the given bounds, a uniform distribution is used.
+--
+-- - When the node is out of bounds, a one-sided normal distribution with given
+--   standard deviation is used. The normal distribution is normalized such that
+--   the complete distribution of the constrained is continuous. Use of the
+--   normal distribution also ensures that the first derivative is continuous.
+--
+-- Assume the branch and node labels denote branch length and node height,
+-- respecitvely.
+calibrateUniformSoft ::
+  -- | Standard deviation of one sided normal distributions.
+  Double ->
+  -- | Lower bound.
+  Double ->
+  -- | Upper bound.
+  Double ->
+  Path ->
+  Tree Double Double ->
+  Log Double
+calibrateUniformSoft s a b p t | h > b = Exp $ logDensity d (h - b) - logDensity d 0
+                               | h < a = Exp $ logDensity d (a - h) - logDensity d 0
+                               | otherwise = 1
+  where h = getHeightFromNode p t
+        d = normalDistr 0 s
