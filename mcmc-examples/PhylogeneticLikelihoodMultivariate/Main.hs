@@ -325,6 +325,11 @@ readMeans = do
   let sigmaInv = L.fromRows sigmaInvRows
   return (meanTree, mu, sigmaInv, logSigmaDet)
 
+-- Constraint:
+--
+-- (Megaceros_tosanus,Megaceros_vincentianus,Nothoceros_aenigmaticus) should be
+-- older than the clade MRCA(Pteris_vittata,Polystichum_acrostichoides).
+
 main :: IO ()
 main = do
   -- Get arguments.
@@ -404,7 +409,8 @@ main = do
     ["inspect"] -> do
       tr <- oneTree fnMeanTree
       let lvs = leaves tr
-      putStrLn $ "The tree has " <> show (length lvs) <> " leaves."
+      putStrLn $ "The mean tree has " <> show (length lvs) <> " leaves."
+
       let i = initWith $ identify tr
       putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ i ^. timeTree)
       putStrLn $ "Initial prior: " <> show (pr i) <> "."
