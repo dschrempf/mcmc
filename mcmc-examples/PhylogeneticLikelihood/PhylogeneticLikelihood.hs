@@ -145,7 +145,7 @@ stdDevTree = (0 -< toD 2.0 >- 1) + (0 -< toD 2.0 >- 2)
 
 -- Branch length monitors.
 branchMons :: [MonitorParameter (Tree Length)]
-branchMons = [getLens x y @. monitorRealFloat (n x y) | (x, y) <- getEdges startingTree]
+branchMons = [getLens x y @. monitorDouble (n x y) | (x, y) <- getEdges startingTree]
   where
     n x y = show (x, y)
 
@@ -160,7 +160,7 @@ monFile = monitorFile "Branches" branchMons 10
 -- Monitor batch means of branch lengths.
 branchBatchMons :: [MonitorParameterBatch (Tree Length)]
 branchBatchMons =
-  [ getLens x y @# monitorBatchMeanRealFloat (n x y) | (x, y) <- getEdges startingTree]
+  [ getLens x y @# monitorBatchMean (n x y) | (x, y) <- getEdges startingTree]
   where
     n x y = "Mean " <> show (x, y)
 

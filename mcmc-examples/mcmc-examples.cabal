@@ -40,7 +40,6 @@ executable archery
     , mcmc
     , mwc-random
     , statistics
-    , text
   default-language: Haskell2010
 
 executable plh
@@ -61,7 +60,6 @@ executable plh
     , microlens
     , mwc-random
     , statistics
-    , text
   default-language: Haskell2010
 
 executable plh-multivariate
@@ -81,6 +79,7 @@ executable plh-multivariate
   build-depends:
       aeson
     , algebraic-graphs
+    , attoparsec
     , base >=4.7 && <5
     , bytestring
     , bytestring-conversion
@@ -93,11 +92,9 @@ executable plh-multivariate
     , lens
     , log-domain
     , mcmc
-    , megaparsec
     , mwc-random
     , primitive
     , statistics
-    , text
     , vector
     , zippers
     , zlib

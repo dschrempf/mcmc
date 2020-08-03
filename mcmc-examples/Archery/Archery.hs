@@ -63,7 +63,7 @@ proposals = fromList [slideUniform "mu; slide uniform" 1 1.0 True]
 
 -- Monitor the precision of the archer.
 monMu :: MonitorParameter Precision
-monMu = monitorRealFloat "Mu"
+monMu = monitorDouble "Mu"
 
 -- Monitor to standard output.
 monStd :: MonitorStdOut Precision
@@ -75,7 +75,7 @@ monFile = monitorFile "Mu" [monMu] 500
 
 -- Monitor the batch mean of the precision of the archer.
 monMuBatch :: MonitorParameterBatch Precision
-monMuBatch = monitorBatchMeanRealFloat "Mean mu"
+monMuBatch = monitorBatchMean "Mean mu"
 
 -- Monitor the batch mean to file.
 monBatch :: MonitorBatch Precision

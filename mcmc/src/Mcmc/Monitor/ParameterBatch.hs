@@ -17,17 +17,15 @@ module Mcmc.Monitor.ParameterBatch
   ( -- * Batch parameter monitors
     MonitorParameterBatch (..),
     (@#),
-    monitorBatchMeanInt,
-    monitorBatchMeanIntF,
-    monitorBatchMeanRealFloat,
-    monitorBatchMeanRealFloatF,
-    monitorBatchMeanRealFloatS,
+    monitorBatchMean,
+    monitorBatchMeanF,
+    monitorBatchMeanE,
     monitorBatchCustom,
   )
 where
 
-import Data.Text.Lazy.Builder (Builder)
-import qualified Data.Text.Lazy.Builder.RealFloat as T
+import qualified Data.ByteString.Builder as BB
+import qualified Data.Double.Conversion.ByteString as BC
 import Lens.Micro
 
 -- | Instruction about a parameter to monitor via batch means. Usually, the
@@ -42,7 +40,7 @@ data MonitorParameterBatch a
       { -- | Name of batch monitored parameter.
         mbpName :: String,
         -- | Instruction about how to extract the batch mean from the trace.
-        mbpFunc :: [a] -> Builder
+        mbpFunc :: [a] -> BB.Builder
       }
 
 -- | Convert a batch parameter monitor from one data type to another using a
@@ -61,62 +59,45 @@ mean xs = realToFrac (sum xs) / fromIntegral (length xs)
 {-# SPECIALIZE mean :: [Double] -> Double #-}
 {-# SPECIALIZE mean :: [Int] -> Double #-}
 
--- | Batch monitor integral parameters such as 'Int'. Print the mean with eight
--- decimal places (half precision).
-monitorBatchMeanInt ::
-  Integral a =>
-  -- | Name of monitor.
+-- | Batch monitor. Print the mean with eight decimal places (half precision).
+monitorBatchMean ::
+  Real a =>
+  -- | Name.
   String ->
   MonitorParameterBatch a
-monitorBatchMeanInt n = MonitorParameterBatch n (T.formatRealFloat T.Fixed (Just 8) . mean)
-{-# SPECIALIZE monitorBatchMeanInt :: String -> MonitorParameterBatch Int #-}
+monitorBatchMean n = MonitorParameterBatch n (BB.byteString . BC.toFixed 8 . mean)
+{-# SPECIALIZE monitorBatchMean :: String -> MonitorParameterBatch Int #-}
+{-# SPECIALIZE monitorBatchMean :: String -> MonitorParameterBatch Double #-}
 
--- | Batch monitor integral parameters such as 'Int'. Print the mean with full
--- precision.
-monitorBatchMeanIntF ::
-  Integral a =>
-  -- | Name of monitor.
+-- | Batch monitor. Print the mean with full precision computing the shortest
+-- string of digits that correctly represent the number.
+monitorBatchMeanF ::
+  Real a =>
+  -- | Name.
   String ->
   MonitorParameterBatch a
-monitorBatchMeanIntF n = MonitorParameterBatch n (T.realFloat . mean)
-{-# SPECIALIZE monitorBatchMeanIntF :: String -> MonitorParameterBatch Int #-}
-
--- | Batch monitor real float parameters such as 'Double' with eight decimal
--- places (half precision).
-monitorBatchMeanRealFloat ::
-  RealFloat a =>
-  -- | Name of monitor.
-  String ->
-  MonitorParameterBatch a
-monitorBatchMeanRealFloat n = MonitorParameterBatch n (T.formatRealFloat T.Fixed (Just 8) . mean)
-{-# SPECIALIZE monitorBatchMeanRealFloat :: String -> MonitorParameterBatch Double #-}
-
--- | Batch monitor real float parameters such as 'Double' with full precision.
-monitorBatchMeanRealFloatF ::
-  RealFloat a =>
-  -- | Name of monitor.
-  String ->
-  MonitorParameterBatch a
-monitorBatchMeanRealFloatF n = MonitorParameterBatch n (T.realFloat . mean)
-{-# SPECIALIZE monitorBatchMeanRealFloatF :: String -> MonitorParameterBatch Double #-}
+monitorBatchMeanF n = MonitorParameterBatch n (BB.byteString . BC.toShortest . mean)
+{-# SPECIALIZE monitorBatchMeanF :: String -> MonitorParameterBatch Int #-}
+{-# SPECIALIZE monitorBatchMeanF :: String -> MonitorParameterBatch Double #-}
 
 -- | Batch monitor real float parameters such as 'Double' with scientific
 -- notation and eight decimal places.
-monitorBatchMeanRealFloatS ::
-  RealFloat a =>
-  -- | Name of monitor.
+monitorBatchMeanE ::
+  Real a =>
+  -- | Name.
   String ->
   MonitorParameterBatch a
-monitorBatchMeanRealFloatS n = MonitorParameterBatch n (T.formatRealFloat T.Exponent (Just 8) . mean)
-{-# SPECIALIZE monitorBatchMeanRealFloatS :: String -> MonitorParameterBatch Double #-}
+monitorBatchMeanE n = MonitorParameterBatch n (BB.byteString . BC.toExponential 8 . mean)
+{-# SPECIALIZE monitorBatchMeanE :: String -> MonitorParameterBatch Int #-}
+{-# SPECIALIZE monitorBatchMeanE :: String -> MonitorParameterBatch Double #-}
 
 -- | Batch monitor parameters with custom lens and builder.
 monitorBatchCustom ::
-  -- | Name of monitor.
+  -- | Name.
   String ->
   -- | Function to calculate the batch mean.
   ([a] -> a) ->
   -- | Custom builder.
-  (a -> Builder) ->
+  (a -> BB.Builder) ->
   MonitorParameterBatch a
 monitorBatchCustom n f b = MonitorParameterBatch n (b . f)

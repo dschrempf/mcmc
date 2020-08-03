@@ -26,7 +26,7 @@ import Codec.Compression.GZip
 import Control.Monad
 import Data.Aeson
 import Data.Aeson.TH
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.List hiding (cycle)
 import qualified Data.Map as M
 import Data.Vector.Unboxed (Vector)
@@ -104,7 +104,7 @@ toSave (Status nm it i tr ac br at is f sv vb g _ _ _ _ c _) =
 -- - cycle
 -- - monitor
 saveStatus :: ToJSON a => FilePath -> Status a -> IO ()
-saveStatus fn s = B.writeFile fn $ compress $ encode (toSave s)
+saveStatus fn s = BL.writeFile fn $ compress $ encode (toSave s)
 
 -- fromSav prior lh cycle monitor save
 fromSave ::
@@ -157,7 +157,7 @@ loadStatus ::
   FilePath ->
   IO (Status a)
 loadStatus p l c m fn = do
-  res <- eitherDecode . decompress <$> B.readFile fn
+  res <- eitherDecode . decompress <$> BL.readFile fn
   let s = case res of
         Left err -> error err
         Right sv -> fromSave p l c m sv

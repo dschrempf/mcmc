@@ -89,8 +89,10 @@ slideRootWithHeightSample t (Node br lb ts) g = do
 slideRootWithHeightSimple :: Double -> ProposalSimple (Tree Double Double)
 slideRootWithHeightSimple t = ProposalSimple $ slideRootWithHeightSample t
 
--- | Slide the node up and down using a uniform distribution truncated at
--- the parent node and the closest daughter node.
+-- | Slide the node up and down using a normal distribution truncated at the
+-- parent node and the closest daughter node. The mean of the normal
+-- distribution is 0, the standard deviation is half the domain of the truncated
+-- distribution.
 --
 -- The node to slide is specified by a path.
 --
@@ -108,7 +110,8 @@ slideNodeWithHeight ::
   Proposal (Tree Double Double)
 slideNodeWithHeight pth n w t = nodeAt pth @~ createProposal n w slideRootWithHeightSimple t
 
--- | Slide the branch of the node.
+-- | Slide the branch of the node using a normal distributed proposal
+-- distribution with mean 0 and given standard deviation.
 --
 -- The branch to slide is specified by a path to the node.
 slideBranch ::
@@ -125,14 +128,15 @@ slideBranch ::
   Proposal (Tree Double a)
 slideBranch pth n w s t = (nodeAt pth . rootBranch) @~ slideSymmetric n w s t
 
-scaleTreeSimple :: Double -> Double -> Double -> ProposalSimple (Tree Double a)
-scaleTreeSimple k th t =
+scaleTreeSimple :: Double -> Double -> ProposalSimple (Tree Double a)
+scaleTreeSimple k t =
   proposalGenericContinuous
-    (gammaDistr (k / t) (th * t))
+    (gammaDistr (k / t) (t / k))
     (\tr x -> first (* x) tr)
     (Just recip)
 
--- | Scale all branches of a tree with a Gamma distributed kernel.
+-- | Scale all branches of a tree with a Gamma distributed kernel of given
+-- shape. The scale is set such that the mean is 1.0.
 scaleTree ::
   -- | Name.
   String ->
@@ -140,22 +144,21 @@ scaleTree ::
   Int ->
   -- | Shape.
   Double ->
-  -- | Scale.
-  Double ->
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double a)
-scaleTree n w k th = createProposal n w (scaleTreeSimple k th)
+scaleTree n w k = createProposal n w (scaleTreeSimple k)
 
 
-scaleTreeWithHeightSimple :: Double -> Double -> Double -> ProposalSimple (Tree Double Double)
-scaleTreeWithHeightSimple k th t =
+scaleTreeWithHeightSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
+scaleTreeWithHeightSimple k t =
   proposalGenericContinuous
-    (gammaDistr (k / t) (th * t))
+    (gammaDistr (k / t) (t / k))
     (\tr x -> bimap (* x) (* x) tr)
     (Just recip)
 
--- | Scale all branches of a tree with a Gamma distributed kernel.
+-- | Scale all branches of a tree with a Gamma distributed kernel of given
+-- shape. The scale is set such that the mean is 1.0.
 --
 -- Assume node labels denote node height.
 scaleTreeWithHeight ::
@@ -165,9 +168,7 @@ scaleTreeWithHeight ::
   Int ->
   -- | Shape.
   Double ->
-  -- | Scale.
-  Double ->
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double Double)
-scaleTreeWithHeight n w k th = createProposal n w (scaleTreeWithHeightSimple k th)
+scaleTreeWithHeight n w k = createProposal n w (scaleTreeWithHeightSimple k)

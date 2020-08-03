@@ -19,15 +19,15 @@ module Tree
   )
 where
 
+import Data.Attoparsec.Lazy
 import Codec.Compression.GZip
 import Control.Lens
 import Data.Bifunctor
 import Data.List
-import Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy.Char8 as BL
 import ELynx.Data.Tree
 import ELynx.Import.Tree.Newick
-import Text.Megaparsec
 
 instance FunctorWithIndex [Int] (Tree e) where
   imap f (Node br lb ts) = Node br (f [] lb) $ imap (\i -> imap (f . (:) i)) ts
@@ -41,23 +41,21 @@ instance TraversableWithIndex [Int] (Tree e) where
   itraverse f (Node br lb ts) = Node br <$> f [] lb <*> itraverse (\i -> itraverse (f . (:) i)) ts
   {-# INLINE itraverse #-}
 
-parseFileWith :: (ShowErrorComponent e) => String -> Parsec e ByteString a -> FilePath -> IO a
-parseFileWith s p f = do
+parseFileWith :: Parser a -> FilePath -> IO a
+parseFileWith p f = do
   l <- if "gz" `isSuffixOf` f
-    then decompress <$> L.readFile f
-    else L.readFile f
-  return $ case parse p s l of
-    Left err -> error $ errorBundlePretty err
-    Right val -> val
+    then BL.toStrict . decompress <$> BL.readFile f
+    else BS.readFile f
+  return $ either error id $ parseOnly p l
 
 -- | Parse first Newick tree in file.
-oneTree :: FilePath -> IO (Tree Double ByteString)
-oneTree p = do
-  pt <- parseFileWith "newick" (newick Standard) p
+oneTree :: FilePath -> IO (Tree Double BS.ByteString)
+oneTree f = do
+  pt <- parseFileWith (newick Standard) f
   return $ first fromLength $ either error id $ phyloToLengthTree pt
 
 -- | Parse one or more Newick trees until end of file.
-someTrees :: FilePath -> IO [Tree Double ByteString]
-someTrees p = do
-  pts <- parseFileWith "someNewick" (someNewick Standard) p
+someTrees :: FilePath -> IO [Tree Double BS.ByteString]
+someTrees f = do
+  pts <- parseFileWith (someNewick Standard) f
   return $ map (first fromLength . either error id . phyloToLengthTree) pts

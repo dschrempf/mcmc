@@ -37,12 +37,11 @@ import Control.Monad
 import Criterion
 import Data.Aeson
 import Data.Bifunctor
-import qualified Data.ByteString.Lazy.Char8 as L
+import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.ByteString.Char8 as BS
 import Data.List
 import Data.Maybe
 import qualified Data.Set as S
-import qualified Data.Text.Lazy as T
-import Data.Text.Lazy (Text)
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
 import qualified ELynx.Data.Topology.Rooted as T
@@ -121,7 +120,7 @@ initWith t =
 --
 -- Calibration of non-root nodes can be done with 'calibrate'.
 cals :: I -> [Log Double]
-cals s = [calibrate 10 0.1 root $ s ^. timeTree]
+cals s = [calibrate 10 0.01 root $ s ^. timeTree]
 
 -- Constraints.
 --
@@ -130,8 +129,8 @@ cals s = [calibrate 10 0.1 root $ s ^. timeTree]
 -- More extreme difference: 34, 38 younger than 62, 64.
 consts :: I -> [Log Double]
 consts s =
-  [ constrainSoft 0.001 y1 o1 t,
-    constrainSoft 0.001 y2 o2 t
+  [ constrainSoft 0.01 y1 o1 t,
+    constrainSoft 0.01 y2 o2 t
   ]
   where
     t = s ^. timeTree
@@ -263,21 +262,21 @@ proposalsRateTree t =
 ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
-    [ timeBirthRate @~ scaleUnbiased "time birth rate" 30 40 True,
-      -- timeDeathRate @~ scaleUnbiased "time death rate" 30 40 True,
-      rateGammaShape @~ scaleUnbiased "rate gamma shape" 30 40 True,
-      timeTree @~ scaleTreeWithHeight "time tree" 20 10 0.1 True,
-      rateTree @~ scaleTree "rate tree" 20 10 0.1 True
+    [ timeBirthRate @~ scaleUnbiased "time birth rate" 10 40 True,
+      -- timeDeathRate @~ scaleUnbiased "time death rate" 10 40 True,
+      rateGammaShape @~ scaleUnbiased "rate gamma shape" 10 40 True,
+      timeTree @~ scaleTreeWithHeight "time tree" 10 60 True,
+      rateTree @~ scaleTree "rate tree" 10 40 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
 
 monParams :: [MonitorParameter I]
 monParams =
-  [ timeBirthRate @. monitorRealFloat "TimeBirthRate",
-    -- timeDeathRate @. monitorRealFloat "TimeDeathRate",
-    rateGammaShape @. monitorRealFloat "RateGammaShape",
-    (timeTree . rootLabel) @. monitorRealFloat "TimeTreeHeight"
+  [ timeBirthRate @. monitorDouble "TimeBirthRate",
+    -- timeDeathRate @. monitorDouble "TimeDeathRate",
+    rateGammaShape @. monitorDouble "RateGammaShape",
+    (timeTree . rootLabel) @. monitorDouble "TimeTreeHeight"
   ]
 
 monStdOut :: MonitorStdOut I
@@ -319,9 +318,9 @@ fnMeanTree :: FilePath
 fnMeanTree = "plh-multivariate.meantree"
 
 -- Read the mean tree and the posterior means and covariances.
-readMeans :: IO (Tree Double Text, Vector Double, Matrix Double, Double)
+readMeans :: IO (Tree Double BS.ByteString, Vector Double, Matrix Double, Double)
 readMeans = do
-  meanTree <- second toText <$> oneTree fnMeanTree
+  meanTree <- oneTree fnMeanTree
   (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
   let sigmaInv = L.fromRows sigmaInvRows
   return (meanTree, mu, sigmaInv, logSigmaDet)
@@ -356,7 +355,7 @@ main = do
       putStrLn "The tree with mean branch lengths rooted at the midpoint:"
       print $ toNewick $ lengthToPhyloTree tr
       putStrLn $ "Save the mean tree to " <> fnMeanTree <> "."
-      L.writeFile fnMeanTree (toNewick $ lengthToPhyloTree tr)
+      BL.writeFile fnMeanTree (toNewick $ lengthToPhyloTree tr)
 
       putStrLn "Root the trees at the midpoint of the mean tree."
       let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
@@ -463,7 +462,7 @@ main = do
     ["convert"] -> do
       -- Print conversion of leaves.
       (meanTree, _, _, _) <- readMeans
-      let tbl = zip (map T.unpack $ leaves meanTree) (map show $ leaves $ identify meanTree)
+      let tbl = zip (map BS.unpack $ leaves meanTree) (map show $ leaves $ identify meanTree)
       putStr $ unlines $ map show tbl
     _ -> putStrLn "Use one command of: [read|bench|inspect|run|continue N|convert]!"
 

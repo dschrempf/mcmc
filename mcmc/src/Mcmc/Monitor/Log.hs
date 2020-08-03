@@ -14,12 +14,11 @@ module Mcmc.Monitor.Log
   )
 where
 
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy.Builder as T
-import qualified Data.Text.Lazy.Builder.RealFloat as T
+import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.Double.Conversion.ByteString as BC
 import Numeric.Log
 
 -- | Print a log value.
-renderLog :: Log Double -> Text
-renderLog = T.toLazyText . T.formatRealFloat T.Fixed (Just 8) . ln
+renderLog :: Log Double -> BL.ByteString
+renderLog = BL.fromStrict . BC.toFixed 8 . ln
 {-# INLINEABLE renderLog #-}

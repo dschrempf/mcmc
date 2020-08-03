@@ -50,18 +50,17 @@ module Mcmc.Proposal
 where
 
 import Data.Aeson
+import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Default
+import qualified Data.Double.Conversion.ByteString as BC
 import Data.Function
 import Data.List
-import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Data.Maybe
-import qualified Data.Text.Lazy as T
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy.Builder as B
-import qualified Data.Text.Lazy.Builder.Int as B
-import qualified Data.Text.Lazy.Builder.RealFloat as B
 import Lens.Micro
+import Mcmc.Internal.ByteString
 import Mcmc.Tools.Shuffle
 import Numeric.Log hiding (sum)
 import System.Random.MWC
@@ -115,7 +114,7 @@ convertP l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
 -- ratio of the backward to forward kernels (i.e., the probability masses or
 -- probability densities). For unbiased proposals, this ratio is 1.0.
 newtype ProposalSimple a = ProposalSimple
-  {     pSample :: a -> GenIO -> IO (a, Log Double)
+  { pSample :: a -> GenIO -> IO (a, Log Double)
   }
 
 convertS :: Lens' b a -> ProposalSimple a -> ProposalSimple b
@@ -257,43 +256,50 @@ tuneCycle m c =
 autotuneCycle :: Acceptance (Proposal a) -> Cycle a -> Cycle a
 autotuneCycle a = tuneCycle (M.map (\x -> exp $ x - ratioOpt) $ acceptanceRatios a)
 
-renderRow :: Text -> Text -> Text -> Text -> Text -> Text -> Text
+renderRow ::
+  BL.ByteString ->
+  BL.ByteString ->
+  BL.ByteString ->
+  BL.ByteString ->
+  BL.ByteString ->
+  BL.ByteString ->
+  BL.ByteString
 renderRow name weight nAccept nReject acceptRatio tuneParam = "   " <> nm <> wt <> na <> nr <> ra <> tp
   where
-    nm = T.justifyLeft 30 ' ' name
-    wt = T.justifyRight 8 ' ' weight
-    na = T.justifyRight 15 ' ' nAccept
-    nr = T.justifyRight 15 ' ' nReject
-    ra = T.justifyRight 15 ' ' acceptRatio
-    tp = T.justifyRight 20 ' ' tuneParam
+    nm = alignLeft 30 name
+    wt = alignRight 8 weight
+    na = alignRight 15 nAccept
+    nr = alignRight 15 nReject
+    ra = alignRight 15 acceptRatio
+    tp = alignRight 20 tuneParam
 
-proposalHeader :: Text
+proposalHeader :: BL.ByteString
 proposalHeader =
   renderRow "Proposal" "Weight" "Accepted" "Rejected" "Ratio" "Tuning parameter"
 
-summarizeProposal :: Proposal a -> Maybe (Int, Int, Double) -> Text
-summarizeProposal m r = renderRow (T.pack name) weight nAccept nReject acceptRatio tuneParamStr
+summarizeProposal :: Proposal a -> Maybe (Int, Int, Double) -> BL.ByteString
+summarizeProposal m r = renderRow (BL.pack name) weight nAccept nReject acceptRatio tuneParamStr
   where
     name = pName m
-    weight = B.toLazyText $ B.decimal $ pWeight m
-    nAccept = B.toLazyText $ maybe "" (B.decimal . (^. _1)) r
-    nReject = B.toLazyText $ maybe "" (B.decimal . (^. _2)) r
-    acceptRatio = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3) . (^. _3)) r
-    tuneParamStr = B.toLazyText $ maybe "" (B.formatRealFloat B.Fixed (Just 3)) (tParam <$> pTuner m)
+    weight = BB.toLazyByteString $ BB.intDec $ pWeight m
+    nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) r
+    nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) r
+    acceptRatio = BL.fromStrict $ maybe "" (BC.toFixed 3 . (^. _3)) r
+    tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) (tParam <$> pTuner m)
 
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance ratios.
-summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> Text
+summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> BL.ByteString
 summarizeCycle a c =
-  T.intercalate "\n" $
+  BL.intercalate "\n" $
     [ "Summary of proposal(s) in cycle. " <> mpi <> " proposal(s) per iteration.",
       proposalHeader,
-      "   " <> T.replicate (T.length proposalHeader - 3) "─"
+      "   " <> BL.replicate (BL.length proposalHeader - 3) '-'
     ]
       ++ [summarizeProposal m (ar m) | m <- ps]
-      ++ ["   " <> T.replicate (T.length proposalHeader - 3) "─"]
+      ++ ["   " <> BL.replicate (BL.length proposalHeader - 3) '-']
   where
     ps = ccProposals c
-    mpi = B.toLazyText $ B.decimal $ sum $ map pWeight ps
+    mpi = BB.toLazyByteString $ BB.intDec $ sum $ map pWeight ps
     ar m = acceptanceRatio m a
 
 -- | For each key @k@, store the number of accepted and rejected proposals.

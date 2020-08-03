@@ -11,20 +11,6 @@ packages:
       sha256: 61973d78425ef6da9f4a1acbc4e0d46d14baf4b6a8335c30e85d746fdcbbc6e7
   original:
     hackage: pava-0.1.0.0
-- completed:
-    hackage: elynx-nexus-0.3.0@sha256:9b8d28030fc30924d89d3230e9f5ade00460ae94561ab66a8727a04981430dae,1521
-    pantry-tree:
-      size: 394
-      sha256: 93f4747da3ce6f1b30c2fdd2d0fa96a69933b2ee8b98312d42aecb1d507dd1c9
-  original:
-    hackage: elynx-nexus-0.3.0
-- completed:
-    hackage: elynx-tools-0.3.0@sha256:b4e2beee8d66c5fcc4974eadfe8a9bf975d697b0be7208d50660c8ceeb6042ec,1950
-    pantry-tree:
-      size: 1289
-      sha256: a0d3b0063cd6ff8a14c3b27ac0604a57bf631e5d5179d3abf31a9b53d0cf0242
-  original:
-    hackage: elynx-tools-0.3.0
 snapshots:
 - completed:
     size: 518258

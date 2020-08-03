@@ -16,70 +16,59 @@ module Mcmc.Monitor.Parameter
     MonitorParameter (..),
     (@.),
     monitorInt,
-    monitorRealFloat,
-    monitorRealFloatF,
-    monitorRealFloatS,
+    monitorDouble,
+    monitorDoubleF,
+    monitorDoubleE,
   )
 where
 
-import Data.Text.Lazy.Builder (Builder)
-import qualified Data.Text.Lazy.Builder.Int as T
-import qualified Data.Text.Lazy.Builder.RealFloat as T
+import qualified Data.ByteString.Builder as BB
+import qualified Data.Double.Conversion.ByteString as BC
 import Lens.Micro
 
 -- | Instruction about a parameter to monitor.
-data MonitorParameter a
-  = MonitorParameter
-      { -- | Name of parameter.
-        mpName :: String,
-        -- | Instruction about how to extract the parameter from the state.
-        mpFunc :: a -> Builder
-      }
+data MonitorParameter a = MonitorParameter
+  { -- | Name of parameter.
+    mpName :: String,
+    -- | Instruction about how to extract the parameter from the state.
+    mpFunc :: a -> BB.Builder
+  }
 
 -- | Convert a parameter monitor from one data type to another using a lens.
 --
--- For example, to monitor a real float value being the first entry of a tuple:
+-- For example, to monitor a 'Double' value being the first entry of a tuple:
 --
 -- @
--- mon = _1 @@ monitorRealFloat
+-- mon = _1 @@ monitorDouble
 -- @
 (@.) :: Lens' b a -> MonitorParameter a -> MonitorParameter b
-(@.) l (MonitorParameter n f) = MonitorParameter n (\x -> f $ x^.l)
+(@.) l (MonitorParameter n f) = MonitorParameter n (\x -> f $ x ^. l)
 
--- | Monitor integral parameters such as 'Int'.
+-- | Monitor 'Int'.
 monitorInt ::
-  Integral a =>
-  -- | Name of monitor.
+  -- | Name.
   String ->
-  MonitorParameter a
-monitorInt n = MonitorParameter n T.decimal
-{-# SPECIALIZE monitorInt :: String -> MonitorParameter Int #-}
+  MonitorParameter Int
+monitorInt n = MonitorParameter n BB.intDec
 
--- | Monitor real float parameters such as 'Double' with eight decimal places
--- (half precision).
-monitorRealFloat ::
-  RealFloat a =>
-  -- | Name of monitor.
+-- | Monitor 'Double' with eight decimal places (half precision).
+monitorDouble ::
+  -- | Name.
   String ->
-  MonitorParameter a
-monitorRealFloat n = MonitorParameter n (T.formatRealFloat T.Fixed (Just 8))
-{-# SPECIALIZE monitorRealFloat :: String -> MonitorParameter Double #-}
+  MonitorParameter Double
+monitorDouble n = MonitorParameter n (BB.byteString . BC.toFixed 8)
 
--- | Monitor real float parameters such as 'Double' with full precision.
-monitorRealFloatF ::
-  RealFloat a =>
-  -- | Name of monitor.
+-- | Monitor 'Double' with full precision computing the shortest string of
+-- digits that correctly represent the number.
+monitorDoubleF ::
+  -- | Name.
   String ->
-  MonitorParameter a
-monitorRealFloatF n = MonitorParameter n T.realFloat
-{-# SPECIALIZE monitorRealFloatF :: String -> MonitorParameter Double #-}
+  MonitorParameter Double
+monitorDoubleF n = MonitorParameter n (BB.byteString . BC.toShortest)
 
--- | Monitor real float parameters such as 'Double' with scientific notation and
--- eight decimal places.
-monitorRealFloatS ::
-  RealFloat a =>
-  -- | Name of monitor.
+-- | Monitor 'Double' in exponential format and half precision.
+monitorDoubleE ::
+  -- | Name.
   String ->
-  MonitorParameter a
-monitorRealFloatS n = MonitorParameter n (T.formatRealFloat T.Exponent (Just 8))
-{-# SPECIALIZE monitorRealFloatS :: String -> MonitorParameter Double #-}
+  MonitorParameter Double
+monitorDoubleE n = MonitorParameter n (BB.byteString . BC.toExponential 8)

@@ -17,15 +17,14 @@ module Mcmc.Monitor.Time
   )
 where
 
-import qualified Data.Text.Lazy as T
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy.Builder as T
-import qualified Data.Text.Lazy.Builder.Int as T
+import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Lazy.Char8 as BL
+import Mcmc.Internal.ByteString
 import Data.Time.Clock
 
 -- | Adapted from System.ProgressBar.renderDuration of package
 -- [terminal-progressbar-0.4.1](https://hackage.haskell.org/package/terminal-progress-bar-0.4.1).
-renderDuration :: NominalDiffTime -> Text
+renderDuration :: NominalDiffTime -> BL.ByteString
 renderDuration dt = hTxt <> mTxt <> sTxt
   where
     hTxt = renderDecimal h <> ":"
@@ -36,11 +35,11 @@ renderDuration dt = hTxt <> mTxt <> sTxt
     -- Total amount of seconds
     ts :: Int
     ts = round dt
-    renderDecimal n = T.justifyRight 2 '0' $ T.toLazyText $ T.decimal n
+    renderDecimal n = alignRightWith '0' 2 $ BB.toLazyByteString $ BB.intDec n
 
 -- | Render duration in seconds.
-renderDurationS :: NominalDiffTime -> Text
-renderDurationS dt = T.toLazyText $ T.decimal ts
+renderDurationS :: NominalDiffTime -> BL.ByteString
+renderDurationS dt = BB.toLazyByteString $ BB.intDec ts
   where
     ts :: Int
     ts = round dt

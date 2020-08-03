@@ -32,7 +32,6 @@ executables:
       - mcmc
       - mwc-random
       - statistics
-      - text
     generated-other-modules: Paths_mcmc_examples
   plh:
     main:        PhylogeneticLikelihood.hs
@@ -50,7 +49,6 @@ executables:
       - microlens
       - mwc-random
       - statistics
-      - text
     generated-other-modules: Paths_mcmc_examples
   plh-multivariate:
     main:        Main.hs
@@ -62,6 +60,7 @@ executables:
     dependencies:
       - aeson
       - algebraic-graphs
+      - attoparsec
       - base >= 4.7 && < 5
       - bytestring
       - bytestring-conversion
@@ -75,10 +74,8 @@ executables:
       - log-domain
       - primitive
       - mcmc
-      - megaparsec
       - mwc-random
       - statistics
-      - text
       - vector
       - zippers
       - zlib

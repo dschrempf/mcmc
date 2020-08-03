@@ -60,10 +60,10 @@ initial :: I
 initial = (0, 0)
 
 monAlpha :: MonitorParameter I
-monAlpha = _1 @. monitorRealFloat "alpha"
+monAlpha = _1 @. monitorDouble "alpha"
 
 monBeta :: MonitorParameter I
-monBeta = _2 @. monitorRealFloat "beta"
+monBeta = _2 @. monitorDouble "beta"
 
 monStd :: MonitorStdOut I
 monStd = monitorStdOut [monAlpha, monBeta] 150

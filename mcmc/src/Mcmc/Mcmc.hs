@@ -35,10 +35,8 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State
 import Data.Aeson
+import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Maybe
-import qualified Data.Text.Lazy as T
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy.IO as T
 import Data.Time.Clock
 import Data.Time.Format
 import Mcmc.Monitor
@@ -55,54 +53,54 @@ import Prelude hiding (cycle)
 -- required, but it is used by the different inference algorithms.
 type Mcmc a = StateT (Status a) IO
 
-msgPrepare :: Char -> Text -> Text
-msgPrepare c t = T.cons c $ ": " <> t
+msgPrepare :: Char -> BL.ByteString -> BL.ByteString
+msgPrepare c t = BL.cons c $ ": " <> t
 
 -- | Write to standard output and log file.
-mcmcOutT :: Text -> Mcmc a ()
+mcmcOutT :: BL.ByteString -> Mcmc a ()
 mcmcOutT msg = do
   h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> gets logHandle
-  liftIO $ T.putStrLn msg >> T.hPutStrLn h msg
+  liftIO $ BL.putStrLn msg >> BL.hPutStrLn h msg
 
 -- | Write to standard output and log file.
 mcmcOutS :: String -> Mcmc a ()
-mcmcOutS = mcmcOutT . T.pack
+mcmcOutS = mcmcOutT . BL.pack
 
 -- Perform warning action.
 mcmcWarnA :: Mcmc a () -> Mcmc a ()
 mcmcWarnA a = gets verbosity >>= \v -> info v a
 
 -- | Print warning message.
-mcmcWarnT :: Text -> Mcmc a ()
+mcmcWarnT :: BL.ByteString -> Mcmc a ()
 mcmcWarnT = mcmcWarnA . mcmcOutT . msgPrepare 'W'
 
 -- | Print warning message.
 mcmcWarnS :: String -> Mcmc a ()
-mcmcWarnS = mcmcWarnT . T.pack
+mcmcWarnS = mcmcWarnT . BL.pack
 
 -- Perform info action.
 mcmcInfoA :: Mcmc a () -> Mcmc a ()
 mcmcInfoA a = gets verbosity >>= \v -> info v a
 
 -- | Print info message.
-mcmcInfoT :: Text -> Mcmc a ()
+mcmcInfoT :: BL.ByteString -> Mcmc a ()
 mcmcInfoT = mcmcInfoA . mcmcOutT . msgPrepare 'I'
 
 -- | Print info message.
 mcmcInfoS :: String -> Mcmc a ()
-mcmcInfoS = mcmcInfoT . T.pack
+mcmcInfoS = mcmcInfoT . BL.pack
 
 -- Perform debug action.
 mcmcDebugA :: Mcmc a () -> Mcmc a ()
 mcmcDebugA a = gets verbosity >>= \v -> debug v a
 
 -- | Print debug message.
-mcmcDebugT :: Text -> Mcmc a ()
+mcmcDebugT :: BL.ByteString -> Mcmc a ()
 mcmcDebugT = mcmcDebugA . mcmcOutT . msgPrepare 'D'
 
 -- | Print debug message.
 mcmcDebugS :: String -> Mcmc a ()
-mcmcDebugS = mcmcDebugT . T.pack
+mcmcDebugS = mcmcDebugT . BL.pack
 
 -- | Auto tune the 'Proposal's in the 'Cycle' of the chain. Reset acceptance counts.
 -- See 'autotuneCycle'.
@@ -124,7 +122,7 @@ mcmcResetA = do
   put $ s {acceptance = resetA a}
 
 -- | Print short summary of 'Proposal's in 'Cycle'. See 'summarizeCycle'.
-mcmcSummarizeCycle :: Mcmc a Text
+mcmcSummarizeCycle :: Mcmc a BL.ByteString
 mcmcSummarizeCycle = do
   a <- gets acceptance
   c <- gets cycle
@@ -143,11 +141,12 @@ mcmcOpenLog = do
   fe <- liftIO $ doesFileExist lfn
   mh <- liftIO $ case verbosity s of
     Quiet -> return Nothing
-    _ -> Just <$> case (fe, n, frc) of
-      (False, _, _) -> openFile lfn WriteMode
-      (True, 0, True) -> openFile lfn WriteMode
-      (True, 0, False) -> error "mcmcInit: Log file exists; use 'force' to overwrite output files."
-      (True, _, _) -> openFile lfn AppendMode
+    _ ->
+      Just <$> case (fe, n, frc) of
+        (False, _, _) -> openFile lfn WriteMode
+        (True, 0, True) -> openFile lfn WriteMode
+        (True, 0, False) -> error "mcmcInit: Log file exists; use 'force' to overwrite output files."
+        (True, _, _) -> openFile lfn AppendMode
   put s {logHandle = mh}
   mcmcDebugS $ "Log file name: " ++ lfn ++ "."
   mcmcDebugT "Log file opened."

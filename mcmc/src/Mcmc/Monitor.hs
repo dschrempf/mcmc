@@ -31,12 +31,11 @@ module Mcmc.Monitor
 where
 
 import Control.Monad
+import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Int
-import qualified Data.Text.Lazy as T
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy.Builder as T
-import qualified Data.Text.Lazy.IO as T
 import Data.Time.Clock
+import Mcmc.Internal.ByteString
 import Mcmc.Item
 import Mcmc.Monitor.Log
 import Mcmc.Monitor.Parameter
@@ -52,23 +51,21 @@ import Prelude hiding (sum)
 -- | A 'Monitor' describes which part of the Markov chain should be logged and
 -- where. Further, they allow output of summary statistics per iteration in a
 -- flexible way.
-data Monitor a
-  = Monitor
-      { -- | Monitor writing to standard output.
-        mStdOut :: MonitorStdOut a,
-        -- | Monitors writing to files.
-        mFiles :: [MonitorFile a],
-        -- | Monitors calculating batch means and
-        -- writing to files.
-        mBatches :: [MonitorBatch a]
-      }
+data Monitor a = Monitor
+  { -- | Monitor writing to standard output.
+    mStdOut :: MonitorStdOut a,
+    -- | Monitors writing to files.
+    mFiles :: [MonitorFile a],
+    -- | Monitors calculating batch means and
+    -- writing to files.
+    mBatches :: [MonitorBatch a]
+  }
 
 -- | Monitor to standard output; constructed with 'monitorStdOut'.
-data MonitorStdOut a
-  = MonitorStdOut
-      { msParams :: [MonitorParameter a],
-        msPeriod :: Int
-      }
+data MonitorStdOut a = MonitorStdOut
+  { msParams :: [MonitorParameter a],
+    msPeriod :: Int
+  }
 
 -- | Monitor to standard output.
 monitorStdOut ::
@@ -81,27 +78,27 @@ monitorStdOut ps p
   | p < 1 = error "monitorStdOut: Monitor period has to be 1 or larger."
   | otherwise = MonitorStdOut ps p
 
-msIWidth :: Int64
+msIWidth :: Int
 msIWidth = 12
 
-msWidth :: Int64
+msWidth :: Int
 msWidth = 22
 
-msRenderRow :: [Text] -> Text
-msRenderRow xs = T.justifyRight msIWidth ' ' (head xs) <> T.concat vals
+msRenderRow :: [BL.ByteString] -> BL.ByteString
+msRenderRow xs = alignRight msIWidth (head xs) <> BL.concat vals
   where
-    vals = map (T.justifyRight msWidth ' ') (tail xs)
+    vals = map (alignRight msWidth) (tail xs)
 
-msHeader :: MonitorStdOut a -> Text
-msHeader m = T.intercalate "\n" [row, sep]
+msHeader :: MonitorStdOut a -> BL.ByteString
+msHeader m = BL.intercalate "\n" [row, sep]
   where
     row =
       msRenderRow $
         ["Iteration", "Log-Prior", "Log-Likelihood", "Log-Posterior"]
           ++ nms
           ++ ["Runtime", "ETA"]
-    sep = "   " <> T.replicate (T.length row - 3) "─"
-    nms = [T.pack $ mpName p | p <- msParams m]
+    sep = "   " <> BL.replicate (BL.length row - 3) '-'
+    nms = [BL.pack $ mpName p | p <- msParams m]
 
 msExec ::
   Int ->
@@ -110,35 +107,36 @@ msExec ::
   UTCTime ->
   Int ->
   MonitorStdOut a ->
-  IO (Maybe Text)
+  IO (Maybe BL.ByteString)
 msExec i (Item x p l) ss st j m
   | i `mod` msPeriod m /= 0 = return Nothing
   | otherwise = do
-      ct <- getCurrentTime
-      let dt = ct `diffUTCTime` st
-          -- Careful, don't evaluate this when i == ss.
-          timePerIter = dt / fromIntegral (i - ss)
-          -- -- Always 0; doesn't make much sense.
-          -- tpi = if (i - ss) < 10
-          --       then ""
-          --       else renderDurationS timePerIter
-          eta =
-            if (i - ss) < 10
+    ct <- getCurrentTime
+    let dt = ct `diffUTCTime` st
+        -- Careful, don't evaluate this when i == ss.
+        timePerIter = dt / fromIntegral (i - ss)
+        -- -- Always 0; doesn't make much sense.
+        -- tpi = if (i - ss) < 10
+        --       then ""
+        --       else renderDurationS timePerIter
+        eta =
+          if (i - ss) < 10
             then ""
             else renderDuration $ timePerIter * fromIntegral (j - i)
-      return $ Just $ msRenderRow $
-        [T.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
-        ++ [T.toLazyText $ mpFunc mp x | mp <- msParams m]
-        ++ [renderDuration dt, eta]
+    return $
+      Just $
+        msRenderRow $
+          [BL.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
+            ++ [BB.toLazyByteString $ mpFunc mp x | mp <- msParams m]
+            ++ [renderDuration dt, eta]
 
 -- | Monitor to a file; constructed with 'monitorFile'.
-data MonitorFile a
-  = MonitorFile
-      { mfName :: String,
-        mfHandle :: Maybe Handle,
-        mfParams :: [MonitorParameter a],
-        mfPeriod :: Int
-      }
+data MonitorFile a = MonitorFile
+  { mfName :: String,
+    mfHandle :: Maybe Handle,
+    mfParams :: [MonitorParameter a],
+    mfPeriod :: Int
+  }
 
 -- XXX: The file monitor also includes iteration, prior, likelihood, and
 -- posterior. What if I want to log trees; or other complex objects? In this
@@ -157,8 +155,8 @@ monitorFile n ps p
   | p < 1 = error "monitorFile: Monitor period has to be 1 or larger."
   | otherwise = MonitorFile n Nothing ps p
 
-mfRenderRow :: [Text] -> Text
-mfRenderRow = T.intercalate "\t"
+mfRenderRow :: [BL.ByteString] -> BL.ByteString
+mfRenderRow = BL.intercalate "\t"
 
 open' :: String -> Bool -> IO Handle
 open' n frc = do
@@ -194,10 +192,10 @@ mfHeader m = case mfHandle m of
         <> mfName m
         <> "."
   Just h ->
-    T.hPutStrLn h
-      $ mfRenderRow
-      $ ["Iteration", "Log-Prior", "Log-Likelihood", "Log-Posterior"]
-        ++ [T.pack $ mpName p | p <- mfParams m]
+    BL.hPutStrLn h $
+      mfRenderRow $
+        ["Iteration", "Log-Prior", "Log-Likelihood", "Log-Posterior"]
+          ++ [BL.pack $ mpName p | p <- mfParams m]
 
 mfExec ::
   Int ->
@@ -213,13 +211,13 @@ mfExec i (Item x p l) m
           <> mfName m
           <> "."
     Just h ->
-      T.hPutStrLn h
-        $ mfRenderRow
-        $ T.pack (show i)
-          : renderLog p
-          : renderLog l
-          : renderLog (p * l)
-          : [T.toLazyText $ mpFunc mp x | mp <- mfParams m]
+      BL.hPutStrLn h $
+        mfRenderRow $
+          BL.pack (show i) :
+          renderLog p :
+          renderLog l :
+          renderLog (p * l) :
+            [BB.toLazyByteString $ mpFunc mp x | mp <- mfParams m]
 
 mfClose :: MonitorFile a -> IO ()
 mfClose m = case mfHandle m of
@@ -231,13 +229,12 @@ mfClose m = case mfHandle m of
 --
 -- Batch monitors are slow at the moment because the monitored parameter has to
 -- be extracted from the state for each iteration.
-data MonitorBatch a
-  = MonitorBatch
-      { mbName :: String,
-        mbHandle :: Maybe Handle,
-        mbParams :: [MonitorParameterBatch a],
-        mbSize :: Int
-      }
+data MonitorBatch a = MonitorBatch
+  { mbName :: String,
+    mbHandle :: Maybe Handle,
+    mbParams :: [MonitorParameterBatch a],
+    mbSize :: Int
+  }
 
 -- XXX: The batch monitor also includes iteration, prior, likelihood, and
 -- posterior. What if I want to log trees; or other complex objects? In this
@@ -283,10 +280,10 @@ mbHeader m = case mbHandle m of
         <> mbName m
         <> "."
   Just h ->
-    T.hPutStrLn h
-      $ mfRenderRow
-      $ ["Iteration", "Mean log-Prior", "Mean log-Likelihood", "Mean log-Posterior"]
-        ++ [T.pack $ mbpName mbp | mbp <- mbParams m]
+    BL.hPutStrLn h $
+      mfRenderRow $
+        ["Iteration", "Mean log-Prior", "Mean log-Likelihood", "Mean log-Posterior"]
+          ++ [BL.pack $ mbpName mbp | mbp <- mbParams m]
 
 mean :: [Log Double] -> Log Double
 mean xs = sum xs / fromIntegral (length xs)
@@ -305,13 +302,13 @@ mbExec i t' m
           <> mbName m
           <> "."
     Just h ->
-      T.hPutStrLn h
-        $ mfRenderRow
-        $ T.pack (show i)
-          : renderLog mlps
-          : renderLog mlls
-          : renderLog mlos
-          : [T.toLazyText $ mbpFunc mbp (map state t) | mbp <- mbParams m]
+      BL.hPutStrLn h $
+        mfRenderRow $
+          BL.pack (show i) :
+          renderLog mlps :
+          renderLog mlls :
+          renderLog mlos :
+            [BB.toLazyByteString $ mbpFunc mbp (map state t) | mbp <- mbParams m]
   where
     t = takeT (mbSize m) t'
     lps = map prior t
@@ -343,7 +340,7 @@ mAppend n (Monitor s fs bs) = do
   return $ Monitor s fs' bs'
 
 -- | Get header line of 'MonitorStdOut'.
-mHeader :: Monitor a -> Text
+mHeader :: Monitor a -> BL.ByteString
 mHeader (Monitor s _ _) = msHeader s
 
 -- | Execute monitors; print status information to files and return text to be
@@ -363,7 +360,7 @@ mExec ::
   Int ->
   -- | The monitor.
   Monitor a ->
-  IO (Maybe Text)
+  IO (Maybe BL.ByteString)
 mExec v i ss st xs j (Monitor s fs bs) = do
   mapM_ (mfExec i $ headT xs) fs
   mapM_ (mbExec i xs) bs

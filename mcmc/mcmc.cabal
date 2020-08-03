@@ -27,6 +27,7 @@ source-repository head
 library
   exposed-modules:
       Mcmc
+      Mcmc.Internal.ByteString
       Mcmc.Item
       Mcmc.Mcmc
       Mcmc.Metropolis
@@ -59,11 +60,11 @@ library
     , containers
     , data-default
     , directory
+    , double-conversion
     , log-domain
     , microlens
     , mwc-random
     , statistics
-    , text
     , time
     , transformers
     , vector
@@ -111,6 +112,5 @@ benchmark mcmc-bench
     , microlens
     , mwc-random
     , statistics
-    , text
     , vector
   default-language: Haskell2010
