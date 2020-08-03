@@ -325,11 +325,6 @@ readMeans = do
   let sigmaInv = L.fromRows sigmaInvRows
   return (meanTree, mu, sigmaInv, logSigmaDet)
 
--- Constraint:
---
--- (Megaceros_tosanus,Megaceros_vincentianus,Nothoceros_aenigmaticus) should be
--- older than the clade MRCA(Pteris_vittata,Polystichum_acrostichoides).
-
 main :: IO ()
 main = do
   -- Get arguments.
