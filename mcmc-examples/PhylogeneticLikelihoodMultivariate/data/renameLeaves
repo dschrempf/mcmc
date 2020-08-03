@@ -1,0 +1,48 @@
+#!/usr/bin/env stack
+{- stack
+--resolver nightly-2020-07-30
+runghc
+--package bytestring
+--package attoparsec
+--package elynx-tree-0.3.1
+-}
+
+import Data.Bifunctor
+import qualified Data.Set as S
+import qualified Data.Attoparsec.ByteString as A
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy.Char8 as BL
+import ELynx.Data.Tree
+import ELynx.Import.Tree.Newick
+import ELynx.Export.Tree.Newick
+
+trfnLong = "Algae_landplants_CAT_GTR_new_root.newick.txt"
+trfnShortNew = "Algae_landplants_CAT_GTR_new_root_short_names.newick.txt"
+trfnShort = "first.tree"
+
+longToShort x = longToShort' $ take 2 $ BS.split '_' x
+
+longToShort' [x, y] = if l == 2
+                      then BS.take 7 x <> BS.singleton '_' <> y'
+                      else BS.take 2 x <> BS.singleton '_' <> y'
+  where y' = BS.take 7 y
+        l = BS.length y'
+
+main :: IO ()
+main = do
+  cLong <- BS.readFile trfnLong
+  let trLong = either error id $ A.parseOnly (newick Standard) cLong
+  cShort <- BS.readFile trfnShort
+  let trShort = either error id $ A.parseOnly (newick Standard) cShort
+      lvsShort = S.fromList $ leaves trShort
+      trLongShort = second longToShort trLong
+      lvsLongShort = S.fromList $ leaves trLongShort
+  if lvsLongShort == lvsShort
+    then do putStrLn "Leaves are equal. Success."
+            BS.writeFile trfnShortNew $ BL.toStrict $ toNewick trShort
+    else do putStrLn "Leaves are not equal. Abort."
+            putStrLn "Leaves in converted tree but not in tree with short labels:"
+            print $ lvsLongShort S.\\ lvsShort
+            putStrLn "Leaves in tree with short labels but not in converted tree:"
+            print $ lvsShort S.\\ lvsLongShort
+
