@@ -106,15 +106,15 @@ instance FromJSON I
 initWith :: Tree Double Int -> I
 initWith t =
   I
-    { _timeBirthRate = 1.0,
+    { _timeBirthRate = 0.001,
       -- _timeDeathRate = 1.0,
       _rateGammaShape = 1.0,
-      _rateGammaScale = 1.0,
+      _rateGammaScale = 0.001,
       _timeTree = t',
       _rateTree = bimap (const 0.01) (const ()) t
     }
   where
-    t' = extend rootHeight $ normalizeHeight $ makeUltrametric t
+    t' = bimap (*1000) (*1000) $ extend rootHeight $ normalizeHeight $ makeUltrametric t
 
 -- Calibrations are defined in 'Calibrations'. See 'calibratedNodes'.
 
@@ -246,7 +246,7 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  [ timeTree @~ slideNodeWithHeight pth (n lb) 1 True
+  [ timeTree @~ slideNodeWithHeight pth (n lb) 1 0.25 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
@@ -261,7 +261,7 @@ proposalsTimeTree t =
 -- Since the stem does not change the likelihood, we do not slide the stem.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  [ rateTree @~ scaleBranch pth (n lb) 1 5.0 True
+  [ rateTree @~ scaleBranch pth (n lb) 1 10.0 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth)
@@ -274,11 +274,11 @@ proposalsRateTree t =
 ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
-    [ timeBirthRate @~ scaleUnbiased "time birth rate" 10 40 True,
+    [ timeBirthRate @~ scaleUnbiased "time birth rate" 10 50 True,
       -- timeDeathRate @~ scaleUnbiased "time death rate" 10 40 True,
-      rateGammaShape @~ scaleUnbiased "rate gamma shape" 10 40 True,
-      rateGammaScale @~ scaleUnbiased "rate gamma scale" 10 40 True,
-      timeTree @~ scaleTreeWithHeight "time tree" 10 60 True,
+      rateGammaShape @~ scaleUnbiased "rate gamma shape" 10 50 True,
+      rateGammaScale @~ scaleUnbiased "rate gamma scale" 10 50 True,
+      timeTree @~ scaleTreeWithHeight "time tree" 10 120 True,
       rateTree @~ scaleTree "rate tree" 10 40 True
     ]
       ++ proposalsTimeTree t

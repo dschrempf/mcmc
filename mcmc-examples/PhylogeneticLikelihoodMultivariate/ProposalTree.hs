@@ -79,28 +79,31 @@ modifyBranch f (Node br lb ts) = Node (f br) lb ts
 
 slideRootWithHeightSample ::
   Double ->
+  Double ->
   Tree Double Double ->
   GenIO ->
   IO (Tree Double Double, Log Double)
-slideRootWithHeightSample _ (Node _ _ []) _ = error "slideRootSample: Cannot slide leaf node."
-slideRootWithHeightSample t (Node br lb ts) g = do
+slideRootWithHeightSample _ _ (Node _ _ []) _ = error "slideRootSample: Cannot slide leaf node."
+slideRootWithHeightSample ds t (Node br lb ts) g = do
   let br' = minimum $ map branch ts
       a = negate $ br - eps
       b = br' - eps
       -- Don't let the standard deviation be too high, because then the normal
       -- variable will be rejected many times in 'truncatedNormal'.
-      s = min (b - a) (t / 2 * (b - a))
+      s = min (b - a) (t * ds * (b - a))
   dx <- truncatedNormal a b 0 s g
   let t' = Node (br + dx) (lb - dx) (map (modifyBranch (subtract dx)) ts)
   return (t', 1.0)
 
-slideRootWithHeightSimple :: Double -> ProposalSimple (Tree Double Double)
-slideRootWithHeightSimple t = ProposalSimple $ slideRootWithHeightSample t
+slideRootWithHeightSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
+slideRootWithHeightSimple ds t = ProposalSimple $ slideRootWithHeightSample ds t
 
--- | Slide the node up and down using a normal distribution truncated at the
--- parent node and the closest daughter node. The mean of the normal
--- distribution is 0, the standard deviation is half the domain of the truncated
--- distribution.
+-- | Slide a node on a tree.
+--
+-- A normal distribution truncated at the parent node and the closest daughter
+-- node is used. The mean of the normal distribution is 0, the standard
+-- deviation is determined by a given value multiplied with the domain of the
+-- truncated distribution.
 --
 -- The node to slide is specified by a path.
 --
@@ -113,10 +116,12 @@ slideNodeWithHeight ::
   String ->
   -- | Weight.
   Int ->
+  -- | Standard deviation multiplier.
+  Double ->
   -- | Tune the move.
   Bool ->
   Proposal (Tree Double Double)
-slideNodeWithHeight pth n w t = nodeAt pth @~ createProposal n w slideRootWithHeightSimple t
+slideNodeWithHeight pth n w ds t = nodeAt pth @~ createProposal n w (slideRootWithHeightSimple ds) t
 
 -- | Scale a branch.
 --
