@@ -168,9 +168,15 @@ tune dt m
     return $ m {pSimple = f t', pTuner = Just $ Tuner t' f}
 
 -- XXX: The desired acceptance ratio 0.44 is optimal for one-dimensional
--- 'Proposal's; one could also store the affected number of dimensions with the
--- 'Proposal' and tune towards an acceptance ratio accounting for the number of
+-- proposals; one could also store the affected number of dimensions with the
+-- proposal and tune towards an acceptance ratio accounting for the number of
 -- dimensions.
+--
+-- The optimal ratios seem to be:
+-- - One dimension: 0.44 (numerical result).
+-- - Five and more dimensions: 0.234 seems to be a good value (numerical result).
+-- - Infinite dimensions: 0.234 (theorem for specific target distributions).
+-- See Handbook of Markov chain Monte Carlo, chapter 4.
 ratioOpt :: Double
 ratioOpt = 0.44
 
