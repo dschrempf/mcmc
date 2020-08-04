@@ -34,7 +34,7 @@ where
 import Control.Comonad
 import Control.Lens hiding ((<.>))
 import Control.Monad
-import Control.Parallel.Strategies
+-- import Control.Parallel.Strategies
 import Criterion
 import Data.Aeson
 import Data.Bifunctor
@@ -153,9 +153,10 @@ consts xs s =
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
 -- pr s@(I l m k t r) =
 pr cb cs s@(I l k th t r) =
-  -- Parallel execution provides no runtime benefit, but is left here for
-  -- reference.
-  product' $|| parList rpar $
+  -- -- Parallel execution provides no runtime benefit, but is left here for
+  -- -- reference.
+  -- product' $|| parList rpar $
+  product' $
       [ -- Exponential prior on the birth rate of the time tree.
         exponentialWith 0.1 l,
         -- Exponential prior on the shape of the gamma distribution of the
