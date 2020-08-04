@@ -94,6 +94,7 @@ executable plh-multivariate
     , log-domain
     , mcmc
     , mwc-random
+    , parallel
     , primitive
     , statistics
     , vector

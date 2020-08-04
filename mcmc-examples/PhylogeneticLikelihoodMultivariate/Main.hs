@@ -34,6 +34,7 @@ where
 import Control.Comonad
 import Control.Lens hiding ((<.>))
 import Control.Monad
+import Control.Parallel.Strategies
 import Criterion
 import Data.Aeson
 import Data.Bifunctor
@@ -114,7 +115,7 @@ initWith t =
       _rateTree = bimap (const 0.01) (const ()) t
     }
   where
-    t' = bimap (*1000) (*1000) $ extend rootHeight $ normalizeHeight $ makeUltrametric t
+    t' = bimap (* 1000) (* 1000) $ extend rootHeight $ normalizeHeight $ makeUltrametric t
 
 -- Calibrations are defined in 'Calibrations'. See 'calibratedNodes'.
 
@@ -135,13 +136,13 @@ constrainedNodes t = [(young, old)]
     young =
       fromMaybe
         (error "constrainedNodes: No MRCA young.")
-        (mrca ["Pt_vittata", "Po_acrosti"] t)
         -- (mrca [213, 200])
+        (mrca ["Pt_vittata", "Po_acrosti"] t)
     old =
       fromMaybe
         (error "constrainedNodes: No MRCA old.")
-        (mrca ["Me_tosanus", "Me_vincent", "No_aenigma"] t)
         -- (mrca [144, 143, 142])
+        (mrca ["Me_tosanus", "Me_vincent", "No_aenigma"] t)
 
 -- Constraint prior.
 consts :: [Constraint] -> I -> [Log Double]
@@ -152,24 +153,26 @@ consts xs s =
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
 -- pr s@(I l m k t r) =
 pr cb cs s@(I l k th t r) =
-  product' $
-    [ -- Exponential prior on the birth rate of the time tree.
-      exponentialWith 0.1 l,
-      -- Exponential prior on the shape of the gamma distribution of the
-      -- rate normalization parameter and the branch rates.
-      exponentialWith 1.0 k,
-      -- Exponential prior on the scale of the gamma distribution of the
-      -- rate normalization parameter and the branch rates.
-      exponentialWith 1.0 th,
-      -- Birth process prior on the branches of the time tree.
-      branchesWith (exponentialWith l) t,
-      -- -- Birth and death process prior on the time tree.
-      -- birthAndDeathWith l m t,
-      -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
-      branchesWith (gammaWith k th) r
-    ]
-      ++ cals cb s
-      ++ consts cs s
+  -- Parallel execution provides no runtime benefit, but is left here for
+  -- reference.
+  product' $|| parList rpar $
+      [ -- Exponential prior on the birth rate of the time tree.
+        exponentialWith 0.1 l,
+        -- Exponential prior on the shape of the gamma distribution of the
+        -- rate normalization parameter and the branch rates.
+        exponentialWith 1.0 k,
+        -- Exponential prior on the scale of the gamma distribution of the
+        -- rate normalization parameter and the branch rates.
+        exponentialWith 1.0 th,
+        -- Birth process prior on the branches of the time tree.
+        branchesWith (exponentialWith l) t,
+        -- -- Birth and death process prior on the time tree.
+        -- birthAndDeathWith l m t,
+        -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
+        branchesWith (gammaWith k th) r
+      ]
+    ++ cals cb s
+    ++ consts cs s
 
 -- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from
