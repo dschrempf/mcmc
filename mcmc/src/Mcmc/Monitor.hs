@@ -30,6 +30,7 @@ module Mcmc.Monitor
   )
 where
 
+import Control.Concurrent.Async
 import Control.Monad
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -362,11 +363,15 @@ mExec ::
   Monitor a ->
   IO (Maybe BL.ByteString)
 mExec v i ss st xs j (Monitor s fs bs) = do
-  mapM_ (mfExec i $ headT xs) fs
-  mapM_ (mbExec i xs) bs
-  if v == Quiet
-    then return Nothing
-    else msExec i (headT xs) ss st j s
+  -- XXX: I am not sure if this concurrency is necessary.
+  mf <- async $ mapConcurrently_ (mfExec i $ headT xs) fs
+  mb <- async $ mapConcurrently_ (mbExec i xs) bs
+  ms <- async $ if v == Quiet
+                then return Nothing
+                else msExec i (headT xs) ss st j s
+  wait mf
+  wait mb
+  wait ms
 
 -- | Close the files associated with the 'Monitor'.
 mClose :: Monitor a -> IO (Monitor a)
