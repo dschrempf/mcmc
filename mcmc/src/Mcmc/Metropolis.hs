@@ -91,12 +91,14 @@ mhBurnInN b (Just t)
   | t <= 0 = error "mhBurnInN: Auto tuning period smaller equal 0."
   | b > t = do
     mcmcResetA
+    mcmcMonitorStdOutHeader
     mhNIter t
     mcmcSummarizeCycle >>= mcmcDebugT
     mcmcAutotune
     mhBurnInN (b - t) (Just t)
   | otherwise = do
     mcmcResetA
+    mcmcMonitorStdOutHeader
     mhNIter b
     mcmcSummarizeCycle >>= mcmcInfoT
     mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
@@ -110,7 +112,6 @@ mhBurnIn b t
   | otherwise = do
     mcmcInfoS $ "Burn in for " <> show b <> " cycles."
     mcmcDebugS $ "Auto tuning period is " <> show t <> "."
-    mcmcMonitorStdOutHeader
     mhBurnInN b t
     mcmcInfoT "Burn in finished."
 
@@ -118,8 +119,13 @@ mhBurnIn b t
 mhRun :: ToJSON a => Int -> Mcmc a ()
 mhRun n = do
   mcmcInfoS $ "Run chain for " <> show n <> " iterations."
+  let (m, r) = n `quotRem` 100
+  -- Print header to standard output every 100 iterations.
+  replicateM_ m $ do
+    mcmcMonitorStdOutHeader
+    mhNIter 100
   mcmcMonitorStdOutHeader
-  mhNIter n
+  mhNIter r
 
 mhT :: ToJSON a => Mcmc a ()
 mhT = do
