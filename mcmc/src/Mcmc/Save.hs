@@ -40,6 +40,7 @@ import Mcmc.Status hiding (save)
 import Mcmc.Trace
 import Mcmc.Verbosity
 import Numeric.Log
+import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import System.Random.MWC
 import Prelude hiding (cycle)
@@ -142,12 +143,15 @@ fromSave p l c m (Save nm it i tr ac' br at is f sv vb g' ts) =
     c' = tuneCycle (M.mapMaybe id $ M.fromList $ zip (ccProposals c) ts) c
 
 -- | Load a 'Status' from file.
+--
 -- Important information that cannot be saved and has to be provided again when
 -- a chain is restored:
 -- - prior function
 -- - likelihood function
 -- - cycle
 -- - monitor
+--
+-- To avoid incomplete continued runs, the 'mcmc' file is removed after load.
 loadStatus ::
   FromJSON a =>
   (a -> Log Double) ->
@@ -177,4 +181,5 @@ loadStatus p l c m fn = do
     ( error
         "loadStatus: Provided likelihood function does not match the saved likelihood."
     )
+  removeFile fn
   return s
