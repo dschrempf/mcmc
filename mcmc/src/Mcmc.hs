@@ -110,7 +110,7 @@ module Mcmc
     -- space (see above) and to monitor the MCMC run, as well as some auxiliary
     -- information.
     status,
-    noSave,
+    saveWith,
     force,
     quiet,
     debug,

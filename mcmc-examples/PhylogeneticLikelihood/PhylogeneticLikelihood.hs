@@ -198,7 +198,7 @@ main = do
     [] -> do
       g <- create
       -- Combine all the objects defined above.
-      let s = force $ status nm pr (lh meanTree stdDevTree) proposals mon startingTree nBurnIn nAutoTune nIterations g
+      let s = force $ saveWith 1000 $ status nm pr (lh meanTree stdDevTree) proposals mon startingTree nBurnIn nAutoTune nIterations g
       -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
       void $ mh s
     ["continue", nStr] -> do

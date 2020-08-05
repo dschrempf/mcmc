@@ -196,12 +196,12 @@ mcmcMonitorStdOutHeader = do
 mcmcSave :: ToJSON a => Mcmc a ()
 mcmcSave = do
   s <- get
-  if save s
-    then do
+  case save s of
+    Just _ -> do
       mcmcInfoT "Save Markov chain. For long chains, this may take a while."
       liftIO $ saveStatus (name s <> ".mcmc") s
       mcmcInfoT "Done saving Markov chain."
-    else mcmcInfoT "Do not save the Markov chain."
+    Nothing -> mcmcInfoT "Do not save the Markov chain."
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()

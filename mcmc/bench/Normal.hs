@@ -62,7 +62,7 @@ nIter = 20000
 
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  let s = quiet $ noSave $ status "Normal" (const 1) lh proposals mon 0 nBurn nAutoTune nIter g
+  let s = quiet $ status "Normal" (const 1) lh proposals mon 0 nBurn nAutoTune nIter g
   void $ mh s
 
 proposalsBactrian :: Cycle Double
@@ -72,5 +72,5 @@ proposalsBactrian =
 
 normalBactrianBench :: GenIO -> IO ()
 normalBactrianBench g = do
-  let s = quiet $ noSave $ status "NormalBactrian" (const 1) lh proposalsBactrian mon 0 nBurn nAutoTune nIter g
+  let s = quiet $ status "NormalBactrian" (const 1) lh proposalsBactrian mon 0 nBurn nAutoTune nIter g
   void $ mh s

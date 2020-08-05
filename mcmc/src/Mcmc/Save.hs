@@ -26,6 +26,7 @@ import Codec.Compression.GZip
 import Control.Monad
 import Data.Aeson
 import Data.Aeson.TH
+import Data.Maybe
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.List hiding (cycle)
 import qualified Data.Map as M
@@ -57,7 +58,7 @@ data Save a
       (Maybe Int) -- Auto tune.
       Int -- Iterations.
       Bool -- Force.
-      Bool -- Save.
+      (Maybe Int) -- Save.
       Verbosity
       (Vector Word32) -- Current seed.
 
@@ -72,7 +73,7 @@ toSave (Status nm it i tr ac br at is f sv vb g _ _ _ _ c _) =
     nm
     it
     i
-    tr
+    tr'
     ac'
     br
     at
@@ -83,6 +84,7 @@ toSave (Status nm it i tr ac br at is f sv vb g _ _ _ _ c _) =
     g'
     ts
   where
+    tr' = takeT (fromMaybe 0 sv) tr
     ac' = transformKeysA (ccProposals c) [0 ..] ac
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
     -- the statistics package.

@@ -67,7 +67,7 @@ spec =
     $ do
       gen <- create
       let s =
-            force $ quiet $ noSave $
+            force $ quiet $
               status "SaveSpec" (const 1) lh proposals mon 0 nBurn nAutoTune nIter gen
       saveStatus "SaveSpec.json" s
       s' <- loadStatus (const 1) lh proposals mon "SaveSpec.json"
@@ -86,10 +86,10 @@ spec =
 --   $ it "mh 200 + mhContinue 200 == mh 400"
 --   $ do
 --     gen1 <- create
---     let s1 = noSave $ status "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 400 gen1
+--     let s1 = status "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 400 gen1
 --     r1 <- mh s1
 --     gen2 <- create
---     let s2 = noSave $ status "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 200 gen2
+--     let s2 = status "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 200 gen2
 --     r2' <- mh s2
 --     r2 <- mhContinue 200 r2'
 --     item r1 `shouldBe` item r2

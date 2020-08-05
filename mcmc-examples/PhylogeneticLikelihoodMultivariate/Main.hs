@@ -157,20 +157,20 @@ pr cb cs s@(I l m k th t r) =
   -- -- reference.
   -- product' $|| parList rpar $
   product' $
-      [ -- Exponential prior on the birth and death rates of the time tree.
-        exponential 0.1 l,
-        exponential 0.1 m,
-        -- Exponential prior on the shape and scale of the gamma distribution of
-        -- the rate normalization parameter and the branch rates.
-        exponential 1.0 k,
-        exponential 1.0 th,
-        -- Birth and death process prior of the time tree.
-        birthDeath l m t,
-        -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
-        branchesWith (gamma k th) r
-      ]
-    ++ cals cb s
-    ++ consts cs s
+    [ -- Exponential prior on the birth and death rates of the time tree.
+      exponential 0.1 l,
+      exponential 0.1 m,
+      -- Exponential prior on the shape and scale of the gamma distribution of
+      -- the rate normalization parameter and the branch rates.
+      exponential 1.0 k,
+      exponential 1.0 th,
+      -- Birth and death process prior of the time tree.
+      birthDeath l m t,
+      -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
+      branchesWith (gamma k th) r
+    ]
+      ++ cals cb s
+      ++ consts cs s
 
 -- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from
@@ -314,16 +314,19 @@ mon = Monitor monStdOut [monFileParams, monFileTimeTree, monFileRateTree] []
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
 nBurnIn = Just 1000
+
 -- nBurnIn = Just 30
 
 -- Auto tuning period.
 nAutoTune :: Maybe Int
 nAutoTune = Just 100
+
 -- nAutoTune = Just 10
 
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
 nIterations = 1000
+
 -- nIterations = 30
 
 -- The posterior branch length means and covariances will be stored in a file
@@ -466,25 +469,26 @@ main = do
       let s =
             force $
               debug $
-                -- Have a look at the 'status' function to understand the
-                -- different parameters.
-                status
-                  "plh-multivariate"
-                  pr'
-                  lh'
-                  ccl'
-                  mon
-                  start
-                  nBurnIn
-                  nAutoTune
-                  nIterations
-                  g
+                saveWith 1 $
+                  -- Have a look at the 'status' function to understand the
+                  -- different parameters.
+                  status
+                    "plh-multivariate"
+                    pr'
+                    lh'
+                    ccl'
+                    mon
+                    start
+                    nBurnIn
+                    nAutoTune
+                    nIterations
+                    g
       -- Run the Markov chain.
       void $ mh s
     ["continue", n] -> do
       (meanTree, mu, sigmaInv, logSigmaDet) <- readMeans
       -- Load the MCMC status.
-      s <-
+      s <- saveWith 1 <$>
         loadStatus
           (pr (calibratedNodes meanTree) (constrainedNodes meanTree))
           (lh mu sigmaInv logSigmaDet)

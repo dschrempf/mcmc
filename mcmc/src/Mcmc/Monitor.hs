@@ -311,7 +311,7 @@ mbExec i t' m
           renderLog mlos :
             [BB.toLazyByteString $ mbpFunc mbp (map state t) | mbp <- mbParams m]
   where
-    t = takeT (mbSize m) t'
+    t = takeItems (mbSize m) t'
     lps = map prior t
     lls = map likelihood t
     los = zipWith (*) lps lls

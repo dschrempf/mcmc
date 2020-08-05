@@ -28,7 +28,7 @@
 module Mcmc.Status
   ( Status (..),
     status,
-    noSave,
+    saveWith,
     force,
     quiet,
     debug,
@@ -79,8 +79,9 @@ data Status a = Status
 
     -- | Overwrite output files? Default is 'False', change with 'force'.
     forceOverwrite :: Bool,
-    -- | Save the chain at the end of the run? Default is 'True', change with 'noSave'.
-    save :: Bool,
+    -- | Save the chain with trace of given length at the end of the run?
+    -- Default is no save ('Nothing'). Change with 'saveWith'.
+    save :: Maybe Int,
     -- | Verbosity.
     verbosity :: Verbosity,
     -- | The random number generator.
@@ -151,7 +152,7 @@ status n p l c m x mB mT nI g
       mT
       nI
       False
-      True
+      Nothing
       Info
       g
       Nothing
@@ -163,9 +164,9 @@ status n p l c m x mB mT nI g
   where
     i = Item x (p x) (l x)
 
--- | Do not save the Markov chain at the end.
-noSave :: Status a -> Status a
-noSave s = s {save = False}
+-- | Save the Markov chain with trace of given length.
+saveWith :: Int -> Status a -> Status a
+saveWith n s = s {save = Just n}
 
 -- | Overwrite existing files; it is not necessary to use 'force', when a chain
 -- is continued.

@@ -14,6 +14,7 @@ module Mcmc.Trace
     singletonT,
     pushT,
     headT,
+    takeItems,
     takeT,
   )
 where
@@ -54,5 +55,9 @@ headT :: Trace a -> Item a
 headT = head . fromTrace
 
 -- | Get the N most recent items of the trace.
-takeT :: Int -> Trace a -> [Item a]
-takeT n = take n . fromTrace
+takeItems :: Int -> Trace a -> [Item a]
+takeItems n = take n . fromTrace
+
+-- | Shorten the trace to given length.
+takeT :: Int -> Trace a -> Trace a
+takeT n = Trace . take n . fromTrace
