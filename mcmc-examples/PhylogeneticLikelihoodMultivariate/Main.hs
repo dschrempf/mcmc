@@ -316,14 +316,17 @@ mon = Monitor monStdOut [monFileParams, monFileTimeTree, monFileRateTree] []
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
 nBurnIn = Just 1000
+-- nBurnIn = Just 30
 
 -- Auto tuning period.
 nAutoTune :: Maybe Int
 nAutoTune = Just 100
+-- nAutoTune = Just 10
 
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
 nIterations = 1000
+-- nIterations = 30
 
 -- The posterior branch length means and covariances will be stored in a file
 -- with this name.
