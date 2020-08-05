@@ -61,6 +61,7 @@ import ELynx.Export.Tree.Newick
 import Mcmc
 
 -- Local libraries provided together with this module.
+import BirthDeathPrior
 import Calibration
 import NodePrior
 import MonitorTree
@@ -77,8 +78,8 @@ import Tree
 data I = I
   { -- Birth rate of time tree.
     _timeBirthRate :: Double,
-    -- -- Death rate of time tree.
-    -- _timeDeathRate :: Double,
+    -- Death rate of time tree.
+    _timeDeathRate :: Double,
     -- Shape k of gamma distribution of rate parameters.
     _rateGammaShape :: Double,
     -- Scale theta of gamma distribution of rate parameters.
@@ -108,7 +109,7 @@ initWith :: Tree Double Int -> I
 initWith t =
   I
     { _timeBirthRate = 0.001,
-      -- _timeDeathRate = 1.0,
+      _timeDeathRate = 0.002,
       _rateGammaShape = 1.0,
       _rateGammaScale = 0.001,
       _timeTree = t',
@@ -151,26 +152,22 @@ consts xs s =
 
 -- Prior.
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
--- pr s@(I l m k t r) =
-pr cb cs s@(I l k th t r) =
+pr cb cs s@(I l m k th t r) =
   -- -- Parallel execution provides no runtime benefit, but is left here for
   -- -- reference.
   -- product' $|| parList rpar $
   product' $
-      [ -- Exponential prior on the birth rate of the time tree.
-        exponentialWith 0.1 l,
-        -- Exponential prior on the shape of the gamma distribution of the
-        -- rate normalization parameter and the branch rates.
-        exponentialWith 1.0 k,
-        -- Exponential prior on the scale of the gamma distribution of the
-        -- rate normalization parameter and the branch rates.
-        exponentialWith 1.0 th,
-        -- Birth process prior on the branches of the time tree.
-        branchesWith (exponentialWith l) t,
-        -- -- Birth and death process prior on the time tree.
-        -- birthAndDeathWith l m t,
+      [ -- Exponential prior on the birth and death rates of the time tree.
+        exponential 0.1 l,
+        exponential 0.1 m,
+        -- Exponential prior on the shape and scale of the gamma distribution of
+        -- the rate normalization parameter and the branch rates.
+        exponential 1.0 k,
+        exponential 1.0 th,
+        -- Birth and death process prior of the time tree.
+        birthDeath l m t,
         -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
-        branchesWith (gammaWith k th) r
+        branchesWith (gamma k th) r
       ]
     ++ cals cb s
     ++ consts cs s
@@ -279,7 +276,7 @@ ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
     [ timeBirthRate @~ scaleUnbiased "time birth rate" 10 50 True,
-      -- timeDeathRate @~ scaleUnbiased "time death rate" 10 40 True,
+      timeDeathRate @~ scaleUnbiased "time death rate" 10 40 True,
       rateGammaShape @~ scaleUnbiased "rate gamma shape" 10 50 True,
       rateGammaScale @~ scaleUnbiased "rate gamma scale" 10 50 True,
       timeTree @~ scaleTreeWithHeight "time tree" 10 120 True,
@@ -291,14 +288,15 @@ ccl t =
 monParams :: [MonitorParameter I]
 monParams =
   [ timeBirthRate @. monitorDouble "TimeBirthRate",
-    -- timeDeathRate @. monitorDouble "TimeDeathRate",
+    timeDeathRate @. monitorDouble "TimeDeathRate",
     rateGammaShape @. monitorDouble "RateGammaShape",
     rateGammaScale @. monitorDouble "RateGammaScale",
     (timeTree . rootLabel) @. monitorDouble "TimeTreeHeight"
   ]
 
 monStdOut :: MonitorStdOut I
-monStdOut = monitorStdOut monParams 1
+-- Do not monitor rateGammaShape to standard output because screen is not wide enough.
+monStdOut = monitorStdOut (take 2 monParams ++ drop 3 monParams) 1
 
 monFileParams :: MonitorFile I
 monFileParams = monitorFile "-params" monParams 1

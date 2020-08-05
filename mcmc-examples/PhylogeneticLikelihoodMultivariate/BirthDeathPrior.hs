@@ -10,10 +10,11 @@
 --
 -- Creation date: Tue Aug  4 20:37:11 2020.
 module BirthDeathPrior
-  ( birthDeathWith,
+  ( birthDeath,
   )
 where
 
+import Data.Bifunctor
 import ELynx.Data.Tree
 import Numeric.Log
 
@@ -66,7 +67,7 @@ epsNearCritical = 1e-5
 -- The aforementioned points are just multiplicative factors that don't
 -- influence the stationary distribution of the MCMC run. However, they do
 -- change the prior, and hence, the posterior.
-birthDeathWith ::
+birthDeath ::
   -- | Birth rate.
   Double ->
   -- | Death rate.
@@ -74,42 +75,50 @@ birthDeathWith ::
   Tree Double a ->
   Log Double
 -- TODO: Check for critical and nearly critical process.
-birthDeathWith l m
-  | l < 0.0 = error "birthDeathWith: Birth rate lambda is negative."
-  | m < 0.0 = error "birthDeathWith: Death rate mu is negative."
-  | epsNearCritical > abs (l - m) = error "birthDeathWith: Birth and death rate are too close."
-  | otherwise = Exp . log . fst . birthDeathWith' l m
+birthDeath la mu
+  | la < 0.0 = error "birthDeath: Birth rate lambda is negative."
+  | mu < 0.0 = error "birthDeath: Death rate mu is negative."
+  | epsNearCritical > abs (la - mu) = error "birthDeath: Birth and death rate are too close."
+  | otherwise = fst . birthDeath' la mu (Exp $ log la)
 
-birthDeathWith' :: Double -> Double -> Tree Double a -> (Double, Double)
-birthDeathWith' la mu (Node br _ []) = computeDE la mu br 0
-birthDeathWith' la mu (Node br _ [l, r]) = (dT * dL * dR * la, eT)
+birthDeath' :: Double -> Double -> Log Double -> Tree Double a -> (Log Double, Double)
+birthDeath' la mu _ (Node br _ []) = first (Exp . log) $ computeDE la mu br 0
+birthDeath' la mu logLa (Node br _ [l, r]) = ((Exp $ log dT) * dL * dR * logLa, eT)
   where
-    (dL, eL) = birthDeathWith' la mu l
-    (dR, eR) = birthDeathWith' la mu r
+    (dL, eL) = birthDeath' la mu logLa l
+    (dR, eR) = birthDeath' la mu logLa r
     (dT, eT) = computeDE la mu br (eL * eR)
-birthDeathWith' _ _ _ = error "birthDeathWith: Tree is not bifurcating."
+birthDeath' _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 
 -- Tests
 
 -- testTree1 :: Tree Double ()
 -- testTree1 = Node 1.0 () []
 
--- >>> birthDeathWith 1.2 3.2 testTree1
+-- >>> birthDeath 1.2 3.2 testTree1
 -- 5.8669248906043234e-2
 
 -- testTree2 :: Tree Double ()
 -- testTree2 = Node 0.0 () [Node 0.4 () [], Node 0.2 () [Node 0.2 () [], Node 0.2 () []]]
 
--- >>> birthDeathWith 1.2 3.2 testTree2
+-- >>> birthDeath 1.2 3.2 testTree2
 -- 3.978845396350806e-2
 
 -- XXX: There are differences in the conditions. The point process conditions on
 -- the time of origin, and on the number of leaves. The dynamic programming
 -- approach used above only conditions on the time of origin.
 
+-- Question: Is the birth death distribution of the point process adequate, if
+-- the topology is given?
+--
+-- How do we handle the critical, or nearly critical process? Is it fast enough
+-- to combine the three distributions into one, and check during calculation of
+-- the density? Or is it better to check for the three different possibilities
+-- here, and then use the adequate distribution (status quo)?
+
 -- -- TODO.
 -- -- Assume that node labels denote node heights.
--- birthDeathPointProcessWith ::
+-- birthDeathPointProcess ::
 --   -- | Birth rate.
 --   Double ->
 --   -- | Death rate.
@@ -117,9 +126,9 @@ birthDeathWith' _ _ _ = error "birthDeathWith: Tree is not bifurcating."
 --   Tree Double Double ->
 --   Log Double
 -- -- TODO: Check for critical and nearly critical process.
--- birthDeathPointProcessWith l m t
---   | l < 0.0 = error "birthDeathWith: Birth rate lambda is negative."
---   | m < 0.0 = error "birthDeathWith: Death rate mu is negative."
+-- birthDeathPointProcess l m t
+--   | l < 0.0 = error "birthDeath: Birth rate lambda is negative."
+--   | m < 0.0 = error "birthDeath: Death rate mu is negative."
 --   | otherwise = Exp $ logDensity d 0
 --   where
 --     d = BDD (label t + branch t) l m
