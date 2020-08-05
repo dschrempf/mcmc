@@ -488,7 +488,7 @@ main = do
     ["continue", n] -> do
       (meanTree, mu, sigmaInv, logSigmaDet) <- readMeans
       -- Load the MCMC status.
-      s <- saveWith 1 <$>
+      s <-
         loadStatus
           (pr (calibratedNodes meanTree) (constrainedNodes meanTree))
           (lh mu sigmaInv logSigmaDet)
