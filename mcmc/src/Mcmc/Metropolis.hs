@@ -124,8 +124,9 @@ mhRun n = do
   replicateM_ m $ do
     mcmcMonitorStdOutHeader
     mhNIter 100
-  mcmcMonitorStdOutHeader
-  mhNIter r
+  when (r > 0) $ do
+    mcmcMonitorStdOutHeader
+    mhNIter r
 
 mhT :: ToJSON a => Mcmc a ()
 mhT = do
