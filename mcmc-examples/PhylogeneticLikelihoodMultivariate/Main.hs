@@ -70,6 +70,7 @@ import ProposalTree
 import Tree
 {- ORMOLU_ENABLE -}
 
+
 -- State space containing all parameters.
 --
 -- The topologies of the time and rate tree are equal. This is, however, not
@@ -90,6 +91,17 @@ data I = I
     _rateTree :: Tree Double ()
   }
   deriving (Generic)
+
+-- XXX: According to Lepage, I also tried using normalized time and rate trees
+-- and a scale factor. See branch 'normalizedTrees'.
+--
+-- However, I don't know how to use calibrations and constraints because i don't
+-- know how to calculate absolute time. Since only the product scale*t*r is
+-- influencing the likelihood, t and r are confounded.
+--
+-- I can use a hyperparameter for the mean of r, so basically separate the scale
+-- into: scale = scale_time * scale_rate, but that seems like it only pushes the
+-- problem to the specification of priors.
 
 -- Create accessors (lenses) to the parameters in the state space.Nothing
 makeLenses ''I
@@ -313,7 +325,7 @@ mon = Monitor monStdOut [monFileParams, monFileTimeTree, monFileRateTree] []
 
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
-nBurnIn = Just 1000
+nBurnIn = Just 3000
 
 -- nBurnIn = Just 30
 
@@ -325,7 +337,7 @@ nAutoTune = Just 100
 
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
-nIterations = 1000
+nIterations = 10000
 
 -- nIterations = 30
 
