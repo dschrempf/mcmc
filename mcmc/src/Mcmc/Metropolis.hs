@@ -118,6 +118,7 @@ mhBurnIn b t
 -- Run for given number of iterations.
 mhRun :: ToJSON a => Int -> Mcmc a ()
 mhRun n = do
+  mcmcResetA
   mcmcInfoS $ "Run chain for " <> show n <> " iterations."
   let (m, r) = n `quotRem` 100
   -- Print header to standard output every 100 iterations.
@@ -156,8 +157,9 @@ mhContinue ::
 mhContinue dn s
   | dn <= 0 = error "mhContinue: The number of iterations is zero or negative."
   | otherwise = mcmcRun (mhContinueT dn) s'
-    where n' = iterations s + dn
-          s' = s {iterations = n'}
+  where
+    n' = iterations s + dn
+    s' = s {iterations = n'}
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 mh ::
