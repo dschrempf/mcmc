@@ -78,7 +78,9 @@ birthDeath ::
 birthDeath la mu
   | la < 0.0 = error "birthDeath: Birth rate lambda is negative."
   | mu < 0.0 = error "birthDeath: Death rate mu is negative."
-  | epsNearCritical > abs (la - mu) = error "birthDeath: Birth and death rate are too close."
+  -- -- | epsNearCritical > abs (la - mu) = error "birthDeath: Birth and death rate are too close."
+  -- TODO. For now, set lh to 0.
+  | epsNearCritical > abs (la - mu) = const 0
   | otherwise = fst . birthDeath' la mu (Exp $ log la)
 
 birthDeath' :: Double -> Double -> Log Double -> Tree Double a -> (Log Double, Double)
