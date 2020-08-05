@@ -279,7 +279,7 @@ ccl t =
       timeDeathRate @~ scaleUnbiased "time death rate" 10 40 True,
       rateGammaShape @~ scaleUnbiased "rate gamma shape" 10 50 True,
       rateGammaScale @~ scaleUnbiased "rate gamma scale" 10 50 True,
-      timeTree @~ scaleTreeWithHeight "time tree" 10 120 True,
+      timeTree @~ scaleTreeWithHeight "time tree" 10 150 True,
       rateTree @~ scaleTree "rate tree" 10 40 True
     ]
       ++ proposalsTimeTree t
