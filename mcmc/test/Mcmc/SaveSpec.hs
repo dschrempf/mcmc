@@ -23,7 +23,6 @@ import Statistics.Distribution hiding
     stdDev,
   )
 import Statistics.Distribution.Normal
-import System.Directory
 import System.Random.MWC
 import Test.Hspec
 
@@ -67,13 +66,14 @@ spec =
     $ do
       gen <- create
       let s =
-            force $ quiet $
+            force $ quiet $ saveWith 100 $
               status "SaveSpec" (const 1) lh proposals mon 0 nBurn nAutoTune nIter gen
       saveStatus "SaveSpec.json" s
       s' <- loadStatus (const 1) lh proposals mon "SaveSpec.json"
       r <- mh s
       r' <- mh s'
-      removeFile "SaveSpec.json"
+      -- Done during 'loadStatus'.
+      -- removeFile "SaveSpec.json"
       item r `shouldBe` item r'
       iteration r `shouldBe` iteration r'
       trace r `shouldBe` trace r'
