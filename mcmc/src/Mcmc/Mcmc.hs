@@ -197,8 +197,9 @@ mcmcSave :: ToJSON a => Mcmc a ()
 mcmcSave = do
   s <- get
   case save s of
-    Just _ -> do
-      mcmcInfoT "Save Markov chain. For long chains, this may take a while."
+    Just n -> do
+      mcmcInfoT $ "Save Markov chain with trace of length " <> BL.pack (show n) <> "."
+      mcmcInfoT "For long traces, or complex objects, this may take a while."
       liftIO $ saveStatus (name s <> ".mcmc") s
       mcmcInfoT "Done saving Markov chain."
     Nothing -> mcmcInfoT "Do not save the Markov chain."
