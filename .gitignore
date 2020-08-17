@@ -1,6 +1,5 @@
 # Haskell
 *.aux
-*.cabal
 *.chi
 *.chs.h
 *.dump-hi
