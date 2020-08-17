@@ -5,6 +5,11 @@
 ## Unreleased changes
 
 
+## 0.2.2
+
+-   Move away from hpack.
+
+
 ## 0.2.1
 
 -   Consistently use ByteString instead of Text.
