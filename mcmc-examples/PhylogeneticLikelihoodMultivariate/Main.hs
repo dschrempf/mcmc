@@ -65,7 +65,6 @@ import BirthDeathPrior
 import Calibration
 import NodePrior
 import MonitorTree
-import Prior
 import ProposalTree
 import Tree
 {- ORMOLU_ENABLE -}

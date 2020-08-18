@@ -65,7 +65,6 @@ executable plh-multivariate
       Calibration
       MonitorTree
       NodePrior
-      Prior
       ProposalTree
       Tree
       Paths_mcmc_examples

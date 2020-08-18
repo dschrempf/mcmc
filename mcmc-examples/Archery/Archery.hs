@@ -21,8 +21,8 @@ where
 import Control.Monad
 import Mcmc
 import Numeric.Log
-import Statistics.Distribution
-import Statistics.Distribution.Exponential
+import qualified Statistics.Distribution as S
+import qualified Statistics.Distribution.Exponential as S
 import System.Random.MWC
 
 -- State space of the Markov chain. The precision of the archer is measured as a
@@ -42,7 +42,7 @@ muTrue = 1.0
 
 -- Simulated distances from center.
 distances :: GenIO -> IO [Distance]
-distances = replicateM nArrows . genContVar (exponential muTrue)
+distances = replicateM nArrows . S.genContVar (S.exponential muTrue)
 
 -- Uninformative prior for positive precision values.
 pr :: Precision -> Log Double
@@ -54,7 +54,7 @@ pr x
 lh :: [Distance] -> Precision -> Log Double
 lh xs p
   | p <= 0 = 0
-  | otherwise = product [Exp $ logDensity (exponential p) x | x <- xs]
+  | otherwise = product [exponential p x | x <- xs]
 
 -- The proposal cycle consists of one proposal only. A uniform distribution is used to
 -- slide the precision of the archer.

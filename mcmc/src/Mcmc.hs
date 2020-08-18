@@ -133,6 +133,9 @@ module Mcmc
     module Mcmc.Monitor.Parameter,
     module Mcmc.Monitor.ParameterBatch,
 
+    -- * Probability distributions
+    module Mcmc.Probability,
+
     -- * Algorithms
 
     -- | At the moment, the library is tailored to the Metropolis-Hastings
@@ -150,6 +153,7 @@ import Mcmc.Metropolis
 import Mcmc.Monitor
 import Mcmc.Monitor.Parameter
 import Mcmc.Monitor.ParameterBatch
+import Mcmc.Probability
 import Mcmc.Proposal
 import Mcmc.Proposal.Bactrian
 import Mcmc.Proposal.Scale

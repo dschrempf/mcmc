@@ -1,6 +1,6 @@
 -- |
--- Module      :  Prior
--- Description :  Functions to compute standard priors
+-- Module      :  Probability
+-- Description :  Convenience functions to compute priors or posteriors
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -10,34 +10,40 @@
 --
 -- Creation date: Thu Jul 23 13:26:14 2020.
 --
--- This module provides prior distributions.
-module Prior
-  ( -- * Prior distributions
+-- Convenience functions to compute priors or posteriors.
+module Mcmc.Probability
+  ( -- * Continuous probability density functions
     positive,
     uniform,
     normal,
     exponential,
     gamma,
-    branchesWith,
+
+    -- * Discrete probability mass functions
+    -- No functions are available yet.
 
     -- * Auxiliary functions
     product',
   )
 where
 
-import ELynx.Data.Tree
 import Numeric.Log
 import qualified Statistics.Distribution as S
 import qualified Statistics.Distribution.Exponential as S
 import qualified Statistics.Distribution.Gamma as S
 import qualified Statistics.Distribution.Normal as S
 
--- | Larger than 0.
+-- | Improper uniform probability density function; larger than 0.
 positive :: Double -> Log Double
 positive x | x <= 0 = 0
            | otherwise = 1
 
--- | Uniform prior in [a, b].
+-- | Improper uniform probability density function; lower than 0.
+negative :: Double -> Log Double
+negative x | x >= 0 = 0
+           | otherwise = 1
+
+-- | Uniform probability density in [a, b].
 uniform ::
   -- | Lower bound a.
   Double ->
@@ -50,7 +56,7 @@ uniform a b x
   | x >= b = 0
   | otherwise = Exp 0
 
--- | Normal distributed prior.
+-- | Normal distributed density.
 normal ::
   -- | Mean.
   Double ->
@@ -61,7 +67,7 @@ normal ::
 normal m s x = Exp $ S.logDensity d x
   where d = S.normalDistr m s
 
--- | Exponentail prior.
+-- | Exponential distributed density.
 exponential ::
   -- | Rate.
   Double ->
@@ -71,7 +77,7 @@ exponential l x = Exp $ S.logDensity d x
   where
     d = S.exponential l
 
--- | Gamma distributed prior.
+-- | Gamma distributed density.
 gamma ::
   -- | Shape.
   Double ->
@@ -82,16 +88,6 @@ gamma ::
 gamma k t x = Exp $ S.logDensity d x
   where
     d = S.gammaDistr k t
-
--- | Branch length prior with given distribution.
---
--- Root branch is ignored!
-branchesWith ::
-  -- | Branch prior distribution.
-  (Double -> Log Double) ->
-  Tree Double a ->
-  Log Double
-branchesWith f = product . map f . tail . branches
 
 -- | Intelligent product that stops when encountering a zero.
 product' :: [Log Double] -> Log Double

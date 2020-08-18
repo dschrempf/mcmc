@@ -10,7 +10,8 @@
 --
 -- Creation date: Mon Jul 27 10:49:11 2020.
 module NodePrior
-  ( Path,
+  ( branchesWith,
+    Path,
     root,
     mrca,
     constrainHard,
@@ -29,6 +30,16 @@ import ELynx.Data.Tree
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
+
+-- | Branch length prior with given distribution.
+--
+-- Root branch is ignored!
+branchesWith ::
+  -- | Branch prior distribution.
+  (Double -> Log Double) ->
+  Tree Double a ->
+  Log Double
+branchesWith f = product . map f . tail . branches
 
 isAncestor :: Ord a => [a] -> Tree e a -> Bool
 isAncestor xs t = not $ any (`S.notMember` lvs) xs
