@@ -25,7 +25,6 @@ module Mcmc.Mcmc
     mcmcResetA,
     mcmcSummarizeCycle,
     mcmcReport,
-    mcmcMonitorStdOutHeader,
     mcmcMonitorExec,
     mcmcRun,
   )
@@ -183,14 +182,9 @@ mcmcReport = do
     Nothing -> return ()
   mcmcInfoS $ "Run chain for " <> show n <> " iterations."
   mcmcInfoT "Initial state."
-  mcmcMonitorStdOutHeader
-  mcmcMonitorExec
-
--- | Print header line of standard output monitor.
-mcmcMonitorStdOutHeader :: Mcmc a ()
-mcmcMonitorStdOutHeader = do
   m <- gets monitor
-  mcmcInfoA $ mcmcOutT $ mHeader m
+  mcmcInfoA $ mcmcOutT $ msHeader $ mStdOut m
+  mcmcMonitorExec
 
 -- Save the status of an MCMC run. See 'saveStatus'.
 mcmcSave :: ToJSON a => Mcmc a ()

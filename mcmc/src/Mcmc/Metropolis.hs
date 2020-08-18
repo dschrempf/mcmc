@@ -32,10 +32,20 @@ import Numeric.Log
 import System.Random.MWC
 import Prelude hiding (cycle)
 
--- For non-symmetric proposals.
+-- The Metropolis-Hastings ratio.
 --
--- q = qYX / qXY
+-- 'Infinity' if fX is zero. In this case, the proposal is always accepted.
+--
+-- 'NaN' if (fY or q) and fX are zero. In this case, the proposal is always
+-- rejected.
+
+-- There is a discrepancy between authors saying that one should (a) always
+-- accept the new state when the current posterior is zero (Chapter 4 of the
+-- Handbook of Markov Chain Monte Carlo), or (b) almost surely reject the
+-- proposal when either fY or q are zero (Chapter 1). Since I trust the author
+-- of Chapter 1 (Charles Geyer) I choose to follow option (b).
 mhRatio :: Log Double -> Log Double -> Log Double -> Log Double
+-- q = qYX / qXY
 mhRatio fX fY q = fY * q / fX
 {-# INLINE mhRatio #-}
 
@@ -91,14 +101,12 @@ mhBurnInN b (Just t)
   | t <= 0 = error "mhBurnInN: Auto tuning period smaller equal 0."
   | b > t = do
     mcmcResetA
-    mcmcMonitorStdOutHeader
     mhNIter t
     mcmcSummarizeCycle >>= mcmcDebugT
     mcmcAutotune
     mhBurnInN (b - t) (Just t)
   | otherwise = do
     mcmcResetA
-    mcmcMonitorStdOutHeader
     mhNIter b
     mcmcSummarizeCycle >>= mcmcInfoT
     mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
@@ -120,14 +128,15 @@ mhRun :: ToJSON a => Int -> Mcmc a ()
 mhRun n = do
   mcmcResetA
   mcmcInfoS $ "Run chain for " <> show n <> " iterations."
-  let (m, r) = n `quotRem` 100
-  -- Print header to standard output every 100 iterations.
-  replicateM_ m $ do
-    mcmcMonitorStdOutHeader
-    mhNIter 100
-  when (r > 0) $ do
-    mcmcMonitorStdOutHeader
-    mhNIter r
+  -- let (m, r) = n `quotRem` 100
+  -- -- Print header to standard output every 100 iterations.
+  -- replicateM_ m $ do
+  --   mcmcMonitorStdOutHeader
+  --   mhNIter 100
+  -- when (r > 0) $ do
+  --   mcmcMonitorStdOutHeader
+  --   mhNIter r
+  mhNIter n
 
 mhT :: ToJSON a => Mcmc a ()
 mhT = do

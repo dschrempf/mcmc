@@ -21,16 +21,15 @@ module Mcmc.Monitor
     MonitorBatch,
     monitorBatch,
 
-    -- * Use monitor
+    -- * Use monitors
+    msHeader,
     mOpen,
     mAppend,
-    mHeader,
     mExec,
     mClose,
   )
 where
 
-import Control.Concurrent.Async
 import Control.Monad
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -90,6 +89,7 @@ msRenderRow xs = alignRight msIWidth (head xs) <> BL.concat vals
   where
     vals = map (alignRight msWidth) (tail xs)
 
+-- | Print monitor header line to standard output.
 msHeader :: MonitorStdOut a -> BL.ByteString
 msHeader m = BL.intercalate "\n" [row, sep]
   where
@@ -101,17 +101,15 @@ msHeader m = BL.intercalate "\n" [row, sep]
     sep = "   " <> BL.replicate (BL.length row - 3) '-'
     nms = [BL.pack $ mpName p | p <- msParams m]
 
-msExec ::
+msDataLine ::
   Int ->
   Item a ->
   Int ->
   UTCTime ->
   Int ->
   MonitorStdOut a ->
-  IO (Maybe BL.ByteString)
-msExec i (Item x p l) ss st j m
-  | i `mod` msPeriod m /= 0 = return Nothing
-  | otherwise = do
+  IO BL.ByteString
+msDataLine i (Item x p l) ss st j m = do
     ct <- getCurrentTime
     let dt = ct `diffUTCTime` st
         -- Careful, don't evaluate this when i == ss.
@@ -124,12 +122,25 @@ msExec i (Item x p l) ss st j m
           if (i - ss) < 10
             then ""
             else renderDuration $ timePerIter * fromIntegral (j - i)
-    return $
-      Just $
-        msRenderRow $
+    return $ msRenderRow $
           [BL.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
             ++ [BB.toLazyByteString $ mpFunc mp x | mp <- msParams m]
             ++ [renderDuration dt, eta]
+
+msExec ::
+  Int ->
+  Item a ->
+  Int ->
+  UTCTime ->
+  Int ->
+  MonitorStdOut a ->
+  IO (Maybe BL.ByteString)
+msExec i it ss st j m
+  | i `mod` msPeriod m /= 0 = return Nothing
+  | i `mod` (msPeriod m * 100) == 0 = do
+      l <- msDataLine i it ss st j m
+      return $ Just $ msHeader m <> "\n" <> l
+  | otherwise = Just <$> msDataLine i it ss st j m
 
 -- | Monitor to a file; constructed with 'monitorFile'.
 data MonitorFile a = MonitorFile
@@ -340,9 +351,9 @@ mAppend n (Monitor s fs bs) = do
   bs' <- mapM (mbAppend n) bs
   return $ Monitor s fs' bs'
 
--- | Get header line of 'MonitorStdOut'.
-mHeader :: Monitor a -> BL.ByteString
-mHeader (Monitor s _ _) = msHeader s
+-- -- | Get header line of 'MonitorStdOut'.
+-- mHeader :: Monitor a -> BL.ByteString
+-- mHeader (Monitor s _ _) = msHeader s
 
 -- | Execute monitors; print status information to files and return text to be
 -- printed to standard output and log file.
@@ -363,15 +374,11 @@ mExec ::
   Monitor a ->
   IO (Maybe BL.ByteString)
 mExec v i ss st xs j (Monitor s fs bs) = do
-  -- XXX: I am not sure if this concurrency is necessary.
-  mf <- async $ mapConcurrently_ (mfExec i $ headT xs) fs
-  mb <- async $ mapConcurrently_ (mbExec i xs) bs
-  ms <- async $ if v == Quiet
-                then return Nothing
-                else msExec i (headT xs) ss st j s
-  wait mf
-  wait mb
-  wait ms
+  mapM_ (mfExec i $ headT xs) fs
+  mapM_ (mbExec i xs) bs
+  if v == Quiet
+    then return Nothing
+    else msExec i (headT xs) ss st j s
 
 -- | Close the files associated with the 'Monitor'.
 mClose :: Monitor a -> IO (Monitor a)

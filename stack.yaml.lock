@@ -12,26 +12,26 @@ packages:
   original:
     hackage: pava-0.1.0.0
 - completed:
-    hackage: elynx-nexus-0.3.2@sha256:69bf36459a6705541809df73cc7e3cc8cf9dae6c3bee3e3f1fd97bf9e511123d,1315
+    hackage: elynx-nexus-0.3.3@sha256:6c92ba8f9b6d8890b2ac9135c5274578229161f71cfb3af37963cfb6dd3bebfa,1315
     pantry-tree:
       size: 394
-      sha256: c7764abb9eddee87887bcfa3a83d2228c4bc26ce67f1c697e8a48a3c095611c4
+      sha256: 0d505e5f21fc0de0846753bbe34ed1e3b50a636d881ea823a7c55e19238b70d9
   original:
-    hackage: elynx-nexus-0.3.2
+    hackage: elynx-nexus-0.3.3
 - completed:
-    hackage: elynx-tools-0.3.2@sha256:899f638d0b259e08109c9f6564816f63c3f273a2f665074ac129307df1b02cad,1615
+    hackage: elynx-tools-0.3.3@sha256:9204ff5065e6b369ee5a2e7164fe0d91f2063878616f65acba8ba96d99b271c1,1615
     pantry-tree:
       size: 1089
-      sha256: dd57b6b5205bafa63ab51261e3f55394dc1f9843818a7a7f010d187953975b0f
+      sha256: 7b99443b9eec86dbc883c10a99af0e9d793b40bbfeeb8ea9b1e5160f7049b688
   original:
-    hackage: elynx-tools-0.3.2
+    hackage: elynx-tools-0.3.3
 - completed:
-    hackage: elynx-tree-0.3.2@sha256:8ab1414f7659ab6948cfa39c468fd39d35bb1c7965ff29fc02f9581f391f8e45,3153
+    hackage: elynx-tree-0.3.3@sha256:2209376e310a57149bd9cb5c6fb6a483dbc2c04073f9b0115058739376bd9fba,3598
     pantry-tree:
-      size: 3205
-      sha256: fd48a1d3ca2ea913a5bdf31f2b6a4b57bbe20e33a8ec5ea46601b7395ece692c
+      size: 4253
+      sha256: a40528689aefa21fbf2eaa2e68936db3e1fe30605917a981fcdaccd2d4cc1267
   original:
-    hackage: elynx-tree-0.3.2
+    hackage: elynx-tree-0.3.3
 snapshots:
 - completed:
     size: 524160
