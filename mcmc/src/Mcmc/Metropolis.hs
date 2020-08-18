@@ -141,8 +141,8 @@ mhRun n = do
 mhT :: ToJSON a => Mcmc a ()
 mhT = do
   mcmcInfoT "Metropolis-Hastings sampler."
-  mcmcReport
   mcmcSummarizeCycle >>= mcmcInfoT
+  mcmcReport
   s <- get
   let b = fromMaybe 0 (burnInIterations s)
   mhBurnIn b (autoTuningPeriod s)

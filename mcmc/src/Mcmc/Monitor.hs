@@ -22,7 +22,6 @@ module Mcmc.Monitor
     monitorBatch,
 
     -- * Use monitors
-    msHeader,
     mOpen,
     mAppend,
     mExec,
@@ -89,7 +88,6 @@ msRenderRow xs = alignRight msIWidth (head xs) <> BL.concat vals
   where
     vals = map (alignRight msWidth) (tail xs)
 
--- | Print monitor header line to standard output.
 msHeader :: MonitorStdOut a -> BL.ByteString
 msHeader m = BL.intercalate "\n" [row, sep]
   where

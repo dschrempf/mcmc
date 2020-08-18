@@ -182,8 +182,6 @@ mcmcReport = do
     Nothing -> return ()
   mcmcInfoS $ "Run chain for " <> show n <> " iterations."
   mcmcInfoT "Initial state."
-  m <- gets monitor
-  mcmcInfoA $ mcmcOutT $ msHeader $ mStdOut m
   mcmcMonitorExec
 
 -- Save the status of an MCMC run. See 'saveStatus'.
