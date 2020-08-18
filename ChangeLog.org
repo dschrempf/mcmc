@@ -1,6 +1,6 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
-- Probability densities.
+- Priors.
 - Remove concurrent monitors (was slow).
 - Improve MCMC sampler output.
 

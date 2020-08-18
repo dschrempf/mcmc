@@ -61,12 +61,7 @@ executable plh
 executable plh-multivariate
   main-is: Main.hs
   other-modules:
-      BirthDeathPrior
       Calibration
-      MonitorTree
-      NodePrior
-      ProposalTree
-      Tree
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples
@@ -76,7 +71,6 @@ executable plh-multivariate
   build-depends:
       aeson
     , algebraic-graphs
-    , attoparsec
     , base >=4.7 && <5
     , bytestring
     , bytestring-conversion
@@ -89,11 +83,11 @@ executable plh-multivariate
     , lens
     , log-domain
     , mcmc
+    , mcmc-tree
     , mwc-random
     , parallel
     , primitive
     , statistics
     , vector
     , zippers
-    , zlib
   default-language: Haskell2010

@@ -4,6 +4,10 @@
 
 ## Unreleased changes
 
+-   Priors.
+-   Remove concurrent monitors (was slow).
+-   Improve MCMC sampler output.
+
 
 ## 0.2.2
 

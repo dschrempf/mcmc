@@ -44,11 +44,9 @@ muTrue = 1.0
 distances :: GenIO -> IO [Distance]
 distances = replicateM nArrows . S.genContVar (S.exponential muTrue)
 
--- Uninformative prior for positive precision values.
+-- Uninformative, improper prior for positive precision values.
 pr :: Precision -> Log Double
-pr x
-  | x <= 0 = 0
-  | otherwise = Exp 0
+pr = positive
 
 -- Likelihood function.
 lh :: [Distance] -> Precision -> Log Double

@@ -1,0 +1,48 @@
+cabal-version:       2.2
+name:                mcmc-tree
+version:             0.2.2
+synopsis:            Markov chain Monte Carlo sampling with trees
+description:         Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
+category:            Math, Statistics
+homepage:            https://github.com/dschrempf/mcmc#readme
+bug-reports:         https://github.com/dschrempf/mcmc/issues
+author:              Dominik Schrempf
+maintainer:          dominik.schrempf@gmail.com
+copyright:           Dominik Schrempf (2020)
+license:             GPL-3.0-or-later
+build-type:          Simple
+
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+library
+  exposed-modules:
+      Mcmc.Tree
+  other-modules:
+      Mcmc.Tree.Import
+      Mcmc.Tree.Monitor
+      Mcmc.Tree.Prior.BirthDeath
+      Mcmc.Tree.Prior.Branch
+      Mcmc.Tree.Prior.Node
+      Mcmc.Tree.Proposal
+      Paths_mcmc_tree
+  autogen-modules:
+      Paths_mcmc_tree
+  hs-source-dirs:
+      src
+  ghc-options: -Wall
+  build-depends:
+      attoparsec
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , elynx-tree
+    , lens
+    , log-domain
+    , mcmc
+    , mwc-random
+    , primitive
+    , statistics
+    , zlib
+  default-language:  Haskell2010

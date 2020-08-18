@@ -32,7 +32,7 @@ library
       Mcmc.Monitor.Parameter
       Mcmc.Monitor.ParameterBatch
       Mcmc.Monitor.Time
-      Mcmc.Probability
+      Mcmc.Prior
       Mcmc.Proposal
       Mcmc.Proposal.Bactrian
       Mcmc.Proposal.Generic

@@ -59,14 +59,10 @@ import ELynx.Export.Tree.Newick
 
 -- Mcmc library.
 import Mcmc
+import Mcmc.Tree
 
 -- Local libraries provided together with this module.
-import BirthDeathPrior
 import Calibration
-import NodePrior
-import MonitorTree
-import ProposalTree
-import Tree
 {- ORMOLU_ENABLE -}
 
 

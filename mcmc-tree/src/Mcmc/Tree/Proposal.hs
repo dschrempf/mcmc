@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 -- |
--- Module      :  ProposalTree
+-- Module      :  Mcmc.Tree.Proposal
 -- Description :  Proposals on trees
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -11,7 +11,7 @@
 -- Portability :  portable
 --
 -- Creation date: Thu Jul 23 09:10:07 2020.
-module ProposalTree
+module Mcmc.Tree.Proposal
   ( rootLabel,
 
     -- * Nodes

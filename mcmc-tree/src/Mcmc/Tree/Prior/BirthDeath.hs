@@ -1,5 +1,5 @@
 -- |
--- Module      :  BirthDeathPrior
+-- Module      :  Mcmc.Tree.Prior.BirthDeath
 -- Description :  Calculate probability of a tree assuming birth and death process
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -9,7 +9,7 @@
 -- Portability :  portable
 --
 -- Creation date: Tue Aug  4 20:37:11 2020.
-module BirthDeathPrior
+module Mcmc.Tree.Prior.BirthDeath
   ( birthDeath,
   )
 where

@@ -1,5 +1,5 @@
 -- |
--- Module      :  MonitorTree
+-- Module      :  Mcmc.Tree.Monitor
 -- Description :  Monitors for trees
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -9,7 +9,7 @@
 -- Portability :  portable
 --
 -- Creation date: Sat Jul 25 14:06:14 2020.
-module MonitorTree
+module Mcmc.Tree.Monitor
   ( monitorTree,
     monitorTreeWith,
   )

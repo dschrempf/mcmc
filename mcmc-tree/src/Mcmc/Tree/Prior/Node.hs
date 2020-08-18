@@ -1,5 +1,5 @@
 -- |
--- Module      :  NodePrior
+-- Module      :  Mcmc.Tree.Prior.Node
 -- Description :  Relative node order constraints and node calibrations
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -9,9 +9,8 @@
 -- Portability :  portable
 --
 -- Creation date: Mon Jul 27 10:49:11 2020.
-module NodePrior
-  ( branchesWith,
-    Path,
+module Mcmc.Tree.Prior.Node
+  ( Path,
     root,
     mrca,
     constrainHard,
@@ -22,24 +21,14 @@ module NodePrior
   )
 where
 
+import Control.Monad
 import Data.List
 import Data.Maybe
-import Control.Monad
 import qualified Data.Set as S
 import ELynx.Data.Tree
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
-
--- | Branch length prior with given distribution.
---
--- Root branch is ignored!
-branchesWith ::
-  -- | Branch prior distribution.
-  (Double -> Log Double) ->
-  Tree Double a ->
-  Log Double
-branchesWith f = product . map f . tail . branches
 
 isAncestor :: Ord a => [a] -> Tree e a -> Bool
 isAncestor xs t = not $ any (`S.notMember` lvs) xs
@@ -116,9 +105,10 @@ constrainSoft s y o t
   | o `isPrefixOf` y = error "constrain: No need to constrain old node which is direct ancestor of young node."
   | hY < hO = 1
   | otherwise = Exp $ logDensity d (hY - hO) - logDensity d 0
-  where hY = getHeightFromNode y t
-        hO = getHeightFromNode o t
-        d = normalDistr 0 s
+  where
+    hY = getHeightFromNode y t
+    hO = getHeightFromNode o t
+    d = normalDistr 0 s
 
 -- | Calibrate height of a node with given path using the normal distribution.
 --
@@ -146,10 +136,12 @@ calibrateUniform ::
   Path ->
   Tree Double Double ->
   Log Double
-calibrateUniform a b p t | h > b = 0
-                         | h < a = 0
-                         | otherwise = 1
-  where h = getHeightFromNode p t
+calibrateUniform a b p t
+  | h > b = 0
+  | h < a = 0
+  | otherwise = 1
+  where
+    h = getHeightFromNode p t
 
 -- | Calibrate height of a node with given path.
 --
@@ -172,8 +164,10 @@ calibrateUniformSoft ::
   Path ->
   Tree Double Double ->
   Log Double
-calibrateUniformSoft s a b p t | h > b = Exp $ logDensity d (h - b) - logDensity d 0
-                               | h < a = Exp $ logDensity d (a - h) - logDensity d 0
-                               | otherwise = 1
-  where h = getHeightFromNode p t
-        d = normalDistr 0 s
+calibrateUniformSoft s a b p t
+  | h > b = Exp $ logDensity d (h - b) - logDensity d 0
+  | h < a = Exp $ logDensity d (a - h) - logDensity d 0
+  | otherwise = 1
+  where
+    h = getHeightFromNode p t
+    d = normalDistr 0 s

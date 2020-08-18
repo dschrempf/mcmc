@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |
--- Module      :  Tree
+-- Module      :  Mcmc.Tree.Import
 -- Description :  Markov chain Monte Carlo sampling on trees
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -13,7 +13,7 @@
 -- Portability :  portable
 --
 -- Creation date: Fri Jul  3 09:05:09 2020.
-module Tree
+module Mcmc.Tree.Import
   ( oneTree,
     someTrees,
   )
