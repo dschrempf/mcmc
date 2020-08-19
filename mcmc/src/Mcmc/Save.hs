@@ -153,7 +153,7 @@ fromSave p l c m (Save nm it i tr ac' br at is f sv vb g' ts) =
 -- - cycle
 -- - monitor
 --
--- To avoid incomplete continued runs, the 'mcmc' file is removed after load.
+-- To avoid incomplete continued runs, the @.mcmc@ file is removed after load.
 loadStatus ::
   FromJSON a =>
   (a -> Log Double) ->

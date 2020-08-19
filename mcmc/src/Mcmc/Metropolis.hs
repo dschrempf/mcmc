@@ -156,6 +156,14 @@ mhContinueT dn = do
   mhRun dn
 
 -- | Continue a Markov chain for a given number of Metropolis-Hastings steps.
+--
+-- At the moment, when an MCMC run is continued, the old @.mcmc@ file is
+-- deleted. This behavior may change in the future.
+--
+-- This means that an interrupted continuation also breaks previous runs. This
+-- step is necessary because, otherwise, incomplete monitor files are left on
+-- disk, if a continuation is canceled. Subsequent continuations would append to
+-- the incomplete monitor files and produce garbage.
 mhContinue ::
   ToJSON a =>
   -- | Additional number of Metropolis-Hastings steps.

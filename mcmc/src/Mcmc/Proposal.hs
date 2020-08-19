@@ -4,11 +4,6 @@
 
 -- TODO: Proposals on simplices: SimplexElementScale (?).
 
--- TODO: Proposals on tree topologies.
--- - NNI
--- - Narrow (what is this, see RevBayes)
--- - FNPR (dito)
-
 -- |
 -- Module      :  Mcmc.Proposal
 -- Description :  Proposals and cycles
