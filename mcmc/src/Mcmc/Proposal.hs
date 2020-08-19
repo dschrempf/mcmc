@@ -92,7 +92,7 @@ instance Ord (Proposal a) where
 -- For example:
 --
 -- @
--- scaleFirstEntryOfTuple = scale >>> _1
+-- scaleFirstEntryOfTuple = _1 @~ scale
 -- @
 (@~) :: Lens' b a -> Proposal a -> Proposal b
 (@~) l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
