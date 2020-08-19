@@ -1,5 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
-
 -- |
 -- Module      :  Mcmc.Tree.Proposal
 -- Description :  Proposals on trees
@@ -33,6 +31,7 @@ import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Slide
+import Mcmc.Tree.Lens
 import Numeric.Log
 import Statistics.Distribution.Gamma
 import System.Random.MWC
@@ -42,30 +41,15 @@ import System.Random.MWC.Distributions
 eps :: Double
 eps = 1e-8
 
--- TODO: Do not use Lens, but Microlens.
-
--- TODO: Provide a proper module with lenses.
-
--- Lens to a specific node.
-nodeAt :: [Int] -> Lens' (Tree e a) (Tree e a)
-nodeAt pth =
-  lens
-    (current . unsafeGoPath pth . fromTree)
-    ( \t t' ->
-        let pos = unsafeGoPath pth $ fromTree t
-         in toTree $ pos {current = t'}
-    )
-
--- -- | Lens to the label of the root node.
--- rootLabel :: Lens' (Tree e a) a
--- rootLabel = lens label (\(Node br _ ts) lb -> Node br lb ts)
-
--- | Lens to the branch of the root node.
-rootBranch :: Lens' (Tree e a) e
-rootBranch = lens branch (\(Node _ lb ts) br -> Node br lb ts)
-
 -- Be careful, this will loop forever if the parameters are not well chosen.
-truncatedNormal :: PrimMonad m => Double -> Double -> Double -> Double -> Gen (PrimState m) -> m Double
+truncatedNormal ::
+  PrimMonad m =>
+  Double ->
+  Double ->
+  Double ->
+  Double ->
+  Gen (PrimState m) ->
+  m Double
 truncatedNormal a b m s g = do
   x' <- normal m s g
   case x' of
@@ -111,7 +95,7 @@ slideRootWithHeightSimple ds t = ProposalSimple $ slideRootWithHeightSample ds t
 -- respecitvely.
 slideNodeWithHeight ::
   -- | Path to node on tree.
-  [Int] ->
+  Path ->
   -- | Name.
   String ->
   -- | Weight.
@@ -131,7 +115,7 @@ slideNodeWithHeight pth n w ds t = nodeAt pth @~ createProposal n w (slideRootWi
 -- The branch to scale is specified by a path to a node.
 scaleBranch ::
   -- | Path to node on tree.
-  [Int] ->
+  Path ->
   -- | Name.
   String ->
   -- | Weight.
@@ -150,7 +134,7 @@ scaleBranch pth n w s t = (nodeAt pth . rootBranch) @~ scaleUnbiased n w s t
 -- The branch to slide is specified by a path to a node.
 slideBranch ::
   -- | Path to node on tree.
-  [Int] ->
+  Path ->
   -- | Name.
   String ->
   -- | Weight.

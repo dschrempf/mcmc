@@ -21,6 +21,7 @@ library
       Mcmc.Tree
   other-modules:
       Mcmc.Tree.Import
+      Mcmc.Tree.Lens
       Mcmc.Tree.Monitor
       Mcmc.Tree.Prior.BirthDeath
       Mcmc.Tree.Prior.Branch

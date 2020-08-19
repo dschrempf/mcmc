@@ -26,6 +26,7 @@ import Data.List
 import Data.Maybe
 import qualified Data.Set as S
 import ELynx.Data.Tree
+import Mcmc.Tree.Lens
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
@@ -37,12 +38,6 @@ isAncestor xs t = not $ any (`S.notMember` lvs) xs
 
 isMrca :: Ord a => [a] -> Tree e a -> Bool
 isMrca xs t = isAncestor xs t && all (not . isAncestor xs) (forest t)
-
--- | Path from the root of a tree to the node of the tree.
---
--- The position is specific to a tree topology. If the topology changes, the
--- position becomes invalid.
-type Path = [Int]
 
 -- | The position of the root.
 root :: Path
