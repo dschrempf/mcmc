@@ -6,8 +6,7 @@
 Sample from a posterior using Markov chain Monte Carlo methods.
 
 At the moment, the library is tailored to the Metropolis-Hastings algorithm
-since it covers most use cases. However, implementation of more algorithms is
-planned in the future.
+since it covers most use cases. More algorithms will be implemented soon.
 
 
 ## Documentation
