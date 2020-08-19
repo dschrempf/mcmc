@@ -46,13 +46,38 @@ computeDE la mu dt e0 = (a / b / b, c / b)
     c = mu * e' + y
 {-# INLINE computeDE #-}
 
+-- Compute probabilities D and E at the top of the branch for la ~= mu.
+--
+-- Correct results:
+-- >>> computeDENearCritical 1.2 3.2 1.0 0.3
+-- (7.283127121752474e-2,0.9305035687810801)
+computeDENearCritical ::
+  -- Lambda.
+  Double ->
+  -- Mu.
+  Double ->
+  -- Branch length.
+  Double ->
+  -- E at bottom of branch.
+  Double ->
+  -- D, E.
+  (Double, Double)
+computeDENearCritical la mu dt e0 = (a / b / b, c / b)
+  where
+    d = la - mu
+    y = mu - e0 * la
+    a = 1 - d * dt
+    c = e0 + y * dt
+    b = 1 + y * dt
+{-# INLINE computeDENearCritical #-}
+
 -- Require near critical process if birth and death rates are closer than this value.
 epsNearCritical :: Double
-epsNearCritical = 1e-5
+epsNearCritical = 1e-6
 
--- -- Require critical process if birth and death rates are closer than this value.
--- eps :: Double
--- eps = 1e-12
+-- Require critical process if birth and death rates are closer than this value.
+epsCritical :: Double
+epsCritical = 1e-12
 
 -- | Birth and death prior.
 --
@@ -74,23 +99,29 @@ birthDeath ::
   Double ->
   Tree Double a ->
   Log Double
--- TODO: Check for critical and nearly critical process.
 birthDeath la mu
   | la < 0.0 = error "birthDeath: Birth rate lambda is negative."
   | mu < 0.0 = error "birthDeath: Death rate mu is negative."
-  -- -- | epsNearCritical > abs (la - mu) = error "birthDeath: Birth and death rate are too close."
-  -- TODO. For now, set lh to 0.
-  | epsNearCritical > abs (la - mu) = const 0
-  | otherwise = fst . birthDeath' la mu (Exp $ log la)
+  -- TODO: Critical process.
+  | epsCritical > abs (la - mu) =
+    error "birthDeath: Birth and death rate are too close. The critical birth and death process is not yet implemented."
+  | epsNearCritical > abs (la - mu) = fst . birthDeathWith' computeDENearCritical la mu (Exp $ log la)
+  | otherwise = fst . birthDeathWith' computeDE la mu (Exp $ log la)
 
-birthDeath' :: Double -> Double -> Log Double -> Tree Double a -> (Log Double, Double)
-birthDeath' la mu _ (Node br _ []) = first (Exp . log) $ computeDE la mu br 0
-birthDeath' la mu logLa (Node br _ [l, r]) = ((Exp $ log dT) * dL * dR * logLa, eT)
+birthDeathWith' ::
+  (Double -> Double -> Double -> Double -> (Double, Double)) ->
+  Double ->
+  Double ->
+  Log Double ->
+  Tree Double a ->
+  (Log Double, Double)
+birthDeathWith' f la mu _ (Node br _ []) = first (Exp . log) $ f la mu br 0
+birthDeathWith' f la mu logLa (Node br _ [l, r]) = ((Exp $ log dT) * dL * dR * logLa, eT)
   where
-    (dL, eL) = birthDeath' la mu logLa l
-    (dR, eR) = birthDeath' la mu logLa r
-    (dT, eT) = computeDE la mu br (eL * eR)
-birthDeath' _ _ _ _ = error "birthDeath: Tree is not bifurcating."
+    (dL, eL) = birthDeathWith' f la mu logLa l
+    (dR, eR) = birthDeathWith' f la mu logLa r
+    (dT, eT) = f la mu br (eL * eR)
+birthDeathWith' _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 
 -- Tests
 
