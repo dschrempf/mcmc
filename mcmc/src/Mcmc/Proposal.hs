@@ -29,7 +29,7 @@ module Mcmc.Proposal
     Cycle (ccProposals),
     fromList,
     setOrder,
-    getNCycles,
+    getNIterations,
     tuneCycle,
     autotuneCycle,
     summarizeCycle,
@@ -72,7 +72,7 @@ data Proposal a = Proposal
     -- | The weight determines how often a 'Proposal' is executed per iteration of
     -- the Markov chain.
     pWeight :: Int,
-    -- | Simple proposal without tuning information.
+    -- | Simple proposal without name, weight, and tuning information.
     pSimple :: ProposalSimple a,
     -- | Tuning is disabled if set to 'Nothing'.
     pTuner :: Maybe (Tuner a)
@@ -87,9 +87,6 @@ instance Eq (Proposal a) where
 instance Ord (Proposal a) where
   compare = compare `on` pName
 
-convertP :: Lens' b a -> Proposal a -> Proposal b
-convertP l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
-
 -- | Convert a proposal from one data type to another using a lens.
 --
 -- For example:
@@ -98,7 +95,7 @@ convertP l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
 -- scaleFirstEntryOfTuple = scale >>> _1
 -- @
 (@~) :: Lens' b a -> Proposal a -> Proposal b
-(@~) = convertP
+(@~) l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
 
 -- | Simple proposal without tuning information.
 --
@@ -162,10 +159,9 @@ tune dt m
     let t' = max tuningParamMin (t * dt)
     return $ m {pSimple = f t', pTuner = Just $ Tuner t' f}
 
--- XXX: The desired acceptance ratio 0.44 is optimal for one-dimensional
--- proposals; one could also store the affected number of dimensions with the
--- proposal and tune towards an acceptance ratio accounting for the number of
--- dimensions.
+-- The desired acceptance ratio 0.44 is optimal for one-dimensional proposals;
+-- one could also store the affected number of dimensions with the proposal and
+-- tune towards an acceptance ratio accounting for the number of dimensions.
 --
 -- The optimal ratios seem to be:
 -- - One dimension: 0.44 (numerical result).
@@ -201,10 +197,12 @@ data Order
 
 instance Default Order where def = RandomO
 
--- | In brief, a 'Cycle' is a list of proposals. The state of the Markov chain will
--- be logged only after all 'Proposal's in the 'Cycle' have been completed, and the
--- iteration counter will be increased by one. The order in which the 'Proposal's
--- are executed is specified by 'Order'. The default is 'RandomO'.
+-- | In brief, a 'Cycle' is a list of proposals.
+--
+-- The state of the Markov chain will be logged only after all 'Proposal's in
+-- the 'Cycle' have been completed, and the iteration counter will be increased
+-- by one. The order in which the 'Proposal's are executed is specified by
+-- 'Order'. The default is 'RandomO'.
 --
 -- __Proposals must have unique names__, so that they can be identified.
 data Cycle a = Cycle
@@ -228,8 +226,8 @@ setOrder :: Order -> Cycle a -> Cycle a
 setOrder o c = c {ccOrder = o}
 
 -- | Replicate 'Proposal's according to their weights and possibly shuffle them.
-getNCycles :: Cycle a -> Int -> GenIO -> IO [[Proposal a]]
-getNCycles (Cycle xs o) n g = case o of
+getNIterations :: Cycle a -> Int -> GenIO -> IO [[Proposal a]]
+getNIterations (Cycle xs o) n g = case o of
   RandomO -> shuffleN ps n g
   SequentialO -> return $ replicate n ps
   RandomReversibleO -> do

@@ -15,6 +15,7 @@ module Mcmc.Proposal.Slide
   ( slide,
     slideSymmetric,
     slideUniform,
+    slideContrarily,
   )
 where
 
@@ -25,7 +26,7 @@ import Statistics.Distribution.Uniform
 
 -- The actual proposal with tuning parameter.
 slideSimple :: Double -> Double -> Double -> ProposalSimple Double
-slideSimple m s t = proposalGenericContinuous (normalDistr m (s * t)) (+) (Just negate)
+slideSimple m s t = genericContinuous (normalDistr m (s * t)) (+) (Just negate)
 
 -- | Additive proposal with normally distributed kernel.
 slide ::
@@ -44,7 +45,7 @@ slide n w m s = createProposal n w (slideSimple m s)
 
 -- The actual proposal with tuning parameter.
 slideSymmetricSimple :: Double -> Double -> ProposalSimple Double
-slideSymmetricSimple s t = proposalGenericContinuous (normalDistr 0.0 (s * t)) (+) Nothing
+slideSymmetricSimple s t = genericContinuous (normalDistr 0.0 (s * t)) (+) Nothing
 
 -- | Additive proposal with normally distributed kernel with mean zero. This
 -- proposal is very fast, because the Metropolis-Hastings ratio does not include
@@ -64,7 +65,7 @@ slideSymmetric n w s = createProposal n w (slideSymmetricSimple s)
 -- The actual proposal with tuning parameter.
 slideUniformSimple :: Double -> Double -> ProposalSimple Double
 slideUniformSimple d t =
-  proposalGenericContinuous (uniformDistr (- t * d) (t * d)) (+) Nothing
+  genericContinuous (uniformDistr (- t * d) (t * d)) (+) Nothing
 
 -- | Additive proposal with uniformly distributed kernel. This proposal is very fast,
 -- because the Metropolis-Hastings ratio does not include calculation of the
@@ -80,3 +81,27 @@ slideUniform ::
   Bool ->
   Proposal Double
 slideUniform n w d = createProposal n w (slideUniformSimple d)
+
+contra :: (Double, Double) -> Double -> (Double, Double)
+contra (x, y) d = (x + d, y - d)
+
+slideContrarilySimple :: Double -> Double -> Double -> ProposalSimple (Double, Double)
+slideContrarilySimple m s t = genericContinuous (normalDistr m (s * t)) contra (Just negate)
+
+-- | Additive proposal with normally distributed kernel.
+--
+-- The two values are slid contrarily so that their sum stays constant. Contrary
+-- proposals are useful when parameters are confounded.
+slideContrarily ::
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
+  -- | Mean.
+  Double ->
+  -- | Standard deviation.
+  Double ->
+  -- | Enable tuning.
+  Bool ->
+  Proposal (Double, Double)
+slideContrarily n w m s = createProposal n w (slideContrarilySimple m s)

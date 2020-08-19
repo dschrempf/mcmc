@@ -92,7 +92,7 @@ mhNIter n = do
   mcmcDebugS $ "Run " <> show n <> " iterations."
   c <- gets cycle
   g <- gets generator
-  cycles <- liftIO $ getNCycles c n g
+  cycles <- liftIO $ getNIterations c n g
   forM_ cycles mhIter
 
 -- Burn in and auto tune.

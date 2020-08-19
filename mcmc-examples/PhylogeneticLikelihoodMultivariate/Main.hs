@@ -276,6 +276,11 @@ proposalsRateTree t =
   where
     n x = "rate tree scale branch " ++ show x
 
+-- Lens to the tree tuple; useful to create a contrary proposal scaling both
+-- trees in opposite directions.
+trLens :: Lens' I (Tree Double Double, Tree Double ())
+trLens = lens (\x -> (_timeTree x, _rateTree x)) (\x (t, r) -> x {_timeTree = t, _rateTree = r})
+
 -- The complete cycle includes slide proposals of higher weights for the other
 -- parameters.
 ccl :: Show a => Tree e a -> Cycle I
@@ -285,8 +290,9 @@ ccl t =
       timeDeathRate @~ scaleUnbiased "time death rate" 10 40 True,
       rateGammaShape @~ scaleUnbiased "rate gamma shape" 10 50 True,
       rateGammaScale @~ scaleUnbiased "rate gamma scale" 10 50 True,
-      timeTree @~ scaleTreeWithHeight "time tree" 10 150 True,
-      rateTree @~ scaleTree "rate tree" 10 40 True
+      timeTree @~ scaleTreeWithHeight "time tree" 10 3000 True,
+      rateTree @~ scaleTree "rate tree" 10 40 True,
+      trLens @~ scaleTreesContrarily "time/rate tree contra" 10 3000 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
@@ -474,21 +480,20 @@ main = do
       -- Construct the status of the Markov chain.
       let s =
             force $
-              debug $
-                saveWith 1 $
-                  -- Have a look at the 'status' function to understand the
-                  -- different parameters.
-                  status
-                    "plh-multivariate"
-                    pr'
-                    lh'
-                    ccl'
-                    mon
-                    start
-                    nBurnIn
-                    nAutoTune
-                    nIterations
-                    g
+              saveWith 1 $
+                -- Have a look at the 'status' function to understand the
+                -- different parameters.
+                status
+                  "plh-multivariate"
+                  pr'
+                  lh'
+                  ccl'
+                  mon
+                  start
+                  nBurnIn
+                  nAutoTune
+                  nIterations
+                  g
       -- Run the Markov chain.
       void $ mh s
     ["continue", n] -> do

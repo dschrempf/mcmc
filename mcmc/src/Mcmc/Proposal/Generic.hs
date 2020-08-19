@@ -1,8 +1,3 @@
--- Technically, only a Getter is needed when calculating the kernel of the proposal
--- ('kernelCont', and similar functions). I tried splitting the lens into a getter
--- and a setter. However, speed improvements were marginal, and some times not
--- even measurable. Using a 'Lens'' is just easier, and has no real drawbacks.
-
 -- |
 -- Module      :  Mcmc.Proposal.Generic
 -- Description :  Generic interface to create proposals
@@ -15,8 +10,8 @@
 --
 -- Creation date: Thu May 14 20:26:27 2020.
 module Mcmc.Proposal.Generic
-  ( proposalGenericContinuous,
-    proposalGenericDiscrete,
+  ( genericContinuous,
+    genericDiscrete,
   )
 where
 
@@ -45,7 +40,7 @@ sampleCont d f mfInv x g = do
 {-# INLINEABLE sampleCont #-}
 
 -- | Generic function to create proposals for continuous parameters ('Double').
-proposalGenericContinuous ::
+genericContinuous ::
   (ContDistr d, ContGen d) =>
   -- | Probability distribution
   d ->
@@ -55,7 +50,7 @@ proposalGenericContinuous ::
   -- required for biased proposals.
   Maybe (Double -> Double) ->
   ProposalSimple a
-proposalGenericContinuous d f fInv = ProposalSimple $ sampleCont d f fInv
+genericContinuous d f fInv = ProposalSimple $ sampleCont d f fInv
 
 sampleDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
@@ -77,7 +72,7 @@ sampleDiscrete d f mfInv x g = do
 {-# INLINEABLE sampleDiscrete #-}
 
 -- | Generic function to create proposals for discrete parameters ('Int').
-proposalGenericDiscrete ::
+genericDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
   -- | Probability distribution.
   d ->
@@ -87,4 +82,4 @@ proposalGenericDiscrete ::
   -- required for biased proposals.
   Maybe (Int -> Int) ->
   ProposalSimple a
-proposalGenericDiscrete fd f fInv = ProposalSimple $ sampleDiscrete fd f fInv
+genericDiscrete fd f fInv = ProposalSimple $ sampleDiscrete fd f fInv

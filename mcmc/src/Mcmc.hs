@@ -71,7 +71,7 @@ module Mcmc
     --
     -- @
     -- slideSimple :: Lens' a Double -> Double -> Double -> Double -> ProposalSimple a
-    -- slideSimple l m s t = proposalGenericContinuous l (normalDistr m (s * t)) (+) (-)
+    -- slideSimple l m s t = genericContinuous l (normalDistr m (s * t)) (+) (-)
     -- @
     --
     -- This specification is more involved. Especially since we need to know the

@@ -25,6 +25,7 @@ module Mcmc.Tree.Proposal
     -- * Trees
     scaleTree,
     scaleTreeWithHeight,
+    scaleTreesContrarily,
   )
 where
 
@@ -87,7 +88,7 @@ slideRootWithHeightSample ds t (Node br lb ts) g = do
 slideRootWithHeightSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
 slideRootWithHeightSimple ds t = ProposalSimple $ slideRootWithHeightSample ds t
 
--- | Slide a node on a tree.
+-- | Slide a node.
 --
 -- A normal distribution truncated at the parent node and the closest daughter
 -- node is used. The mean of the normal distribution is 0, the standard
@@ -153,13 +154,13 @@ slideBranch pth n w s t = (nodeAt pth . rootBranch) @~ slideSymmetric n w s t
 
 scaleTreeSimple :: Double -> Double -> ProposalSimple (Tree Double a)
 scaleTreeSimple k t =
-  proposalGenericContinuous
+  genericContinuous
     (gammaDistr (k / t) (t / k))
     (\tr x -> first (* x) tr)
     (Just recip)
 
--- | Scale all branches of a tree with a Gamma distributed kernel of given
--- shape. The scale is set such that the mean is 1.0.
+-- | Scale all branches with a Gamma distributed kernel of given shape. The
+-- scale is set such that the mean is 1.0.
 scaleTree ::
   -- | Name.
   String ->
@@ -174,13 +175,13 @@ scaleTree n w k = createProposal n w (scaleTreeSimple k)
 
 scaleTreeWithHeightSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
 scaleTreeWithHeightSimple k t =
-  proposalGenericContinuous
+  genericContinuous
     (gammaDistr (k / t) (t / k))
     (\tr x -> bimap (* x) (* x) tr)
     (Just recip)
 
--- | Scale all branches of a tree with a Gamma distributed kernel of given
--- shape. The scale is set such that the mean is 1.0.
+-- | Scale all branches with a Gamma distributed kernel of given shape. The
+-- scale is set such that the mean is 1.0.
 --
 -- Assume node labels denote node height.
 scaleTreeWithHeight ::
@@ -194,3 +195,32 @@ scaleTreeWithHeight ::
   Bool ->
   Proposal (Tree Double Double)
 scaleTreeWithHeight n w k = createProposal n w (scaleTreeWithHeightSimple k)
+
+contra :: (Tree Double Double, Tree Double a) -> Double -> (Tree Double Double, Tree Double a)
+contra (s, t) x = (bimap (* x) (* x) s, first (/ x) t)
+
+scaleTreesContrarilySimple :: Double -> Double -> ProposalSimple (Tree Double Double, Tree Double a)
+scaleTreesContrarilySimple k t =
+  genericContinuous
+    (gammaDistr (k / t) (t / k))
+    contra
+    (Just recip)
+
+-- | Scale all branches with a Gamma distributed kernel of given shape. The
+-- scale is set such that the mean is 1.0.
+--
+-- The two trees are scaled contrarily so that the product of their heights
+-- stays constant. Contrary proposals are useful when parameters are confounded.
+--
+-- XXX: For the first tree, assume that node labels denote node height.
+scaleTreesContrarily ::
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
+  -- | Shape.
+  Double ->
+  -- | Enable tuning.
+  Bool ->
+  Proposal (Tree Double Double, Tree Double a)
+scaleTreesContrarily n w k = createProposal n w (scaleTreesContrarilySimple k)
