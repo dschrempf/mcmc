@@ -341,6 +341,7 @@ mOpen n frc (Monitor s fs bs) = do
   mapM_ mfHeader fs'
   bs' <- mapM (mbOpen n frc) bs
   mapM_ mbHeader bs'
+  hSetBuffering stdout LineBuffering
   return $ Monitor s fs' bs'
 
 -- | Open the files associated with the 'Monitor' in append mode.
@@ -349,10 +350,6 @@ mAppend n (Monitor s fs bs) = do
   fs' <- mapM (mfAppend n) fs
   bs' <- mapM (mbAppend n) bs
   return $ Monitor s fs' bs'
-
--- -- | Get header line of 'MonitorStdOut'.
--- mHeader :: Monitor a -> BL.ByteString
--- mHeader (Monitor s _ _) = msHeader s
 
 -- | Execute monitors; print status information to files and return text to be
 -- printed to standard output and log file.
