@@ -262,8 +262,9 @@ renderRow ::
   BL.ByteString ->
   BL.ByteString ->
   BL.ByteString ->
+  BL.ByteString ->
   BL.ByteString
-renderRow name weight nAccept nReject acceptRatio tuneParam = "   " <> nm <> wt <> na <> nr <> ra <> tp
+renderRow name weight nAccept nReject acceptRatio tuneParam manualAdjustment = "   " <> nm <> wt <> na <> nr <> ra <> tp <> mt
   where
     nm = alignLeft 30 name
     wt = alignRight 8 weight
@@ -271,13 +272,22 @@ renderRow name weight nAccept nReject acceptRatio tuneParam = "   " <> nm <> wt 
     nr = alignRight 15 nReject
     ra = alignRight 15 acceptRatio
     tp = alignRight 20 tuneParam
+    mt = alignRight 30 manualAdjustment
 
 proposalHeader :: BL.ByteString
 proposalHeader =
-  renderRow "Proposal" "Weight" "Accepted" "Rejected" "Ratio" "Tuning parameter"
+  renderRow "Proposal" "Weight" "Accepted" "Rejected" "Ratio" "Tuning parameter" "Consider manual adjustment"
 
 summarizeProposal :: Proposal a -> Maybe (Int, Int, Double) -> BL.ByteString
-summarizeProposal m r = renderRow (BL.pack name) weight nAccept nReject acceptRatio tuneParamStr
+summarizeProposal m r =
+  renderRow
+    (BL.pack name)
+    weight
+    nAccept
+    nReject
+    acceptRatio
+    tuneParamStr
+    manualAdjustmentStr
   where
     name = pName m
     weight = BB.toLazyByteString $ BB.intDec $ pWeight m
@@ -285,6 +295,14 @@ summarizeProposal m r = renderRow (BL.pack name) weight nAccept nReject acceptRa
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) r
     acceptRatio = BL.fromStrict $ maybe "" (BC.toFixed 3 . (^. _3)) r
     tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) (tParam <$> pTuner m)
+    check v
+      | v < 0.1 = "ratio too low"
+      | v > 0.9 = "ratio too high"
+      | otherwise = ""
+    manualAdjustmentStr = BL.fromStrict $ maybe "" (check . (^. _3)) r
+
+hLine :: BL.ByteString -> BL.ByteString
+hLine s = "   " <> BL.replicate (BL.length s - 3) '-'
 
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance ratios.
 summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> BL.ByteString
@@ -292,10 +310,10 @@ summarizeCycle a c =
   BL.intercalate "\n" $
     [ "Summary of proposal(s) in cycle. " <> mpi <> " proposal(s) per iteration.",
       proposalHeader,
-      "   " <> BL.replicate (BL.length proposalHeader - 3) '-'
+      hLine proposalHeader
     ]
       ++ [summarizeProposal m (ar m) | m <- ps]
-      ++ ["   " <> BL.replicate (BL.length proposalHeader - 3) '-']
+      ++ [hLine proposalHeader]
   where
     ps = ccProposals c
     mpi = BB.toLazyByteString $ BB.intDec $ sum $ map pWeight ps

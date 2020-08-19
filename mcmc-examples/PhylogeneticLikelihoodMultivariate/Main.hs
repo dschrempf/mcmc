@@ -479,21 +479,20 @@ main = do
       g <- create
       -- Construct the status of the Markov chain.
       let s =
-            force $
-              saveWith 1 $
-                -- Have a look at the 'status' function to understand the
-                -- different parameters.
-                status
-                  "plh-multivariate"
-                  pr'
-                  lh'
-                  ccl'
-                  mon
-                  start
-                  nBurnIn
-                  nAutoTune
-                  nIterations
-                  g
+            force . saveWith 1 . debug $
+              -- Have a look at the 'status' function to understand the
+              -- different parameters.
+              status
+                "plh-multivariate"
+                pr'
+                lh'
+                ccl'
+                mon
+                start
+                nBurnIn
+                nAutoTune
+                nIterations
+                g
       -- Run the Markov chain.
       void $ mh s
     ["continue", n] -> do
