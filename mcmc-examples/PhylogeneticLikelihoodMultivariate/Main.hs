@@ -87,8 +87,8 @@ data I = I
   }
   deriving (Generic)
 
--- XXX: According to Lepage, I also tried using normalized time and rate trees
--- and a scale factor. See branch 'normalizedTrees'.
+-- According to Lepage, I also tried using normalized time and rate trees and a
+-- scale factor. See branch 'normalizedTrees'.
 --
 -- However, I don't know how to use calibrations and constraints because i don't
 -- know how to calculate absolute time. Since only the product scale*t*r is

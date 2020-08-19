@@ -133,8 +133,8 @@ module Mcmc
     module Mcmc.Monitor.Parameter,
     module Mcmc.Monitor.ParameterBatch,
 
-    -- * Probability distributions
-    module Mcmc.Probability,
+    -- * Prior distributions
+    module Mcmc.Prior,
 
     -- * Algorithms
 
@@ -153,7 +153,7 @@ import Mcmc.Metropolis
 import Mcmc.Monitor
 import Mcmc.Monitor.Parameter
 import Mcmc.Monitor.ParameterBatch
-import Mcmc.Probability
+import Mcmc.Prior
 import Mcmc.Proposal
 import Mcmc.Proposal.Bactrian
 import Mcmc.Proposal.Scale
