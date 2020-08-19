@@ -33,4 +33,4 @@ dist-*
 *.meantree
 
 # Emacs
-/TAGS
+/**/TAGS

@@ -253,7 +253,7 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  [ timeTree @~ slideNodeWithHeight pth (n lb) 1 0.25 True
+  [ timeTree @~ slideNodeWithHeight pth (n lb) 1 0.1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
@@ -268,7 +268,7 @@ proposalsTimeTree t =
 -- Since the stem does not change the likelihood, we do not slide the stem.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  [ rateTree @~ scaleBranch pth (n lb) 1 10.0 True
+  [ rateTree @~ scaleBranch pth (n lb) 1 100.0 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth)
