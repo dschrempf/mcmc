@@ -1,5 +1,6 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- Change how monitors are lifted (use normal function, not a lens).
 - Priors.
 - Remove concurrent monitors (was slow).
 - Improve MCMC sampler output.

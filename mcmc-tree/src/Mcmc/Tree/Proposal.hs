@@ -12,9 +12,7 @@
 --
 -- Creation date: Thu Jul 23 09:10:07 2020.
 module Mcmc.Tree.Proposal
-  ( rootLabel,
-
-    -- * Nodes
+  ( -- * Nodes
     slideNodeWithHeight,
 
     -- * Branches
@@ -44,6 +42,8 @@ import System.Random.MWC.Distributions
 eps :: Double
 eps = 1e-8
 
+-- TODO: Do not use Lens, but Microlens.
+
 -- TODO: Provide a proper module with lenses.
 
 -- Lens to a specific node.
@@ -56,9 +56,9 @@ nodeAt pth =
          in toTree $ pos {current = t'}
     )
 
--- | Lens to the label of the root node.
-rootLabel :: Lens' (Tree e a) a
-rootLabel = lens label (\(Node br _ ts) lb -> Node br lb ts)
+-- -- | Lens to the label of the root node.
+-- rootLabel :: Lens' (Tree e a) a
+-- rootLabel = lens label (\(Node br _ ts) lb -> Node br lb ts)
 
 -- | Lens to the branch of the root node.
 rootBranch :: Lens' (Tree e a) e

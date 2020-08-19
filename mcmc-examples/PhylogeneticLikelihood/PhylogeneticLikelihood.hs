@@ -24,6 +24,7 @@ import Control.Monad
 import Data.Aeson
 import Data.Maybe
 import Lens.Micro
+import Lens.Micro.Extras
 import Mcmc
 import Numeric.Log
 import Statistics.Distribution hiding (Mean)
@@ -145,7 +146,10 @@ stdDevTree = (0 -< toD 2.0 >- 1) + (0 -< toD 2.0 >- 2)
 
 -- Branch length monitors.
 branchMons :: [MonitorParameter (Tree Length)]
-branchMons = [getLens x y @. monitorDouble (n x y) | (x, y) <- getEdges startingTree]
+branchMons =
+  [ view (getLens x y) @. monitorDouble (n x y)
+    | (x, y) <- getEdges startingTree
+  ]
   where
     n x y = show (x, y)
 
@@ -160,7 +164,7 @@ monFile = monitorFile "Branches" branchMons 10
 -- Monitor batch means of branch lengths.
 branchBatchMons :: [MonitorParameterBatch (Tree Length)]
 branchBatchMons =
-  [ getLens x y @# monitorBatchMean (n x y) | (x, y) <- getEdges startingTree]
+  [view (getLens x y) @# monitorBatchMean (n x y) | (x, y) <- getEdges startingTree]
   where
     n x y = "Mean " <> show (x, y)
 

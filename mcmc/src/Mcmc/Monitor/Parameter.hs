@@ -24,7 +24,6 @@ where
 
 import qualified Data.ByteString.Builder as BB
 import qualified Data.Double.Conversion.ByteString as BC
-import Lens.Micro
 
 -- | Instruction about a parameter to monitor.
 data MonitorParameter a = MonitorParameter
@@ -34,15 +33,15 @@ data MonitorParameter a = MonitorParameter
     mpFunc :: a -> BB.Builder
   }
 
--- | Convert a parameter monitor from one data type to another using a lens.
+-- | Convert a parameter monitor from one data type to another.
 --
 -- For example, to monitor a 'Double' value being the first entry of a tuple:
 --
 -- @
--- mon = _1 @@ monitorDouble
+-- mon = fst @. monitorDouble
 -- @
-(@.) :: Lens' b a -> MonitorParameter a -> MonitorParameter b
-(@.) l (MonitorParameter n f) = MonitorParameter n (\x -> f $ x ^. l)
+(@.) :: (b -> a) -> MonitorParameter a -> MonitorParameter b
+(@.) f (MonitorParameter n m) = MonitorParameter n (m . f)
 
 -- | Monitor 'Int'.
 monitorInt ::

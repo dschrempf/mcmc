@@ -26,7 +26,6 @@ where
 
 import qualified Data.ByteString.Builder as BB
 import qualified Data.Double.Conversion.ByteString as BC
-import Lens.Micro
 
 -- | Instruction about a parameter to monitor via batch means. Usually, the
 -- monitored parameter is average over the batch size. However, arbitrary
@@ -43,16 +42,15 @@ data MonitorParameterBatch a
         mbpFunc :: [a] -> BB.Builder
       }
 
--- | Convert a batch parameter monitor from one data type to another using a
--- lens.
+-- | Convert a batch parameter monitor from one data type to another.
 --
--- For example, to batch monitor a real float value being the first entry of a tuple:
+-- For example, to batch monitor the mean of the first entry of a tuple:
 --
 -- @
--- mon = _1 @# monitorBatchMeanRealFloat
+-- mon = fst @# monitorBatchMean
 -- @
-(@#) :: Lens' b a -> MonitorParameterBatch a -> MonitorParameterBatch b
-(@#) l (MonitorParameterBatch n f) = MonitorParameterBatch n (f . map (^. l))
+(@#) :: (b -> a) -> MonitorParameterBatch a -> MonitorParameterBatch b
+(@#) f (MonitorParameterBatch n m) = MonitorParameterBatch n (m . map f)
 
 mean :: Real a => [a] -> Double
 mean xs = realToFrac (sum xs) / fromIntegral (length xs)
