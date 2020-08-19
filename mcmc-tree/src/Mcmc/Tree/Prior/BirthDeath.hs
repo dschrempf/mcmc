@@ -116,24 +116,26 @@ birthDeathWith' f la mu logLa (Node br _ [l, r]) = ((Exp $ log dT) * dL * dR * l
     (dT, eT) = f la mu br (eL * eR)
 birthDeathWith' _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 
--- Tests
-
--- testTree1 :: Tree Double ()
--- testTree1 = Node 1.0 () []
-
+-- * Tests
+--
+-- >>> testTree1 :: Tree Double ()
+-- >>> testTree1 = Node 1.0 () []
+--
 -- >>> birthDeath 1.2 3.2 testTree1
 -- 5.8669248906043234e-2
-
--- testTree2 :: Tree Double ()
--- testTree2 = Node 0.0 () [Node 0.4 () [], Node 0.2 () [Node 0.2 () [], Node 0.2 () []]]
-
+--
+-- >>> testTree2 :: Tree Double ()
+-- >>> testTree2 = Node 0.0 () [Node 0.4 () [], Node 0.2 () [Node 0.2 () [], Node 0.2 () []]]
+--
 -- >>> birthDeath 1.2 3.2 testTree2
 -- 3.978845396350806e-2
 
--- XXX: There are differences in the conditions. The point process conditions on
--- the time of origin, and on the number of leaves. The dynamic programming
--- approach used above only conditions on the time of origin.
-
+-- * Point process
+--
+-- There are differences in the conditions. The point process conditions on the
+-- time of origin, and on the number of leaves. The dynamic programming approach
+-- used above only conditions on the time of origin.
+--
 -- Question: Is the birth death distribution of the point process adequate, if
 -- the topology is given?
 --
@@ -142,7 +144,6 @@ birthDeathWith' _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 -- the density? Or is it better to check for the three different possibilities
 -- here, and then use the adequate distribution (status quo)?
 
--- -- TODO.
 -- -- Assume that node labels denote node heights.
 -- birthDeathPointProcess ::
 --   -- | Birth rate.
@@ -151,7 +152,6 @@ birthDeathWith' _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 --   Double ->
 --   Tree Double Double ->
 --   Log Double
--- -- TODO: Check for critical and nearly critical process.
 -- birthDeathPointProcess l m t
 --   | l < 0.0 = error "birthDeath: Birth rate lambda is negative."
 --   | m < 0.0 = error "birthDeath: Death rate mu is negative."
