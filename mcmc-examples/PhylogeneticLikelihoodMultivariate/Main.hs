@@ -65,7 +65,6 @@ import Mcmc.Tree
 import Calibration
 {- ORMOLU_ENABLE -}
 
-
 -- State space containing all parameters.
 --
 -- The topologies of the time and rate tree are equal. This is, however, not
@@ -309,7 +308,7 @@ monFileParams :: MonitorFile I
 monFileParams = monitorFile "-params" monParams 1
 
 monFileTimeTree :: MonitorFile I
-monFileTimeTree = monitorFile "-timetree" [ (identify . _timeTree) @. monitorTree "TimeTree"] 1
+monFileTimeTree = monitorFile "-timetree" [(identify . _timeTree) @. monitorTree "TimeTree"] 1
 
 monFileRateTree :: MonitorFile I
 monFileRateTree = monitorFile "-ratetree" [_rateTree @. monitorTree "RateTree"] 1

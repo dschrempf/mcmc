@@ -19,13 +19,13 @@ module Mcmc.Tree.Import
   )
 where
 
-import Data.Attoparsec.Lazy
 import Codec.Compression.GZip
 import Control.Lens
+import Data.Attoparsec.Lazy
 import Data.Bifunctor
-import Data.List
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.List
 import ELynx.Data.Tree
 import ELynx.Import.Tree.Newick
 
@@ -43,9 +43,10 @@ instance TraversableWithIndex [Int] (Tree e) where
 
 parseFileWith :: Parser a -> FilePath -> IO a
 parseFileWith p f = do
-  l <- if "gz" `isSuffixOf` f
-    then BL.toStrict . decompress <$> BL.readFile f
-    else BS.readFile f
+  l <-
+    if "gz" `isSuffixOf` f
+      then BL.toStrict . decompress <$> BL.readFile f
+      else BS.readFile f
   return $ either error id $ parseOnly p l
 
 -- | Parse first Newick tree in file.

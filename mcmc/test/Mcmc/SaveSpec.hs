@@ -61,25 +61,28 @@ nIter = 200
 
 spec :: Spec
 spec =
-  describe "saveStatus and loadStatus"
-    $ it "doesn't change the MCMC chain"
-    $ do
-      gen <- create
-      let s =
-            force $ quiet $ saveWith 100 $
-              status "SaveSpec" (const 1) lh proposals mon 0 nBurn nAutoTune nIter gen
-      saveStatus "SaveSpec.json" s
-      s' <- loadStatus (const 1) lh proposals mon "SaveSpec.json"
-      r <- mh s
-      r' <- mh s'
-      -- Done during 'loadStatus'.
-      -- removeFile "SaveSpec.json"
-      item r `shouldBe` item r'
-      iteration r `shouldBe` iteration r'
-      trace r `shouldBe` trace r'
-      g <- save $ generator r
-      g' <- save $ generator r'
-      g `shouldBe` g'
+  describe "saveStatus and loadStatus" $
+    it "doesn't change the MCMC chain" $
+      do
+        gen <- create
+        let s =
+              force $
+                quiet $
+                  saveWith 100 $
+                    status "SaveSpec" (const 1) lh proposals mon 0 nBurn nAutoTune nIter gen
+        saveStatus "SaveSpec.json" s
+        s' <- loadStatus (const 1) lh proposals mon "SaveSpec.json"
+        r <- mh s
+        r' <- mh s'
+        -- Done during 'loadStatus'.
+        -- removeFile "SaveSpec.json"
+        item r `shouldBe` item r'
+        iteration r `shouldBe` iteration r'
+        trace r `shouldBe` trace r'
+        g <- save $ generator r
+        g' <- save $ generator r'
+        g `shouldBe` g'
+
 -- -- TODO: Splitmix. This will only work with a splittable generator
 -- -- because getNCycles changes the generator.
 -- describe "mhContinue"

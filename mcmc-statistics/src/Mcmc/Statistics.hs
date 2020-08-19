@@ -20,11 +20,11 @@ module Mcmc.Statistics
   )
 where
 
-import qualified Data.Vector.Unboxed as V
 import Data.Vector.Unboxed
   ( Unbox,
     Vector,
   )
+import qualified Data.Vector.Unboxed as V
 import Statistics.Autocorrelation
 import Statistics.Gcm
 import Statistics.Pava.Common

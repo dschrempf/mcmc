@@ -30,15 +30,14 @@ instance FromJSON a => FromJSON (Log a) where
 -- | An 'Item', or link of the Markov chain. For reasons of computational
 -- efficiency, each state is associated with the corresponding prior and
 -- likelihood.
-data Item a
-  = Item
-      { -- | The current state in the state space @a@.
-        state :: a,
-        -- | The current prior.
-        prior :: Log Double,
-        -- | The current likelihood.
-        likelihood :: Log Double
-      }
+data Item a = Item
+  { -- | The current state in the state space @a@.
+    state :: a,
+    -- | The current prior.
+    prior :: Log Double,
+    -- | The current likelihood.
+    likelihood :: Log Double
+  }
   deriving (Eq, Ord, Show, Read)
 
 instance ToJSON a => ToJSON (Item a) where

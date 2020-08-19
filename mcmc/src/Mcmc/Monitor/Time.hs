@@ -19,8 +19,8 @@ where
 
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Mcmc.Internal.ByteString
 import Data.Time.Clock
+import Mcmc.Internal.ByteString
 
 -- | Adapted from System.ProgressBar.renderDuration of package
 -- [terminal-progressbar-0.4.1](https://hackage.haskell.org/package/terminal-progress-bar-0.4.1).

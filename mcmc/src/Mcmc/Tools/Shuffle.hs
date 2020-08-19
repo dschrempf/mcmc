@@ -20,8 +20,8 @@ where
 
 import Control.Monad
 import Control.Monad.ST
-import qualified Data.Vector as V
 import Data.Vector (Vector)
+import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as M
 import System.Random.MWC
   ( GenIO,
@@ -49,9 +49,10 @@ shuffleN xs n = grabble xs n (length xs)
 -- elements from @xs@, without replacement, and that @m@ times.
 grabble :: [a] -> Int -> Int -> GenIO -> IO [[a]]
 grabble xs m n gen = do
-  swapss <- replicateM m $ forM [0 .. min (l - 1) n] $ \i -> do
-    j <- uniformR (i, l) gen
-    return (i, j)
+  swapss <- replicateM m $
+    forM [0 .. min (l - 1) n] $ \i -> do
+      j <- uniformR (i, l) gen
+      return (i, j)
   return $ map (V.toList . V.take n . swapElems (V.fromList xs)) swapss
   where
     l = length xs - 1

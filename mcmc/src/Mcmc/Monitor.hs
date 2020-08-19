@@ -108,22 +108,23 @@ msDataLine ::
   MonitorStdOut a ->
   IO BL.ByteString
 msDataLine i (Item x p l) ss st j m = do
-    ct <- getCurrentTime
-    let dt = ct `diffUTCTime` st
-        -- Careful, don't evaluate this when i == ss.
-        timePerIter = dt / fromIntegral (i - ss)
-        -- -- Always 0; doesn't make much sense.
-        -- tpi = if (i - ss) < 10
-        --       then ""
-        --       else renderDurationS timePerIter
-        eta =
-          if (i - ss) < 10
-            then ""
-            else renderDuration $ timePerIter * fromIntegral (j - i)
-    return $ msRenderRow $
-          [BL.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
-            ++ [BB.toLazyByteString $ mpFunc mp x | mp <- msParams m]
-            ++ [renderDuration dt, eta]
+  ct <- getCurrentTime
+  let dt = ct `diffUTCTime` st
+      -- Careful, don't evaluate this when i == ss.
+      timePerIter = dt / fromIntegral (i - ss)
+      -- -- Always 0; doesn't make much sense.
+      -- tpi = if (i - ss) < 10
+      --       then ""
+      --       else renderDurationS timePerIter
+      eta =
+        if (i - ss) < 10
+          then ""
+          else renderDuration $ timePerIter * fromIntegral (j - i)
+  return $
+    msRenderRow $
+      [BL.pack (show i), renderLog p, renderLog l, renderLog (p * l)]
+        ++ [BB.toLazyByteString $ mpFunc mp x | mp <- msParams m]
+        ++ [renderDuration dt, eta]
 
 msExec ::
   Int ->
@@ -136,8 +137,8 @@ msExec ::
 msExec i it ss st j m
   | i `mod` msPeriod m /= 0 = return Nothing
   | i `mod` (msPeriod m * 100) == 0 = do
-      l <- msDataLine i it ss st j m
-      return $ Just $ msHeader m <> "\n" <> l
+    l <- msDataLine i it ss st j m
+    return $ Just $ msHeader m <> "\n" <> l
   | otherwise = Just <$> msDataLine i it ss st j m
 
 -- | Monitor to a file; constructed with 'monitorFile'.

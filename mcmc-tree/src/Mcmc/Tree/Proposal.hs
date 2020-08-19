@@ -25,9 +25,9 @@ module Mcmc.Tree.Proposal
   )
 where
 
+import Control.Lens
 import Control.Monad.Primitive
 import Data.Bifunctor
-import Control.Lens
 import ELynx.Data.Tree
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
@@ -182,7 +182,6 @@ scaleTree ::
   Bool ->
   Proposal (Tree Double a)
 scaleTree n w k = createProposal n w (scaleTreeSimple k)
-
 
 scaleTreeWithHeightSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
 scaleTreeWithHeightSimple k t =

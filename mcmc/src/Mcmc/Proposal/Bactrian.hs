@@ -99,7 +99,7 @@ slideBactrian n w m s = createProposal n w (bactrianAdditiveSimple m s)
 -- Hence,
 -- dx' = 1/(1-dx) - 1.
 fInv :: Double -> Double
-fInv dx = recip (1-dx) - 1
+fInv dx = recip (1 - dx) - 1
 
 bactrianMult ::
   Double ->

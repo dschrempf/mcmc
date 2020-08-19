@@ -34,13 +34,12 @@ import qualified Data.Double.Conversion.ByteString as BC
 --
 -- XXX: Batch monitors are slow at the moment because the monitored parameter
 -- has to be extracted from the state for each iteration.
-data MonitorParameterBatch a
-  = MonitorParameterBatch
-      { -- | Name of batch monitored parameter.
-        mbpName :: String,
-        -- | Instruction about how to extract the batch mean from the trace.
-        mbpFunc :: [a] -> BB.Builder
-      }
+data MonitorParameterBatch a = MonitorParameterBatch
+  { -- | Name of batch monitored parameter.
+    mbpName :: String,
+    -- | Instruction about how to extract the batch mean from the trace.
+    mbpFunc :: [a] -> BB.Builder
+  }
 
 -- | Convert a batch parameter monitor from one data type to another.
 --

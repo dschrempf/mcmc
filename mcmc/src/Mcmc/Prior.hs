@@ -21,6 +21,7 @@ module Mcmc.Prior
     gamma,
 
     -- * Discrete priors
+
     -- No discrete priors are available yet.
 
     -- * Auxiliary functions
@@ -38,13 +39,15 @@ import qualified Statistics.Distribution.Normal as S
 
 -- | Improper uniform prior; larger than 0.
 positive :: Double -> Log Double
-positive x | x <= 0 = 0
-           | otherwise = 1
+positive x
+  | x <= 0 = 0
+  | otherwise = 1
 
 -- | Improper uniform prior; lower than 0.
 negative :: Double -> Log Double
-negative x | x >= 0 = 0
-           | otherwise = 1
+negative x
+  | x >= 0 = 0
+  | otherwise = 1
 
 -- | Uniform prior on [a, b].
 uniform ::
@@ -68,7 +71,8 @@ normal ::
   Double ->
   Log Double
 normal m s x = Exp $ S.logDensity d x
-  where d = S.normalDistr m s
+  where
+    d = S.normalDistr m s
 
 -- | Exponential distributed prior.
 exponential ::
