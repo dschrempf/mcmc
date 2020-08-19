@@ -4,6 +4,11 @@
 
 ## Unreleased changes
 
+
+## 0.2.3
+
+-   Contrary proposals.
+-   Change how monitors are lifted (use normal function, not a lens).
 -   Priors.
 -   Remove concurrent monitors (was slow).
 -   Improve MCMC sampler output.

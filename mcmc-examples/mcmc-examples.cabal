@@ -1,6 +1,6 @@
 cabal-version:  2.2
 name:           mcmc-examples
-version:        0.2.2
+version:        0.2.3
 synopsis:       Markov chain Monte Carlo examples using the `mcmc` library
 description:    Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
 category:       Math, Statistics
