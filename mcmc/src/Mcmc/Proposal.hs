@@ -171,6 +171,14 @@ tune dt m
 ratioOpt :: Double
 ratioOpt = 0.44
 
+-- Warn if acceptance ratio is lower.
+ratioMin :: Double
+ratioMin = 0.1
+
+-- Warn if acceptance ratio is larger.
+ratioMax :: Double
+ratioMax = 0.9
+
 -- | Define the order in which 'Proposal's are executed in a 'Cycle'. The total
 -- number of 'Proposal's per 'Cycle' may differ between 'Order's (e.g., compare
 -- 'RandomO' and 'RandomReversibleO').
@@ -296,8 +304,8 @@ summarizeProposal m r =
     acceptRatio = BL.fromStrict $ maybe "" (BC.toFixed 3 . (^. _3)) r
     tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) (tParam <$> pTuner m)
     check v
-      | v < 0.1 = "ratio too low"
-      | v > 0.9 = "ratio too high"
+      | v < ratioMin = "ratio too low"
+      | v > ratioMax = "ratio too high"
       | otherwise = ""
     manualAdjustmentStr = BL.fromStrict $ maybe "" (check . (^. _3)) r
 
