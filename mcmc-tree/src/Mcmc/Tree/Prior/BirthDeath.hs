@@ -75,10 +75,6 @@ computeDENearCritical la mu dt e0 = (a / b / b, c / b)
 epsNearCritical :: Double
 epsNearCritical = 1e-6
 
--- Require critical process if birth and death rates are closer than this value.
-epsCritical :: Double
-epsCritical = 1e-12
-
 -- | Birth and death prior.
 --
 -- The sampling rate is 1.0; i.e., the extinction probability of leaves is 0.0.
@@ -102,9 +98,6 @@ birthDeath ::
 birthDeath la mu
   | la < 0.0 = error "birthDeath: Birth rate lambda is negative."
   | mu < 0.0 = error "birthDeath: Death rate mu is negative."
-  -- TODO: Critical process.
-  | epsCritical > abs (la - mu) =
-    error "birthDeath: Birth and death rate are too close. The critical birth and death process is not yet implemented."
   | epsNearCritical > abs (la - mu) = fst . birthDeathWith' computeDENearCritical la mu (Exp $ log la)
   | otherwise = fst . birthDeathWith' computeDE la mu (Exp $ log la)
 
