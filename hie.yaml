@@ -24,3 +24,7 @@ cradle:
     - path: "mcmc-statistics/src"
       component: "mcmc-statistics:lib"
 
+    # mcmc-tree
+    - path: "mcmc-tree/src"
+      component: "mcmc-tree:lib"
+

@@ -45,9 +45,9 @@ packages:
 #
 extra-deps:
   - pava-0.1.0.0
-  - elynx-nexus-0.3.3
-  - elynx-tools-0.3.3
-  - elynx-tree-0.3.3
+  - elynx-nexus-0.3.4
+  - elynx-tools-0.3.4
+  - elynx-tree-0.3.4
   # - ../elynx/elynx-nexus
   # - ../elynx/elynx-tools
   # - ../elynx/elynx-tree
