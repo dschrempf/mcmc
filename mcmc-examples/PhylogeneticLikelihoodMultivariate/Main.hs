@@ -77,7 +77,7 @@ data I = I
     _timeDeathRate :: Double,
     -- Shape k of gamma distribution of rate parameters.
     _rateGammaShape :: Double,
-    -- Scale theta of gamma distribution of rate parameters.
+    -- -- Scale theta of gamma distribution of rate parameters.
     _rateGammaScale :: Double,
     -- Time tree. Branch labels denote time; node labels denote node height.
     _timeTree :: Tree Double Double,
@@ -164,12 +164,12 @@ pr cb cs s@(I l m k th t r) =
   -- product' $|| parList rpar $
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
-      exponential 0.1 l,
-      exponential 0.1 m,
+      exponential 1 l,
+      exponential 1 m,
       -- Exponential prior on the shape and scale of the gamma distribution of
       -- the rate normalization parameter and the branch rates.
-      exponential 1.0 k,
-      exponential 1.0 th,
+      exponential 1 k,
+      exponential 1 th,
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
@@ -298,9 +298,9 @@ ccl t =
       timeDeathRate @~ scaleUnbiased "time death rate" 10 40 True,
       rateGammaShape @~ scaleUnbiased "rate gamma shape" 10 50 True,
       rateGammaScale @~ scaleUnbiased "rate gamma scale" 10 50 True,
-      timeTree @~ scaleTreeUltrametric "time tree" 10 3000 True,
-      rateTree @~ scaleTree "rate tree" 10 40 True,
-      trLens @~ scaleTreesContrarily "time/rate tree contra" 10 3000 True
+      timeTree @~ scaleTreeUltrametric "time tree scale" 10 3000 True,
+      rateTree @~ scaleTree "rate tree scale" 10 40 True,
+      trLens @~ scaleTreesContrarily "time/rate tree contra scale" 10 3000 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t

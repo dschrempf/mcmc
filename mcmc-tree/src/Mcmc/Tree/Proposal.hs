@@ -74,18 +74,16 @@ modifyBranch f (Node br lb ts) = Node (f br) lb ts
 truncatedNormalSample ::
   Double -> Double -> Double -> Double -> GenIO -> IO (Double, Log Double)
 truncatedNormalSample ds t a b g = do
-  -- Propose a new value. Don't let the standard deviation be too high, because
-  -- then the normal variable will be rejected many times in 'truncatedNormal'.
-  let s = min (b - a) (t * ds * (b - a))
+  let s = t * ds * (b - a)
       d = truncatedNormalDistr 0 s a b
   dx <- genContinuous d g
   -- Compute Metropolis-Hastings factor.
   let a' = a - dx
       b' = b - dx
-      s' = min (b' - a') (t * ds * (b' - a'))
+      s' = t * ds * (b' - a')
       d' = truncatedNormalDistr 0 s' a' b'
-      qYX = Exp $ logDensity d dx
-      qXY = Exp $ logDensity d' (- dx)
+      qXY = Exp $ logDensity d dx
+      qYX = Exp $ logDensity d' (- dx)
   return (dx, qYX / qXY)
 
 slideRootUltrametricSample ::
@@ -232,7 +230,7 @@ scaleRootUltrametricSample ds t (Node br lb ts) g = do
   (dx, q) <- truncatedNormalSample ds t a b g
   let h' = lb - dx
       xi = h' / h
-      tr' = Node (br + dx) (lb - dx) $ map (bimap (* xi) (* xi)) ts
+      tr' = Node (br + dx) h' $ map (bimap (* xi) (* xi)) ts
   return (tr', q)
 
 scaleRootUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)

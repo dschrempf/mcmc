@@ -32,8 +32,6 @@ import Numeric.MathFunctions.Constants
 import Numeric.SpecFunctions
 import qualified Statistics.Distribution as D
 
--- TODO: Standard deviation recip!
-
 -- | The truncated normal distribution.
 --
 -- See https://en.wikipedia.org/wiki/Truncated_normal_distribution.
