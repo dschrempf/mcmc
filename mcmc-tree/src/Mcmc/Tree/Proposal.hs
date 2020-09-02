@@ -16,7 +16,7 @@
 -- Creation date: Thu Jul 23 09:10:07 2020.
 module Mcmc.Tree.Proposal
   ( -- * Nodes
-    slideNodeWithHeight,
+    slideNodeUltrametric,
 
     -- * Branches
     scaleBranch,
@@ -24,13 +24,13 @@ module Mcmc.Tree.Proposal
 
     -- * Trees
     scaleTree,
-    scaleTreeWithHeight,
+    scaleTreeUltrametric,
+    scaleSubTreeUltrametric,
     scaleTreesContrarily,
   )
 where
 
 import Control.Lens
-import Control.Monad.Primitive
 import Data.Bifunctor
 import ELynx.Data.Tree
 import Mcmc.Proposal
@@ -39,54 +39,73 @@ import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Slide
 import Mcmc.Tree.Lens
 import Numeric.Log
+import Statistics.Distribution
 import Statistics.Distribution.Gamma
+import Statistics.Distribution.TruncatedNormal
 import System.Random.MWC
-import System.Random.MWC.Distributions
 
 -- Minimum branch length.
 eps :: Double
 eps = 1e-8
 
--- Be careful, this will loop forever if the parameters are not well chosen.
-truncatedNormal ::
-  PrimMonad m =>
-  Double ->
-  Double ->
-  Double ->
-  Double ->
-  Gen (PrimState m) ->
-  m Double
-truncatedNormal a b m s g = do
-  x' <- normal m s g
-  case x' of
-    x
-      | x < a -> truncatedNormal a b m s g
-      | x > b -> truncatedNormal a b m s g
-      | otherwise -> return x
+-- -- Be careful, this will loop forever if the parameters are not well chosen.
+-- truncatedNormal ::
+--   PrimMonad m =>
+--   Double ->
+--   Double ->
+--   Double ->
+--   Double ->
+--   Gen (PrimState m) ->
+--   m Double
+-- truncatedNormal a b m s g = do
+--   x' <- normal m s g
+--   case x' of
+--     x
+--       | x < a -> truncatedNormal a b m s g
+--       | x > b -> truncatedNormal a b m s g
+--       | otherwise -> return x
 
 modifyBranch :: (e -> e) -> Tree e a -> Tree e a
 modifyBranch f (Node br lb ts) = Node (f br) lb ts
 
-slideRootWithHeightSample ::
+-- A very specific function that samples a delta value from the truncated normal
+-- distribution with given bounds [a,b] and also computes the required factor of
+-- the Metropolis-Hastings proposal ratio.
+truncatedNormalSample ::
+  Double -> Double -> Double -> Double -> GenIO -> IO (Double, Log Double)
+truncatedNormalSample ds t a b g = do
+  -- Propose a new value. Don't let the standard deviation be too high, because
+  -- then the normal variable will be rejected many times in 'truncatedNormal'.
+  let s = min (b - a) (t * ds * (b - a))
+      d = truncatedNormalDistr 0 s a b
+  dx <- genContinuous d g
+  -- Compute Metropolis-Hastings factor.
+  let a' = a - dx
+      b' = b - dx
+      s' = min (b' - a') (t * ds * (b' - a'))
+      d' = truncatedNormalDistr 0 s' a' b'
+      qYX = Exp $ logDensity d dx
+      qXY = Exp $ logDensity d' (- dx)
+  return (dx, qYX / qXY)
+
+slideRootUltrametricSample ::
   Double ->
   Double ->
   Tree Double Double ->
   GenIO ->
   IO (Tree Double Double, Log Double)
-slideRootWithHeightSample _ _ (Node _ _ []) _ = error "slideRootSample: Cannot slide leaf node."
-slideRootWithHeightSample ds t (Node br lb ts) g = do
+slideRootUltrametricSample _ _ (Node _ _ []) _ =
+  error "slideRootUltrametricSample: Cannot slide leaf node."
+slideRootUltrametricSample ds t (Node br lb ts) g = do
   let br' = minimum $ map branch ts
       a = negate $ br - eps
       b = br' - eps
-      -- Don't let the standard deviation be too high, because then the normal
-      -- variable will be rejected many times in 'truncatedNormal'.
-      s = min (b - a) (t * ds * (b - a))
-  dx <- truncatedNormal a b 0 s g
-  let t' = Node (br + dx) (lb - dx) (map (modifyBranch (subtract dx)) ts)
-  return (t', 1.0)
+  (dx, q) <- truncatedNormalSample ds t a b g
+  let tr' = Node (br + dx) (lb - dx) (map (modifyBranch (subtract dx)) ts)
+  return (tr', q)
 
-slideRootWithHeightSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
-slideRootWithHeightSimple ds t = ProposalSimple $ slideRootWithHeightSample ds t
+slideRootUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
+slideRootUltrametricSimple ds t = ProposalSimple $ slideRootUltrametricSample ds t
 
 -- | Slide a node.
 --
@@ -99,7 +118,9 @@ slideRootWithHeightSimple ds t = ProposalSimple $ slideRootWithHeightSample ds t
 --
 -- Assume the branch and node labels denote branch length and node height,
 -- respecitvely.
-slideNodeWithHeight ::
+--
+-- Call __error__ if given path is invalid or leads to a leaf.
+slideNodeUltrametric ::
   -- | Path to node on tree.
   Path ->
   -- | Name.
@@ -108,10 +129,10 @@ slideNodeWithHeight ::
   Int ->
   -- | Standard deviation multiplier.
   Double ->
-  -- | Tune the move.
+  -- | Enable tuning.
   Bool ->
   Proposal (Tree Double Double)
-slideNodeWithHeight pth n w ds t = nodeAt pth @~ createProposal n w (slideRootWithHeightSimple ds) t
+slideNodeUltrametric pth n w ds t = nodeAt pth @~ createProposal n w (slideRootUltrametricSimple ds) t
 
 -- | Scale a branch.
 --
@@ -159,7 +180,7 @@ scaleTreeSimple k t =
     (\tr x -> first (* x) tr)
     (Just recip)
 
--- | Scale all branches with a Gamma distributed kernel of given shape. The
+-- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
 scaleTree ::
   -- | Name.
@@ -173,18 +194,18 @@ scaleTree ::
   Proposal (Tree Double a)
 scaleTree n w k = createProposal n w (scaleTreeSimple k)
 
-scaleTreeWithHeightSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
-scaleTreeWithHeightSimple k t =
+scaleTreeUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
+scaleTreeUltrametricSimple k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
     (\tr x -> bimap (* x) (* x) tr)
     (Just recip)
 
--- | Scale all branches with a Gamma distributed kernel of given shape. The
+-- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
 --
 -- Assume node labels denote node height.
-scaleTreeWithHeight ::
+scaleTreeUltrametric ::
   -- | Name.
   String ->
   -- | Weight.
@@ -194,7 +215,53 @@ scaleTreeWithHeight ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double Double)
-scaleTreeWithHeight n w k = createProposal n w (scaleTreeWithHeightSimple k)
+scaleTreeUltrametric n w k = createProposal n w (scaleTreeUltrametricSimple k)
+
+scaleRootUltrametricSample ::
+  Double ->
+  Double ->
+  Tree Double Double ->
+  GenIO ->
+  IO (Tree Double Double, Log Double)
+scaleRootUltrametricSample _ _ (Node _ _ []) _ =
+  error "scaleRootUltrametricSample: Cannot scale sub tree of leaf node."
+scaleRootUltrametricSample ds t (Node br lb ts) g = do
+  let h = lb
+      a = negate $ br - eps
+      b = h - eps
+  (dx, q) <- truncatedNormalSample ds t a b g
+  let h' = lb - dx
+      xi = h' / h
+      tr' = Node (br + dx) (lb - dx) $ map (bimap (* xi) (* xi)) ts
+  return (tr', q)
+
+scaleRootUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
+scaleRootUltrametricSimple ds t = ProposalSimple $ scaleRootUltrametricSample ds t
+
+-- | Slide the node at given path and scale the branches of the induced sub tree
+-- so that the tree stays ultrametric.
+--
+-- An additive normal distribution truncated at the parent node (or the origin)
+-- and the leaves is used to slide the given node. The mean of the normal
+-- distribution is 0, the standard deviation is determined by a given value
+-- multiplied with the domain of the truncated distribution.
+--
+-- Assume node labels denote node height.
+--
+-- Call __error__ if given path is invalid or leads to a leaf.
+scaleSubTreeUltrametric ::
+  -- | Path to node.
+  Path ->
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
+  -- | Standard deviation multiplier.
+  Double ->
+  -- | Enable tuning.
+  Bool ->
+  Proposal (Tree Double Double)
+scaleSubTreeUltrametric pth n w ds t = nodeAt pth @~ createProposal n w (scaleRootUltrametricSimple ds) t
 
 contra :: (Tree Double Double, Tree Double a) -> Double -> (Tree Double Double, Tree Double a)
 contra (s, t) x = (bimap (* x) (* x) s, first (/ x) t)
@@ -206,7 +273,7 @@ scaleTreesContrarilySimple k t =
     contra
     (Just recip)
 
--- | Scale all branches with a Gamma distributed kernel of given shape. The
+-- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
 --
 -- The two trees are scaled contrarily so that the product of their heights

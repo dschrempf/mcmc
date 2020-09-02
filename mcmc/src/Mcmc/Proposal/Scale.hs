@@ -59,7 +59,7 @@ scaleUnbiased ::
 scaleUnbiased n w k = createProposal n w (scaleSimple k (1 / k))
 
 contra :: (Double, Double) -> Double -> (Double, Double)
-contra (x, y) z = (x*z, y/z)
+contra (x, y) z = (x * z, y / z)
 
 scaleContrarilySimple :: Double -> Double -> Double -> ProposalSimple (Double, Double)
 scaleContrarilySimple k th t = genericContinuous (gammaDistr (k / t) (th * t)) contra (Just recip)

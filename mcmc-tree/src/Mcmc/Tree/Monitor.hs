@@ -14,7 +14,6 @@ module Mcmc.Tree.Monitor
   )
 where
 
-import Data.Bifunctor
 import ELynx.Data.Tree
 import ELynx.Export.Tree.Newick
 import Mcmc
@@ -28,4 +27,4 @@ monitorTree ::
 monitorTree n =
   MonitorParameter
     n
-    (toNewickBuilder . lengthToPhyloTree . first (Length . getLen))
+    (toNewickBuilder . measurableToPhyloTree)

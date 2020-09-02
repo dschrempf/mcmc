@@ -253,7 +253,14 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  [ timeTree @~ slideNodeWithHeight pth (n lb) 1 0.1 True
+  [ timeTree @~ slideNodeUltrametric pth (nSlide lb) 1 0.1 True
+    | (pth, lb) <- itoList t,
+      -- Path does not lead to the root.
+      not (null pth),
+      -- Path does not lead to a leaf.
+      not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
+  ] ++
+  [ timeTree @~ scaleSubTreeUltrametric pth (nScale lb) 1 0.1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
@@ -261,7 +268,8 @@ proposalsTimeTree t =
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
   where
-    n x = "time tree slide node " ++ show x
+    nSlide x = "time tree slide node " ++ show x
+    nScale x = "time tree scale sub tree " ++ show x
 
 -- Slide branch proposals for the rate tree.
 --
@@ -290,7 +298,7 @@ ccl t =
       timeDeathRate @~ scaleUnbiased "time death rate" 10 40 True,
       rateGammaShape @~ scaleUnbiased "rate gamma shape" 10 50 True,
       rateGammaScale @~ scaleUnbiased "rate gamma scale" 10 50 True,
-      timeTree @~ scaleTreeWithHeight "time tree" 10 3000 True,
+      timeTree @~ scaleTreeUltrametric "time tree" 10 3000 True,
       rateTree @~ scaleTree "rate tree" 10 40 True,
       trLens @~ scaleTreesContrarily "time/rate tree contra" 10 3000 True
     ]
@@ -387,9 +395,9 @@ main = do
           trOutgroup = either error id $ outgroup (S.singleton $ head lvs) "root" meanTree
           tr = either error id $ midpoint trOutgroup
       putStrLn "The tree with mean branch lengths rooted at the midpoint:"
-      print $ toNewick $ lengthToPhyloTree tr
+      print $ toNewick $ measurableToPhyloTree tr
       putStrLn $ "Save the mean tree to " <> fnMeanTree <> "."
-      BL.writeFile fnMeanTree (toNewick $ lengthToPhyloTree tr)
+      BL.writeFile fnMeanTree (toNewick $ measurableToPhyloTree tr)
 
       putStrLn "Root the trees at the midpoint of the mean tree."
       let outgroups = fst $ fromBipartition $ either error id $ bipartition tr

@@ -27,6 +27,7 @@ library
       Mcmc.Tree.Prior.Branch
       Mcmc.Tree.Prior.Node
       Mcmc.Tree.Proposal
+      Statistics.Distribution.TruncatedNormal
       Paths_mcmc_tree
   autogen-modules:
       Paths_mcmc_tree
@@ -41,6 +42,7 @@ library
     , elynx-tree
     , lens
     , log-domain
+    , math-functions
     , mcmc
     , mwc-random
     , primitive

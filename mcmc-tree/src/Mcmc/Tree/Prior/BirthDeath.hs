@@ -117,6 +117,7 @@ birthDeathWith' f la mu logLa (Node br _ [l, r]) = ((Exp $ log dT) * dL * dR * l
 birthDeathWith' _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 
 -- * Tests
+
 --
 -- >>> testTree1 :: Tree Double ()
 -- >>> testTree1 = Node 1.0 () []
@@ -131,6 +132,7 @@ birthDeathWith' _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 -- 3.978845396350806e-2
 
 -- * Point process
+
 --
 -- There are differences in the conditions. The point process conditions on the
 -- time of origin, and on the number of leaves. The dynamic programming approach
