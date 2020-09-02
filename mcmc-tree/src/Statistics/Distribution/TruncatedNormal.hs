@@ -32,6 +32,8 @@ import Numeric.MathFunctions.Constants
 import Numeric.SpecFunctions
 import qualified Statistics.Distribution as D
 
+-- TODO: Standard deviation recip!
+
 -- | The truncated normal distribution.
 --
 -- See https://en.wikipedia.org/wiki/Truncated_normal_distribution.
@@ -68,6 +70,8 @@ truncatedNormalDistr m s a b
     error "truncatedNormalDistr: Standard deviation must be positive."
   | a >= b =
     error "truncatedNormalDistr: Lower bound is equal or larger upper bound."
+  | a > m || b < m =
+    error "truncatedNormalDistr: Mean is out of bounds."
   | otherwise = TND m s a b phi2Alpha (phi2 beta - phi2Alpha)
   where
     alpha = (a - m) / s
@@ -114,8 +118,10 @@ quantile d p
     error "quantile: p is smaller than 0."
   | p > 1 =
     error "quantile: p is larger than 0."
-  | otherwise = invErf val * m_sqrt_2
+  | otherwise = invErf val * m_sqrt_2 * s + m
   where
+    m = mean d
+    s = stdDev d
     z = tndDenom d
     phi2Alpha = tndPhi2Alpha d
     val = 2 * (p * z + phi2Alpha) - 1
