@@ -51,7 +51,7 @@ import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 import System.Environment
-import System.Random.MWC
+import System.Random.MWC hiding (uniform)
 
 -- ELynx library providing functions to work with trees.
 import ELynx.Data.Tree
@@ -75,27 +75,13 @@ data I = I
     _timeBirthRate :: Double,
     -- Death rate of time tree.
     _timeDeathRate :: Double,
-    -- Shape k of gamma distribution of rate parameters.
-    _rateGammaShape :: Double,
-    -- -- Scale theta of gamma distribution of rate parameters.
-    _rateGammaScale :: Double,
     -- Time tree. Branch labels denote time; node labels denote node height.
     _timeTree :: Tree Double Double,
-    -- Rate tree. Branch labels denote rate; node labels are unused.
+    -- Rate tree with mean branch length (1.0 / height of time tree). Branch
+    -- labels denote rate; node labels are unused.
     _rateTree :: Tree Double ()
   }
   deriving (Generic)
-
--- According to Lepage, I also tried using normalized time and rate trees and a
--- scale factor. See branch 'normalizedTrees'.
---
--- However, I don't know how to use calibrations and constraints because i don't
--- know how to calculate absolute time. Since only the product scale*t*r is
--- influencing the likelihood, t and r are confounded.
---
--- I can use a hyperparameter for the mean of r, so basically separate the scale
--- into: scale = scale_time * scale_rate, but that seems like it only pushes the
--- problem to the specification of priors.
 
 -- Create accessors (lenses) to the parameters in the state space.Nothing
 makeLenses ''I
@@ -114,21 +100,23 @@ instance FromJSON I
 initWith :: Tree Double Int -> I
 initWith t =
   I
-    { _timeBirthRate = 0.001,
-      _timeDeathRate = 0.002,
-      _rateGammaShape = 1.0,
-      _rateGammaScale = 0.001,
+    { _timeBirthRate = hR,
+      _timeDeathRate = hR,
       _timeTree = t',
-      _rateTree = bimap (const 0.01) (const ()) t
+      _rateTree = bimap (const hR) (const ()) t
     }
   where
-    t' = bimap (* 1000) (* 1000) $ extend rootHeight $ normalizeHeight $ makeUltrametric t
+    hI = 1000
+    hR = recip hI
+    t' = bimap (* hI) (* hI) $ extend rootHeight $ normalizeHeight $ makeUltrametric t
 
 -- Calibrations are defined in 'Calibrations'. See 'calibratedNodes'.
 
 -- Calibration prior with uniform bounds.
 cals :: [Calibration] -> I -> [Log Double]
-cals xs s = [calibrateUniformSoft 0.01 a b x $ s ^. timeTree | (x, a, b) <- xs]
+cals xs s = [calibrateUniformSoft 0.01 a b x t | (x, a, b) <- xs]
+  where
+    t = s ^. timeTree
 
 -- Constraints define node orders.
 --
@@ -158,7 +146,7 @@ consts xs s =
 
 -- Prior.
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
-pr cb cs s@(I l m k th t r) =
+pr cb cs s@(I l m t r) =
   -- -- Parallel execution provides no runtime benefit, but is left here for
   -- -- reference.
   -- product' $|| parList rpar $
@@ -166,17 +154,16 @@ pr cb cs s@(I l m k th t r) =
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
       exponential 1 m,
-      -- Exponential prior on the shape and scale of the gamma distribution of
-      -- the rate normalization parameter and the branch rates.
-      exponential 1 k,
-      exponential 1 th,
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
-      -- The prior of the branch-wise rates is gamma distributed with mean 1.0.
-      branchesWith (gamma k th) r
+      -- The prior of the branch-wise rates is gamma distributed with mean
+      -- (1.0/timeTreeHeight).
+      branchesWith (gamma 1.0 (recip h)) r
     ]
       ++ cals cb s
       ++ consts cs s
+  where
+    h = label t
 
 -- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from
@@ -253,56 +240,50 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  [ timeTree @~ slideNodeUltrametric pth ("time tree slide node " ++ show lb) 1 0.1 True
-    | (pth, lb) <- itoList t,
-      -- Path does not lead to the root.
-      not (null pth),
-      -- Path does not lead to a leaf.
-      not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
-  ] ++
-  [ timeTree @~ scaleSubTreeUltrametric pth ("time tree scale sub tree " ++ show lb) 1 0.1 True
+  (timeTree @~ scaleTreeUltrametric "time tree scale" 10 3000 True) :
+  [ (timeTree . nodeAt pth)
+      @~ slideRootUltrametric ("time tree slide node " ++ show lb) 1 2.0 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
       -- Path does not lead to a leaf.
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
+    ++ [ (timeTree . nodeAt pth)
+           @~ scaleSubTreeUltrametric ("time tree scale sub tree " ++ show lb) 1 2.0 True
+         | (pth, lb) <- itoList t,
+           -- Don't scale the sub tree of the root node, because we are not
+           -- interested in the length of the stem.
+           not (null pth),
+           -- Sub trees of leaves cannot be scaled.
+           not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
+       ]
 
 -- Slide branch proposals for the rate tree.
 --
 -- Since the stem does not change the likelihood, we do not slide the stem.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  [ rateTree @~ scaleBranch pth ("rate tree scale branch " ++ show lb) 1 100.0 True
+  [ (rateTree . nodeAt pth)
+      @~ slideStem ("rate tree slide branch " ++ show lb) 1 0.001 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth)
-  ] ++
-  [ rateTree @~ scaleSubTree pth ("rate tree scale sub tree " ++ show lb) 1 100.0 True
-    | (pth, lb) <- itoList t,
-      -- Path does not lead to the root.
-      not (null pth),
-      -- Path does not lead to a leaf.
-      not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
-
--- Lens to the tree tuple; useful to create a contrary proposal scaling both
--- trees in opposite directions.
-trLens :: Lens' I (Tree Double Double, Tree Double ())
-trLens = lens (\x -> (_timeTree x, _rateTree x)) (\x (t, r) -> x {_timeTree = t, _rateTree = r})
+    ++ [ (rateTree . nodeAt pth)
+           @~ scaleTree ("rate tree scale sub tree " ++ show lb) 1 1000 True
+         | (pth, lb) <- itoList t,
+           -- Path does not lead to a leaf.
+           not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
+       ]
 
 -- The complete cycle includes slide proposals of higher weights for the other
 -- parameters.
 ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
-    [ timeBirthRate @~ scaleUnbiased "time birth rate" 10 50 True,
-      timeDeathRate @~ scaleUnbiased "time death rate" 10 40 True,
-      rateGammaShape @~ scaleUnbiased "rate gamma shape" 10 50 True,
-      rateGammaScale @~ scaleUnbiased "rate gamma scale" 10 50 True,
-      timeTree @~ scaleTreeUltrametric "time tree scale" 10 3000 True,
-      rateTree @~ scaleTree "rate tree scale" 10 40 True,
-      trLens @~ scaleTreesContrarily "time/rate tree contra scale" 10 3000 True
+    [ timeBirthRate @~ scaleUnbiased "time birth rate" 10 10 True,
+      timeDeathRate @~ scaleUnbiased "time death rate" 10 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
@@ -311,14 +292,12 @@ monParams :: [MonitorParameter I]
 monParams =
   [ _timeBirthRate @. monitorDouble "TimeBirthRate",
     _timeDeathRate @. monitorDouble "TimeDeathRate",
-    _rateGammaShape @. monitorDouble "RateGammaShape",
-    _rateGammaScale @. monitorDouble "RateGammaScale",
-    (label . _timeTree) @. monitorDouble "TimeTreeHeight"
+    (label . _timeTree) @. monitorDouble "TimeTreeRootHeight"
   ]
 
 monStdOut :: MonitorStdOut I
 -- Do not monitor rateGammaShape to standard output because screen is not wide enough.
-monStdOut = monitorStdOut (take 2 monParams ++ drop 3 monParams) 1
+monStdOut = monitorStdOut monParams 1
 
 monFileParams :: MonitorFile I
 monFileParams = monitorFile "-params" monParams 1

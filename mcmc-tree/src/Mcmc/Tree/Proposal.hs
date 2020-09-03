@@ -15,17 +15,13 @@
 --
 -- Creation date: Thu Jul 23 09:10:07 2020.
 module Mcmc.Tree.Proposal
-  ( -- * Nodes
-    slideNodeUltrametric,
+  ( -- * Slide branches
+    slideStem,
+    slideRootUltrametric,
 
-    -- * Branches
-    scaleBranch,
-    slideBranch,
-
-    -- * Trees
+    -- * Scale trees
     scaleTree,
     scaleTreeUltrametric,
-    scaleSubTree,
     scaleSubTreeUltrametric,
     scaleTreesContrarily,
   )
@@ -36,7 +32,6 @@ import Data.Bifunctor
 import ELynx.Data.Tree
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
-import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Slide
 import Mcmc.Tree.Lens
 import Numeric.Log
@@ -45,43 +40,37 @@ import Statistics.Distribution.Gamma
 import Statistics.Distribution.TruncatedNormal
 import System.Random.MWC
 
+-- | Slide the root branch.
+--
+-- Use a normal distribution with mean 0 and given standard deviation.
+slideStem ::
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
+  -- | Standard deviation.
+  Double ->
+  -- | Enable tuning.
+  Bool ->
+  Proposal (Tree Double a)
+slideStem n w s t = rootBranch @~ slideSymmetric n w s t
+
 -- Minimum branch length.
 eps :: Double
 eps = 1e-8
-
--- -- Be careful, this will loop forever if the parameters are not well chosen.
--- truncatedNormal ::
---   PrimMonad m =>
---   Double ->
---   Double ->
---   Double ->
---   Double ->
---   Gen (PrimState m) ->
---   m Double
--- truncatedNormal a b m s g = do
---   x' <- normal m s g
---   case x' of
---     x
---       | x < a -> truncatedNormal a b m s g
---       | x > b -> truncatedNormal a b m s g
---       | otherwise -> return x
-
-modifyBranch :: (e -> e) -> Tree e a -> Tree e a
-modifyBranch f (Node br lb ts) = Node (f br) lb ts
 
 -- A very specific function that samples a delta value from the truncated normal
 -- distribution with given bounds [a,b] and also computes the required factor of
 -- the Metropolis-Hastings proposal ratio.
 truncatedNormalSample ::
   Double -> Double -> Double -> Double -> GenIO -> IO (Double, Log Double)
-truncatedNormalSample ds t a b g = do
-  let s = t * ds * (b - a)
-      d = truncatedNormalDistr 0 s a b
+truncatedNormalSample s t a b g = do
+  let s' = t * s
+      d = truncatedNormalDistr 0 s' a b
   dx <- genContinuous d g
   -- Compute Metropolis-Hastings factor.
   let a' = a - dx
       b' = b - dx
-      s' = t * ds * (b' - a')
       d' = truncatedNormalDistr 0 s' a' b'
       qXY = Exp $ logDensity d dx
       qYX = Exp $ logDensity d' (- dx)
@@ -100,67 +89,24 @@ slideRootUltrametricSample ds t (Node br lb ts) g = do
       a = negate $ br - eps
       b = br' - eps
   (dx, q) <- truncatedNormalSample ds t a b g
-  let tr' = Node (br + dx) (lb - dx) (map (modifyBranch (subtract dx)) ts)
+  let tr' = Node (br + dx) (lb - dx) (map (applyStem (subtract dx)) ts)
   return (tr', q)
 
 slideRootUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
 slideRootUltrametricSimple ds t = ProposalSimple $ slideRootUltrametricSample ds t
 
--- | Slide a node.
+-- | Slide the root node.
 --
--- A normal distribution truncated at the parent node and the closest daughter
--- node is used. The mean of the normal distribution is 0, the standard
--- deviation is determined by a given value multiplied with the domain of the
--- truncated distribution.
+-- For ultrametric trees, we cannot exclusively slide the stem such as with
+-- 'slideStem', because this would break ultrametricity for the rest of the
+-- tree. Instead, we need to slide the root node. That is, when the stem is
+-- elongated, we need to shorten the daughter branches, and vice versa.
 --
--- The node to slide is specified by a path.
+-- A normal distribution truncated at the origin and the closest daughter node
+-- is used.
 --
--- Assume the branch and node labels denote branch length and node height,
--- respecitvely.
---
--- Call __error__ if given path is invalid or leads to a leaf.
-slideNodeUltrametric ::
-  -- | Path to node on tree.
-  Path ->
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
-  -- | Standard deviation multiplier.
-  Double ->
-  -- | Enable tuning.
-  Bool ->
-  Proposal (Tree Double Double)
-slideNodeUltrametric pth n w ds t = nodeAt pth @~ createProposal n w (slideRootUltrametricSimple ds) t
-
--- | Scale a branch.
---
--- The gamma distribution with given shape is used. The scale is set such that
--- the mean of the distribution is 1.0.
---
--- The branch to scale is specified by a path to a node.
-scaleBranch ::
-  -- | Path to node on tree.
-  Path ->
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
-  -- | Shape.
-  Double ->
-  -- | Enable tuning.
-  Bool ->
-  Proposal (Tree Double a)
-scaleBranch pth n w s t = (nodeAt pth . rootBranch) @~ scaleUnbiased n w s t
-
--- | Slide a branch.
---
--- Use a normal distribution with mean 0 and given standard deviation.
---
--- The branch to slide is specified by a path to a node.
-slideBranch ::
-  -- | Path to node on tree.
-  Path ->
+-- __Assume the node labels denote node height__.
+slideRootUltrametric ::
   -- | Name.
   String ->
   -- | Weight.
@@ -169,8 +115,8 @@ slideBranch ::
   Double ->
   -- | Enable tuning.
   Bool ->
-  Proposal (Tree Double a)
-slideBranch pth n w s t = (nodeAt pth . rootBranch) @~ slideSymmetric n w s t
+  Proposal (Tree Double Double)
+slideRootUltrametric n w ds = createProposal n w (slideRootUltrametricSimple ds)
 
 scaleTreeSimple :: Double -> Double -> ProposalSimple (Tree Double a)
 scaleTreeSimple k t =
@@ -203,7 +149,10 @@ scaleTreeUltrametricSimple k t =
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
 --
--- Assume node labels denote node height.
+-- __Assume node labels denote node height__.
+--
+-- __The height is changed.__ Do not use this proposal on a sub tree of an
+-- ultrametric tree. Instead, use 'scaleSubTreeUltrametric'.
 scaleTreeUltrametric ::
   -- | Name.
   String ->
@@ -216,32 +165,15 @@ scaleTreeUltrametric ::
   Proposal (Tree Double Double)
 scaleTreeUltrametric n w k = createProposal n w (scaleTreeUltrametricSimple k)
 
--- | Scale all branches of sub tree induced by a given node with a gamma
--- distributed kernel of given shape. The scale is set such that the mean is
--- 1.0.
-scaleSubTree ::
-  -- | Path.
-  Path ->
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
-  -- | Shape.
-  Double ->
-  -- | Enable tuning.
-  Bool ->
-  Proposal (Tree Double a)
-scaleSubTree pth n w k t = nodeAt pth @~ createProposal n w (scaleTreeSimple k) t
-
-scaleRootUltrametricSample ::
+scaleSubTreeUltrametricSample ::
   Double ->
   Double ->
   Tree Double Double ->
   GenIO ->
   IO (Tree Double Double, Log Double)
-scaleRootUltrametricSample _ _ (Node _ _ []) _ =
-  error "scaleRootUltrametricSample: Cannot scale sub tree of leaf node."
-scaleRootUltrametricSample ds t (Node br lb ts) g = do
+scaleSubTreeUltrametricSample _ _ (Node _ _ []) _ =
+  error "scaleSubTreeUltrametricSample: Cannot scale sub tree of leaf node."
+scaleSubTreeUltrametricSample ds t (Node br lb ts) g = do
   let h = lb
       a = negate $ br - eps
       b = h - eps
@@ -251,33 +183,29 @@ scaleRootUltrametricSample ds t (Node br lb ts) g = do
       tr' = Node (br + dx) h' $ map (bimap (* xi) (* xi)) ts
   return (tr', q)
 
-scaleRootUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
-scaleRootUltrametricSimple ds t = ProposalSimple $ scaleRootUltrametricSample ds t
+scaleSubTreeUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
+scaleSubTreeUltrametricSimple ds t = ProposalSimple $ scaleSubTreeUltrametricSample ds t
 
--- | Slide the node at given path and scale the branches of the induced sub tree
--- so that the tree stays ultrametric.
+-- | Scale the branches of the sub tree and slide the root branch so that the
+-- tree height is conserved.
 --
--- An additive normal distribution truncated at the parent node (or the origin)
--- and the leaves is used to slide the given node. The mean of the normal
--- distribution is 0, the standard deviation is determined by a given value
--- multiplied with the domain of the truncated distribution.
+-- See 'scaleTreeUltrametric'.
 --
--- Assume node labels denote node height.
+-- A normal distribution truncated at the parent node (or the origin) and the
+-- leaves is used to slide the given node.
 --
--- Call __error__ if given path is invalid or leads to a leaf.
+-- __Assume the node labels denote node height__.
 scaleSubTreeUltrametric ::
-  -- | Path to node.
-  Path ->
   -- | Name.
   String ->
   -- | Weight.
   Int ->
-  -- | Standard deviation multiplier.
+  -- | Standard deviation.
   Double ->
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double Double)
-scaleSubTreeUltrametric pth n w ds t = nodeAt pth @~ createProposal n w (scaleRootUltrametricSimple ds) t
+scaleSubTreeUltrametric n w ds = createProposal n w (scaleSubTreeUltrametricSimple ds)
 
 contra :: (Tree Double Double, Tree Double a) -> Double -> (Tree Double Double, Tree Double a)
 contra (s, t) x = (bimap (* x) (* x) s, first (/ x) t)
@@ -294,8 +222,6 @@ scaleTreesContrarilySimple k t =
 --
 -- The two trees are scaled contrarily so that the product of their heights
 -- stays constant. Contrary proposals are useful when parameters are confounded.
---
--- XXX: For the first tree, assume that node labels denote node height.
 scaleTreesContrarily ::
   -- | Name.
   String ->
