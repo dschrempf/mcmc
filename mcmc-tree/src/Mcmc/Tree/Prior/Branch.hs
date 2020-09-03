@@ -19,7 +19,7 @@ import Numeric.Log
 
 -- | Branch length prior with given distribution.
 --
--- Root branch is ignored!
+-- The root branch is ignored!
 branchesWith ::
   -- | Branch prior distribution.
   (Double -> Log Double) ->

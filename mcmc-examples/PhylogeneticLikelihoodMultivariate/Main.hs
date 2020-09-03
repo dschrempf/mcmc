@@ -277,13 +277,19 @@ proposalsRateTree t =
            not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
        ]
 
+-- Lens to the tree tuple; useful to create a contrary proposal scaling both
+-- trees in opposite directions.
+trLens :: Lens' I (Tree Double Double, Tree Double ())
+trLens = lens (\x -> (_timeTree x, _rateTree x)) (\x (t, r) -> x {_timeTree = t, _rateTree = r})
+
 -- The complete cycle includes slide proposals of higher weights for the other
 -- parameters.
 ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
     [ timeBirthRate @~ scaleUnbiased "time birth rate" 10 10 True,
-      timeDeathRate @~ scaleUnbiased "time death rate" 10 10 True
+      timeDeathRate @~ scaleUnbiased "time death rate" 10 10 True,
+      trLens @~ scaleTreesContrarily "time/rate tree contra scale" 10 3000 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
