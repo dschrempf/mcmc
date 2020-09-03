@@ -25,6 +25,7 @@ module Mcmc.Tree.Proposal
     -- * Trees
     scaleTree,
     scaleTreeUltrametric,
+    scaleSubTree,
     scaleSubTreeUltrametric,
     scaleTreesContrarily,
   )
@@ -214,6 +215,23 @@ scaleTreeUltrametric ::
   Bool ->
   Proposal (Tree Double Double)
 scaleTreeUltrametric n w k = createProposal n w (scaleTreeUltrametricSimple k)
+
+-- | Scale all branches of sub tree induced by a given node with a gamma
+-- distributed kernel of given shape. The scale is set such that the mean is
+-- 1.0.
+scaleSubTree ::
+  -- | Path.
+  Path ->
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
+  -- | Shape.
+  Double ->
+  -- | Enable tuning.
+  Bool ->
+  Proposal (Tree Double a)
+scaleSubTree pth n w k t = nodeAt pth @~ createProposal n w (scaleTreeSimple k) t
 
 scaleRootUltrametricSample ::
   Double ->

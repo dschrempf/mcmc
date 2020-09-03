@@ -253,36 +253,38 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  [ timeTree @~ slideNodeUltrametric pth (nSlide lb) 1 0.1 True
+  [ timeTree @~ slideNodeUltrametric pth ("time tree slide node " ++ show lb) 1 0.1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
       -- Path does not lead to a leaf.
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ] ++
-  [ timeTree @~ scaleSubTreeUltrametric pth (nScale lb) 1 0.1 True
+  [ timeTree @~ scaleSubTreeUltrametric pth ("time tree scale sub tree " ++ show lb) 1 0.1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
       -- Path does not lead to a leaf.
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
-  where
-    nSlide x = "time tree slide node " ++ show x
-    nScale x = "time tree scale sub tree " ++ show x
 
 -- Slide branch proposals for the rate tree.
 --
 -- Since the stem does not change the likelihood, we do not slide the stem.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  [ rateTree @~ scaleBranch pth (n lb) 1 100.0 True
+  [ rateTree @~ scaleBranch pth ("rate tree scale branch " ++ show lb) 1 100.0 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth)
+  ] ++
+  [ rateTree @~ scaleSubTree pth ("rate tree scale sub tree " ++ show lb) 1 100.0 True
+    | (pth, lb) <- itoList t,
+      -- Path does not lead to the root.
+      not (null pth),
+      -- Path does not lead to a leaf.
+      not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
-  where
-    n x = "rate tree scale branch " ++ show x
 
 -- Lens to the tree tuple; useful to create a contrary proposal scaling both
 -- trees in opposite directions.
