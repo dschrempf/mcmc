@@ -12,29 +12,29 @@ packages:
   original:
     hackage: pava-0.1.0.0
 - completed:
-    hackage: elynx-nexus-0.3.4@sha256:ef8717a2dda1ce5e1c3cd554c3f3efc74c2e467f916fc270d4c30258d5e3240a,1315
+    hackage: elynx-nexus-0.4.0@sha256:054b337b153373dbed6f5f5a2d329656d7f88c197b79255de54a9045576d78ba,1315
     pantry-tree:
       size: 395
-      sha256: 864d957d8e0442b2b0cec0d52f7864152727a8b9f64ff488f992605cf37cae91
+      sha256: 16345a5691887ee55058a1cb62bb9b7d3ed08213501becc0737f36bfee184213
   original:
-    hackage: elynx-nexus-0.3.4
+    hackage: elynx-nexus-0.4.0
 - completed:
-    hackage: elynx-tools-0.3.4@sha256:4ed356efd812c17d0f571f8048f100f2d573d1977c5d820e7a5e620f3ca870d9,1615
+    hackage: elynx-tools-0.4.0@sha256:465f50aeb92d4bde42bd3eab7468820a18352e143dd9c4137bd1c060b86dbcd1,1615
     pantry-tree:
       size: 1090
-      sha256: d7bba883e456503e74393614d5c4a0fda3ed50d642d6caa43cf7ed8c5c127b9b
+      sha256: 625d0ab6871ac57a3465d63c277defac8bae9f7e7986d06d492e903215c4e380
   original:
-    hackage: elynx-tools-0.3.4
+    hackage: elynx-tools-0.4.0
 - completed:
-    hackage: elynx-tree-0.3.4@sha256:ff28c5ffda20b866e95fea19e57ffa379022dc10049385c9f2f017969ad1ba1d,3634
+    hackage: elynx-tree-0.4.0@sha256:d742b01b7ea9a64095a436d45599a2b9eacc67b2122a0882b186cb0ce58441ee,3579
     pantry-tree:
-      size: 4332
-      sha256: ac5e5785164313ae6e91b4cfbf7f475f86147bf5fe769d47ddab8a4fe1190254
+      size: 4276
+      sha256: e1f9f22620a7eba268cad8c6d625a9d1e5d028113f36b58efd187204fc09fee2
   original:
-    hackage: elynx-tree-0.3.4
+    hackage: elynx-tree-0.4.0
 snapshots:
 - completed:
-    size: 524160
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2020/8/3.yaml
-    sha256: ae1e29b65f6a27a86b9b9ff736536f9f80167bb163e9a46042e57605c67fda50
-  original: nightly-2020-08-03
+    size: 528636
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2020/9/3.yaml
+    sha256: 9dac40ef83b087f8f5c4b32a3400b54f6fc058fd7648e46bbfcb60765b135646
+  original: nightly-2020-09-03

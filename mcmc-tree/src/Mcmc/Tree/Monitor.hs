@@ -14,8 +14,7 @@ module Mcmc.Tree.Monitor
   )
 where
 
-import ELynx.Data.Tree
-import ELynx.Export.Tree.Newick
+import ELynx.Tree
 import Mcmc
 
 -- | Monitor a tree in Newick format.

@@ -20,7 +20,7 @@ module Mcmc.Tree.Lens
 where
 
 import Control.Lens
-import ELynx.Data.Tree
+import ELynx.Tree
 
 -- | Path from the root of a tree to the node of the tree.
 --

@@ -45,7 +45,7 @@ import Data.Maybe
 import qualified Data.Set as S
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
-import qualified ELynx.Data.Topology.Rooted as T
+import qualified ELynx.Topology.Rooted as T
 import GHC.Generics
 import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
 import qualified Numeric.LinearAlgebra as L
@@ -54,8 +54,7 @@ import System.Environment
 import System.Random.MWC hiding (uniform)
 
 -- ELynx library providing functions to work with trees.
-import ELynx.Data.Tree
-import ELynx.Export.Tree.Newick
+import ELynx.Tree
 
 -- Mcmc library.
 import Mcmc

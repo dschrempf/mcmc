@@ -25,7 +25,7 @@ import Control.Monad
 import Data.List
 import Data.Maybe
 import qualified Data.Set as S
-import ELynx.Data.Tree
+import ELynx.Tree
 import Mcmc.Tree.Lens
 import Numeric.Log
 import Statistics.Distribution

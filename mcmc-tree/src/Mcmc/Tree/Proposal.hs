@@ -29,7 +29,7 @@ where
 
 import Control.Lens
 import Data.Bifunctor
-import ELynx.Data.Tree
+import ELynx.Tree
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Slide

@@ -15,7 +15,7 @@ module Mcmc.Tree.Prior.BirthDeath
 where
 
 import Data.Bifunctor
-import ELynx.Data.Tree
+import ELynx.Tree
 import Numeric.Log
 
 -- Compute probabilities D and E at the top of the branch.

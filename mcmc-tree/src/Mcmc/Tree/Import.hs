@@ -26,8 +26,7 @@ import Data.Bifunctor
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.List
-import ELynx.Data.Tree
-import ELynx.Import.Tree.Newick
+import ELynx.Tree
 
 instance FunctorWithIndex [Int] (Tree e) where
   imap f (Node br lb ts) = Node br (f [] lb) $ imap (\i -> imap (f . (:) i)) ts

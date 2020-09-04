@@ -19,7 +19,7 @@ where
 
 import qualified Data.ByteString.Char8 as BS
 import Data.Maybe
-import ELynx.Data.Tree
+import ELynx.Tree
 import Mcmc.Tree
 
 -- Calibrate a node with given path at given age.

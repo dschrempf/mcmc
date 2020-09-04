@@ -14,7 +14,7 @@ module Mcmc.Tree.Prior.Branch
   )
 where
 
-import ELynx.Data.Tree
+import ELynx.Tree
 import Numeric.Log
 
 -- | Branch length prior with given distribution.
