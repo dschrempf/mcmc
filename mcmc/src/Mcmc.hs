@@ -86,6 +86,7 @@ module Mcmc
     (@~),
     scale,
     scaleUnbiased,
+    scaleBactrian,
     slide,
     slideBactrian,
     slideSymmetric,

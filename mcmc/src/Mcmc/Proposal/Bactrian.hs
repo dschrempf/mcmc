@@ -70,11 +70,13 @@ bactrianAdditiveSimple m s t
   | otherwise = ProposalSimple $ bactrianAdditive m (t * s)
 
 -- | Additive symmetric proposal with kernel similar to the silhouette of a
--- Bactrian camel. The [Bactrian
--- kernel](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/figure/fig01)
--- is a mixture of two symmetrically arranged normal distributions. The spike
+-- Bactrian camel.
+--
+-- The [Bactrian
+-- kernel](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/figure/fig01) is
+-- a mixture of two symmetrically arranged normal distributions. The spike
 -- parameter loosely determines the standard deviations of the individual humps
--- while the other parameter refers to the standard deviation of the complete
+-- while the second parameter refers to the standard deviation of the complete
 -- Bactrian kernel.
 --
 -- See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
