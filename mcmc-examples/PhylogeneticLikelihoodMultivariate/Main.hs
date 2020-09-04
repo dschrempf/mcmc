@@ -298,7 +298,8 @@ monParams :: [MonitorParameter I]
 monParams =
   [ _timeBirthRate @. monitorDouble "TimeBirthRate",
     _timeDeathRate @. monitorDouble "TimeDeathRate",
-    (label . _timeTree) @. monitorDouble "TimeTreeRootHeight"
+    (label . _timeTree) @. monitorDouble "TimeTreeRootHeight",
+    view (timeTree . nodeAt [1,1] . rootLabel) @. monitorDouble "TimeTreeRootHeight"
   ]
 
 monStdOut :: MonitorStdOut I
