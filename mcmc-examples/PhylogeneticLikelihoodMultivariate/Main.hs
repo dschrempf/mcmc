@@ -34,7 +34,6 @@ where
 import Control.Comonad
 import Control.Lens hiding ((<.>))
 import Control.Monad
--- import Control.Parallel.Strategies
 import Criterion
 import Data.Aeson
 import Data.Bifunctor
@@ -146,9 +145,6 @@ consts xs s =
 -- Prior.
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
 pr cb cs s@(I l m t r) =
-  -- -- Parallel execution provides no runtime benefit, but is left here for
-  -- -- reference.
-  -- product' $|| parList rpar $
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
@@ -321,19 +317,16 @@ mon = Monitor monStdOut [monFileParams, monFileTimeTree, monFileRateTree] []
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
 nBurnIn = Just 3000
-
 -- nBurnIn = Just 30
 
 -- Auto tuning period.
 nAutoTune :: Maybe Int
 nAutoTune = Just 100
-
 -- nAutoTune = Just 10
 
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
 nIterations = 10000
-
 -- nIterations = 30
 
 -- The posterior branch length means and covariances will be stored in a file
