@@ -224,8 +224,8 @@ lh ::
   Log Double
 lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigmaDet distances
   where
-    times = getBranches $ x ^. timeTree
-    rates = getBranches $ x ^. rateTree
+    times = getBranches (x ^. timeTree)
+    rates = getBranches (x ^. rateTree)
     distances = sumFirstTwo $ V.zipWith (*) times rates
 
 -- Slide node proposals for the time tree.
@@ -327,7 +327,7 @@ nAutoTune = Just 100
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
 nIterations = 10000
--- nIterations = 30
+-- nIterations = 10
 
 -- The posterior branch length means and covariances will be stored in a file
 -- with this name.

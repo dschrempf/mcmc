@@ -45,12 +45,12 @@ packages:
 #
 extra-deps:
   - pava-0.1.0.0
-  - elynx-nexus-0.4.0
-  - elynx-tools-0.4.0
-  - elynx-tree-0.4.0
-  # - ../elynx/elynx-nexus
-  # - ../elynx/elynx-tools
-  # - ../elynx/elynx-tree
+  # - elynx-nexus-0.4.0
+  # - elynx-tools-0.4.0
+  # - elynx-tree-0.4.0
+  - ../elynx/elynx-nexus
+  - ../elynx/elynx-tools
+  - ../elynx/elynx-tree
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
@@ -78,3 +78,6 @@ extra-deps:
 
 # # Weeder 1.0.
 # ghc-options: {"$locals": -ddump-to-file -ddump-hi}
+
+# # LLVM.
+# ghc-options: {"$everything": -O2 -fllvm}

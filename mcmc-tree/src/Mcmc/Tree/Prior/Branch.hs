@@ -26,13 +26,13 @@ branchesWith ::
   Log Double
 branchesWith f = product . map f . branches
 
--- | Branch length prior with given distribution.
+-- | See 'branchesWith'.
 --
--- Parallel version; evaluate the sub trees of the root node in parallel. Only
--- suitable for balanced trees with thousands of leaves.
+-- Evaluate the sub trees up to given layer in Useful if tree is large, or if
+-- the branch prior distribution takes time to evaluate.
 parBranchesWith ::
-  -- | Branch prior distribution.
+  Int ->
   (Double -> Log Double) ->
   Tree Double a ->
   Log Double
-parBranchesWith f = parBranchFoldMap 1 f (*)
+parBranchesWith n f = parBranchFoldMap n f (*)
