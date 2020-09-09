@@ -1,5 +1,7 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- 'slideStem' was renamed to 'slideBranch'.
+
 ** 0.2.3
 - Contrary proposals.
 - Change how monitors are lifted (use normal function, not a lens).
