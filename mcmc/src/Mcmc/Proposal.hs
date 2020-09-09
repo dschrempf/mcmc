@@ -19,7 +19,7 @@ module Mcmc.Proposal
   ( -- * Proposal
     Proposal (..),
     (@~),
-    ProposalSimple (..),
+    ProposalSimple,
     Tuner (tParam, tFunc),
     createProposal,
     tune,
@@ -106,12 +106,10 @@ instance Ord (Proposal a) where
 -- ratio of the backward to forward kernels (i.e., the probability masses or
 -- probability densities). For unbiased proposals, this ratio is 1.0. For biased
 -- proposals, the ratio is ?.
-newtype ProposalSimple a = ProposalSimple
-  { pSample :: a -> GenIO -> IO (a, Log Double)
-  }
+type ProposalSimple a = a -> GenIO -> IO (a, Log Double)
 
 convertS :: Lens' b a -> ProposalSimple a -> ProposalSimple b
-convertS l (ProposalSimple s) = ProposalSimple s'
+convertS l s = s'
   where
     s' v g = do
       (x', r) <- s (v ^. l) g

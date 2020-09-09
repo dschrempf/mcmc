@@ -67,7 +67,7 @@ bactrianAdditiveSimple m s t
   | m < 0 = error "bactrianAdditiveSimple: Spike parameter negative."
   | m >= 1 = error "bactrianAdditiveSimple: Spike parameter 1.0 or larger."
   | s <= 0 = error "bactrianAdditiveSimple: Standard deviation 0.0 or smaller."
-  | otherwise = ProposalSimple $ bactrianAdditive m (t * s)
+  | otherwise = bactrianAdditive m (t * s)
 
 -- | Additive symmetric proposal with kernel similar to the silhouette of a
 -- Bactrian camel.
@@ -120,7 +120,7 @@ bactrianMultSimple m s t
   | m < 0 = error "bactrianMultSimple: Spike parameter negative."
   | m >= 1 = error "bactrianMultSimple: Spike parameter 1.0 or larger."
   | s <= 0 = error "bactrianMultSimple: Standard deviation 0.0 or smaller."
-  | otherwise = ProposalSimple $ bactrianMult m (t * s)
+  | otherwise = bactrianMult m (t * s)
 
 -- | Multiplicative proposal with kernel similar to the silhouette of a Bactrian
 -- camel. See 'slideBactrian'.

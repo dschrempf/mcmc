@@ -50,7 +50,7 @@ genericContinuous ::
   -- required for biased proposals.
   Maybe (Double -> Double) ->
   ProposalSimple a
-genericContinuous d f fInv = ProposalSimple $ sampleCont d f fInv
+genericContinuous d f fInv = sampleCont d f fInv
 
 sampleDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
@@ -82,4 +82,4 @@ genericDiscrete ::
   -- required for biased proposals.
   Maybe (Int -> Int) ->
   ProposalSimple a
-genericDiscrete fd f fInv = ProposalSimple $ sampleDiscrete fd f fInv
+genericDiscrete fd f fInv = sampleDiscrete fd f fInv

@@ -51,7 +51,7 @@ mhRatio fX fY q = fY * q / fX
 
 mhPropose :: Proposal a -> Mcmc a ()
 mhPropose m = do
-  let p = pSample $ pSimple m
+  let p = pSimple m
   s <- get
   let (Item x pX lX) = item s
       pF = priorF s

@@ -1,6 +1,7 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
 - 'slideStem' was renamed to 'slideBranch'.
+- Change ProposalSimple from newtype to type.
 
 ** 0.2.3
 - Contrary proposals.
