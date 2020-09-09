@@ -14,10 +14,14 @@
 -- Portability :  portable
 --
 -- Creation date: Thu Jul 23 09:10:07 2020.
+--
+-- For reasons of computational efficiency, all functions named
+-- @nameUltrametric@ __assume the node labels denote node height__ and handle
+-- these values accordingly.
 module Mcmc.Tree.Proposal
   ( -- * Slide branches
-    slideStem,
-    slideRootUltrametric,
+    slideBranch,
+    slideNodeUltrametric,
 
     -- * Scale trees
     scaleTree,
@@ -40,10 +44,13 @@ import Statistics.Distribution.Gamma
 import Statistics.Distribution.TruncatedNormal
 import System.Random.MWC
 
--- | Slide the root branch.
+-- | Slide branch.
 --
 -- Use a normal distribution with mean 0 and given standard deviation.
-slideStem ::
+--
+-- This proposal slides the root branch. To slide other branches, see 'nodeAt'.
+-- For example, @nodeAt path @~ slideNodeUltrametric ...@.
+slideBranch ::
   -- | Name.
   String ->
   -- | Weight.
@@ -53,7 +60,7 @@ slideStem ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double a)
-slideStem n w s t = rootBranch @~ slideSymmetric n w s t
+slideBranch n w s t = rootBranch @~ slideSymmetric n w s t
 
 -- Minimum branch length.
 eps :: Double
@@ -76,15 +83,15 @@ truncatedNormalSample s t a b g = do
       qYX = Exp $ logDensity d' (- dx)
   return (dx, qYX / qXY)
 
-slideRootUltrametricSample ::
+slideNodeUltrametricSample ::
   Double ->
   Double ->
   Tree Double Double ->
   GenIO ->
   IO (Tree Double Double, Log Double)
-slideRootUltrametricSample _ _ (Node _ _ []) _ =
-  error "slideRootUltrametricSample: Cannot slide leaf node."
-slideRootUltrametricSample ds t (Node br lb ts) g = do
+slideNodeUltrametricSample _ _ (Node _ _ []) _ =
+  error "slideNodeUltrametricSample: Cannot slide leaf node."
+slideNodeUltrametricSample ds t (Node br lb ts) g = do
   let br' = minimum $ map branch ts
       a = negate $ br - eps
       b = br' - eps
@@ -92,21 +99,23 @@ slideRootUltrametricSample ds t (Node br lb ts) g = do
   let tr' = Node (br + dx) (lb - dx) (map (applyStem (subtract dx)) ts)
   return (tr', q)
 
-slideRootUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
-slideRootUltrametricSimple ds t = ProposalSimple $ slideRootUltrametricSample ds t
+slideNodeUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
+slideNodeUltrametricSimple ds t = ProposalSimple $ slideNodeUltrametricSample ds t
 
--- | Slide the root node.
+-- | Slide node (for ultrametric trees).
 --
--- For ultrametric trees, we cannot exclusively slide the stem such as with
--- 'slideStem', because this would break ultrametricity for the rest of the
--- tree. Instead, we need to slide the root node. That is, when the stem is
--- elongated, we need to shorten the daughter branches, and vice versa.
+-- For ultrametric trees, we cannot exclusively slide the branch such as with
+-- 'slideBranch', because this would change the height and if the proposal is
+-- used on a non-root node, it would break ultrametricity of the tree. Instead,
+-- we need to slide the root node. That is, when the stem is elongated, we need
+-- to shorten the daughter branches, and vice versa, such that the tree height
+-- is conserved.
 --
 -- A normal distribution truncated at the origin and the closest daughter node
 -- is used.
 --
 -- __Assume the node labels denote node height__.
-slideRootUltrametric ::
+slideNodeUltrametric ::
   -- | Name.
   String ->
   -- | Weight.
@@ -116,7 +125,7 @@ slideRootUltrametric ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double Double)
-slideRootUltrametric n w ds = createProposal n w (slideRootUltrametricSimple ds)
+slideNodeUltrametric n w ds = createProposal n w (slideNodeUltrametricSimple ds)
 
 scaleTreeSimple :: Double -> Double -> ProposalSimple (Tree Double a)
 scaleTreeSimple k t =
@@ -189,7 +198,7 @@ scaleSubTreeUltrametricSimple ds t = ProposalSimple $ scaleSubTreeUltrametricSam
 -- | Scale the branches of the sub tree and slide the root branch so that the
 -- tree height is conserved.
 --
--- See 'scaleTreeUltrametric'.
+-- See also 'scaleTreeUltrametric'.
 --
 -- A normal distribution truncated at the parent node (or the origin) and the
 -- leaves is used to slide the given node.

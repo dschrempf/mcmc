@@ -237,7 +237,7 @@ proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
   (timeTree @~ scaleTreeUltrametric "time tree scale" 10 3000 True) :
   [ (timeTree . nodeAt pth)
-      @~ slideRootUltrametric ("time tree slide node " ++ show lb) 1 2.0 True
+      @~ slideNodeUltrametric ("time tree slide node " ++ show lb) 1 2.0 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
@@ -260,7 +260,7 @@ proposalsTimeTree t =
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
   [ (rateTree . nodeAt pth)
-      @~ slideStem ("rate tree slide branch " ++ show lb) 1 0.001 True
+      @~ slideBranch ("rate tree slide branch " ++ show lb) 1 0.001 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth)
