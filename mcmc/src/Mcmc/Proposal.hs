@@ -128,19 +128,19 @@ convertT l (Tuner p f) = Tuner p f'
 
 -- | Create a possibly tuneable proposal.
 createProposal ::
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
   -- | Function creating a simple proposal for a given tuning parameter. The
   -- larger the tuning parameter, the larger the proposal (and the lower the
   -- expected acceptance ratio), and vice versa.
   (Double -> ProposalSimple a) ->
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
   -- | Activate tuning?
   Bool ->
   Proposal a
-createProposal n w f True = Proposal n w (f 1.0) (Just $ Tuner 1.0 f)
-createProposal n w f False = Proposal n w (f 1.0) Nothing
+createProposal f n w True = Proposal n w (f 1.0) (Just $ Tuner 1.0 f)
+createProposal f n w False = Proposal n w (f 1.0) Nothing
 
 -- Minimal tuning parameter; subject to change.
 tuningParamMin :: Double

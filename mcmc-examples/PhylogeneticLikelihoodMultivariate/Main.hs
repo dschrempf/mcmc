@@ -235,9 +235,9 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  (timeTree @~ scaleTreeUltrametric "time tree scale" 10 3000 True) :
+  (timeTree @~ scaleTreeUltrametric 3000 "time tree scale" 10 True) :
   [ (timeTree . nodeAt pth)
-      @~ slideNodeUltrametric ("time tree slide node " ++ show lb) 1 2.0 True
+      @~ slideNodeUltrametric 2.0 ("time tree slide node " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
@@ -245,7 +245,7 @@ proposalsTimeTree t =
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
     ++ [ (timeTree . nodeAt pth)
-           @~ scaleSubTreeUltrametric ("time tree scale sub tree " ++ show lb) 1 2.0 True
+           @~ scaleSubTreeUltrametric 2.0 ("time tree scale sub tree " ++ show lb) 1 True
          | (pth, lb) <- itoList t,
            -- Don't scale the sub tree of the root node, because we are not
            -- interested in the length of the stem.
@@ -260,13 +260,13 @@ proposalsTimeTree t =
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
   [ (rateTree . nodeAt pth)
-      @~ slideBranch ("rate tree slide branch " ++ show lb) 1 0.001 True
+      @~ slideBranch 0.001 ("rate tree slide branch " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth)
   ]
     ++ [ (rateTree . nodeAt pth)
-           @~ scaleTree ("rate tree scale sub tree " ++ show lb) 1 1000 True
+           @~ scaleTree 1000 ("rate tree scale sub tree " ++ show lb) 1 True
          | (pth, lb) <- itoList t,
            -- Path does not lead to a leaf.
            not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
@@ -282,9 +282,9 @@ trLens = lens (\x -> (_timeTree x, _rateTree x)) (\x (t, r) -> x {_timeTree = t,
 ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
-    [ timeBirthRate @~ scaleUnbiased "time birth rate" 10 10 True,
-      timeDeathRate @~ scaleUnbiased "time death rate" 10 10 True,
-      trLens @~ scaleTreesContrarily "time/rate tree contra scale" 10 3000 True
+    [ timeBirthRate @~ scaleUnbiased 10 "time birth rate" 10 True,
+      timeDeathRate @~ scaleUnbiased 10 "time death rate" 10 True,
+      trLens @~ scaleTreesContrarily 3000 "time/rate tree contra scale" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t

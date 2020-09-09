@@ -81,18 +81,18 @@ bactrianAdditiveSimple m s t
 --
 -- See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
 slideBactrian ::
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
   -- | Spike parameter.
   Double ->
   -- | Standard deviation.
   Double ->
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slideBactrian n w m s = createProposal n w (bactrianAdditiveSimple m s)
+slideBactrian m s = createProposal (bactrianAdditiveSimple m s)
 
 -- We have:
 -- x  (1+dx ) = x'
@@ -125,15 +125,15 @@ bactrianMultSimple m s t
 -- | Multiplicative proposal with kernel similar to the silhouette of a Bactrian
 -- camel. See 'slideBactrian'.
 scaleBactrian ::
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
   -- | Spike parameter.
   Double ->
   -- | Standard deviation.
   Double ->
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
   -- | Enable tuning.
   Bool ->
   Proposal Double
-scaleBactrian n w m s = createProposal n w (bactrianMultSimple m s)
+scaleBactrian m s = createProposal (bactrianMultSimple m s)

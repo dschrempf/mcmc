@@ -30,18 +30,18 @@ slideSimple m s t = genericContinuous (normalDistr m (s * t)) (+) (Just negate)
 
 -- | Additive proposal with normally distributed kernel.
 slide ::
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
   -- | Mean.
   Double ->
   -- | Standard deviation.
   Double ->
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slide n w m s = createProposal n w (slideSimple m s)
+slide m s = createProposal (slideSimple m s)
 
 -- The actual proposal with tuning parameter.
 slideSymmetricSimple :: Double -> Double -> ProposalSimple Double
@@ -51,16 +51,16 @@ slideSymmetricSimple s t = genericContinuous (normalDistr 0.0 (s * t)) (+) Nothi
 -- proposal is very fast, because the Metropolis-Hastings ratio does not include
 -- calculation of the forwards and backwards kernels.
 slideSymmetric ::
+  -- | Standard deviation.
+  Double ->
   -- | Name.
   String ->
   -- | Weight.
   Int ->
-  -- | Standard deviation.
-  Double ->
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slideSymmetric n w s = createProposal n w (slideSymmetricSimple s)
+slideSymmetric s = createProposal (slideSymmetricSimple s)
 
 -- The actual proposal with tuning parameter.
 slideUniformSimple :: Double -> Double -> ProposalSimple Double
@@ -71,16 +71,16 @@ slideUniformSimple d t =
 -- because the Metropolis-Hastings ratio does not include calculation of the
 -- forwards and backwards kernels.
 slideUniform ::
+  -- | Delta.
+  Double ->
   -- | Name.
   String ->
   -- | Weight.
   Int ->
-  -- | Delta.
-  Double ->
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slideUniform n w d = createProposal n w (slideUniformSimple d)
+slideUniform d = createProposal (slideUniformSimple d)
 
 contra :: (Double, Double) -> Double -> (Double, Double)
 contra (x, y) d = (x + d, y - d)
@@ -93,15 +93,15 @@ slideContrarilySimple m s t = genericContinuous (normalDistr m (s * t)) contra (
 -- The two values are slid contrarily so that their sum stays constant. Contrary
 -- proposals are useful when parameters are confounded.
 slideContrarily ::
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
   -- | Mean.
   Double ->
   -- | Standard deviation.
   Double ->
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
   -- | Enable tuning.
   Bool ->
   Proposal (Double, Double)
-slideContrarily n w m s = createProposal n w (slideContrarilySimple m s)
+slideContrarily m s = createProposal (slideContrarilySimple m s)

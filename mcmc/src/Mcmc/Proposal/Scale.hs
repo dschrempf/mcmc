@@ -29,34 +29,34 @@ scaleSimple k th t = genericContinuous (gammaDistr (k / t) (th * t)) (*) (Just r
 
 -- | Multiplicative proposal with Gamma distributed kernel.
 scale ::
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
   -- | Shape.
   Double ->
   -- | Scale.
   Double ->
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
   -- | Enable tuning.
   Bool ->
   Proposal Double
-scale n w k th = createProposal n w (scaleSimple k th)
+scale k th = createProposal (scaleSimple k th)
 
 -- | Multiplicative proposal with Gamma distributed kernel.
 --
 -- The scale of the Gamma distributions is set to (shape)^{-1}, so that the mean
 -- of the Gamma distribution is 1.0.
 scaleUnbiased ::
+  -- | Shape.
+  Double ->
   -- | Name.
   String ->
   -- | Weight.
   Int ->
-  -- | Shape.
-  Double ->
   -- | Enable tuning.
   Bool ->
   Proposal Double
-scaleUnbiased n w k = createProposal n w (scaleSimple k (1 / k))
+scaleUnbiased k = createProposal (scaleSimple k (1 / k))
 
 contra :: (Double, Double) -> Double -> (Double, Double)
 contra (x, y) z = (x * z, y / z)
@@ -69,15 +69,15 @@ scaleContrarilySimple k th t = genericContinuous (gammaDistr (k / t) (th * t)) c
 -- The two values are scaled contrarily so that their product stays constant.
 -- Contrary proposals are useful when parameters are confounded.
 scaleContrarily ::
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
   -- | Shape.
   Double ->
   -- | Scale.
   Double ->
+  -- | Name.
+  String ->
+  -- | Weight.
+  Int ->
   -- | Enable tuning.
   Bool ->
   Proposal (Double, Double)
-scaleContrarily n w k th = createProposal n w (scaleContrarilySimple k th)
+scaleContrarily k th = createProposal (scaleContrarilySimple k th)
