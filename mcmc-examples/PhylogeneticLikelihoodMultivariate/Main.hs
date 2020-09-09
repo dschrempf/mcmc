@@ -260,6 +260,7 @@ proposalsTimeTree t =
 -- Since the stem does not change the likelihood, we do not slide the stem.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
+  (rateTree @~ pulley 0.001 "rate tree root pulley" 5 True) :
   [ (rateTree . nodeAt pth)
       @~ slideBranch 0.001 ("rate tree slide branch " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
