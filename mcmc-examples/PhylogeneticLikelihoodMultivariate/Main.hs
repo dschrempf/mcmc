@@ -236,6 +236,7 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
   (timeTree @~ scaleTreeUltrametric 3000 "time tree scale" 10 True) :
+  (timeTree @~ pulleyUltrametric 10 "time tree root pulley" 5 True) :
   [ (timeTree . nodeAt pth)
       @~ slideNodeUltrametric 2.0 ("time tree slide node " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
