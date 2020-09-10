@@ -111,7 +111,7 @@ initWith t =
       _timeDeathRate = 1.0,
       _timeHeight = 1000.0,
       _timeTree = t',
-      _rateScale = 5.0,
+      _rateScale = 10.0,
       _rateNorm = 0.001,
       _rateTree = bimap (const 1.0) (const ()) t
     }
@@ -167,7 +167,7 @@ pr cb cs s@(I l m _ t k n r) =
       -- such that the variance of the gamma distribution prior used for the
       -- rates is low. Consequently, it is expensive in terms of the prior to
       -- have rates far away from 1.0.
-      exponential 5 (1/k),
+      exponential 10 k1,
       -- Exponential prior on the rate normalization.
       exponential 1 n,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0
@@ -176,6 +176,7 @@ pr cb cs s@(I l m _ t k n r) =
     ]
       ++ cals cb s
       ++ consts cs s
+  where k1 = 1/k
 
 -- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from
