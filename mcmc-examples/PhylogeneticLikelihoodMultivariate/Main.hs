@@ -76,16 +76,13 @@ data I = I
     -- Height of the time tree in absolute time measured in million years, see
     -- calibrations.
     _timeHeight :: Double,
-    -- Normalized time tree of height 1.0. Branch labels denote relative time;
+    -- Normalized time tree of height 1.0. Branch labels denote relative times;
     -- node labels denote relative node height.
     _timeTree :: Tree Double Double,
     -- Shape of the gamma distribution prior of the rates. The scale is set such
     -- that the mean is 1.0.
     _rateShape :: Double,
-    -- Normalization of the rates.
-    _rateNorm :: Double,
-    -- Normalized rate tree with branch length means of 1.0. Branch labels
-    -- denote relative rate; node labels are unused.
+    -- Rate tree. Branch labels denote relative rates; node labels are unused.
     _rateTree :: Tree Double ()
   }
   deriving (Generic)
@@ -112,7 +109,6 @@ initWith t =
       _timeHeight = 1000.0,
       _timeTree = t',
       _rateShape = 10.0,
-      _rateNorm = 0.001,
       _rateTree = bimap (const 1.0) (const ()) t
     }
   where
@@ -155,7 +151,7 @@ consts xs s =
 
 -- Prior.
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
-pr cb cs s@(I l m _ t k n r) =
+pr cb cs s@(I l m _ t k r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
@@ -170,11 +166,9 @@ pr cb cs s@(I l m _ t k n r) =
       -- terms of the prior to have rates far away from 1.0. However, the data
       -- still tend to push the shape parameter below 1.0.
       exponential 10 k1,
-      -- Exponential prior on the rate normalization.
-      exponential 1 n,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0
-      uncorrelatedGamma' k1 r
       -- and given variance.
+      uncorrelatedGamma' k1 r
     ]
       ++ cals cb s
       ++ consts cs s
@@ -247,8 +241,7 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
   where
     times = getBranches (x ^. timeTree)
     rates = getBranches (x ^. rateTree)
-    n = x ^. rateNorm * x ^. timeHeight
-    distances = sumFirstTwo $ V.zipWith (\t r -> n * t * r) times rates
+    distances = sumFirstTwo $ V.zipWith (*) times rates
 
 -- Slide node proposals for the time tree.
 --
@@ -303,23 +296,17 @@ ccl t =
     [ timeBirthRate @~ scaleUnbiased 10 "time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "time death rate" 10 True,
       timeHeight @~ scaleUnbiased 100 "time height" 10 True,
-      rateShape @~ scaleUnbiased 10 "rate scale" 10 True,
-      rateNorm @~ scaleUnbiased 10 "rate norm" 10 True,
-      l @~ scaleContrarily 10 (1 / 10) "time rate contra" 10 True
+      rateShape @~ scaleUnbiased 10 "rate scale" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
-  where
-    l :: Lens' I (Double, Double)
-    l = lens (\x -> (x ^. timeHeight, x ^. rateNorm)) (\x (h, n) -> x {_timeHeight = h, _rateNorm = n})
 
 monParams :: [MonitorParameter I]
 monParams =
   [ _timeBirthRate @. monitorDouble "TimeBirthRate",
     _timeDeathRate @. monitorDouble "TimeDeathRate",
     _timeHeight @. monitorDouble "TimeHeight",
-    _rateShape @. monitorDouble "RateShape",
-    _rateNorm @. monitorDouble "RateNorm"
+    _rateShape @. monitorDouble "RateShape"
   ]
 
 monStdOut :: MonitorStdOut I
