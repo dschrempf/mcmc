@@ -73,10 +73,14 @@ data I = I
     _timeBirthRate :: Double,
     -- Death rate of time tree.
     _timeDeathRate :: Double,
-    -- Time tree. Branch labels denote time; node labels denote node height.
+    -- Height of the time tree in absolute time measured in million years, see
+    -- calibrations.
+    _timeHeight :: Double,
+    -- Normalized time tree of height 1.0. Branch labels denote relative time;
+    -- node labels denote relative node height.
     _timeTree :: Tree Double Double,
-    -- Rate tree with mean branch length (1.0 / height of time tree). Branch
-    -- labels denote rate; node labels are unused.
+    -- Normalized rate tree with mean branch length 1.0. Branch labels denote
+    -- relative rate; node labels are unused.
     _rateTree :: Tree Double ()
   }
   deriving (Generic)
@@ -98,23 +102,23 @@ instance FromJSON I
 initWith :: Tree Double Int -> I
 initWith t =
   I
-    { _timeBirthRate = hR,
-      _timeDeathRate = hR,
+    { _timeBirthRate = 1.0,
+      _timeDeathRate = 1.0,
+      _timeHeight = 1000,
       _timeTree = t',
-      _rateTree = bimap (const hR) (const ()) t
+      _rateTree = bimap (const 1.0) (const ()) t
     }
   where
-    hI = 1000
-    hR = recip hI
-    t' = bimap (* hI) (* hI) $ extend rootHeight $ normalizeHeight $ makeUltrametric t
+    t' = extend rootHeight $ normalizeHeight $ makeUltrametric t
 
 -- Calibrations are defined in 'Calibrations'. See 'calibratedNodes'.
 
 -- Calibration prior with uniform bounds.
 cals :: [Calibration] -> I -> [Log Double]
-cals xs s = [calibrateUniformSoft 0.01 a b x t | (x, a, b) <- xs]
+cals xs s = [calibrateUniformSoft 0.01 (a/h) (b/h) x t | (x, a, b) <- xs]
   where
     t = s ^. timeTree
+    h = s ^. timeHeight
 
 -- Constraints define node orders.
 --
@@ -144,21 +148,19 @@ consts xs s =
 
 -- Prior.
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
-pr cb cs s@(I l m t r) =
+pr cb cs s@(I l m _ t r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
       exponential 1 m,
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
-      -- The prior of the branch-wise rates is gamma distributed with mean
-      -- (1.0/timeTreeHeight).
-      branchesWith (gamma 1.0 (recip h)) r
+      -- The prior of the branch-wise rates is gamma distributed with mean 1.0
+      -- and variance 1.0.
+      branchesWith (gamma 1.0 1.0) r
     ]
       ++ cals cb s
       ++ consts cs s
-  where
-    h = label t
 
 -- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from
@@ -226,7 +228,8 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
   where
     times = getBranches (x ^. timeTree)
     rates = getBranches (x ^. rateTree)
-    distances = sumFirstTwo $ V.zipWith (*) times rates
+    h = x ^. timeHeight
+    distances = sumFirstTwo $ V.zipWith (\t r -> h * t * r) times rates
 
 -- Slide node proposals for the time tree.
 --
@@ -235,7 +238,6 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  (timeTree @~ scaleTreeUltrametric 3000 "time tree scale" 10 True) :
   (timeTree @~ pulleyUltrametric 10 "time tree root pulley" 5 True) :
   [ (timeTree . nodeAt pth)
       @~ slideNodeUltrametric 2.0 ("time tree slide node " ++ show lb) 1 True
@@ -260,24 +262,19 @@ proposalsTimeTree t =
 -- Since the stem does not change the likelihood, we do not slide the stem.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  (rateTree @~ pulley 0.001 "rate tree root pulley" 5 True) :
+  (rateTree @~ pulley 0.1 "rate tree root pulley" 5 True) :
   [ (rateTree . nodeAt pth)
-      @~ slideBranch 0.001 ("rate tree slide branch " ++ show lb) 1 True
+      @~ slideBranch 0.1 ("rate tree slide branch " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth)
   ]
     ++ [ (rateTree . nodeAt pth)
-           @~ scaleTree 1000 ("rate tree scale sub tree " ++ show lb) 1 True
+           @~ scaleTree 100 ("rate tree scale sub tree " ++ show lb) 1 True
          | (pth, lb) <- itoList t,
            -- Path does not lead to a leaf.
            not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
        ]
-
--- Lens to the tree tuple; useful to create a contrary proposal scaling both
--- trees in opposite directions.
-trLens :: Lens' I (Tree Double Double, Tree Double ())
-trLens = lens (\x -> (_timeTree x, _rateTree x)) (\x (t, r) -> x {_timeTree = t, _rateTree = r})
 
 -- The complete cycle includes slide proposals of higher weights for the other
 -- parameters.
@@ -286,7 +283,7 @@ ccl t =
   fromList $
     [ timeBirthRate @~ scaleUnbiased 10 "time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "time death rate" 10 True,
-      trLens @~ scaleTreesContrarily 3000 "time/rate tree contra scale" 10 True
+      timeHeight @~ scaleUnbiased 10 "time height" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
@@ -295,8 +292,8 @@ monParams :: [MonitorParameter I]
 monParams =
   [ _timeBirthRate @. monitorDouble "TimeBirthRate",
     _timeDeathRate @. monitorDouble "TimeDeathRate",
-    (label . _timeTree) @. monitorDouble "TimeTreeRootHeight",
-    view (timeTree . nodeAt [1,1] . rootLabel) @. monitorDouble "TimeTreeRootHeight"
+    _timeHeight @. monitorDouble "TimeHeight",
+    (label . _timeTree) @. monitorDouble "TimeTreeRootHeight"
   ]
 
 monStdOut :: MonitorStdOut I
