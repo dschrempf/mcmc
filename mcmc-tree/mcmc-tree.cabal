@@ -26,6 +26,7 @@ library
       Mcmc.Tree.Prior.BirthDeath
       Mcmc.Tree.Prior.Branch
       Mcmc.Tree.Prior.Node
+      Mcmc.Tree.Prior.RelaxedClock
       Mcmc.Tree.Proposal
       Statistics.Distribution.TruncatedNormal
       Paths_mcmc_tree

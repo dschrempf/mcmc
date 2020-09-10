@@ -172,7 +172,7 @@ pr cb cs s@(I l m _ t k n r) =
       exponential 1 n,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0
       -- and variance 1.0.
-      branchesWith (gamma k (1/k)) r
+      uncorrelatedGamma' k1 r
     ]
       ++ cals cb s
       ++ consts cs s

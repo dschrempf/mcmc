@@ -11,7 +11,9 @@
 -- Creation date: Mon Jul 27 10:49:11 2020.
 module Mcmc.Tree.Prior.Branch
   ( branchesWith,
+    branchesWith',
     parBranchesWith,
+    parBranchesWith',
   )
 where
 
@@ -26,6 +28,14 @@ branchesWith ::
   Log Double
 branchesWith f = product . map f . branches
 
+-- | See 'branchesWith' but ignore the root branch.
+branchesWith' ::
+  -- | Branch prior distribution.
+  (Double -> Log Double) ->
+  Tree Double a ->
+  Log Double
+branchesWith' f = product . map f . tail . branches
+
 -- | See 'branchesWith'.
 --
 -- Evaluate the sub trees up to given layer in Useful if tree is large, or if
@@ -36,3 +46,11 @@ parBranchesWith ::
   Tree Double a ->
   Log Double
 parBranchesWith n f = parBranchFoldMap n f (*)
+
+-- | See 'parBranchesWith' but ignore the root branch.
+parBranchesWith' ::
+  Int ->
+  (Double -> Log Double) ->
+  Tree Double a ->
+  Log Double
+parBranchesWith' n f = product . map (parBranchFoldMap (n -1) f (*)) . forest

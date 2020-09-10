@@ -20,6 +20,7 @@ module Mcmc.Tree
     module Mcmc.Tree.Prior.BirthDeath,
     module Mcmc.Tree.Prior.Branch,
     module Mcmc.Tree.Prior.Node,
+    module Mcmc.Tree.Prior.RelaxedClock,
 
     -- * Proposals
     module Mcmc.Tree.Proposal,
@@ -35,4 +36,5 @@ import Mcmc.Tree.Monitor
 import Mcmc.Tree.Prior.BirthDeath
 import Mcmc.Tree.Prior.Branch
 import Mcmc.Tree.Prior.Node
+import Mcmc.Tree.Prior.RelaxedClock
 import Mcmc.Tree.Proposal
