@@ -84,6 +84,16 @@ data I = I
     _rateShape :: Double,
     -- Rate tree. Branch labels denote relative rates; node labels are unused.
     _rateTree :: Tree Double ()
+    -- Remark: Let t and r be the lengths of a branch of the time and rate trees
+    -- respectively. The length d of this branch measured in number of
+    -- substitutions is d=t*r. Since the time tree is normalized, the time tree
+    -- height is implicitly covered by r. The absolute rate is r' = r/h.
+    --
+    -- I think this is a relatively clean solution. The absolute tree height is
+    -- only determined by the calibrations, and not by the phylogenetic
+    -- likelihood. However, it harbors a problem if the branch lengths measured
+    -- in substitutions are very short or very long, because the rates are
+    -- distributed with mean 1.0.
   }
   deriving (Generic)
 
@@ -118,7 +128,7 @@ initWith t =
 
 -- Calibration prior with uniform bounds.
 cals :: [Calibration] -> I -> [Log Double]
-cals xs s = [calibrateUniformSoft 0.01 (a / h) (b / h) x t | (x, a, b) <- xs]
+cals xs s = [calibrateUniformSoft (1e-4) (a / h) (b / h) x t | (x, a, b) <- xs]
   where
     t = s ^. timeTree
     h = s ^. timeHeight
@@ -160,11 +170,7 @@ pr cb cs s@(I l m _ t k r) =
       --
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
-      -- The reciprocal shape is exponentially distributed. This pushes the
-      -- shape to values above 1.0 such that the variance of the gamma
-      -- distribution of the rate prior is low. Consequently, it is expensive in
-      -- terms of the prior to have rates far away from 1.0. However, the data
-      -- still tend to push the shape parameter below 1.0.
+      -- The reciprocal shape is exponentially distributed.
       exponential 10 k1,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0
       -- and given variance.
