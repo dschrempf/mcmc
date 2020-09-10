@@ -66,7 +66,7 @@ slideBranch s n w t = rootBranch @~ slideSymmetric s n w t
 
 -- Minimum branch length.
 eps :: Double
-eps = 1e-8
+eps = 1e-12
 
 -- A very specific function that samples a delta value from the truncated normal
 -- distribution with given bounds [a,b] and also computes the required factor of
