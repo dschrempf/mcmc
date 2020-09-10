@@ -79,9 +79,9 @@ data I = I
     -- Normalized time tree of height 1.0. Branch labels denote relative time;
     -- node labels denote relative node height.
     _timeTree :: Tree Double Double,
-    -- Scale of the gamma distribution prior of the rates. The shape is set such
+    -- Shape of the gamma distribution prior of the rates. The scale is set such
     -- that the mean is 1.0.
-    _rateScale :: Double,
+    _rateShape :: Double,
     -- Normalization of the rates.
     _rateNorm :: Double,
     -- Normalized rate tree with mean branch length 1.0. Branch labels denote
@@ -111,7 +111,7 @@ initWith t =
       _timeDeathRate = 1.0,
       _timeHeight = 1000.0,
       _timeTree = t',
-      _rateScale = 10.0,
+      _rateShape = 10.0,
       _rateNorm = 0.001,
       _rateTree = bimap (const 1.0) (const ()) t
     }
@@ -164,11 +164,11 @@ pr cb cs s@(I l m _ t k n r) =
       --
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
-      -- The reciprocal scale of the gamma distribution prior of the rates is
-      -- exponentially distributed. This pushes the scale to values above 1.0
-      -- such that the variance of the gamma distribution prior used for the
-      -- rates is low. Consequently, it is expensive in terms of the prior to
-      -- have rates far away from 1.0.
+      -- The reciprocal shape is exponentially distributed. This pushes the
+      -- shape to values above 1.0 such that the variance of the gamma
+      -- distribution of the rate prior is low. Consequently, it is expensive in
+      -- terms of the prior to have rates far away from 1.0. However, the data
+      -- still tend to push the shape parameter below 1.0.
       exponential 10 k1,
       -- Exponential prior on the rate normalization.
       exponential 1 n,
@@ -302,7 +302,7 @@ ccl t =
     [ timeBirthRate @~ scaleUnbiased 10 "time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "time death rate" 10 True,
       timeHeight @~ scaleUnbiased 100 "time height" 10 True,
-      rateScale @~ scaleUnbiased 10 "rate scale" 10 True,
+      rateShape @~ scaleUnbiased 10 "rate scale" 10 True,
       rateNorm @~ scaleUnbiased 10 "rate norm" 10 True,
       l @~ scaleContrarily 10 (1/10) "time rate contra" 10 True
 
@@ -318,7 +318,7 @@ monParams =
   [ _timeBirthRate @. monitorDouble "TimeBirthRate",
     _timeDeathRate @. monitorDouble "TimeDeathRate",
     _timeHeight @. monitorDouble "TimeHeight",
-    _rateScale @. monitorDouble "RateScale",
+    _rateShape @. monitorDouble "RateShape",
     _rateNorm @. monitorDouble "RateNorm"
   ]
 
