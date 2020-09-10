@@ -79,6 +79,9 @@ data I = I
     -- Normalized time tree of height 1.0. Branch labels denote relative time;
     -- node labels denote relative node height.
     _timeTree :: Tree Double Double,
+    -- Scale parameter of the gamma distribution prior of the rate parameters.
+    -- The shape is set such that the mean is 1.0.
+    _rateScale :: Double,
     -- Normalized rate tree with mean branch length 1.0. Branch labels denote
     -- relative rate; node labels are unused.
     _rateTree :: Tree Double ()
@@ -104,8 +107,9 @@ initWith t =
   I
     { _timeBirthRate = 1.0,
       _timeDeathRate = 1.0,
-      _timeHeight = 1000,
+      _timeHeight = 1000.0,
       _timeTree = t',
+      _rateScale = 10.0,
       _rateTree = bimap (const 1.0) (const ()) t
     }
   where
@@ -148,16 +152,17 @@ consts xs s =
 
 -- Prior.
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
-pr cb cs s@(I l m _ t r) =
+pr cb cs s@(I l m _ t k r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
       exponential 1 m,
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
+      exponential 0.1 k,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0
       -- and variance 1.0.
-      branchesWith (gamma 1.0 1.0) r
+      branchesWith (gamma k (1/k)) r
     ]
       ++ cals cb s
       ++ consts cs s
@@ -283,7 +288,8 @@ ccl t =
   fromList $
     [ timeBirthRate @~ scaleUnbiased 10 "time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "time death rate" 10 True,
-      timeHeight @~ scaleUnbiased 100 "time height" 10 True
+      timeHeight @~ scaleUnbiased 100 "time height" 10 True,
+      rateScale @~ scaleUnbiased 10 "rate scale" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
@@ -293,7 +299,7 @@ monParams =
   [ _timeBirthRate @. monitorDouble "TimeBirthRate",
     _timeDeathRate @. monitorDouble "TimeDeathRate",
     _timeHeight @. monitorDouble "TimeHeight",
-    (label . _timeTree) @. monitorDouble "TimeTreeRootHeight"
+    _rateScale @. monitorDouble "RateScale"
   ]
 
 monStdOut :: MonitorStdOut I
