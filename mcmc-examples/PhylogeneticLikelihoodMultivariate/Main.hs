@@ -79,9 +79,11 @@ data I = I
     -- Normalized time tree of height 1.0. Branch labels denote relative time;
     -- node labels denote relative node height.
     _timeTree :: Tree Double Double,
-    -- Scale parameter of the gamma distribution prior of the rate parameters.
-    -- The shape is set such that the mean is 1.0.
+    -- Scale of the gamma distribution prior of the rates. The shape is set such
+    -- that the mean is 1.0.
     _rateScale :: Double,
+    -- Normalization of the rates.
+    _rateNorm :: Double,
     -- Normalized rate tree with mean branch length 1.0. Branch labels denote
     -- relative rate; node labels are unused.
     _rateTree :: Tree Double ()
@@ -110,6 +112,7 @@ initWith t =
       _timeHeight = 1000.0,
       _timeTree = t',
       _rateScale = 10.0,
+      _rateNorm = 0.001,
       _rateTree = bimap (const 1.0) (const ()) t
     }
   where
@@ -152,19 +155,21 @@ consts xs s =
 
 -- Prior.
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
-pr cb cs s@(I l m _ t k r) =
+pr cb cs s@(I l m _ t k n r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
       exponential 1 m,
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
-      -- The reciprocal scale parameter of the gamma distribution prior of the
-      -- rate parameters is exponentially distributed. This forces the scale to
-      -- values above 1.0 such that the variance of the gamma distribution prior
-      -- used for the rates is low. Consequently, it is expensive in terms of
-      -- the prior to have rates far away from 1.0.
+      -- The reciprocal scale of the gamma distribution prior of the rates is
+      -- exponentially distributed. This forces the scale to values above 1.0
+      -- such that the variance of the gamma distribution prior used for the
+      -- rates is low. Consequently, it is expensive in terms of the prior to
+      -- have rates far away from 1.0.
       exponential 10 (1/k),
+      -- Exponential prior on the rate normalization.
+      exponential 1 n,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0
       -- and variance 1.0.
       branchesWith (gamma k (1/k)) r
@@ -238,8 +243,8 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
   where
     times = getBranches (x ^. timeTree)
     rates = getBranches (x ^. rateTree)
-    h = x ^. timeHeight
-    distances = sumFirstTwo $ V.zipWith (\t r -> h * t * r) times rates
+    n = x ^. rateNorm * x ^. timeHeight
+    distances = sumFirstTwo $ V.zipWith (\t r -> n * t * r) times rates
 
 -- Slide node proposals for the time tree.
 --
@@ -294,10 +299,16 @@ ccl t =
     [ timeBirthRate @~ scaleUnbiased 10 "time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "time death rate" 10 True,
       timeHeight @~ scaleUnbiased 100 "time height" 10 True,
-      rateScale @~ scaleUnbiased 10 "rate scale" 10 True
+      rateScale @~ scaleUnbiased 10 "rate scale" 10 True,
+      rateNorm @~ scaleUnbiased 10 "rate norm" 10 True,
+      l @~ scaleContrarily 10 (1/10) "time rate contra" 10 True
+
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
+  where
+    l :: Lens' I (Double, Double)
+    l = lens (\x -> (x ^. timeHeight, x^. rateNorm)) (\x (h, n) -> x {_timeHeight = h, _rateNorm = n} )
 
 monParams :: [MonitorParameter I]
 monParams =
