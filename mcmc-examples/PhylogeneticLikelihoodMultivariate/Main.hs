@@ -160,6 +160,8 @@ pr cb cs s@(I l m _ t k n r) =
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
       exponential 1 m,
+      -- No prior on the height of the time tree but see the calibrations.
+      --
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
       -- The reciprocal scale of the gamma distribution prior of the rates is
@@ -171,8 +173,8 @@ pr cb cs s@(I l m _ t k n r) =
       -- Exponential prior on the rate normalization.
       exponential 1 n,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0
-      -- and variance 1.0.
       uncorrelatedGamma' k1 r
+      -- and given variance.
     ]
       ++ cals cb s
       ++ consts cs s
