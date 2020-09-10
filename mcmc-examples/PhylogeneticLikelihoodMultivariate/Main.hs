@@ -159,7 +159,12 @@ pr cb cs s@(I l m _ t k r) =
       exponential 1 m,
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
-      exponential 0.1 k,
+      -- The reciprocal scale parameter of the gamma distribution prior of the
+      -- rate parameters is exponentially distributed. This forces the scale to
+      -- values above 1.0 such that the variance of the gamma distribution prior
+      -- used for the rates is low. Consequently, it is expensive in terms of
+      -- the prior to have rates far away from 1.0.
+      exponential 10 (1/k),
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0
       -- and variance 1.0.
       branchesWith (gamma k (1/k)) r
