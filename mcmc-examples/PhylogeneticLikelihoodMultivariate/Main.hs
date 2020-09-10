@@ -122,7 +122,7 @@ initWith t =
 
 -- Calibration prior with uniform bounds.
 cals :: [Calibration] -> I -> [Log Double]
-cals xs s = [calibrateUniformSoft 0.01 (a/h) (b/h) x t | (x, a, b) <- xs]
+cals xs s = [calibrateUniformSoft 0.01 (a / h) (b / h) x t | (x, a, b) <- xs]
   where
     t = s ^. timeTree
     h = s ^. timeHeight
@@ -178,7 +178,8 @@ pr cb cs s@(I l m _ t k n r) =
     ]
       ++ cals cb s
       ++ consts cs s
-  where k1 = 1/k
+  where
+    k1 = 1 / k
 
 -- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from
@@ -304,14 +305,13 @@ ccl t =
       timeHeight @~ scaleUnbiased 100 "time height" 10 True,
       rateShape @~ scaleUnbiased 10 "rate scale" 10 True,
       rateNorm @~ scaleUnbiased 10 "rate norm" 10 True,
-      l @~ scaleContrarily 10 (1/10) "time rate contra" 10 True
-
+      l @~ scaleContrarily 10 (1 / 10) "time rate contra" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
   where
     l :: Lens' I (Double, Double)
-    l = lens (\x -> (x ^. timeHeight, x^. rateNorm)) (\x (h, n) -> x {_timeHeight = h, _rateNorm = n} )
+    l = lens (\x -> (x ^. timeHeight, x ^. rateNorm)) (\x (h, n) -> x {_timeHeight = h, _rateNorm = n})
 
 monParams :: [MonitorParameter I]
 monParams =
