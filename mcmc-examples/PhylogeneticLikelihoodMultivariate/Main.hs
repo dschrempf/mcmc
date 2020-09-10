@@ -238,9 +238,9 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  (timeTree @~ pulleyUltrametric 10 "time tree root pulley" 5 True) :
+  (timeTree @~ pulleyUltrametric 0.1 "time tree root pulley" 5 True) :
   [ (timeTree . nodeAt pth)
-      @~ slideNodeUltrametric 2.0 ("time tree slide node " ++ show lb) 1 True
+      @~ slideNodeUltrametric 0.1 ("time tree slide node " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
@@ -248,7 +248,7 @@ proposalsTimeTree t =
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
     ++ [ (timeTree . nodeAt pth)
-           @~ scaleSubTreeUltrametric 2.0 ("time tree scale sub tree " ++ show lb) 1 True
+           @~ scaleSubTreeUltrametric 0.1 ("time tree scale sub tree " ++ show lb) 1 True
          | (pth, lb) <- itoList t,
            -- Don't scale the sub tree of the root node, because we are not
            -- interested in the length of the stem.
