@@ -94,6 +94,8 @@ data I = I
     -- likelihood. However, it harbors a problem if the branch lengths measured
     -- in substitutions are very short or very long, because the rates are
     -- distributed with mean 1.0.
+    --
+    -- TODO: Use a tailored gamma distribution prior for rates.
   }
   deriving (Generic)
 
@@ -128,7 +130,7 @@ initWith t =
 
 -- Calibration prior with uniform bounds.
 cals :: [Calibration] -> I -> [Log Double]
-cals xs s = [calibrateUniformSoft (1e-4) (a / h) (b / h) x t | (x, a, b) <- xs]
+cals xs s = [calibrateUniformSoft 1e-4 (a / h) (b / h) x t | (x, a, b) <- xs]
   where
     t = s ^. timeTree
     h = s ^. timeHeight
@@ -157,7 +159,7 @@ constrainedNodes t = [(young, old)]
 -- Constraint prior.
 consts :: [Constraint] -> I -> [Log Double]
 consts xs s =
-  [constrainSoft 0.01 y o $ s ^. timeTree | (y, o) <- xs]
+  [constrainSoft 1e-4 y o $ s ^. timeTree | (y, o) <- xs]
 
 -- Prior.
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
@@ -166,11 +168,12 @@ pr cb cs s@(I l m _ t k r) =
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
       exponential 1 m,
-      -- No prior on the height of the time tree but see the calibrations.
+      -- No prior on the height of the time tree but see the calibrations below.
       --
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
-      -- The reciprocal shape is exponentially distributed.
+      -- The reciprocal shape is exponentially distributed. A shape parameter
+      -- above 1.0 favors rates close to 1.0.
       exponential 10 k1,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0
       -- and given variance.
