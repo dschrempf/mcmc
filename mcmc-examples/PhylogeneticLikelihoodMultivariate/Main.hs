@@ -84,8 +84,8 @@ data I = I
     _rateShape :: Double,
     -- Normalization of the rates.
     _rateNorm :: Double,
-    -- Normalized rate tree with mean branch length 1.0. Branch labels denote
-    -- relative rate; node labels are unused.
+    -- Normalized rate tree with branch length means of 1.0. Branch labels
+    -- denote relative rate; node labels are unused.
     _rateTree :: Tree Double ()
   }
   deriving (Generic)
