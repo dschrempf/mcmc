@@ -111,7 +111,7 @@ initWith t =
       _timeDeathRate = 1.0,
       _timeHeight = 1000.0,
       _timeTree = t',
-      _rateScale = 10.0,
+      _rateScale = 5.0,
       _rateNorm = 0.001,
       _rateTree = bimap (const 1.0) (const ()) t
     }
@@ -163,11 +163,11 @@ pr cb cs s@(I l m _ t k n r) =
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
       -- The reciprocal scale of the gamma distribution prior of the rates is
-      -- exponentially distributed. This forces the scale to values above 1.0
+      -- exponentially distributed. This pushes the scale to values above 1.0
       -- such that the variance of the gamma distribution prior used for the
       -- rates is low. Consequently, it is expensive in terms of the prior to
       -- have rates far away from 1.0.
-      exponential 10 (1/k),
+      exponential 5 (1/k),
       -- Exponential prior on the rate normalization.
       exponential 1 n,
       -- The prior of the branch-wise rates is gamma distributed with mean 1.0
@@ -315,11 +315,11 @@ monParams =
   [ _timeBirthRate @. monitorDouble "TimeBirthRate",
     _timeDeathRate @. monitorDouble "TimeDeathRate",
     _timeHeight @. monitorDouble "TimeHeight",
-    _rateScale @. monitorDouble "RateScale"
+    _rateScale @. monitorDouble "RateScale",
+    _rateNorm @. monitorDouble "RateNorm"
   ]
 
 monStdOut :: MonitorStdOut I
--- Do not monitor rateGammaShape to standard output because screen is not wide enough.
 monStdOut = monitorStdOut monParams 1
 
 monFileParams :: MonitorFile I
