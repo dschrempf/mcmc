@@ -238,9 +238,9 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Also, we do not slide leaf nodes, since this would break ultrametricity.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  (timeTree @~ pulleyUltrametric 0.1 "time tree root pulley" 5 True) :
+  (timeTree @~ pulleyUltrametric 0.01 "time tree root pulley" 5 True) :
   [ (timeTree . nodeAt pth)
-      @~ slideNodeUltrametric 0.1 ("time tree slide node " ++ show lb) 1 True
+      @~ slideNodeUltrametric 0.01 ("time tree slide node " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth),
@@ -248,7 +248,7 @@ proposalsTimeTree t =
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
     ++ [ (timeTree . nodeAt pth)
-           @~ scaleSubTreeUltrametric 0.1 ("time tree scale sub tree " ++ show lb) 1 True
+           @~ scaleSubTreeUltrametric 0.01 ("time tree scale sub tree " ++ show lb) 1 True
          | (pth, lb) <- itoList t,
            -- Don't scale the sub tree of the root node, because we are not
            -- interested in the length of the stem.
@@ -262,9 +262,9 @@ proposalsTimeTree t =
 -- Since the stem does not change the likelihood, we do not slide the stem.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  (rateTree @~ pulley 0.1 "rate tree root pulley" 5 True) :
+  (rateTree @~ pulley 0.01 "rate tree root pulley" 5 True) :
   [ (rateTree . nodeAt pth)
-      @~ slideBranch 0.1 ("rate tree slide branch " ++ show lb) 1 True
+      @~ slideBranch 0.01 ("rate tree slide branch " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
       -- Path does not lead to the root.
       not (null pth)
@@ -283,7 +283,7 @@ ccl t =
   fromList $
     [ timeBirthRate @~ scaleUnbiased 10 "time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "time death rate" 10 True,
-      timeHeight @~ scaleUnbiased 10 "time height" 10 True
+      timeHeight @~ scaleUnbiased 100 "time height" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
