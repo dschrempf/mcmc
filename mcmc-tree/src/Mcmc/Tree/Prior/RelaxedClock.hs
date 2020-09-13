@@ -25,16 +25,16 @@ import Numeric.Log
 
 -- | Uncorrelated gamma model.
 --
--- The rates are distributed according to a gamma distribution with mean 1.0 and
--- given variance.
+-- The rates are distributed according to a gamma distribution with given shape
+-- and scale.
 --
 -- For a version that ignores the root branch, see 'uncorrelatedGamma''.
-uncorrelatedGamma :: Double -> Tree Double a -> Log Double
-uncorrelatedGamma v = branchesWith (gamma (1 / v) v)
+uncorrelatedGamma :: Double -> Double -> Tree Double a -> Log Double
+uncorrelatedGamma k th = branchesWith (gamma k th)
 
 -- | See 'uncorrelatedGamma' but ignore the root branch.
-uncorrelatedGamma' :: Double -> Tree Double a -> Log Double
-uncorrelatedGamma' v = branchesWith' (gamma (1 / v) v)
+uncorrelatedGamma' :: Double -> Double -> Tree Double a -> Log Double
+uncorrelatedGamma' k th = branchesWith' (gamma k th)
 
 -- | White noise model.
 --

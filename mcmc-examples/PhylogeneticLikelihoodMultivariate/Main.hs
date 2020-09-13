@@ -79,23 +79,21 @@ data I = I
     -- Normalized time tree of height 1.0. Branch labels denote relative times;
     -- node labels denote relative node height.
     _timeTree :: Tree Double Double,
-    -- Shape of the gamma distribution prior of the rates. The scale is set such
-    -- that the mean is 1.0.
+    -- Shape of the gamma distribution prior of the rates.
     _rateShape :: Double,
+    -- Scale of the gamma distribution prior of the rates.
+    _rateScale :: Double,
     -- Rate tree. Branch labels denote relative rates; node labels are unused.
     _rateTree :: Tree Double ()
     -- Remark: Let t and r be the lengths of a branch of the time and rate trees
     -- respectively. The length d of this branch measured in number of
     -- substitutions is d=t*r. Since the time tree is normalized, the time tree
-    -- height is implicitly covered by r. The absolute rate is r' = r/h.
+    -- height is implicitly covered by r. The absolute rate is R = r/h, where h
+    -- is the height of the tree. Similarly, absolute time is T = t*h.
     --
     -- I think this is a relatively clean solution. The absolute tree height is
     -- only determined by the calibrations, and not by the phylogenetic
-    -- likelihood. However, it harbors a problem if the branch lengths measured
-    -- in substitutions are very short or very long, because the rates are
-    -- distributed with mean 1.0.
-    --
-    -- TODO: Use a tailored gamma distribution prior for rates.
+    -- likelihood.
   }
   deriving (Generic)
 
@@ -121,6 +119,7 @@ initWith t =
       _timeHeight = 1000.0,
       _timeTree = t',
       _rateShape = 10.0,
+      _rateScale = 2.0,
       _rateTree = bimap (const 1.0) (const ()) t
     }
   where
@@ -163,7 +162,7 @@ consts xs s =
 
 -- Prior.
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
-pr cb cs s@(I l m _ t k r) =
+pr cb cs s@(I l m _ t k th r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
@@ -172,12 +171,13 @@ pr cb cs s@(I l m _ t k r) =
       --
       -- Birth and death process prior of the time tree.
       birthDeath l m t,
-      -- The reciprocal shape is exponentially distributed. A shape parameter
-      -- above 1.0 favors rates close to 1.0.
+      -- The reciprocal shape is exponentially distributed such that higher
+      -- shape values are favored.
       exponential 10 k1,
-      -- The prior of the branch-wise rates is gamma distributed with mean 1.0
-      -- and given variance.
-      uncorrelatedGamma' k1 r
+      -- The scale is exponentially distributed.
+      exponential 1 th,
+      -- The prior of the branch-wise rates is gamma distributed.
+      uncorrelatedGamma' k th r
     ]
       ++ cals cb s
       ++ consts cs s
@@ -252,42 +252,39 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
     rates = getBranches (x ^. rateTree)
     distances = sumFirstTwo $ V.zipWith (*) times rates
 
--- Slide node proposals for the time tree.
---
--- Since the stem does not change the likelihood, we do not slide the root node.
---
--- Also, we do not slide leaf nodes, since this would break ultrametricity.
+-- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
   (timeTree @~ pulleyUltrametric 0.01 "time tree root pulley" 5 True) :
   [ (timeTree . nodeAt pth)
       @~ slideNodeUltrametric 0.01 ("time tree slide node " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
-      -- Path does not lead to the root.
+      -- Since the stem does not change the likelihood, it is set to zero, and
+      -- we do not slide the root node.
       not (null pth),
-      -- Path does not lead to a leaf.
+      -- Also, we do not slide leaf nodes, since this would break
+      -- ultrametricity.
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
     ++ [ (timeTree . nodeAt pth)
            @~ scaleSubTreeUltrametric 0.01 ("time tree scale sub tree " ++ show lb) 1 True
          | (pth, lb) <- itoList t,
            -- Don't scale the sub tree of the root node, because we are not
-           -- interested in the length of the stem.
+           -- interested in changing the length of the stem.
            not (null pth),
            -- Sub trees of leaves cannot be scaled.
            not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
        ]
 
--- Slide branch proposals for the rate tree.
---
--- Since the stem does not change the likelihood, we do not slide the stem.
+-- Proposals for the rate tree.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  (rateTree @~ pulley 0.01 "rate tree root pulley" 5 True) :
+  (rateTree @~ pulley 0.1 "rate tree root pulley" 5 True) :
   [ (rateTree . nodeAt pth)
-      @~ slideBranch 0.01 ("rate tree slide branch " ++ show lb) 1 True
+      @~ slideBranch 0.1 ("rate tree slide branch " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
-      -- Path does not lead to the root.
+      -- Since the stem does not change the likelihood, it is set to zero, and
+      -- we do not slide the stem.
       not (null pth)
   ]
     ++ [ (rateTree . nodeAt pth)
@@ -297,15 +294,15 @@ proposalsRateTree t =
            not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
        ]
 
--- The complete cycle includes slide proposals of higher weights for the other
--- parameters.
+-- The complete cycle includes proposals for the other parameters.
 ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
     [ timeBirthRate @~ scaleUnbiased 10 "time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "time death rate" 10 True,
-      timeHeight @~ scaleUnbiased 100 "time height" 10 True,
-      rateShape @~ scaleUnbiased 10 "rate scale" 10 True
+      timeHeight @~ scaleUnbiased 3000 "time height" 10 True,
+      rateShape @~ scaleUnbiased 10 "rate shape" 10 True,
+      rateScale @~ scaleUnbiased 10 "rate scale" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
@@ -315,7 +312,8 @@ monParams =
   [ _timeBirthRate @. monitorDouble "TimeBirthRate",
     _timeDeathRate @. monitorDouble "TimeDeathRate",
     _timeHeight @. monitorDouble "TimeHeight",
-    _rateShape @. monitorDouble "RateShape"
+    _rateShape @. monitorDouble "RateShape",
+    _rateScale @. monitorDouble "RateScale"
   ]
 
 monStdOut :: MonitorStdOut I
