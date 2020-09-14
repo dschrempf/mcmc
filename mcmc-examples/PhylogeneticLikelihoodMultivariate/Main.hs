@@ -322,8 +322,13 @@ monStdOut = monitorStdOut monParams 1
 monFileParams :: MonitorFile I
 monFileParams = monitorFile "-params" monParams 1
 
+getTimeTree :: I -> Tree Double Int
+getTimeTree s = identify $ first (*h) t
+  where h = s ^. timeHeight
+        t = s ^. timeTree
+
 monFileTimeTree :: MonitorFile I
-monFileTimeTree = monitorFile "-timetree" [(identify . _timeTree) @. monitorTree "TimeTree"] 1
+monFileTimeTree = monitorFile "-timetree" [getTimeTree @. monitorTree "TimeTree"] 1
 
 monFileRateTree :: MonitorFile I
 monFileRateTree = monitorFile "-ratetree" [_rateTree @. monitorTree "RateTree"] 1
