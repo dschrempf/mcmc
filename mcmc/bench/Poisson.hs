@@ -60,10 +60,10 @@ initial :: I
 initial = (0, 0)
 
 monAlpha :: MonitorParameter I
-monAlpha = fst @. monitorDouble "alpha"
+monAlpha = fst >$< monitorDouble "alpha"
 
 monBeta :: MonitorParameter I
-monBeta = snd @. monitorDouble "beta"
+monBeta = snd >$< monitorDouble "beta"
 
 monStd :: MonitorStdOut I
 monStd = monitorStdOut [monAlpha, monBeta] 150

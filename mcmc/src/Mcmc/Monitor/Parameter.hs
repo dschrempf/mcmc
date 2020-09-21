@@ -14,6 +14,7 @@
 module Mcmc.Monitor.Parameter
   ( -- * Parameter monitors
     MonitorParameter (..),
+    (>$<),
     (@.),
     monitorInt,
     monitorDouble,
@@ -24,8 +25,17 @@ where
 
 import qualified Data.ByteString.Builder as BB
 import qualified Data.Double.Conversion.ByteString as BC
+import Data.Functor.Contravariant
 
 -- | Instruction about a parameter to monitor.
+--
+-- To map a parameter from one data type to another, use '(>$<)'.
+--
+-- For example, monitor a 'Double' value being the first entry of a tuple:
+--
+-- @
+-- mon = fst >$< monitorDouble
+-- @
 data MonitorParameter a = MonitorParameter
   { -- | Name of parameter.
     mpName :: String,
@@ -33,7 +43,12 @@ data MonitorParameter a = MonitorParameter
     mpFunc :: a -> BB.Builder
   }
 
+instance Contravariant (MonitorParameter) where
+  contramap f (MonitorParameter n m) = MonitorParameter n (m . f)
+
 -- | Convert a parameter monitor from one data type to another.
+--
+-- DEPRECATED.
 --
 -- For example, to monitor a 'Double' value being the first entry of a tuple:
 --
@@ -41,7 +56,8 @@ data MonitorParameter a = MonitorParameter
 -- mon = fst @. monitorDouble
 -- @
 (@.) :: (b -> a) -> MonitorParameter a -> MonitorParameter b
-(@.) f (MonitorParameter n m) = MonitorParameter n (m . f)
+(@.) = contramap
+{-# DEPRECATED (@.) "Superseded by the contravariant instance, use '(>$<)'." #-}
 
 -- | Monitor 'Int'.
 monitorInt ::

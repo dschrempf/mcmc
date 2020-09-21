@@ -309,11 +309,11 @@ ccl t =
 
 monParams :: [MonitorParameter I]
 monParams =
-  [ _timeBirthRate @. monitorDouble "TimeBirthRate",
-    _timeDeathRate @. monitorDouble "TimeDeathRate",
-    _timeHeight @. monitorDouble "TimeHeight",
-    _rateShape @. monitorDouble "RateShape",
-    _rateScale @. monitorDouble "RateScale"
+  [ _timeBirthRate >$< monitorDouble "TimeBirthRate",
+    _timeDeathRate >$< monitorDouble "TimeDeathRate",
+    _timeHeight >$< monitorDouble "TimeHeight",
+    _rateShape >$< monitorDouble "RateShape",
+    _rateScale >$< monitorDouble "RateScale"
   ]
 
 monStdOut :: MonitorStdOut I
@@ -328,10 +328,10 @@ getTimeTree s = identify $ first (*h) t
         t = s ^. timeTree
 
 monFileTimeTree :: MonitorFile I
-monFileTimeTree = monitorFile "-timetree" [getTimeTree @. monitorTree "TimeTree"] 1
+monFileTimeTree = monitorFile "-timetree" [getTimeTree >$< monitorTree "TimeTree"] 1
 
 monFileRateTree :: MonitorFile I
-monFileRateTree = monitorFile "-ratetree" [_rateTree @. monitorTree "RateTree"] 1
+monFileRateTree = monitorFile "-ratetree" [_rateTree >$< monitorTree "RateTree"] 1
 
 -- Collect monitors to standard output and files, as well as batch monitors.
 mon :: Monitor I

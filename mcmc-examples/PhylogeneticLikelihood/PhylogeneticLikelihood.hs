@@ -147,7 +147,7 @@ stdDevTree = (0 -< toD 2.0 >- 1) + (0 -< toD 2.0 >- 2)
 -- Branch length monitors.
 branchMons :: [MonitorParameter (Tree Length)]
 branchMons =
-  [ view (getLens x y) @. monitorDouble (n x y)
+  [ view (getLens x y) >$< monitorDouble (n x y)
     | (x, y) <- getEdges startingTree
   ]
   where
