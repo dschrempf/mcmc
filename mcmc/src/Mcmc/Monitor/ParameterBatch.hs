@@ -16,6 +16,7 @@
 module Mcmc.Monitor.ParameterBatch
   ( -- * Batch parameter monitors
     MonitorParameterBatch (..),
+    (>$<),
     (@#),
     monitorBatchMean,
     monitorBatchMeanF,
@@ -26,11 +27,20 @@ where
 
 import qualified Data.ByteString.Builder as BB
 import qualified Data.Double.Conversion.ByteString as BC
+import Data.Functor.Contravariant
 
 -- | Instruction about a parameter to monitor via batch means. Usually, the
 -- monitored parameter is average over the batch size. However, arbitrary
 -- functions performing more complicated analyses on the states in the batch can
 -- be provided.
+--
+-- Convert a batch monitor from one data type to another with '(>$<)'.
+--
+-- For example, batch monitor the mean of the first entry of a tuple:
+--
+-- @
+-- mon = fst >$< monitorBatchMean
+-- @
 --
 -- XXX: Batch monitors are slow at the moment because the monitored parameter
 -- has to be extracted from the state for each iteration.
@@ -41,6 +51,9 @@ data MonitorParameterBatch a = MonitorParameterBatch
     mbpFunc :: [a] -> BB.Builder
   }
 
+instance Contravariant (MonitorParameterBatch) where
+  contramap f (MonitorParameterBatch n m) = MonitorParameterBatch n (m . map f)
+
 -- | Convert a batch parameter monitor from one data type to another.
 --
 -- For example, to batch monitor the mean of the first entry of a tuple:
@@ -50,6 +63,7 @@ data MonitorParameterBatch a = MonitorParameterBatch
 -- @
 (@#) :: (b -> a) -> MonitorParameterBatch a -> MonitorParameterBatch b
 (@#) f (MonitorParameterBatch n m) = MonitorParameterBatch n (m . map f)
+{-# DEPRECATED (@#) "Superseded by the contravariant instance, use '(>$<)'." #-}
 
 mean :: Real a => [a] -> Double
 mean xs = realToFrac (sum xs) / fromIntegral (length xs)

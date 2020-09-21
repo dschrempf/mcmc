@@ -3,6 +3,8 @@
 - *Change order of arguments for proposals*.
 - 'slideStem' was renamed to 'slideBranch'.
 - Change ProposalSimple from newtype to type.
+- Contravariant instances of parameter and batch monitors. Use =(>$<)= instead
+  of =(@.)= and =(@#)=.
 
 ** 0.2.3
 - Contrary proposals.

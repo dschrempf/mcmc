@@ -164,7 +164,7 @@ monFile = monitorFile "Branches" branchMons 10
 -- Monitor batch means of branch lengths.
 branchBatchMons :: [MonitorParameterBatch (Tree Length)]
 branchBatchMons =
-  [view (getLens x y) @# monitorBatchMean (n x y) | (x, y) <- getEdges startingTree]
+  [view (getLens x y) >$< monitorBatchMean (n x y) | (x, y) <- getEdges startingTree]
   where
     n x y = "Mean " <> show (x, y)
 

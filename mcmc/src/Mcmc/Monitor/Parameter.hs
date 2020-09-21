@@ -29,7 +29,7 @@ import Data.Functor.Contravariant
 
 -- | Instruction about a parameter to monitor.
 --
--- To map a parameter from one data type to another, use '(>$<)'.
+-- Convert a parameter monitor from one data type to another with '(>$<)'.
 --
 -- For example, monitor a 'Double' value being the first entry of a tuple:
 --
