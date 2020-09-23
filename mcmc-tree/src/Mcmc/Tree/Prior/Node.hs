@@ -69,8 +69,8 @@ constrainHard ::
   Tree Double Double ->
   Log Double
 constrainHard y o t
-  | y `isPrefixOf` o = error "constrain: Young node is direct ancestor of old node (?)."
-  | o `isPrefixOf` y = error "constrain: No need to constrain old node which is direct ancestor of young node."
+  | y `isPrefixOf` o = error "constrainHard: Young node is direct ancestor of old node (?)."
+  | o `isPrefixOf` y = error "constrainHard: No need to constrain old node which is direct ancestor of young node."
   | getHeightFromNode y t < getHeightFromNode o t = 1
   | otherwise = 0
 
@@ -96,8 +96,8 @@ constrainSoft ::
   Tree Double Double ->
   Log Double
 constrainSoft s y o t
-  | y `isPrefixOf` o = error "constrain: Young node is direct ancestor of old node (?)."
-  | o `isPrefixOf` y = error "constrain: No need to constrain old node which is direct ancestor of young node."
+  | y `isPrefixOf` o = error "constrainSoft: Young node is direct ancestor of old node (?)."
+  | o `isPrefixOf` y = error "constrainSoft: No need to constrain old node which is direct ancestor of young node."
   | hY < hO = 1
   | otherwise = Exp $ logDensity d (hY - hO) - logDensity d 0
   where
