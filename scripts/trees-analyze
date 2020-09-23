@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+usage() {
+    echo "Usage: $(basename "$0") [OPTIONS] mcmc-tree-trace-file"
+    echo ""
+    echo "  -h         help"
+    echo "  -b DOUBLE  burn in ratio (default: 0.25)"
+}
+
+# Options.
+OPTIND=1
+BURNIN=0.25
+while getopts "h?b:" opt; do
+    case "$opt" in
+        h|\?)
+            usage
+            exit 0
+            ;;
+        b)
+            BURNIN=$OPTARG
+    esac
+done
+shift $((OPTIND-1))
+[ "${1:-}" = "--" ] && shift
+
+# Arguments.
+if [[ -z $1 ]]
+then
+    usage
+    exit 1
+fi
+
+FILE="$1"
+FILE_TREES=${FILE}.trees
+FILE_MAP=${FILE%.*}.maptree
+
+tail -n +2 "$FILE" | cut -f 5 > "$FILE_TREES"
+
+SCRIPT=$(cat <<EOF
+tt = readTreeTrace("$FILE_TREES", burnin=$BURNIN)
+tt.summarize()
+mapTree(tt, "$FILE_MAP")
+q()
+EOF
+)
+
+echo "$SCRIPT" | rb -b
+
+rm "$FILE_TREES"
+
+f="history.txt"
+if [[ -f $f ]]
+then
+    rm $f
+fi
