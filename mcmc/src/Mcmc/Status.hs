@@ -44,6 +44,9 @@ import Prelude hiding (cycle)
 
 -- | The 'Status' contains all information to run an MCMC chain. It is
 -- constructed using the function 'status'.
+--
+-- The polymorphic type @a@ stores the state of the chain. It can also be used
+-- to store auxiliary information.
 data Status a = Status
   { -- MCMC related variables; saved.
 
