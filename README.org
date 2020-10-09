@@ -26,3 +26,8 @@ For example, estimate the [[https://github.com/dschrempf/mcmc/blob/master/mcmc-e
 #+begin_src sh :exports code :results none
 stack exec archery
 #+end_src
+
+** Ideas                                                             :noexport:
+
+*** Marginal likelihood
+E.g., stepping stone (see RevBayes).

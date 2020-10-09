@@ -1,18 +1,13 @@
--- XXX: Add possibility to store supplementary information about the chain.
---
--- Maybe something like Trace b; and give a function a -> b to extract
--- supplementary info.
+-- Note: It is not necessary to add another type @b@ to store supplementary
+-- information about the chain. The information can just be stored in @a@
+-- equally well.
 
--- XXX: Status tuned exclusively to the Metropolis-Hastings algorithm. We
--- should abstract the algorithm from the chain. For example,
+-- XXX: Status tuned exclusively to the Metropolis-Hastings algorithm. We should
+-- abstract the algorithm from the chain. Maybe something like:
 --
 -- @
--- data Status a b = Status { Chain a; Algorithm a b}
+-- data Status a = Status { Chain a; Algorithm a}
 -- @
---
--- where a described the state space and b the auxiliary information of the
--- algorithm. This would also solve the above problem, for example in terms of
--- the Hamiltonian algorithm
 
 -- |
 -- Module      :  Mcmc.Status
@@ -136,7 +131,7 @@ status ::
   -- that auto tuning only happens during burn in.
   Int ->
   -- | A source of randomness. For reproducible runs, make
-  -- sure to use a generator with the same seed.
+  -- sure to use generators with the same, fixed seed.
   GenIO ->
   Status a
 status n p l c m x mB mT nI g
