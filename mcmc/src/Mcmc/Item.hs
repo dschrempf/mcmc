@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |
 -- Module      :  Mcmc.Item
@@ -18,14 +17,8 @@ module Mcmc.Item
 where
 
 import Data.Aeson
+import Data.Aeson.Types
 import Numeric.Log
-
-instance ToJSON a => ToJSON (Log a) where
-  toJSON (Exp x) = toJSON x
-  toEncoding (Exp x) = toEncoding x
-
-instance FromJSON a => FromJSON (Log a) where
-  parseJSON v = Exp <$> parseJSON v
 
 -- | An 'Item', or link of the Markov chain. For reasons of computational
 -- efficiency, each state is associated with the corresponding prior and
@@ -41,13 +34,15 @@ data Item a = Item
   deriving (Eq, Ord, Show, Read)
 
 instance ToJSON a => ToJSON (Item a) where
-  toJSON (Item x p l) = object ["s" .= x, "p" .= p, "l" .= l]
-  toEncoding (Item x p l) = pairs ("s" .= x <> "p" .= p <> "l" .= l)
+  toJSON (Item x (Exp p) (Exp l)) = object ["s" .= x, "p" .= p, "l" .= l]
+  toEncoding (Item x (Exp p) (Exp l)) = pairs ("s" .= x <> "p" .= p <> "l" .= l)
+
+item :: FromJSON a => Object -> Parser (Item a)
+item v = do
+  s <- v .: "s"
+  p <- v .: "p"
+  l <- v .: "l"
+  return $ Item s (Exp p) (Exp l)
 
 instance FromJSON a => FromJSON (Item a) where
-  parseJSON = withObject "Item" $
-    \v ->
-      Item
-        <$> v .: "s"
-        <*> v .: "p"
-        <*> v .: "l"
+  parseJSON = withObject "Item" item
