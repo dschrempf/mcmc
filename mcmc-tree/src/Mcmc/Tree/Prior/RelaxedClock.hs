@@ -12,9 +12,9 @@
 module Mcmc.Tree.Prior.RelaxedClock
   (
     uncorrelatedGamma,
-    uncorrelatedGamma',
+    uncorrelatedGammaNoStem,
     whiteNoise,
-    whiteNoise',
+    whiteNoiseNoStem,
   )
 where
 
@@ -32,9 +32,9 @@ import Numeric.Log
 uncorrelatedGamma :: Double -> Double -> Tree Double a -> Log Double
 uncorrelatedGamma k th = branchesWith (gamma k th)
 
--- | See 'uncorrelatedGamma' but ignore the root branch.
-uncorrelatedGamma' :: Double -> Double -> Tree Double a -> Log Double
-uncorrelatedGamma' k th = branchesWith' (gamma k th)
+-- | See 'uncorrelatedGamma' but ignore the stem.
+uncorrelatedGammaNoStem :: Double -> Double -> Tree Double a -> Log Double
+uncorrelatedGammaNoStem k th = branchesWith' (gamma k th)
 
 -- | White noise model.
 --
@@ -49,10 +49,10 @@ uncorrelatedGamma' k th = branchesWith' (gamma k th)
 --
 -- Gives unexpected results if the topologies do not match.
 whiteNoise :: Double -> Tree Double a -> Tree Double a -> Log Double
-whiteNoise v t r = gamma k (1 / k) (branch r) * whiteNoise' v t r
+whiteNoise v t r = gamma k (1 / k) (branch r) * whiteNoiseNoStem v t r
   where
     k = branch t / v
 
--- | See 'whiteNoise' but ignore the root branch.
-whiteNoise' :: Double -> Tree Double a -> Tree Double a -> Log Double
-whiteNoise' v (Node _ _ ts) (Node _ _ rs) = product $ zipWith (whiteNoise v) ts rs
+-- | See 'whiteNoise' but ignore the stem.
+whiteNoiseNoStem :: Double -> Tree Double a -> Tree Double a -> Log Double
+whiteNoiseNoStem v (Node _ _ ts) (Node _ _ rs) = product $ zipWith (whiteNoise v) ts rs
