@@ -12,6 +12,8 @@
 -- Portability :  portable
 --
 -- Creation date: Tue May  5 20:11:30 2020.
+--
+-- Metropolis-Hastings algorithm.
 module Mcmc.Metropolis
   ( mh,
     mhContinue,

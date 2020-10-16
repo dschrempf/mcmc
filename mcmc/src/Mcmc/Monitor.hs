@@ -149,10 +149,6 @@ data MonitorFile a = MonitorFile
     mfPeriod :: Int
   }
 
--- XXX: The file monitor also includes iteration, prior, likelihood, and
--- posterior. What if I want to log trees; or other complex objects? In this
--- case, we need a simpler monitor to a file.
-
 -- | Monitor parameters to a file.
 monitorFile ::
   -- | Name; used as part of the file name.
@@ -246,10 +242,6 @@ data MonitorBatch a = MonitorBatch
     mbParams :: [MonitorParameterBatch a],
     mbSize :: Int
   }
-
--- XXX: The batch monitor also includes iteration, prior, likelihood, and
--- posterior. What if I want to log trees; or other complex objects? In this
--- case, we need a simpler monitor to a file.
 
 -- | Monitor parameters to a file, see 'MonitorBatch'.
 monitorBatch ::

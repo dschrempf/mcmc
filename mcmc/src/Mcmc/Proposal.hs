@@ -45,6 +45,7 @@ module Mcmc.Proposal
 where
 
 import Data.Aeson
+import Data.Bifunctor
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Default
@@ -344,8 +345,8 @@ emptyA ks = Acceptance $ M.fromList [(k, (0, 0)) | k <- ks]
 
 -- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
 pushA :: (Ord k, Show k) => k -> Bool -> Acceptance k -> Acceptance k
-pushA k True = Acceptance . M.adjust (\(a, r) -> (succ a, r)) k . fromAcceptance
-pushA k False = Acceptance . M.adjust (\(a, r) -> (a, succ r)) k . fromAcceptance
+pushA k True = Acceptance . M.adjust (first succ) k . fromAcceptance
+pushA k False = Acceptance . M.adjust (second succ) k . fromAcceptance
 {-# INLINEABLE pushA #-}
 
 -- | Reset acceptance storage.

@@ -1,8 +1,3 @@
--- TODO: Proposals on tree topologies.
--- - NNI
--- - Narrow (what is this, see RevBayes)
--- - FNPR (dito)
-
 -- |
 -- Module      :  Mcmc.Tree.Proposal
 -- Description :  Proposals on trees

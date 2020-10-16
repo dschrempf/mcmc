@@ -19,9 +19,7 @@ module Mcmc.Prior
     normal,
     exponential,
     gamma,
-
-    -- * Discrete priors
-
+    -- -- * Discrete priors
     -- No discrete priors are available yet.
 
     -- * Auxiliary functions
@@ -98,8 +96,8 @@ gamma k t x = Exp $ S.logDensity d x
 
 -- | Intelligent product that stops when encountering a zero.
 --
--- Use with care because the elements have to be checked for positiveness, and
--- this can take some time if the list is long and does not contain any zeroes.
+-- Use with care because the elements are checked for positiveness, and this can
+-- take some time if the list is long and does not contain any zeroes.
 product' :: [Log Double] -> Log Double
 product' = fromMaybe 0 . prodM
 

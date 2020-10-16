@@ -93,19 +93,8 @@ toSave (Status nm it i tr ac br at is f sv vb g _ _ _ _ c _) =
 
 -- | Save a 'Status' to file.
 --
--- Saved information:
--- - state
--- - iteration
--- - trace
--- - acceptance ratios
--- - generator
---
--- Important information that cannot be saved and has to be provided again when
--- a chain is restored:
--- - prior function
--- - likelihood function
--- - cycle
--- - monitor
+-- Some important values have to be provided upon restoring the status. See
+-- 'loadStatus'.
 saveStatus :: ToJSON a => FilePath -> Status a -> IO ()
 saveStatus fn s = BL.writeFile fn $ compress $ encode (toSave s)
 
@@ -175,13 +164,9 @@ loadStatus p l c m fn = do
   -- already a good indicator.
   when
     (p x /= svp)
-    ( error
-        "loadStatus: Provided prior function does not match the saved prior."
-    )
+    (error "loadStatus: Provided prior function does not match the saved prior.")
   when
     (l x /= svl)
-    ( error
-        "loadStatus: Provided likelihood function does not match the saved likelihood."
-    )
+    (error "loadStatus: Provided likelihood function does not match the saved likelihood.")
   removeFile fn
   return s

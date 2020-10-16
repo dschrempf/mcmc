@@ -1,8 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 
--- TODO: Which of those do I need?
-
 -- |
 -- Module      :  Statistics.Distribution.TruncatedNormal
 -- Description :  Truncated normal distribution

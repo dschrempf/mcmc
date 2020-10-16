@@ -11,6 +11,8 @@
 -- Portability :  portable
 --
 -- Creation date: Fri May 29 10:19:45 2020.
+--
+-- Functions to work with the 'Mcmc' state transformer.
 module Mcmc.Mcmc
   ( Mcmc,
     mcmcOutT,

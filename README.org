@@ -31,3 +31,11 @@ stack exec archery
 
 *** Marginal likelihood
 E.g., stepping stone (see RevBayes).
+
+*** Proposals on tree topologies.
+- NNI.
+- Narrow. What is this? See RevBayes.
+- FNPR (same here).
+
+General questions: How do we handle changing topologies? Then, the node paths
+change, and everything is messed up.
