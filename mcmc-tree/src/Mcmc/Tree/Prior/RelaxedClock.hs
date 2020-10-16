@@ -77,7 +77,7 @@ gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletSymmetric alp
 -- The rates are distributed according to a gamma distribution with given shape
 -- and scale.
 --
--- For a version that ignores the root branch, see 'uncorrelatedGamma''.
+-- For a version that ignores the stem, see 'uncorrelatedGammaNoStem'.
 uncorrelatedGamma :: Double -> Double -> Tree Double a -> Log Double
 uncorrelatedGamma k th = branchesWith (gamma k th)
 
@@ -94,7 +94,7 @@ uncorrelatedGammaNoStem k th = branchesWithNoStem (gamma k th)
 -- are expected to have a distribution of rates with a lower variance than short
 -- branches.
 --
--- For a version that ignores the root branch, see 'whiteNoise''.
+-- For a version that ignores the stem, see 'whiteNoiseNoStem'.
 --
 -- Gives unexpected results if the topologies do not match.
 whiteNoise :: Double -> Tree Double a -> Tree Double a -> Log Double

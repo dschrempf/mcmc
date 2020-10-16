@@ -177,7 +177,7 @@ pr cb cs s@(I l m _ t k th r) =
       -- The scale is exponentially distributed.
       exponential 1 th,
       -- The prior of the branch-wise rates is gamma distributed.
-      uncorrelatedGamma' k th r
+      uncorrelatedGammaNoStem k th r
     ]
       ++ cals cb s
       ++ consts cs s
