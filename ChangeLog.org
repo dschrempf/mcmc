@@ -1,10 +1,13 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+
+** 0.2.4
 - *Change order of arguments for proposals*.
 - 'slideStem' was renamed to 'slideBranch'.
 - Change ProposalSimple from newtype to type.
 - Contravariant instances of parameter and batch monitors. Use =(>$<)= instead
   of =(@.)= and =(@#)=.
+- Add =gammaDirichlet= prior for partitioned dating analyses.
 
 ** 0.2.3
 - Contrary proposals.
