@@ -93,6 +93,7 @@ module Mcmc
     slideUniform,
     slideContrarily,
     slideBactrian,
+    module Mcmc.Proposal.Simplex,
     Cycle,
     fromList,
     Order (..),
@@ -160,6 +161,7 @@ import Mcmc.Prior
 import Mcmc.Proposal
 import Mcmc.Proposal.Bactrian
 import Mcmc.Proposal.Scale
+import Mcmc.Proposal.Simplex
 import Mcmc.Proposal.Slide
 import Mcmc.Save
 import Mcmc.Status

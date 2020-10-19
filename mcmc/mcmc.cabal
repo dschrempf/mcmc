@@ -37,6 +37,7 @@ library
       Mcmc.Proposal.Generic
       Mcmc.Proposal.Scale
       Mcmc.Proposal.Slide
+      Mcmc.Proposal.Simplex
       Mcmc.Save
       Mcmc.Status
       Mcmc.Trace
@@ -59,8 +60,10 @@ library
     , directory
     , double-conversion
     , log-domain
+    , math-functions
     , microlens
     , mwc-random
+    , primitive
     , statistics
     , time
     , transformers
