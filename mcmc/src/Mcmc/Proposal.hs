@@ -57,7 +57,7 @@ import qualified Data.Map.Strict as M
 import Data.Maybe
 import Lens.Micro
 import Mcmc.Internal.ByteString
-import Mcmc.Tools.Shuffle
+import Mcmc.Internal.Shuffle
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 

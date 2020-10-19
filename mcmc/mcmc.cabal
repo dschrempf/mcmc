@@ -23,7 +23,6 @@ source-repository head
 library
   exposed-modules:
       Mcmc
-      Mcmc.Internal.ByteString
       Mcmc.Item
       Mcmc.Mcmc
       Mcmc.Metropolis
@@ -40,10 +39,11 @@ library
       Mcmc.Proposal.Slide
       Mcmc.Save
       Mcmc.Status
-      Mcmc.Tools.Shuffle
       Mcmc.Trace
       Mcmc.Verbosity
   other-modules:
+      Mcmc.Internal.ByteString
+      Mcmc.Internal.Shuffle
       Paths_mcmc
   autogen-modules:
       Paths_mcmc
