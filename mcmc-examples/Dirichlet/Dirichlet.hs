@@ -80,7 +80,7 @@ monNorm :: MonitorParameter I
 monNorm = _norm >$< monitorDouble "Norm"
 
 monN :: Int -> MonitorParameter I
-monN n = (\x -> toVector (_alphas x) V.! n) >$< monitorDouble name
+monN n = (\x -> toVector (_alphas x) V.! n * _norm x) >$< monitorDouble name
   where
     name = "Alpha " <> show n
 
@@ -97,11 +97,9 @@ monitors :: Monitor I
 monitors = Monitor monStdOut [monFile] []
 
 initialValue :: I
-initialValue = I as s
+initialValue = I as 1.0
   where
-    -- as = simplexUniform (V.length alphasTrue)
-    s = V.sum alphasTrue
-    as = either error id $ simplexFromVector $ V.map (/ s) alphasTrue
+    as = simplexUniform (V.length alphasTrue)
 
 nBurnIn :: Maybe Int
 nBurnIn = Just 3000
@@ -110,7 +108,7 @@ nAutoTune :: Maybe Int
 nAutoTune = Just 100
 
 nIterations :: Int
-nIterations = 10000
+nIterations = 30000
 
 main :: IO ()
 main = do
