@@ -22,8 +22,6 @@ module Mcmc.Proposal.Simplex
   )
 where
 
--- TODO: SimplexElementScale (?).
-
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.Vector.Unboxed as V
@@ -116,8 +114,29 @@ dirichletSimple t (Simplex xs) g = do
 -- For a given element of a K-dimensional simplex, propose a new element of the
 -- K-dimensional simplex. The new element is sampled from the multivariate
 -- Dirichlet distribution with parameter vector being the old element of the
--- simplex. The tuning parameter is used to determine the concentration of the
--- Dirichlet distribution: the lower the tuning parameter, the higher the
--- concentration.
+-- simplex.
+--
+-- The tuning parameter is used to determine the concentration of the Dirichlet
+-- distribution: the lower the tuning parameter, the higher the concentration.
 dirichlet :: String -> Int -> Bool -> Proposal Simplex
 dirichlet = createProposal dirichletSimple
+
+-- TODO: Beta proposal.
+
+-- | Beta proposal on a specific coordinate @i@.
+--
+-- For a given element of a K-dimensional simplex, propose a new element of the
+-- K-dimensional simplex. The coordinate @i@ of the new element is sampled from
+-- the beta distribution. The other coordinates are normalized such that the
+-- values sum to 1.0. The parameters of the beta distribution are chosen such
+-- that the expected value of the beta distribution is the value of the old
+-- coordinate.
+--
+-- The tuning parameter is used to determine the concentration of the beta
+-- distribution: the lower the tuning parameter, the higher the concentration.
+--
+-- No "out of bounds" checks are performed during compile time. Run time errors
+-- can occur if @i@ is negative, or if @i-1@ is larger than the length of the
+-- element vector of the simplex.
+beta :: Int -> String -> Int -> Bool -> Proposal Simplex
+beta = undefined
