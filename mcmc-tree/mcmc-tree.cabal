@@ -40,6 +40,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
+    , dirichlet
     , elynx-tree
     , lens
     , log-domain
@@ -48,5 +49,6 @@ library
     , mwc-random
     , primitive
     , statistics
+    , vector
     , zlib
   default-language:  Haskell2010

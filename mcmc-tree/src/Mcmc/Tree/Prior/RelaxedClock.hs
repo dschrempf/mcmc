@@ -18,26 +18,13 @@ module Mcmc.Tree.Prior.RelaxedClock
   )
 where
 
+import qualified Data.Vector.Unboxed as V
 import ELynx.Tree
 import Mcmc.Prior
 import Mcmc.Tree.Prior.Branch
 import Numeric.Log hiding (sum)
 import Numeric.SpecFunctions
-
--- Tolerance.
-eps :: Double
-eps = 1e-12
-
-dirichletSymmetric :: Double -> [Double] -> Log Double
-dirichletSymmetric alpha xs =
-  if abs (sum xs - 1.0) > eps
-  then 0
-  else Exp $ logDenominator - logNominator + sum xsPow
-  where
-    n = length xs
-    logNominator = fromIntegral n * logGamma alpha
-    logDenominator = logGamma (fromIntegral n * alpha)
-    xsPow = map (\x -> log $ x ** (alpha - 1.0)) xs
+import Statistics.Distribution.Dirichlet
 
 -- | Gamma Dirichlet prior.
 --
@@ -68,9 +55,14 @@ dirichletSymmetric alpha xs =
 --
 -- Return a probability of zero if the relative rates do not sum to 1.0 (with
 -- tolerance 1e-12).
-gammaDirichlet :: Double -> Double -> Double -> Double -> [Double] -> Log Double
-gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletSymmetric alpha xs
+--
+-- Call error if:
+-- - The \(\alpha\) parameter is negative or zero.
+-- - The number of partitions is smaller than two.
+gammaDirichlet :: Double -> Double -> Double -> Double -> V.Vector Double -> Log Double
+gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmetric ddSym xs
   where muPrior = gamma alphaMu betaMu muMean
+        ddSym = either error id $ dirichletDistributionSymmetric (V.length xs) alpha
 
 -- | Uncorrelated gamma model.
 --

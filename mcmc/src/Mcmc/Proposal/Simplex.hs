@@ -14,24 +14,26 @@ module Mcmc.Proposal.Simplex
     Simplex (toVector),
     simplexUniform,
     simplexFromVector,
-    simplexFromVectorNormalize,
+
+    -- * Proposals on simplices
+    dirichlet,
   )
 where
 
-import Control.Monad.Primitive
-import qualified Data.Vector.Unboxed as V
-import Numeric.Log hiding (sum)
-import Numeric.SpecFunctions
-import System.Random.MWC (Gen)
-import System.Random.MWC.Distributions (gamma)
+-- TODO: SimplexElementScale (?).
 
+import qualified Data.Vector.Unboxed as V
+import Mcmc.Proposal
+import Statistics.Distribution.Dirichlet
+
+-- | A vector of non-negative values summing to one.
+--
+-- The nomenclature is not very consistent, because a __D-Simplex__ is usually
+-- considered to be the set containing all @D@-dimensional vectors with
+-- non-negative elements that sum to 1.0. However, I couldn't come up with a
+-- better name. Maybe @ElementOfSimplex@, but that was too long.
 newtype Simplex = Simplex {toVector :: V.Vector Double}
   deriving (Eq, Show)
-
--- | Set all values to \(1/n\).
-simplexUniform :: Int -> Simplex
-simplexUniform n | n > 0 = Simplex $ V.replicate n (1.0 / fromIntegral n)
-                 | otherwise = error "simplexUniform: Integer must be strictly positive."
 
 -- Tolerance.
 eps :: Double
@@ -43,47 +45,44 @@ isNormalized v
   | abs (V.sum v - 1.0) > eps = False
   | otherwise = True
 
+-- Check if vector contains negative elements.
+isNegative :: V.Vector Double -> Bool
+isNegative = V.any (< 0)
+
 -- | Create a simplex from a vector.
 --
--- - Call 'error' if vector is not normalized.
--- - Call 'error' if vector is empty.
-simplexFromVector :: V.Vector Double -> Simplex
+-- Return 'Left' if:
+-- - The value vector is empty.
+-- - The value vector contains negative elements.
+-- - The value vector is not normalized.
+simplexFromVector :: V.Vector Double -> Either String Simplex
 simplexFromVector v
-  | V.null v = error "simplexFromVector: Vector is empty."
-  | not (isNormalized v) = error "simplexFromVector: Vector is not normalized."
-  | otherwise = Simplex v
+  | V.null v = Left "simplexFromVector: Vector is empty."
+  | isNegative v = Left "simplexFromVector: Vector contains negative elements."
+  | not (isNormalized v) = Left "simplexFromVector: Vector is not normalized."
+  | otherwise = Right $ Simplex v
 
--- | Create a simplex from a vector. The vector is normalized to sum to 1.0.
+-- | Set all values to \(1/n\).
+simplexUniform :: Int -> Simplex
+simplexUniform n = either error id $ simplexFromVector $ V.replicate n (1.0 / fromIntegral n)
+
+-- The tuning parameter is the inverted mean of all alpha values.
+dirichletSimple :: Double -> ProposalSimple Simplex
+dirichletSimple invAlphaMean (Simplex xs) g = do
+  let ddXs = either error id $ dirichletDistribution $ V.map (/invAlphaMean) xs
+  ys <- dirichletSample ddXs g
+  let ddYs = either error id $ dirichletDistribution $ V.map (/invAlphaMean) ys
+      densityXY = dirichletDensity ddXs ys
+      densityYX = dirichletDensity ddYs xs
+  return (either error id $ simplexFromVector ys, densityYX / densityXY)
+
+-- | Dirichlet proposal.
 --
--- Call 'error' if vector is empty.
-simplexFromVectorNormalize :: V.Vector Double -> Simplex
-simplexFromVectorNormalize v
-  | V.null v = error "simplexFromVectorNormalize: Vector is empty."
-  | otherwise = Simplex $ V.map (/ s) v
-  where
-    s = V.sum v
-
--- Dirichlet density for a given parameter and value vector.
-dirichletDensity :: V.Vector Double -> V.Vector Double -> Log Double
-dirichletDensity as xs
-  | nAs /= nXs = error "dirichletDensity: Parameter and value vectors have different length."
-  | nAs == 0 = error "dirichletDensity: Parameter vector is empty."
-  | nXs == 0 = error "dirichletDensity: Value vector is empty."
-  | otherwise =
-    if not (isNormalized xs)
-      then 0
-      else Exp $ logDenominator - logNominator + logXsPow
-  where
-    nAs = V.length as
-    nXs = V.length xs
-    logNominator = V.sum $ V.map logGamma as
-    logDenominator = logGamma (V.sum as)
-    logXsPow = V.sum $ V.zipWith (\a x -> log $ x ** (a - 1.0)) as xs
-
--- Sample a value vector from the Dirichlet distribution with given parameter
--- vector and a generator.
-dirichletSample :: PrimMonad m => V.Vector Double -> Gen (PrimState m) -> m (V.Vector Double)
-dirichletSample as g = do
-  ys <- V.mapM (\a -> gamma a 1.0 g) as
-  let s = V.sum ys
-  return $ V.map (/ s) ys
+-- For a given element of a D-dimensional simplex, propose a new element of the
+-- D-dimensional simplex. The new element is sampled from the multivariate
+-- Dirichlet distribution with parameter vector being the old element of the
+-- simplex. The tuning parameter is used to determine the concentration of the
+-- Dirichlet distribution: the lower the tuning parameter, the higher the
+-- concentration.
+dirichlet :: String -> Int -> Bool -> Proposal Simplex
+dirichlet = createProposal dirichletSimple

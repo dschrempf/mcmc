@@ -58,6 +58,7 @@ library
     , containers
     , data-default
     , directory
+    , dirichlet
     , double-conversion
     , log-domain
     , math-functions
