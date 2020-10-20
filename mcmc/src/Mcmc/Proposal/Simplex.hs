@@ -91,8 +91,11 @@ dirichletSimple t (Simplex xs) g = do
   -- low variance.
   let -- Start with small steps.
       t' = t / 100
-      -- Don't allow extreme values.
-      t'' = t' ** 0.7
+      -- Extremely small tuning parameters lead to numeric overflow. The square
+      -- root pulls the tuning parameter closer to 1.0. However, overflow may
+      -- still occur (the involved Gamma functions grow faster than the
+      -- exponential). I did not observe numeric underflow in my tests.
+      t'' = sqrt t'
       -- Tuning function is inverted (high alpha means small steps).
       tf = (/ t'')
       ddXs = either error id $ dirichletDistribution $ V.map tf xs
