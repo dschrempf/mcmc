@@ -43,7 +43,7 @@ data MonitorParameter a = MonitorParameter
     mpFunc :: a -> BB.Builder
   }
 
-instance Contravariant (MonitorParameter) where
+instance Contravariant MonitorParameter where
   contramap f (MonitorParameter n m) = MonitorParameter n (m . f)
 
 -- | Convert a parameter monitor from one data type to another.

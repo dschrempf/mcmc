@@ -3,22 +3,20 @@ cradle:
     # mcmc
     - path: "mcmc/src"
       component: "mcmc:lib"
-
     - path: "mcmc/test"
       component: "mcmc:test:mcmc-test"
-
     - path: "mcmc/bench"
       component: "mcmc:bench:mcmc-bench"
 
     # mcmc-examples
-    - path: "mcmc-examples/PhylogeneticLikelihood"
-      component: "mcmc-examples:exe:plh"
-
-    - path: "mcmc-examples/PhylogeneticLikelihoodMultivariate"
-      component: "mcmc-examples:exe:plh-multivariate"
-
     - path: "mcmc-examples/Archery"
       component: "mcmc-examples:exe:archery"
+    - path: "mcmc-examples/Dirichlet"
+      component: "mcmc-examples:exe:dirichlet"
+    - path: "mcmc-examples/PhylogeneticLikelihood"
+      component: "mcmc-examples:exe:plh"
+    - path: "mcmc-examples/PhylogeneticLikelihoodMultivariate"
+      component: "mcmc-examples:exe:plh-multivariate"
 
     # mcmc-statistics
     - path: "mcmc-statistics/src"

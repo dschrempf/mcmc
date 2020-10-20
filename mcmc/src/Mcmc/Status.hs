@@ -118,8 +118,8 @@ status ::
   (a -> Log Double) ->
   -- | The likelihood function.
   (a -> Log Double) ->
-  -- | A list of 'Proposal's executed in forward order. The
-  -- chain will be logged after each cycle.
+  -- | A list of 'Proposal's executed in forward order. The chain will be logged
+  -- after each cycle.
   Cycle a ->
   -- | A 'Monitor' observing the chain.
   Monitor a ->
@@ -127,14 +127,14 @@ status ::
   a ->
   -- | Number of burn in iterations; deactivate burn in with 'Nothing'.
   Maybe Int ->
-  -- | Auto tuning period (only during burn in); deactivate
-  -- auto tuning with 'Nothing'.
+  -- | Auto tuning period (only during burn in); deactivate auto tuning with
+  -- 'Nothing'.
   Maybe Int ->
-  -- | Number of normal iterations excluding burn in. Note
-  -- that auto tuning only happens during burn in.
+  -- | Number of normal iterations excluding burn in. Note that auto tuning only
+  -- happens during burn in.
   Int ->
-  -- | A source of randomness. For reproducible runs, make
-  -- sure to use generators with the same, fixed seed.
+  -- | A source of randomness. For reproducible runs, make sure to use
+  -- generators with the same, fixed seed.
   GenIO ->
   Status a
 status n p l c m x mB mT nI g

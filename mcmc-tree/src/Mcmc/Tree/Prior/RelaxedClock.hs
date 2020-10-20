@@ -23,7 +23,6 @@ import ELynx.Tree
 import Mcmc.Prior
 import Mcmc.Tree.Prior.Branch
 import Numeric.Log hiding (sum)
-import Numeric.SpecFunctions
 import Statistics.Distribution.Dirichlet
 
 -- | Gamma Dirichlet prior.

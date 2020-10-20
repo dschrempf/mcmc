@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- |
 -- Module      :  Mcmc.Proposal.Simplex
 -- Description :  Proposals on simplices
@@ -22,9 +24,13 @@ where
 
 -- TODO: SimplexElementScale (?).
 
+import Data.Aeson
+import Data.Aeson.TH
 import qualified Data.Vector.Unboxed as V
 import Mcmc.Proposal
 import Statistics.Distribution.Dirichlet
+
+-- import Debug.Trace
 
 -- | An element of a simplex.
 --
@@ -36,6 +42,8 @@ import Statistics.Distribution.Dirichlet
 -- better name. Maybe @SimplexElement@, but that was too long.
 newtype Simplex = Simplex {toVector :: V.Vector Double}
   deriving (Eq, Show)
+
+$(deriveJSON defaultOptions ''Simplex)
 
 -- Tolerance.
 eps :: Double
@@ -71,18 +79,34 @@ simplexUniform :: Int -> Simplex
 simplexUniform k = either error id $ simplexFromVector $ V.replicate k (1.0 / fromIntegral k)
 
 -- The tuning parameter is the inverted mean of all alpha values.
+--
+-- The values determining the proposal size have been set using an example
+-- analysis. They are good values for this analysis, but may fail for other
+-- analyses.
 dirichletSimple :: Double -> ProposalSimple Simplex
 dirichletSimple t (Simplex xs) g = do
   -- If @t@ is high and above 1.0, the parameter vector will be low, and the
   -- variance will be high. If @t@ is low and below 1.0, the parameter vector
   -- will be high, and the Dirichlet distribution will be very concentrated with
   -- low variance.
-  let ddXs = either error id $ dirichletDistribution $ V.map (/t) xs
+  let -- Start with small steps.
+      t' = t / 100
+      -- Don't allow extreme values.
+      t'' = t' ** 0.7
+      -- Tuning function is inverted (high alpha means small steps).
+      tf = (/ t'')
+      ddXs = either error id $ dirichletDistribution $ V.map tf xs
+  -- traceShowM $ V.map tf xs
   ys <- dirichletSample ddXs g
-  let ddYs = either error id $ dirichletDistribution $ V.map (/t) ys
-      densityXY = dirichletDensity ddXs ys
-      densityYX = dirichletDensity ddYs xs
-  return (either error id $ simplexFromVector ys, densityYX / densityXY)
+  -- traceShowM ys
+  -- Have to check if parameters are valid (because zeroes do occur).
+  let eitherDdYs = dirichletDistribution $ V.map tf ys
+  let mhRatio = case eitherDdYs of
+        -- Set ratio to 0; so that the proposal will not be accepted.
+        Left _ -> 0
+        Right ddYs -> dirichletDensity ddYs xs / dirichletDensity ddXs ys
+  -- traceShowM mhRatio
+  return (either error id $ simplexFromVector ys, mhRatio)
 
 -- | Dirichlet proposal.
 --
