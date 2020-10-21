@@ -5,12 +5,12 @@
 
 packages:
 - completed:
-    hackage: pava-0.1.0.0@sha256:a069338665384de1f85541c3b881a187d755a7e4f8b5d75833d0491c352ac474,1805
+    hackage: dirichlet-0.1.0.0@sha256:3139a46ff7ab745ab0d644347c1c012e7369c909f636934123d119e4c8c5b120,1421
     pantry-tree:
-      size: 757
-      sha256: 61973d78425ef6da9f4a1acbc4e0d46d14baf4b6a8335c30e85d746fdcbbc6e7
+      size: 423
+      sha256: 5b355b9272c2037d6a11bf791342ef65fc9c331494608a88dee6825c1091c636
   original:
-    hackage: pava-0.1.0.0
+    hackage: dirichlet-0.1.0.0
 - completed:
     hackage: elynx-nexus-0.4.1@sha256:6c09fe16ce4305a6eacb520b304c0117f65fa73e4beefacf34ed51d77022b759,1315
     pantry-tree:
