@@ -19,6 +19,7 @@ module Mcmc.Proposal.Simplex
 
     -- * Proposals on simplices
     dirichlet,
+    beta,
   )
 where
 
@@ -26,6 +27,9 @@ import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.Vector.Unboxed as V
 import Mcmc.Proposal
+import Numeric.Log
+import Statistics.Distribution
+import Statistics.Distribution.Beta
 import Statistics.Distribution.Dirichlet
 
 -- import Debug.Trace
@@ -76,7 +80,20 @@ simplexFromVector v
 simplexUniform :: Int -> Simplex
 simplexUniform k = either error id $ simplexFromVector $ V.replicate k (1.0 / fromIntegral k)
 
--- The tuning parameter is the inverted mean of all alpha values.
+-- Tuning function is inverted (high alpha means small steps).
+getTuningFunction :: Double -> (Double -> Double)
+getTuningFunction t = (/ t'')
+  where
+    -- Start with small steps.
+    t' = t / 100
+    -- Extremely small tuning parameters lead to numeric overflow. The square
+    -- root pulls the tuning parameter closer to 1.0. However, overflow may
+    -- still occur (the involved Gamma functions grow faster than the
+    -- exponential). I did not observe numeric underflow in my tests.
+    t'' = sqrt t'
+
+-- The tuning parameter is proportional to the inverted mean of the shape
+-- parameter values.
 --
 -- The values determining the proposal size have been set using an example
 -- analysis. They are good values for this analysis, but may fail for other
@@ -87,16 +104,7 @@ dirichletSimple t (Simplex xs) g = do
   -- variance will be high. If @t@ is low and below 1.0, the parameter vector
   -- will be high, and the Dirichlet distribution will be very concentrated with
   -- low variance.
-  let -- Start with small steps.
-      t' = t / 100
-      -- Extremely small tuning parameters lead to numeric overflow. The square
-      -- root pulls the tuning parameter closer to 1.0. However, overflow may
-      -- still occur (the involved Gamma functions grow faster than the
-      -- exponential). I did not observe numeric underflow in my tests.
-      t'' = sqrt t'
-      -- Tuning function is inverted (high alpha means small steps).
-      tf = (/ t'')
-      ddXs = either error id $ dirichletDistribution $ V.map tf xs
+  let ddXs = either error id $ dirichletDistribution $ V.map tf xs
   -- traceShowM $ V.map tf xs
   ys <- dirichletSample ddXs g
   -- traceShowM ys
@@ -108,8 +116,10 @@ dirichletSimple t (Simplex xs) g = do
         Right ddYs -> dirichletDensity ddYs xs / dirichletDensity ddXs ys
   -- traceShowM mhRatio
   return (either error id $ simplexFromVector ys, mhRatio)
+  where
+    tf = getTuningFunction t
 
--- | Dirichlet proposal.
+-- | Dirichlet proposal on a simplex.
 --
 -- For a given element of a K-dimensional simplex, propose a new element of the
 -- K-dimensional simplex. The new element is sampled from the multivariate
@@ -118,12 +128,46 @@ dirichletSimple t (Simplex xs) g = do
 --
 -- The tuning parameter is used to determine the concentration of the Dirichlet
 -- distribution: the lower the tuning parameter, the higher the concentration.
+--
+-- This proposal may have low acceptance ratios. In this case, please see the
+-- coordinate wise 'beta' proposal.
 dirichlet :: String -> Int -> Bool -> Proposal Simplex
 dirichlet = createProposal dirichletSimple
 
--- TODO: Beta proposal.
+-- The tuning parameter is the inverted mean of the shape values.
+--
+-- The values determining the proposal size have been set using an example
+-- analysis. They are good values for this analysis, but may fail for other
+-- analyses.
+--
+-- See also the 'dirichlet' proposal.
+betaSimple :: Int -> Double -> ProposalSimple Simplex
+betaSimple i t (Simplex xs) g = do
+  -- Shape parameters of beta distribution. Assume 'xs' is element of a
+  -- simplex.
+  let aX = xI
+      bX = 1.0 - xI
+      bdXI = betaDistr (tf aX) (tf bX)
+  yI <- genContVar bdXI g
+  -- Shape parameters of beta distribution. Assume 'xs' is element of a
+  -- simplex.
+  let aY = yI
+      bY = 1.0 - yI
+      eitherBdYI = betaDistrE (tf aY) (tf bY)
+  -- See 'dirichlet', which has the same construct.
+  let mhRatio = case eitherBdYI of
+        Nothing -> 0
+        Just bdYI -> Exp $ (logDensity bdYI xI) - (logDensity bdXI yI)
+  -- Construct new vector.
+  let
+    nf x = x * bY / bX
+    ys = V.generate (V.length xs) (\j -> if i==j then yI else nf (xs V.! j))
+  return (either error id $ simplexFromVector ys, mhRatio)
+  where
+    xI = xs V.! i
+    tf = getTuningFunction t
 
--- | Beta proposal on a specific coordinate @i@.
+-- | Beta proposal on a specific coordinate @i@ on a simplex.
 --
 -- For a given element of a K-dimensional simplex, propose a new element of the
 -- K-dimensional simplex. The coordinate @i@ of the new element is sampled from
@@ -135,8 +179,10 @@ dirichlet = createProposal dirichletSimple
 -- The tuning parameter is used to determine the concentration of the beta
 -- distribution: the lower the tuning parameter, the higher the concentration.
 --
+-- See also the 'dirichlet' proposal.
+--
 -- No "out of bounds" checks are performed during compile time. Run time errors
 -- can occur if @i@ is negative, or if @i-1@ is larger than the length of the
 -- element vector of the simplex.
 beta :: Int -> String -> Int -> Bool -> Proposal Simplex
-beta = undefined
+beta i = createProposal (betaSimple i)
