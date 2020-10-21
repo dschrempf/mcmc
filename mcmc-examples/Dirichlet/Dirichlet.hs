@@ -70,7 +70,7 @@ likelihoodFunction xs (I as n) = case eitherDds of
     eitherDds = dirichletDistribution $ V.map (* n) $ toVector as
 
 alphaProposals :: [Proposal I]
-alphaProposals = [alphas @~ beta i ("Beta " <> show i) 1 True | i <- [0 .. (V.length alphasTrue - 1)]]
+alphaProposals = [alphas @~ beta i "Alpha" 1 True | i <- [0 .. (V.length alphasTrue - 1)]]
 
 -- -- Cycle with Dirichlet proposal.
 -- proposals :: Cycle I
@@ -82,7 +82,7 @@ alphaProposals = [alphas @~ beta i ("Beta " <> show i) 1 True | i <- [0 .. (V.le
 
 -- Cycle with beta proposals.
 proposals :: Cycle I
-proposals = fromList $ norm @~ scaleUnbiased 8.0 "Scale norm" 1 True : alphaProposals
+proposals = fromList $ norm @~ scaleUnbiased 8.0 "Norm" 1 True : alphaProposals
 
 monNorm :: MonitorParameter I
 monNorm = _norm >$< monitorDouble "Norm"

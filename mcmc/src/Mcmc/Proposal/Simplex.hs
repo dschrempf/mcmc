@@ -132,7 +132,7 @@ dirichletSimple t (SimplexUnsafe xs) g = do
 -- This proposal may have low acceptance ratios. In this case, please see the
 -- coordinate wise 'beta' proposal.
 dirichlet :: String -> Int -> Bool -> Proposal Simplex
-dirichlet = createProposal dirichletSimple
+dirichlet = createProposal "Dirichlet" dirichletSimple
 
 -- The tuning parameter is the inverted mean of the shape values.
 --
@@ -186,4 +186,5 @@ betaSimple i t (SimplexUnsafe xs) g = do
 -- can occur if @i@ is negative, or if @i-1@ is larger than the length of the
 -- element vector of the simplex.
 beta :: Int -> String -> Int -> Bool -> Proposal Simplex
-beta i = createProposal (betaSimple i)
+beta i = createProposal description (betaSimple i)
+  where description = "Beta; coordinate: " ++ show i

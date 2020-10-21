@@ -40,7 +40,8 @@ scale ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-scale k th = createProposal (scaleSimple k th)
+scale k th = createProposal description (scaleSimple k th)
+  where description = "Scale; shape: " ++ show k ++ ", scale: " ++ show th
 
 -- | Multiplicative proposal with Gamma distributed kernel.
 --
@@ -56,7 +57,8 @@ scaleUnbiased ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-scaleUnbiased k = createProposal (scaleSimple k (1 / k))
+scaleUnbiased k = createProposal description (scaleSimple k (1 / k))
+  where description = "Scale unbiased; shape: " ++ show k
 
 contra :: (Double, Double) -> Double -> (Double, Double)
 contra (x, y) z = (x * z, y / z)
@@ -80,4 +82,5 @@ scaleContrarily ::
   -- | Enable tuning.
   Bool ->
   Proposal (Double, Double)
-scaleContrarily k th = createProposal (scaleContrarilySimple k th)
+scaleContrarily k th = createProposal description (scaleContrarilySimple k th)
+  where description = "Scale contrariliy; shape: " ++ show k ++ ", scale: " ++ show th

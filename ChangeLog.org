@@ -1,5 +1,7 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- Add description string to proposals, so that they can be identified in an
+  easier way.
 - Add simplices and proposals on simplices.
 - =slideUniform= renamed to =slideUniformSymmetric=.
 - Merge tools into internal.

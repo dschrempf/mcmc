@@ -255,9 +255,9 @@ lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigma
 -- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  (timeTree @~ pulleyUltrametric 0.01 "time tree root pulley" 5 True) :
+  (timeTree @~ pulleyUltrametric 0.01 "Time tree root" 5 True) :
   [ (timeTree . nodeAt pth)
-      @~ slideNodeUltrametric 0.01 ("time tree slide node " ++ show lb) 1 True
+      @~ slideNodeUltrametric 0.01 ("Time tree node " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
       -- Since the stem does not change the likelihood, it is set to zero, and
       -- we do not slide the root node.
@@ -267,7 +267,7 @@ proposalsTimeTree t =
       not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
   ]
     ++ [ (timeTree . nodeAt pth)
-           @~ scaleSubTreeUltrametric 0.01 ("time tree scale sub tree " ++ show lb) 1 True
+           @~ scaleSubTreeUltrametric 0.01 ("Time tree node " ++ show lb) 1 True
          | (pth, lb) <- itoList t,
            -- Don't scale the sub tree of the root node, because we are not
            -- interested in changing the length of the stem.
@@ -279,16 +279,16 @@ proposalsTimeTree t =
 -- Proposals for the rate tree.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  (rateTree @~ pulley 0.1 "rate tree root pulley" 5 True) :
+  (rateTree @~ pulley 0.1 "Rate tree root" 5 True) :
   [ (rateTree . nodeAt pth)
-      @~ slideBranch 0.1 ("rate tree slide branch " ++ show lb) 1 True
+      @~ slideBranch 0.1 ("Rate tree branch " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
       -- Since the stem does not change the likelihood, it is set to zero, and
       -- we do not slide the stem.
       not (null pth)
   ]
     ++ [ (rateTree . nodeAt pth)
-           @~ scaleTree 100 ("rate tree scale sub tree " ++ show lb) 1 True
+           @~ scaleTree 100 ("Rate tree node " ++ show lb) 1 True
          | (pth, lb) <- itoList t,
            -- Path does not lead to a leaf.
            not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
@@ -298,11 +298,11 @@ proposalsRateTree t =
 ccl :: Show a => Tree e a -> Cycle I
 ccl t =
   fromList $
-    [ timeBirthRate @~ scaleUnbiased 10 "time birth rate" 10 True,
-      timeDeathRate @~ scaleUnbiased 10 "time death rate" 10 True,
-      timeHeight @~ scaleUnbiased 3000 "time height" 10 True,
-      rateShape @~ scaleUnbiased 10 "rate shape" 10 True,
-      rateScale @~ scaleUnbiased 10 "rate scale" 10 True
+    [ timeBirthRate @~ scaleUnbiased 10 "Time birth rate" 10 True,
+      timeDeathRate @~ scaleUnbiased 10 "Time death rate" 10 True,
+      timeHeight @~ scaleUnbiased 3000 "Time height" 10 True,
+      rateShape @~ scaleUnbiased 10 "Rate shape" 10 True,
+      rateScale @~ scaleUnbiased 10 "Rate scale" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t

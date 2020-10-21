@@ -30,7 +30,7 @@ where
 
 import Control.Lens
 import Data.Bifunctor
-import ELynx.Tree
+import ELynx.Tree hiding (description)
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Slide
@@ -121,7 +121,8 @@ slideNodeUltrametric ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double Double)
-slideNodeUltrametric ds = createProposal (slideNodeUltrametricSimple ds)
+slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple ds)
+  where description = "Slide node ultrametric; sd: " ++ show ds
 
 scaleTreeSimple :: Double -> Double -> ProposalSimple (Tree Double a)
 scaleTreeSimple k t =
@@ -142,7 +143,8 @@ scaleTree ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double a)
-scaleTree k = createProposal (scaleTreeSimple k)
+scaleTree k = createProposal description (scaleTreeSimple k)
+  where description = "Scale tree; shape: " ++ show k
 
 scaleTreeUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
 scaleTreeUltrametricSimple k t =
@@ -168,7 +170,8 @@ scaleTreeUltrametric ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double Double)
-scaleTreeUltrametric k = createProposal (scaleTreeUltrametricSimple k)
+scaleTreeUltrametric k = createProposal description (scaleTreeUltrametricSimple k)
+  where description = "Scale tree ultrametric; shape: " ++ show k
 
 -- The branch is elongated by dx. So if dx is positive, the node height is
 -- reduced.
@@ -208,7 +211,8 @@ scaleSubTreeUltrametric ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double Double)
-scaleSubTreeUltrametric ds = createProposal (scaleSubTreeUltrametricSimple ds)
+scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametricSimple sd)
+  where description = "Scale subtree ultrametrc; sd: " ++ show sd
 
 contra :: (Tree Double Double, Tree Double a) -> Double -> (Tree Double Double, Tree Double a)
 contra (s, t) x = (bimap (* x) (* x) s, first (/ x) t)
@@ -235,7 +239,8 @@ scaleTreesContrarily ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double Double, Tree Double a)
-scaleTreesContrarily k = createProposal (scaleTreesContrarilySimple k)
+scaleTreesContrarily k = createProposal description (scaleTreesContrarilySimple k)
+  where description = "Scale trees contrarily; shape: " ++ show k
 
 -- See 'truncatedNormalSample'. Dx is added to the left branch. I.e., if dx is
 -- positive, the left branch is elongated.
@@ -269,7 +274,8 @@ pulley ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double a)
-pulley s = createProposal (pulleySimple s)
+pulley s = createProposal description (pulleySimple s)
+  where description = "Pulley; sd: " ++ show s
 
 pulleyUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
 pulleyUltrametricSimple s t tr@(Node br lb [l, r]) g = do
@@ -294,4 +300,5 @@ pulleyUltrametric ::
   -- | Enable tuning.
   Bool ->
   Proposal (Tree Double Double)
-pulleyUltrametric d = createProposal (pulleyUltrametricSimple d)
+pulleyUltrametric d = createProposal description (pulleyUltrametricSimple d)
+  where description = "Pulley ultrametric; sd: " ++ show d

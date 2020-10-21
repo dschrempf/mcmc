@@ -41,7 +41,8 @@ slide ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slide m s = createProposal (slideSimple m s)
+slide m s = createProposal description (slideSimple m s)
+  where description = "Slide; mean: " ++ show m ++ ", sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
 slideSymmetricSimple :: Double -> Double -> ProposalSimple Double
@@ -60,7 +61,8 @@ slideSymmetric ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slideSymmetric s = createProposal (slideSymmetricSimple s)
+slideSymmetric s = createProposal description (slideSymmetricSimple s)
+  where description = "Slide symmetric; sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
 slideUniformSimple :: Double -> Double -> ProposalSimple Double
@@ -80,7 +82,8 @@ slideUniformSymmetric ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slideUniformSymmetric d = createProposal (slideUniformSimple d)
+slideUniformSymmetric d = createProposal description (slideUniformSimple d)
+  where description = "Slide uniform symmetric; delta: " ++ show d
 
 contra :: (Double, Double) -> Double -> (Double, Double)
 contra (x, y) d = (x + d, y - d)
@@ -104,4 +107,5 @@ slideContrarily ::
   -- | Enable tuning.
   Bool ->
   Proposal (Double, Double)
-slideContrarily m s = createProposal (slideContrarilySimple m s)
+slideContrarily m s = createProposal description (slideContrarilySimple m s)
+  where description = "Slide contrarily; mean: " ++ show m ++ ", sd: " ++ show s

@@ -65,9 +65,13 @@ import System.Random.MWC
 --
 -- A 'Proposal' may be tuneable in that it contains information about how to enlarge
 -- or shrink the step size to tune the acceptance ratio.
+--
+-- No proposals with the same name and description are allowed in a 'Cycle'.
 data Proposal a = Proposal
-  { -- | Name (no proposals with the same name are allowed in a 'Cycle').
+  { -- | Name of the affected variable.
     pName :: String,
+    -- | Description of the proposal type and parameters.
+    pDescription :: String,
     -- | The weight determines how often a 'Proposal' is executed per iteration of
     -- the Markov chain.
     pWeight :: Int,
@@ -77,14 +81,15 @@ data Proposal a = Proposal
     pTuner :: Maybe (Tuner a)
   }
 
+-- This should be removed.
 instance Show (Proposal a) where
-  show m = show $ pName m
+  show m = pName m <> " " <> pDescription m <> ", weight " <> show (pWeight m)
 
 instance Eq (Proposal a) where
-  m == n = pName m == pName n
+  m == n = pName m == pName n && pDescription m == pDescription n
 
 instance Ord (Proposal a) where
-  compare = compare `on` pName
+  compare = compare `on` (\p -> (pDescription p, pName p, pWeight p))
 
 -- | Convert a proposal from one data type to another using a lens.
 --
@@ -94,7 +99,7 @@ instance Ord (Proposal a) where
 -- scaleFirstEntryOfTuple = _1 @~ scale
 -- @
 (@~) :: Lens' b a -> Proposal a -> Proposal b
-(@~) l (Proposal n w s t) = Proposal n w (convertS l s) (convertT l <$> t)
+(@~) l (Proposal n d w s t) = Proposal n d w (convertS l s) (convertT l <$> t)
 
 -- | Simple proposal without tuning information.
 --
@@ -128,6 +133,8 @@ convertT l (Tuner p f) = Tuner p f'
 
 -- | Create a possibly tuneable proposal.
 createProposal ::
+  -- | Description of the proposal type and parameters.
+  String ->
   -- | Function creating a simple proposal for a given tuning parameter. The
   -- larger the tuning parameter, the larger the proposal (and the lower the
   -- expected acceptance ratio), and vice versa.
@@ -139,8 +146,8 @@ createProposal ::
   -- | Activate tuning?
   Bool ->
   Proposal a
-createProposal f n w True = Proposal n w (f 1.0) (Just $ Tuner 1.0 f)
-createProposal f n w False = Proposal n w (f 1.0) Nothing
+createProposal d f n w True = Proposal n d w (f 1.0) (Just $ Tuner 1.0 f)
+createProposal d f n w False = Proposal n d w (f 1.0) Nothing
 
 -- Minimal tuning parameter; subject to change.
 tuningParamMin :: Double
@@ -222,11 +229,9 @@ fromList :: [Proposal a] -> Cycle a
 fromList [] =
   error "fromList: Received an empty list but cannot create an empty Cycle."
 fromList xs =
-  if length (nub nms) == length nms
+  if length (nub xs) == length xs
     then Cycle xs def
-    else error "fromList: Proposals don't have unique names."
-  where
-    nms = map pName xs
+    else error "fromList: Proposals are not unique."
 
 -- | Set the order of 'Proposal's in a 'Cycle'.
 setOrder :: Order -> Cycle a -> Cycle a
@@ -270,10 +275,12 @@ renderRow ::
   BL.ByteString ->
   BL.ByteString ->
   BL.ByteString ->
+  BL.ByteString ->
   BL.ByteString
-renderRow name weight nAccept nReject acceptRatio tuneParam manualAdjustment = "   " <> nm <> wt <> na <> nr <> ra <> tp <> mt
+renderRow name ptype weight nAccept nReject acceptRatio tuneParam manualAdjustment = "   " <> nm <> pt <> wt <> na <> nr <> ra <> tp <> mt
   where
     nm = alignLeft 30 name
+    pt = alignLeft 50 ptype
     wt = alignRight 8 weight
     na = alignRight 15 nAccept
     nr = alignRight 15 nReject
@@ -283,12 +290,13 @@ renderRow name weight nAccept nReject acceptRatio tuneParam manualAdjustment = "
 
 proposalHeader :: BL.ByteString
 proposalHeader =
-  renderRow "Proposal" "Weight" "Accepted" "Rejected" "Ratio" "Tuning parameter" "Consider manual adjustment"
+  renderRow "Name" "Description" "Weight" "Accepted" "Rejected" "Ratio" "Tuning parameter" "Consider manual adjustment"
 
 summarizeProposal :: Proposal a -> Maybe (Int, Int, Double) -> BL.ByteString
 summarizeProposal m r =
   renderRow
-    (BL.pack name)
+    (BL.pack $ pName m)
+    (BL.pack $ pDescription m)
     weight
     nAccept
     nReject
@@ -296,7 +304,6 @@ summarizeProposal m r =
     tuneParamStr
     manualAdjustmentStr
   where
-    name = pName m
     weight = BB.toLazyByteString $ BB.intDec $ pWeight m
     nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) r
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) r
