@@ -39,9 +39,9 @@ normalizedYears = map (subtract m) ys
     m = sum ys / fromIntegral (length ys)
 
 f :: Int -> Double -> I -> Log Double
-f ft yr (alpha, beta) = Exp $ logProbability (poisson l) (fromIntegral ft)
+f ft yr (a, b) = Exp $ logProbability (poisson l) (fromIntegral ft)
   where
-    l = exp $ alpha + beta * yr
+    l = exp $ a + b * yr
 
 lh :: I -> Log Double
 lh x =

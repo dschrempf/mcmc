@@ -90,7 +90,7 @@ module Mcmc
     scaleBactrian,
     slide,
     slideSymmetric,
-    slideUniform,
+    slideUniformSymmetric,
     slideContrarily,
     slideBactrian,
     module Mcmc.Proposal.Simplex,

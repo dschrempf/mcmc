@@ -18,26 +18,6 @@ where
 import Mcmc.Proposal
 import Numeric.Log
 import Statistics.Distribution
-import System.Random.MWC
-
-sampleCont ::
-  (ContDistr d, ContGen d) =>
-  d ->
-  (a -> Double -> a) ->
-  Maybe (Double -> Double) ->
-  a ->
-  GenIO ->
-  IO (a, Log Double)
-sampleCont d f mfInv x g = do
-  dx <- genContVar d g
-  let r = case mfInv of
-        Nothing -> 1.0
-        Just fInv ->
-          let qXY = Exp $ logDensity d dx
-              qYX = Exp $ logDensity d (fInv dx)
-           in qYX / qXY
-  return (x `f` dx, r)
-{-# INLINEABLE sampleCont #-}
 
 -- | Generic function to create proposals for continuous parameters ('Double').
 genericContinuous ::
@@ -50,26 +30,16 @@ genericContinuous ::
   -- required for biased proposals.
   Maybe (Double -> Double) ->
   ProposalSimple a
-genericContinuous d f fInv = sampleCont d f fInv
-
-sampleDiscrete ::
-  (DiscreteDistr d, DiscreteGen d) =>
-  d ->
-  (a -> Int -> a) ->
-  Maybe (Int -> Int) ->
-  a ->
-  GenIO ->
-  IO (a, Log Double)
-sampleDiscrete d f mfInv x g = do
-  dx <- genDiscreteVar d g
+genericContinuous d f mfInv x g = do
+  dx <- genContVar d g
   let r = case mfInv of
         Nothing -> 1.0
         Just fInv ->
-          let qXY = Exp $ logProbability d dx
-              qYX = Exp $ logProbability d (fInv dx)
+          let qXY = Exp $ logDensity d dx
+              qYX = Exp $ logDensity d (fInv dx)
            in qYX / qXY
   return (x `f` dx, r)
-{-# INLINEABLE sampleDiscrete #-}
+{-# INLINEABLE genericContinuous #-}
 
 -- | Generic function to create proposals for discrete parameters ('Int').
 genericDiscrete ::
@@ -82,4 +52,13 @@ genericDiscrete ::
   -- required for biased proposals.
   Maybe (Int -> Int) ->
   ProposalSimple a
-genericDiscrete fd f fInv = sampleDiscrete fd f fInv
+genericDiscrete d f mfInv x g = do
+  dx <- genDiscreteVar d g
+  let r = case mfInv of
+        Nothing -> 1.0
+        Just fInv ->
+          let qXY = Exp $ logProbability d dx
+              qYX = Exp $ logProbability d (fInv dx)
+           in qYX / qXY
+  return (x `f` dx, r)
+{-# INLINEABLE genericDiscrete #-}

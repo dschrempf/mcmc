@@ -1,5 +1,9 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- Add simplices and proposals on simplices.
+- =slideUniform= renamed to =slideUniformSymmetric=.
+- Merge tools into internal.
+- Do not export internal modules.
 
 ** 0.2.4
 - *Change order of arguments for proposals*.
