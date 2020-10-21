@@ -14,7 +14,7 @@
 module Mcmc.Proposal.Slide
   ( slide,
     slideSymmetric,
-    slideUniform,
+    slideUniformSymmetric,
     slideContrarily,
   )
 where
@@ -67,10 +67,10 @@ slideUniformSimple :: Double -> Double -> ProposalSimple Double
 slideUniformSimple d t =
   genericContinuous (uniformDistr (- t * d) (t * d)) (+) Nothing
 
--- | Additive proposal with uniformly distributed kernel. This proposal is very fast,
--- because the Metropolis-Hastings ratio does not include calculation of the
--- forwards and backwards kernels.
-slideUniform ::
+-- | Additive proposal with uniformly distributed kernel with mean zero. This
+-- proposal is very fast, because the Metropolis-Hastings ratio does not include
+-- calculation of the forwards and backwards kernels.
+slideUniformSymmetric ::
   -- | Delta.
   Double ->
   -- | Name.
@@ -80,7 +80,7 @@ slideUniform ::
   -- | Enable tuning.
   Bool ->
   Proposal Double
-slideUniform d = createProposal (slideUniformSimple d)
+slideUniformSymmetric d = createProposal (slideUniformSimple d)
 
 contra :: (Double, Double) -> Double -> (Double, Double)
 contra (x, y) d = (x + d, y - d)
