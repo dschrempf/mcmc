@@ -42,7 +42,7 @@ import Statistics.Distribution.Dirichlet
 -- usually considered to be the set containing all @K@-dimensional vectors with
 -- non-negative elements that sum to 1.0. However, I couldn't come up with a
 -- better name. Maybe @SimplexElement@, but that was too long.
-newtype Simplex = Simplex {toVector :: V.Vector Double}
+newtype Simplex = SimplexUnsafe {toVector :: V.Vector Double}
   deriving (Eq, Show)
 
 $(deriveJSON defaultOptions ''Simplex)
@@ -72,7 +72,7 @@ simplexFromVector v
   | V.null v = Left "simplexFromVector: Vector is empty."
   | isNegative v = Left "simplexFromVector: Vector contains negative elements."
   | not (isNormalized v) = Left "simplexFromVector: Vector is not normalized."
-  | otherwise = Right $ Simplex v
+  | otherwise = Right $ SimplexUnsafe v
 
 -- | Create the uniform element of the K-dimensional simplex.
 --
@@ -85,7 +85,7 @@ getTuningFunction :: Double -> (Double -> Double)
 getTuningFunction t = (/ t'')
   where
     -- Start with small steps.
-    t' = t / 100
+    t' = t / 10000
     -- Extremely small tuning parameters lead to numeric overflow. The square
     -- root pulls the tuning parameter closer to 1.0. However, overflow may
     -- still occur (the involved Gamma functions grow faster than the
@@ -99,7 +99,7 @@ getTuningFunction t = (/ t'')
 -- analysis. They are good values for this analysis, but may fail for other
 -- analyses.
 dirichletSimple :: Double -> ProposalSimple Simplex
-dirichletSimple t (Simplex xs) g = do
+dirichletSimple t (SimplexUnsafe xs) g = do
   -- If @t@ is high and above 1.0, the parameter vector will be low, and the
   -- variance will be high. If @t@ is low and below 1.0, the parameter vector
   -- will be high, and the Dirichlet distribution will be very concentrated with
@@ -115,7 +115,7 @@ dirichletSimple t (Simplex xs) g = do
         Left _ -> 0
         Right ddYs -> dirichletDensity ddYs xs / dirichletDensity ddXs ys
   -- traceShowM mhRatio
-  return (either error id $ simplexFromVector ys, mhRatio)
+  return (SimplexUnsafe ys, mhRatio)
   where
     tf = getTuningFunction t
 
@@ -142,22 +142,22 @@ dirichlet = createProposal dirichletSimple
 --
 -- See also the 'dirichlet' proposal.
 betaSimple :: Int -> Double -> ProposalSimple Simplex
-betaSimple i t (Simplex xs) g = do
-  -- Shape parameters of beta distribution. Assume 'xs' is element of a
-  -- simplex.
+betaSimple i t (SimplexUnsafe xs) g = do
+  -- Shape parameters of beta distribution. Do not assume that the sum of the
+  -- elements of 'xs' is 1.0, because then repeated proposals let the sum of the
+  -- vector diverge.
   let aX = xI
-      bX = 1.0 - xI
+      bX = xsSum - xI
       bdXI = betaDistr (tf aX) (tf bX)
   yI <- genContVar bdXI g
-  -- Shape parameters of beta distribution. Assume 'xs' is element of a
-  -- simplex.
+  -- Shape parameters of beta distribution.
   let aY = yI
       bY = 1.0 - yI
       eitherBdYI = betaDistrE (tf aY) (tf bY)
   -- See 'dirichlet', which has the same construct.
   let mhRatio = case eitherBdYI of
         Nothing -> 0
-        Just bdYI -> Exp $ (logDensity bdYI xI) - (logDensity bdXI yI)
+        Just bdYI -> Exp $ logDensity bdYI xI - logDensity bdXI yI
   -- Construct new vector.
   let
     nf x = x * bY / bX
@@ -165,6 +165,7 @@ betaSimple i t (Simplex xs) g = do
   return (either error id $ simplexFromVector ys, mhRatio)
   where
     xI = xs V.! i
+    xsSum = V.sum xs
     tf = getTuningFunction t
 
 -- | Beta proposal on a specific coordinate @i@ on a simplex.

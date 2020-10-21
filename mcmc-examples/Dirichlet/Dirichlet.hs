@@ -42,10 +42,10 @@ instance FromJSON I
 
 -- The true parameter values.
 alphasTrue :: V.Vector Double
-alphasTrue = V.fromList [4, 10, 8.0, 4.2, 4.5]
+alphasTrue = V.fromList [0.1, 10, 8.0, 4.2, 4.5, 0.3]
 
 nObservations :: Int
-nObservations = 50
+nObservations = 100
 
 -- Simulate data using a Dirichlet distribution with the true parameter values.
 simulateData :: GenIO -> IO [V.Vector Double]
@@ -69,12 +69,20 @@ likelihoodFunction xs (I as n) = case eitherDds of
   where
     eitherDds = dirichletDistribution $ V.map (* n) $ toVector as
 
+alphaProposals :: [Proposal I]
+alphaProposals = [alphas @~ beta i ("Beta " <> show i) 1 True | i <- [0 .. (V.length alphasTrue - 1)]]
+
+-- -- Cycle with Dirichlet proposal.
+-- proposals :: Cycle I
+-- proposals =
+--   fromList
+--     [ alphas @~ dirichlet "dirichlet" 1 True,
+--       norm @~ scaleUnbiased 8.0 "scale norm" 1 True
+--     ]
+
+-- Cycle with beta proposals.
 proposals :: Cycle I
-proposals =
-  fromList
-    [ alphas @~ dirichlet "dirichlet" 1 True,
-      norm @~ scaleUnbiased 8.0 "scale norm" 1 True
-    ]
+proposals = fromList $ norm @~ scaleUnbiased 8.0 "Scale norm" 1 True : alphaProposals
 
 monNorm :: MonitorParameter I
 monNorm = _norm >$< monitorDouble "Norm"
@@ -118,18 +126,17 @@ main = do
   print xs
   print initialValue
   let s =
-        debug $
-          force $
-            status
-              "dirichlet"
-              priorDistribution
-              (likelihoodFunction xs)
-              proposals
-              monitors
-              initialValue
-              nBurnIn
-              nAutoTune
-              nIterations
-              g
+        force $
+          status
+            "dirichlet"
+            priorDistribution
+            (likelihoodFunction xs)
+            proposals
+            monitors
+            initialValue
+            nBurnIn
+            nAutoTune
+            nIterations
+            g
   _ <- mh s
   putStrLn "Done."
