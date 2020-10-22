@@ -45,9 +45,6 @@ mons = [monitorDouble "mu"]
 monStd :: MonitorStdOut Double
 monStd = monitorStdOut mons 200
 
--- monFile :: MonitorFile Double
--- monFile = monitorFile "Mu" mons 200
-
 mon :: Monitor Double
 mon = Monitor monStd [] []
 

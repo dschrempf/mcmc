@@ -13,7 +13,8 @@
 -- Creation date: Mon Aug  3 22:37:27 2020.
 module Calibration
   ( Calibration,
-    calibratedNodes,
+    calibrations,
+    getCalibrations,
   )
 where
 
@@ -21,12 +22,20 @@ import qualified Data.ByteString.Char8 as BS
 import Data.Maybe
 import ELynx.Tree
 import Mcmc.Tree
+import Numeric.Log
 
--- Calibrate a node with given path at given age.
+-- | Calibrate a node with given path at given age.
 type Calibration = (Path, Double, Double)
 
-calibratedNodes :: Tree e BS.ByteString -> [Calibration]
-calibratedNodes t =
+-- | Calibration prior with uniform soft bounds.
+--
+-- TODO: Write documentation;
+calibrations :: [Calibration] -> Double -> Tree Double Double -> [Log Double]
+calibrations xs h t =
+  [calibrateUniformSoft 1e-4 (a / h) (b / h) x t | (x, a, b) <- xs]
+
+getCalibrations :: Tree e BS.ByteString -> [Calibration]
+getCalibrations t =
   [ rootNode,
     cladeChlorophyceae t,
     cladeStreptophyta t,

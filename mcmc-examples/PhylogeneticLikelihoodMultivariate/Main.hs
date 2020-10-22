@@ -37,14 +37,10 @@ import Control.Monad
 import Criterion
 import Data.Aeson
 import Data.Bifunctor
-import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString.Char8 as BS
-import Data.List
 import Data.Maybe
-import qualified Data.Set as S
 import Data.Vector.Storable (Vector)
 import qualified Data.Vector.Storable as V
-import qualified ELynx.Topology.Rooted as T
 import GHC.Generics
 import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
 import qualified Numeric.LinearAlgebra as L
@@ -61,7 +57,19 @@ import Mcmc.Tree
 
 -- Local libraries provided together with this module.
 import Calibration
+import Constraint
+import Tools
 {- ORMOLU_ENABLE -}
+
+-- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
+-- The posterior means and covariances of the branch lengths are obtained from
+-- these trees and used to approximate the phylogenetic likelihood.
+fnInTrees :: FilePath
+fnInTrees = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
+
+-- Base name of analysis.
+bnAnalysis :: String
+bnAnalysis = "plh-multivariate"
 
 -- State space containing all parameters.
 --
@@ -125,44 +133,13 @@ initWith t =
   where
     t' = extend rootHeight $ normalizeHeight $ makeUltrametric t
 
--- Calibrations are defined in 'Calibrations'. See 'calibratedNodes'.
+-- Calibrations are defined in the module 'Calibration'.
 
--- Calibration prior with uniform bounds.
-cals :: [Calibration] -> I -> [Log Double]
-cals xs s = [calibrateUniformSoft 1e-4 (a / h) (b / h) x t | (x, a, b) <- xs]
-  where
-    t = s ^. timeTree
-    h = s ^. timeHeight
-
--- Constraints define node orders.
---
--- (a, b) ensures node a to be younger than node b.
-type Constraint = (Path, Path)
-
--- The constraint induced by a horizontal gene transfer does not contradict the
--- node order of the substitution-like tree obtained from the sequences.
-constrainedNodes :: Tree e BS.ByteString -> [Constraint]
-constrainedNodes t = [(young, old)]
-  where
-    young =
-      fromMaybe
-        (error "constrainedNodes: No MRCA young.")
-        -- (mrca [213, 200])
-        (mrca ["Pt_vittata", "Po_acrosti"] t)
-    old =
-      fromMaybe
-        (error "constrainedNodes: No MRCA old.")
-        -- (mrca [144, 143, 142])
-        (mrca ["Me_tosanus", "Me_vincent", "No_aenigma"] t)
-
--- Constraint prior.
-consts :: [Constraint] -> I -> [Log Double]
-consts xs s =
-  [constrainSoft 1e-4 y o $ s ^. timeTree | (y, o) <- xs]
+-- Constraints are defined in the module 'Constraint'.
 
 -- Prior.
 pr :: [Calibration] -> [Constraint] -> I -> Log Double
-pr cb cs s@(I l m _ t k th r) =
+pr cb cs (I l m h t k th r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
@@ -179,42 +156,10 @@ pr cb cs s@(I l m _ t k th r) =
       -- The prior of the branch-wise rates is gamma distributed.
       uncorrelatedGammaNoStem k th r
     ]
-      ++ cals cb s
-      ++ consts cs s
+      ++ calibrations cb h t
+      ++ constraints cs t
   where
     k1 = 1 / k
-
--- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
--- The posterior means and covariances of the branch lengths are obtained from
--- these trees and used to approximate the phylogenetic likelihood.
-fnTreeList :: FilePath
-fnTreeList = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
-
--- Helper function. Get all branches of a rooted tree. Store the branches in a
--- vector such that the two branches leading to the root are the first two
--- entries of the vector. Ignore the root branch.
-getBranches :: Tree Double a -> Vector Double
-getBranches (Node _ _ [l, r]) = V.fromList $ head ls : head rs : tail ls ++ tail rs
-  where
-    ls = branches l
-    rs = branches r
-getBranches _ = error "getBranches: Root node is not bifurcating."
-
--- Sum the first two elements of a vector. Needed to merge the two branches
--- leading to the root.
-sumFirstTwo :: Vector Double -> Vector Double
-sumFirstTwo v = (v V.! 0 + v V.! 1) `V.cons` V.drop 2 v
-
--- Get the posterior matrix of branch lengths of rooted trees. Merge the two
--- branch lengths leading to the root.
-getPosteriorMatrixRooted :: [Tree Double a] -> Matrix Double
-getPosteriorMatrixRooted = L.fromRows . map (sumFirstTwo . getBranches)
-
--- Get the posterior matrix of branch lengths of unrooted trees (trees with
--- multifurcating root nodes). Before midpoint rooting, the mean branch lengths
--- of the unrooted trees have to be determined.
-getPosteriorMatrix :: [Tree Double a] -> Matrix Double
-getPosteriorMatrix = L.fromRows . map (V.fromList . branches)
 
 -- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
@@ -322,13 +267,14 @@ monStdOut = monitorStdOut monParams 1
 monFileParams :: MonitorFile I
 monFileParams = monitorFile "-params" monParams 1
 
-getTimeTree :: I -> Tree Double Int
-getTimeTree s = identify $ first (*h) t
-  where h = s ^. timeHeight
-        t = s ^. timeTree
+absoluteTimeTree :: I -> Tree Double Int
+absoluteTimeTree s = identify $ first (* h) t
+  where
+    h = s ^. timeHeight
+    t = s ^. timeTree
 
 monFileTimeTree :: MonitorFile I
-monFileTimeTree = monitorFile "-timetree" [getTimeTree >$< monitorTree "TimeTree"] 1
+monFileTimeTree = monitorFile "-timetree" [absoluteTimeTree >$< monitorTree "TimeTree"] 1
 
 monFileRateTree :: MonitorFile I
 monFileRateTree = monitorFile "-ratetree" [_rateTree >$< monitorTree "RateTree"] 1
@@ -339,191 +285,178 @@ mon = Monitor monStdOut [monFileParams, monFileTimeTree, monFileRateTree] []
 
 -- Number of burn in iterations.
 nBurnIn :: Maybe Int
-nBurnIn = Just 3000
 -- nBurnIn = Just 30
+nBurnIn = Just 3000
 
 -- Auto tuning period.
 nAutoTune :: Maybe Int
-nAutoTune = Just 100
 -- nAutoTune = Just 10
+nAutoTune = Just 100
 
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
-nIterations = 10000
 -- nIterations = 10
-
--- The posterior branch length means and covariances will be stored in a file
--- with this name.
-fnData :: String
-fnData = "plh-multivariate.data"
+nIterations = 10000
 
 -- The rooted tree with posterior mean branch lengths will be stored in a file
 -- with this name.
-fnMeanTree :: FilePath
-fnMeanTree = "plh-multivariate.meantree"
+getMeanTree :: IO (Tree Double BS.ByteString)
+getMeanTree = oneTree $ bnAnalysis ++ ".meantree"
 
--- Read the mean tree and the posterior means and covariances.
-readMeans :: IO (Tree Double BS.ByteString, Vector Double, Matrix Double, Double)
-readMeans = do
-  meanTree <- oneTree fnMeanTree
-  (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+-- Get the posterior branch length means, the inverted covariance matrix, and
+-- the determinant of the covariance matrix.
+getData :: IO (Vector Double, Matrix Double, Double)
+getData = do
+  (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' fnData
   let sigmaInv = L.fromRows sigmaInvRows
-  return (meanTree, mu, sigmaInv, logSigmaDet)
+  return (mu, sigmaInv, logSigmaDet)
+  where
+    fnData = bnAnalysis ++ ".data"
 
 main :: IO ()
 main = do
   -- Get arguments.
   as <- getArgs
-
   case as of
     -- Read in all trees, calculate posterior means and covariances of the
     -- branch lengths, and find the midpoint root of the mean tree.
-    ["read"] -> do
-      putStrLn "Read trees; skip a burn in of 1000 trees."
-      trs <- drop 1000 <$> someTrees fnTreeList
-
-      -- Check if trees have the same topology.
-      let l = length $ nub $ map T.fromLabeledTree trs
-      unless (l == 1) (error "Trees have different topologies.")
-
-      putStrLn "Calculate mean branch lengths."
-      let pm = getPosteriorMatrix trs
-          (means, _) = L.meanCov pm
-      putStrLn "The mean branch lengths are:"
-      print means
-      let meanTree =
-            fromMaybe (error "Could not label tree with mean branch lengths") $
-              setBranches (map Length $ V.toList means) (head trs)
-          lvs = leaves meanTree
-          trOutgroup = either error id $ outgroup (S.singleton $ head lvs) "root" meanTree
-          tr = either error id $ midpoint trOutgroup
-      putStrLn "The tree with mean branch lengths rooted at the midpoint:"
-      print $ toNewick $ measurableToPhyloTree tr
-      putStrLn $ "Save the mean tree to " <> fnMeanTree <> "."
-      BL.writeFile fnMeanTree (toNewick $ measurableToPhyloTree tr)
-
-      putStrLn "Root the trees at the midpoint of the mean tree."
-      let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
-          trsRooted = map (first fromLength . either error id . outgroup outgroups "root" . first Length) trs
-      putStrLn "Get the posterior means and the posterior covariance matrix."
-      let pmR = getPosteriorMatrixRooted trsRooted
-          (mu, sigma) = L.meanCov pmR
-          (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
-
-      putStrLn $ "Save the posterior means and covariances to " <> fnData <> "."
-      encodeFile fnData (mu, L.toRows sigmaInv, logSigmaDet)
-
-    -- Benchmark different functions used by the MCMC sampler.
-    ["bench"] -> do
-      tr <- oneTree fnMeanTree
-      let (pth, _) =
-            fromMaybe (error "Gn_montanu not found.") $
-              ifind (\_ n -> n == "Gn_montanu") tr
-      putStrLn $ "The path to \"Gn_montanu\" is: " <> show pth
-      let bf1 =
-            toTree . insertLabel "Bla"
-              . fromMaybe (error "Path does not lead to a leaf.")
-              . goPath pth
-              . fromTree
-      putStrLn $ "Change a leaf: " <> show (bf1 tr) <> "."
-      putStrLn "Benchmark change a leaf."
-      benchmark $ nf bf1 tr
-      let bf2 =
-            label . current
-              . fromMaybe (error "Path does not lead to a leaf.")
-              . goPath pth
-              . fromTree
-      putStrLn $ "Leaf to get: " <> show (bf2 tr) <> "."
-      putStrLn "Benchmark get a leaf."
-      benchmark $ nf bf2 tr
-      putStrLn "Benchmark calculation of prior."
-      let i = initWith $ identify tr
-          pr' = pr (calibratedNodes tr) (constrainedNodes tr)
-      benchmark $ nf pr' i
-      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
-      let sigmaInv = L.fromRows sigmaInvRows
-          lh' = lh mu sigmaInv logSigmaDet
-      putStrLn "Benchmark calculation of likelihood."
-      benchmark $ nf lh' i
-
-      putStrLn "Benchmark identify."
-      benchmark $ nf identify tr
-
-    -- Inspect different objects; useful for debugging.
-    ["inspect"] -> do
-      tr <- oneTree fnMeanTree
-      let lvs = leaves tr
-      putStrLn $ "The mean tree has " <> show (length lvs) <> " leaves."
-
-      let i = initWith $ identify tr
-          pr' = pr (calibratedNodes tr) (constrainedNodes tr)
-      putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ i ^. timeTree)
-      putStrLn $ "Initial prior: " <> show (pr' i) <> "."
-      putStrLn "Load posterior means and covariances."
-      (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
-      let sigmaInv = L.fromRows sigmaInvRows
-          lh' = lh mu sigmaInv logSigmaDet
-      putStrLn $ "Initial log-likelihood: " <> show (ln $ lh' i) <> "."
-
-      putStrLn "Paths to calibration nodes."
-      putStrLn "Slight difference: 179, 183 younger than 245 247."
-      putStrLn $ "Mrca of 179 and 183: " ++ show (mrca [179, 183] $ identify tr)
-      putStrLn $ "Mrca of 245 and 247: " ++ show (mrca [245, 247] $ identify tr)
-      putStrLn "More extreme difference: 34, 38 younger than 62, 64."
-      putStrLn $ "Mrca of 34 and 38: " ++ show (mrca [34, 38] $ identify tr)
-      putStrLn $ "Mrca of 62 and 64: " ++ show (mrca [62, 64] $ identify tr)
-
+    ["prepare"] -> do
+      prepare fnInTrees bnAnalysis
     -- Run the Metropolis-Hastings sampler.
     ["run"] -> do
-      -- Read the mean tree and the posterior means and covariances.
-      (meanTree, mu, sigmaInv, logSigmaDet) <- readMeans
-      putStrLn "The posterior means of the branch lengths are:"
-      print mu
-      -- Initialize a starting state using the mean tree.
-      let start = initWith $ identify meanTree
-          pr' = pr (calibratedNodes meanTree) (constrainedNodes meanTree)
-          lh' = lh mu sigmaInv logSigmaDet
-          ccl' = ccl $ identify meanTree
-      -- Create a seed value for the random number generator. Actually, the
-      -- 'create' function is deterministic, but useful during development. For
-      -- real analyses, use 'createSystemRandom'.
-      g <- create
-      -- Construct the status of the Markov chain.
-      let s =
-            force . saveWith 1 . debug $
-              -- Have a look at the 'status' function to understand the
-              -- different parameters.
-              status
-                "plh-multivariate"
-                pr'
-                lh'
-                ccl'
-                mon
-                start
-                nBurnIn
-                nAutoTune
-                nIterations
-                g
-      -- Run the Markov chain.
-      void $ mh s
+      runMetropolisHastings
+    -- Continue sampling.
     ["continue", n] -> do
-      (meanTree, mu, sigmaInv, logSigmaDet) <- readMeans
-      -- Load the MCMC status.
-      s <-
-        loadStatus
-          (pr (calibratedNodes meanTree) (constrainedNodes meanTree))
-          (lh mu sigmaInv logSigmaDet)
-          (ccl $ identify meanTree)
-          mon
-          "plh-multivariate.mcmc"
-      void $ mhContinue (read n) s
-    -- Print usage instructions if none of the previous commands was entered.
+      continueMetropolisHastings (read n)
+    -- Print conversion of leaves.
     ["convert"] -> do
-      -- Print conversion of leaves.
-      (meanTree, _, _, _) <- readMeans
-      let tbl = zip (map BS.unpack $ leaves meanTree) (map show $ leaves $ identify meanTree)
-      putStr $ unlines $ map show tbl
-    _ -> putStrLn "Use one command of: [read|bench|inspect|run|continue N|convert]!"
+      convert
+    -- Benchmark different functions used by the MCMC sampler.
+    ["bench"] -> do
+      runBench
+    -- Inspect different objects; useful for debugging.
+    ["inspect"] -> do
+      inspect
+    -- Print usage instructions if none of the previous commands was entered.
+    _ -> putStrLn "Use one command of: [prepare|run|continue N|convert|bench|inspect]."
+
+-- Run the Metropolis-Hastings sampler.
+runMetropolisHastings :: IO ()
+runMetropolisHastings = do
+  -- Read the mean tree and the posterior means and covariances.
+  meanTree <- getMeanTree
+  (mu, sigmaInv, logSigmaDet) <- getData
+  putStrLn "The posterior means of the branch lengths are:"
+  print mu
+  -- Initialize a starting state using the mean tree.
+  let start = initWith $ identify meanTree
+      pr' = pr (getCalibrations meanTree) (getConstraints meanTree)
+      lh' = lh mu sigmaInv logSigmaDet
+      ccl' = ccl $ identify meanTree
+  -- Create a seed value for the random number generator. Actually, the
+  -- 'create' function is deterministic, but useful during development. For
+  -- real analyses, use 'createSystemRandom'.
+  g <- create
+  -- Construct the status of the Markov chain.
+  let s =
+        force . saveWith 1 . debug $
+          -- Have a look at the 'status' function to understand the
+          -- different parameters.
+          status
+            "plh-multivariate"
+            pr'
+            lh'
+            ccl'
+            mon
+            start
+            nBurnIn
+            nAutoTune
+            nIterations
+            g
+  -- Run the Markov chain.
+  void $ mh s
+
+continueMetropolisHastings :: Int -> IO ()
+continueMetropolisHastings n = do
+  meanTree <- getMeanTree
+  (mu, sigmaInv, logSigmaDet) <- getData
+  -- Load the MCMC status.
+  s <-
+    loadStatus
+      (pr (getCalibrations meanTree) (getConstraints meanTree))
+      (lh mu sigmaInv logSigmaDet)
+      (ccl $ identify meanTree)
+      mon
+      "plh-multivariate.mcmc"
+  void $ mhContinue n s
+
+convert :: IO ()
+convert = do
+  meanTree <- getMeanTree
+  let tbl = zip (map BS.unpack $ leaves meanTree) (map show $ leaves $ identify meanTree)
+  putStr $ unlines $ map show tbl
+
+-- Benchmark different functions used by the MCMC sampler.
+runBench :: IO ()
+runBench = do
+  tr <- getMeanTree
+  let (pth, _) =
+        fromMaybe (error "Gn_montanu not found.") $
+          ifind (\_ n -> n == "Gn_montanu") tr
+  putStrLn $ "The path to \"Gn_montanu\" is: " <> show pth
+  let bf1 =
+        toTree . insertLabel "Bla"
+          . fromMaybe (error "Path does not lead to a leaf.")
+          . goPath pth
+          . fromTree
+  putStrLn $ "Change a leaf: " <> show (bf1 tr) <> "."
+  putStrLn "Benchmark change a leaf."
+  benchmark $ nf bf1 tr
+  let bf2 =
+        label . current
+          . fromMaybe (error "Path does not lead to a leaf.")
+          . goPath pth
+          . fromTree
+  putStrLn $ "Leaf to get: " <> show (bf2 tr) <> "."
+  putStrLn "Benchmark get a leaf."
+  benchmark $ nf bf2 tr
+  putStrLn "Benchmark calculation of prior."
+  let i = initWith $ identify tr
+      pr' = pr (getCalibrations tr) (getConstraints tr)
+  benchmark $ nf pr' i
+  (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+  let sigmaInv = L.fromRows sigmaInvRows
+      lh' = lh mu sigmaInv logSigmaDet
+  putStrLn "Benchmark calculation of likelihood."
+  benchmark $ nf lh' i
+
+  putStrLn "Benchmark identify."
+  benchmark $ nf identify tr
+
+-- Inspect different objects; useful for debugging.
+inspect :: IO ()
+inspect = do
+  tr <- getMeanTree
+  let lvs = leaves tr
+  putStrLn $ "The mean tree has " <> show (length lvs) <> " leaves."
+
+  let i = initWith $ identify tr
+      pr' = pr (getCalibrations tr) (getConstraints tr)
+  putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ i ^. timeTree)
+  putStrLn $ "Initial prior: " <> show (pr' i) <> "."
+  putStrLn "Load posterior means and covariances."
+  (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+  let sigmaInv = L.fromRows sigmaInvRows
+      lh' = lh mu sigmaInv logSigmaDet
+  putStrLn $ "Initial log-likelihood: " <> show (ln $ lh' i) <> "."
+
+  putStrLn "Paths to calibration nodes."
+  putStrLn "Slight difference: 179, 183 younger than 245 247."
+  putStrLn $ "Mrca of 179 and 183: " ++ show (mrca [179, 183] $ identify tr)
+  putStrLn $ "Mrca of 245 and 247: " ++ show (mrca [245, 247] $ identify tr)
+  putStrLn "More extreme difference: 34, 38 younger than 62, 64."
+  putStrLn $ "Mrca of 34 and 38: " ++ show (mrca [34, 38] $ identify tr)
+  putStrLn $ "Mrca of 62 and 64: " ++ show (mrca [62, 64] $ identify tr)
 
 -- Post scriptum:
 --

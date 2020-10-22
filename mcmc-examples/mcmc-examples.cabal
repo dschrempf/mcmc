@@ -83,6 +83,8 @@ executable plh-multivariate
   main-is: Main.hs
   other-modules:
       Calibration
+      Constraint
+      Tools
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples
