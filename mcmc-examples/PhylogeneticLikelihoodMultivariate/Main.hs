@@ -1,6 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 -- |
 -- Module      :  Main
@@ -25,320 +23,96 @@ module Main
   )
 where
 
--- The source code formatter Ormolu messes up the comments describing the used
--- libraries.
-
-{- ORMOLU_DISABLE -}
-
--- Global libraries.
-import Control.Comonad
-import Control.Lens hiding ((<.>))
+import Calibration
+import Constraint
+import Control.Lens
 import Control.Monad
 import Criterion
 import Data.Aeson
 import Data.Bifunctor
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.List
 import Data.Maybe
-import Data.Vector.Storable (Vector)
+import qualified Data.Set as S
 import qualified Data.Vector.Storable as V
-import GHC.Generics
-import Numeric.LinearAlgebra (Matrix, (<#), (<.>))
+import Definitions
+import qualified ELynx.Topology.Rooted as T
+import ELynx.Tree
+import Mcmc
+import Mcmc.Tree
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 import System.Environment
 import System.Random.MWC hiding (uniform)
-
--- ELynx library providing functions to work with trees.
-import ELynx.Tree
-
--- Mcmc library.
-import Mcmc
-import Mcmc.Tree
-
--- Local libraries provided together with this module.
-import Calibration
-import Constraint
 import Tools
-{- ORMOLU_ENABLE -}
 
--- File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
--- The posterior means and covariances of the branch lengths are obtained from
--- these trees and used to approximate the phylogenetic likelihood.
-fnInTrees :: FilePath
-fnInTrees = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
-
--- Base name of analysis.
-bnAnalysis :: String
-bnAnalysis = "plh-multivariate"
-
--- State space containing all parameters.
---
--- The topologies of the time and rate tree are equal. This is, however, not
--- ensured by the types. In the future, we may just use one tree storing both,
--- the times and the rates.
-data I = I
-  { -- Birth rate of time tree.
-    _timeBirthRate :: Double,
-    -- Death rate of time tree.
-    _timeDeathRate :: Double,
-    -- Height of the time tree in absolute time measured in million years, see
-    -- calibrations.
-    _timeHeight :: Double,
-    -- Normalized time tree of height 1.0. Branch labels denote relative times;
-    -- node labels denote relative node height.
-    _timeTree :: Tree Double Double,
-    -- Shape of the gamma distribution prior of the rates.
-    _rateShape :: Double,
-    -- Scale of the gamma distribution prior of the rates.
-    _rateScale :: Double,
-    -- Rate tree. Branch labels denote relative rates; node labels are unused.
-    _rateTree :: Tree Double ()
-    -- Remark: Let t and r be the lengths of a branch of the time and rate trees
-    -- respectively. The length d of this branch measured in number of
-    -- substitutions is d=t*r. Since the time tree is normalized, the time tree
-    -- height is implicitly covered by r. The absolute rate is R = r/h, where h
-    -- is the height of the tree. Similarly, absolute time is T = t*h.
-    --
-    -- I think this is a relatively clean solution. The absolute tree height is
-    -- only determined by the calibrations, and not by the phylogenetic
-    -- likelihood.
-  }
-  deriving (Generic)
-
--- Create accessors (lenses) to the parameters in the state space.Nothing
-makeLenses ''I
-
--- Allow storage of the trace as JSON.
-instance ToJSON I
-
-instance FromJSON I
-
--- Initial state.
---
--- The given tree is used to initiate the time and rate trees. For the time
--- tree, the terminal branches are elongated such that the tree becomes
--- ultrametric ('makeUltrametric'). For the rate tree, we just use the topology
--- and set all rates to 1.0.
-initWith :: Tree Double Int -> I
-initWith t =
-  I
-    { _timeBirthRate = 1.0,
-      _timeDeathRate = 1.0,
-      _timeHeight = 1000.0,
-      _timeTree = t',
-      _rateShape = 10.0,
-      _rateScale = 2.0,
-      _rateTree = bimap (const 1.0) (const ()) t
-    }
-  where
-    t' = extend rootHeight $ normalizeHeight $ makeUltrametric t
-
--- Calibrations are defined in the module 'Calibration'.
-
--- Constraints are defined in the module 'Constraint'.
-
--- Prior.
-pr :: [Calibration] -> [Constraint] -> I -> Log Double
-pr cb cs (I l m h t k th r) =
-  product' $
-    [ -- Exponential prior on the birth and death rates of the time tree.
-      exponential 1 l,
-      exponential 1 m,
-      -- No prior on the height of the time tree but see the calibrations below.
-      --
-      -- Birth and death process prior of the time tree.
-      birthDeath l m t,
-      -- The reciprocal shape is exponentially distributed such that higher
-      -- shape values are favored.
-      exponential 10 k1,
-      -- The scale is exponentially distributed.
-      exponential 1 th,
-      -- The prior of the branch-wise rates is gamma distributed.
-      uncorrelatedGammaNoStem k th r
-    ]
-      ++ calibrations cb h t
-      ++ constraints cs t
-  where
-    k1 = 1 / k
-
--- Log of density of multivariate normal distribution with given parameters.
--- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
---
--- The constant @k * log (2*pi)@ was left out on purpose.
-logDensityMultivariateNormal ::
-  -- Mean vector.
-  Vector Double ->
-  -- Inverted covariance matrix.
-  Matrix Double ->
-  -- Log of determinant of covariance matrix.
-  Double ->
-  -- Value vector.
-  Vector Double ->
-  Log Double
-logDensityMultivariateNormal mu sigmaInv logSigmaDet xs =
-  Exp $ (-0.5) * (logSigmaDet + ((dxs <# sigmaInv) <.> dxs))
-  where
-    dxs = xs - mu
-
--- Phylogenetic likelihood using a multivariate normal distribution.
-lh ::
-  -- Mean vector.
-  Vector Double ->
-  -- Inverted covariance matrix.
-  Matrix Double ->
-  -- Log of determinant of covariance matrix.
-  Double ->
-  -- Current state.
-  I ->
-  Log Double
-lh mu sigmaInv logSigmaDet x = logDensityMultivariateNormal mu sigmaInv logSigmaDet distances
-  where
-    times = getBranches (x ^. timeTree)
-    rates = getBranches (x ^. rateTree)
-    distances = sumFirstTwo $ V.zipWith (*) times rates
-
--- Proposals for the time tree.
-proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
-proposalsTimeTree t =
-  (timeTree @~ pulleyUltrametric 0.01 "Time tree root" 5 True) :
-  [ (timeTree . nodeAt pth)
-      @~ slideNodeUltrametric 0.01 ("Time tree node " ++ show lb) 1 True
-    | (pth, lb) <- itoList t,
-      -- Since the stem does not change the likelihood, it is set to zero, and
-      -- we do not slide the root node.
-      not (null pth),
-      -- Also, we do not slide leaf nodes, since this would break
-      -- ultrametricity.
-      not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
-  ]
-    ++ [ (timeTree . nodeAt pth)
-           @~ scaleSubTreeUltrametric 0.01 ("Time tree node " ++ show lb) 1 True
-         | (pth, lb) <- itoList t,
-           -- Don't scale the sub tree of the root node, because we are not
-           -- interested in changing the length of the stem.
-           not (null pth),
-           -- Sub trees of leaves cannot be scaled.
-           not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
-       ]
-
--- Proposals for the rate tree.
-proposalsRateTree :: Show a => Tree e a -> [Proposal I]
-proposalsRateTree t =
-  (rateTree @~ pulley 0.1 "Rate tree root" 5 True) :
-  [ (rateTree . nodeAt pth)
-      @~ slideBranch 0.1 ("Rate tree branch " ++ show lb) 1 True
-    | (pth, lb) <- itoList t,
-      -- Since the stem does not change the likelihood, it is set to zero, and
-      -- we do not slide the stem.
-      not (null pth)
-  ]
-    ++ [ (rateTree . nodeAt pth)
-           @~ scaleTree 100 ("Rate tree node " ++ show lb) 1 True
-         | (pth, lb) <- itoList t,
-           -- Path does not lead to a leaf.
-           not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
-       ]
-
--- The complete cycle includes proposals for the other parameters.
-ccl :: Show a => Tree e a -> Cycle I
-ccl t =
-  fromList $
-    [ timeBirthRate @~ scaleUnbiased 10 "Time birth rate" 10 True,
-      timeDeathRate @~ scaleUnbiased 10 "Time death rate" 10 True,
-      timeHeight @~ scaleUnbiased 3000 "Time height" 10 True,
-      rateShape @~ scaleUnbiased 10 "Rate shape" 10 True,
-      rateScale @~ scaleUnbiased 10 "Rate scale" 10 True
-    ]
-      ++ proposalsTimeTree t
-      ++ proposalsRateTree t
-
-monParams :: [MonitorParameter I]
-monParams =
-  [ _timeBirthRate >$< monitorDouble "TimeBirthRate",
-    _timeDeathRate >$< monitorDouble "TimeDeathRate",
-    _timeHeight >$< monitorDouble "TimeHeight",
-    _rateShape >$< monitorDouble "RateShape",
-    _rateScale >$< monitorDouble "RateScale"
-  ]
-
-monStdOut :: MonitorStdOut I
-monStdOut = monitorStdOut monParams 1
-
-monFileParams :: MonitorFile I
-monFileParams = monitorFile "-params" monParams 1
-
-absoluteTimeTree :: I -> Tree Double Int
-absoluteTimeTree s = identify $ first (* h) t
-  where
-    h = s ^. timeHeight
-    t = s ^. timeTree
-
-monFileTimeTree :: MonitorFile I
-monFileTimeTree = monitorFile "-timetree" [absoluteTimeTree >$< monitorTree "TimeTree"] 1
-
-monFileRateTree :: MonitorFile I
-monFileRateTree = monitorFile "-ratetree" [_rateTree >$< monitorTree "RateTree"] 1
-
--- Collect monitors to standard output and files, as well as batch monitors.
-mon :: Monitor I
-mon = Monitor monStdOut [monFileParams, monFileTimeTree, monFileRateTree] []
-
--- Number of burn in iterations.
-nBurnIn :: Maybe Int
--- nBurnIn = Just 30
-nBurnIn = Just 3000
-
--- Auto tuning period.
-nAutoTune :: Maybe Int
--- nAutoTune = Just 10
-nAutoTune = Just 100
-
--- Number of Metropolis-Hasting iterations after burn in.
-nIterations :: Int
--- nIterations = 10
-nIterations = 10000
+fnMeanTree :: FilePath
+fnMeanTree = bnAnalysis ++ ".meantree"
 
 -- The rooted tree with posterior mean branch lengths will be stored in a file
 -- with this name.
 getMeanTree :: IO (Tree Double BS.ByteString)
-getMeanTree = oneTree $ bnAnalysis ++ ".meantree"
+getMeanTree = oneTree fnMeanTree
+
+fnData :: FilePath
+fnData = bnAnalysis ++ ".data"
 
 -- Get the posterior branch length means, the inverted covariance matrix, and
 -- the determinant of the covariance matrix.
-getData :: IO (Vector Double, Matrix Double, Double)
+getData :: IO (V.Vector Double, L.Matrix Double, Double)
 getData = do
   (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' fnData
   let sigmaInv = L.fromRows sigmaInvRows
   return (mu, sigmaInv, logSigmaDet)
-  where
-    fnData = bnAnalysis ++ ".data"
 
-main :: IO ()
-main = do
-  -- Get arguments.
-  as <- getArgs
-  case as of
-    -- Read in all trees, calculate posterior means and covariances of the
-    -- branch lengths, and find the midpoint root of the mean tree.
-    ["prepare"] -> do
-      prepare fnInTrees bnAnalysis
-    -- Run the Metropolis-Hastings sampler.
-    ["run"] -> do
-      runMetropolisHastings
-    -- Continue sampling.
-    ["continue", n] -> do
-      continueMetropolisHastings (read n)
-    -- Print conversion of leaves.
-    ["convert"] -> do
-      convert
-    -- Benchmark different functions used by the MCMC sampler.
-    ["bench"] -> do
-      runBench
-    -- Inspect different objects; useful for debugging.
-    ["inspect"] -> do
-      inspect
-    -- Print usage instructions if none of the previous commands was entered.
-    _ -> putStrLn "Use one command of: [prepare|run|continue N|convert|bench|inspect]."
+-- Get the posterior matrix of branch lengths of rooted trees. Merge the two
+-- branch lengths leading to the root.
+getPosteriorMatrixRooted :: [Tree Double a] -> L.Matrix Double
+getPosteriorMatrixRooted = L.fromRows . map (sumFirstTwo . getBranches)
+
+-- Get the posterior matrix of branch lengths of unrooted trees (trees with
+-- multifurcating root nodes). Before midpoint rooting, the mean branch lengths
+-- of the unrooted trees have to be determined.
+getPosteriorMatrix :: [Tree Double a] -> L.Matrix Double
+getPosteriorMatrix = L.fromRows . map (V.fromList . branches)
+
+-- Read trees and extract branch lengths.
+prepare :: IO ()
+prepare = do
+  putStrLn "Read trees; skip a burn in of 1000 trees."
+  trs <- drop 1000 <$> someTrees fnInTrees
+
+  putStrLn "Check if trees have the same topology."
+  let l = length $ nub $ map T.fromLabeledTree trs
+  unless (l == 1) (error "Trees have different topologies.")
+
+  putStrLn "Calculate mean branch lengths."
+  let pm = getPosteriorMatrix trs
+      (means, _) = L.meanCov pm
+  putStrLn "The mean branch lengths are:"
+  print means
+  let meanTree =
+        fromMaybe (error "Could not label tree with mean branch lengths") $
+          setBranches (map Length $ V.toList means) (head trs)
+      lvs = leaves meanTree
+      trOutgroup = either error id $ outgroup (S.singleton $ head lvs) "root" meanTree
+      tr = either error id $ midpoint trOutgroup
+  putStrLn "The tree with mean branch lengths rooted at the midpoint:"
+  print $ toNewick $ measurableToPhyloTree tr
+  putStrLn $ "Save the mean tree to " <> fnMeanTree <> "."
+  BL.writeFile fnMeanTree (toNewick $ measurableToPhyloTree tr)
+
+  putStrLn "Root the trees at the midpoint of the mean tree."
+  let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
+      trsRooted = map (first fromLength . either error id . outgroup outgroups "root" . first Length) trs
+  putStrLn "Get the posterior means and the posterior covariance matrix."
+  let pmR = getPosteriorMatrixRooted trsRooted
+      (mu, sigma) = L.meanCov pmR
+      (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
+
+  putStrLn $ "Save the posterior means and covariances to " <> fnData <> "."
+  encodeFile fnData (mu, L.toRows sigmaInv, logSigmaDet)
 
 -- Run the Metropolis-Hastings sampler.
 runMetropolisHastings :: IO ()
@@ -350,9 +124,9 @@ runMetropolisHastings = do
   print mu
   -- Initialize a starting state using the mean tree.
   let start = initWith $ identify meanTree
-      pr' = pr (getCalibrations meanTree) (getConstraints meanTree)
-      lh' = lh mu sigmaInv logSigmaDet
-      ccl' = ccl $ identify meanTree
+      pr' = priorDistribution (getCalibrations meanTree) (getConstraints meanTree)
+      lh' = likelihoodFunction mu sigmaInv logSigmaDet
+      ccl' = proposals $ identify meanTree
   -- Create a seed value for the random number generator. Actually, the
   -- 'create' function is deterministic, but useful during development. For
   -- real analyses, use 'createSystemRandom'.
@@ -363,11 +137,11 @@ runMetropolisHastings = do
           -- Have a look at the 'status' function to understand the
           -- different parameters.
           status
-            "plh-multivariate"
+            bnAnalysis
             pr'
             lh'
             ccl'
-            mon
+            monitor
             start
             nBurnIn
             nAutoTune
@@ -383,11 +157,11 @@ continueMetropolisHastings n = do
   -- Load the MCMC status.
   s <-
     loadStatus
-      (pr (getCalibrations meanTree) (getConstraints meanTree))
-      (lh mu sigmaInv logSigmaDet)
-      (ccl $ identify meanTree)
-      mon
-      "plh-multivariate.mcmc"
+      (priorDistribution (getCalibrations meanTree) (getConstraints meanTree))
+      (likelihoodFunction mu sigmaInv logSigmaDet)
+      (proposals $ identify meanTree)
+      monitor
+      (bnAnalysis ++ ".mcmc")
   void $ mhContinue n s
 
 convert :: IO ()
@@ -422,11 +196,11 @@ runBench = do
   benchmark $ nf bf2 tr
   putStrLn "Benchmark calculation of prior."
   let i = initWith $ identify tr
-      pr' = pr (getCalibrations tr) (getConstraints tr)
+      pr' = priorDistribution (getCalibrations tr) (getConstraints tr)
   benchmark $ nf pr' i
-  (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+  (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' fnData
   let sigmaInv = L.fromRows sigmaInvRows
-      lh' = lh mu sigmaInv logSigmaDet
+      lh' = likelihoodFunction mu sigmaInv logSigmaDet
   putStrLn "Benchmark calculation of likelihood."
   benchmark $ nf lh' i
 
@@ -441,13 +215,13 @@ inspect = do
   putStrLn $ "The mean tree has " <> show (length lvs) <> " leaves."
 
   let i = initWith $ identify tr
-      pr' = pr (getCalibrations tr) (getConstraints tr)
-  putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ i ^. timeTree)
+      pr' = priorDistribution (getCalibrations tr) (getConstraints tr)
+  putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ _timeTree i)
   putStrLn $ "Initial prior: " <> show (pr' i) <> "."
   putStrLn "Load posterior means and covariances."
-  (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' "plh-multivariate.data"
+  (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' fnData
   let sigmaInv = L.fromRows sigmaInvRows
-      lh' = lh mu sigmaInv logSigmaDet
+      lh' = likelihoodFunction mu sigmaInv logSigmaDet
   putStrLn $ "Initial log-likelihood: " <> show (ln $ lh' i) <> "."
 
   putStrLn "Paths to calibration nodes."
@@ -457,6 +231,33 @@ inspect = do
   putStrLn "More extreme difference: 34, 38 younger than 62, 64."
   putStrLn $ "Mrca of 34 and 38: " ++ show (mrca [34, 38] $ identify tr)
   putStrLn $ "Mrca of 62 and 64: " ++ show (mrca [62, 64] $ identify tr)
+
+main :: IO ()
+main = do
+  -- Get arguments.
+  as <- getArgs
+  case as of
+    -- Read in all trees, calculate posterior means and covariances of the
+    -- branch lengths, and find the midpoint root of the mean tree.
+    ["prepare"] -> do
+      prepare
+    -- Run the Metropolis-Hastings sampler.
+    ["run"] -> do
+      runMetropolisHastings
+    -- Continue sampling.
+    ["continue", n] -> do
+      continueMetropolisHastings (read n)
+    -- Print conversion of leaves.
+    ["convert"] -> do
+      convert
+    -- Benchmark different functions used by the MCMC sampler.
+    ["bench"] -> do
+      runBench
+    -- Inspect different objects; useful for debugging.
+    ["inspect"] -> do
+      inspect
+    -- Print usage instructions if none of the previous commands was entered.
+    _ -> putStrLn "Use one command of: [prepare|run|continue N|convert|bench|inspect]."
 
 -- Post scriptum:
 --

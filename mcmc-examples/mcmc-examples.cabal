@@ -84,6 +84,7 @@ executable plh-multivariate
   other-modules:
       Calibration
       Constraint
+      Definitions
       Tools
       Paths_mcmc_examples
   autogen-modules:
