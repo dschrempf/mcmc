@@ -298,16 +298,12 @@ absoluteTimeTree s = identify $ first (* h) t
 monFileTimeTree :: MonitorFile I
 monFileTimeTree = monitorFile "-timetree" [absoluteTimeTree >$< monitorTree "TimeTree"] 1
 
--- TODO: Remove; debug.
-monFileTimeTreeWithHeight :: MonitorFile I
-monFileTimeTreeWithHeight = monitorFile "-timetree-height" [_timeTree >$< monitorTree "TimeTreeWithHeight"] 1
-
 monFileRateTree :: MonitorFile I
 monFileRateTree = monitorFile "-ratetree" [_rateTree >$< monitorTree "RateTree"] 1
 
 -- | Monitor to standard output and files, as well as batch monitors.
 monitor :: Monitor I
-monitor = Monitor monStdOut [monFileParams, monFileTimeTree, monFileRateTree, monFileTimeTreeWithHeight] []
+monitor = Monitor monStdOut [monFileParams, monFileTimeTree, monFileRateTree] []
 
 -- | Number of burn in iterations.
 nBurnIn :: Maybe Int
