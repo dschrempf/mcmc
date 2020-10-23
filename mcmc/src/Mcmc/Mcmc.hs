@@ -129,13 +129,21 @@ mcmcClean = do
     Just (Cleaner n f) | i `mod` n == 0 -> do
       mcmcDebugB "Clean state."
       let (Item st pr lh) = item s
-      mcmcDebugS $ "Old log prior and log likelihood: " ++ show (ln pr) ++ ", " ++ show (ln lh) ++ "."
+      mcmcDebugS $
+        "Old log prior and log likelihood: " ++ show (ln pr) ++ ", " ++ show (ln lh) ++ "."
       let prF = priorF s
           lhF = likelihoodF s
           st' = f st
           pr' = prF st'
           lh' = lhF st'
-      mcmcDebugS $ "New log prior and log likelihood: " ++ show (ln pr') ++ ", " ++ show (ln lh') ++ "."
+      mcmcDebugS $
+        "New log prior and log likelihood: " ++ show (ln pr') ++ ", " ++ show (ln lh') ++ "."
+      let dLogPr = abs $ ln pr - ln pr'
+          dLogLh = abs $ ln lh - ln lh'
+      when (dLogPr > 0.01)
+        (mcmcWarnS $ "Log of old and new prior differ by " ++ show dLogPr ++ "." )
+      when (dLogPr > 0.01)
+        (mcmcWarnS $ "Log of old and new likelihood differ by " ++ show dLogLh ++ "." )
       put $ s {item = Item st' pr' lh'}
     _ -> return ()
 
@@ -201,11 +209,15 @@ mcmcReport = do
   let b = burnInIterations s
       t = autoTuningPeriod s
       n = iterations s
+      c = cleaner s
   case b of
     Just b' -> mcmcInfoS $ "Burn in for " <> show b' <> " iterations."
     Nothing -> return ()
   case t of
     Just t' -> mcmcInfoS $ "Auto tune every " <> show t' <> " iterations (during burn in only)."
+    Nothing -> return ()
+  case c of
+    Just (Cleaner c' _) -> mcmcInfoS $ "Clean state every " <> show c' <> " iterations."
     Nothing -> return ()
   mcmcInfoS $ "Run chain for " <> show n <> " iterations."
   mcmcInfoB "Initial state."
