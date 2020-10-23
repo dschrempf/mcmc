@@ -105,13 +105,13 @@ mhBurnInN b (Just t)
   | b > t = do
     mcmcResetA
     mhNIter t
-    mcmcSummarizeCycle >>= mcmcDebugT
+    mcmcSummarizeCycle >>= mcmcDebugB
     mcmcAutotune
     mhBurnInN (b - t) (Just t)
   | otherwise = do
     mcmcResetA
     mhNIter b
-    mcmcSummarizeCycle >>= mcmcInfoT
+    mcmcSummarizeCycle >>= mcmcInfoB
     mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
 mhBurnInN b Nothing = mhNIter b
 
@@ -124,7 +124,7 @@ mhBurnIn b t
     mcmcInfoS $ "Burn in for " <> show b <> " cycles."
     mcmcDebugS $ "Auto tuning period is " <> show t <> "."
     mhBurnInN b t
-    mcmcInfoT "Burn in finished."
+    mcmcInfoB "Burn in finished."
 
 -- Run for given number of iterations.
 mhRun :: ToJSON a => Int -> Mcmc a ()
@@ -143,8 +143,8 @@ mhRun n = do
 
 mhT :: ToJSON a => Mcmc a ()
 mhT = do
-  mcmcInfoT "Metropolis-Hastings sampler."
-  mcmcSummarizeCycle >>= mcmcInfoT
+  mcmcInfoB "Metropolis-Hastings sampler."
+  mcmcSummarizeCycle >>= mcmcInfoB
   mcmcReport
   s <- get
   let b = fromMaybe 0 (burnInIterations s)
@@ -153,9 +153,9 @@ mhT = do
 
 mhContinueT :: ToJSON a => Int -> Mcmc a ()
 mhContinueT dn = do
-  mcmcInfoT "Continuation of Metropolis-Hastings sampler."
+  mcmcInfoB "Continuation of Metropolis-Hastings sampler."
   mcmcInfoS $ "Run chain for " <> show dn <> " additional iterations."
-  mcmcSummarizeCycle >>= mcmcInfoT
+  mcmcSummarizeCycle >>= mcmcInfoB
   mhRun dn
 
 -- | Continue a Markov chain for a given number of Metropolis-Hastings steps.

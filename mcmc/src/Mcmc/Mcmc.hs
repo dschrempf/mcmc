@@ -15,13 +15,13 @@
 -- Functions to work with the 'Mcmc' state transformer.
 module Mcmc.Mcmc
   ( Mcmc,
-    mcmcOutT,
+    mcmcOutB,
     mcmcOutS,
-    mcmcWarnT,
+    mcmcWarnB,
     mcmcWarnS,
-    mcmcInfoT,
+    mcmcInfoB,
     mcmcInfoS,
-    mcmcDebugT,
+    mcmcDebugB,
     mcmcDebugS,
     mcmcAutotune,
     mcmcClean,
@@ -62,56 +62,56 @@ msgPrepare c t = BL.cons c $ ": " <> t
 -- TODO: CHANGE THIS TO B (bytestring).
 
 -- | Write to standard output and log file.
-mcmcOutT :: BL.ByteString -> Mcmc a ()
-mcmcOutT msg = do
+mcmcOutB :: BL.ByteString -> Mcmc a ()
+mcmcOutB msg = do
   h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> gets logHandle
   liftIO $ BL.putStrLn msg >> BL.hPutStrLn h msg
 
 -- | Write to standard output and log file.
 mcmcOutS :: String -> Mcmc a ()
-mcmcOutS = mcmcOutT . BL.pack
+mcmcOutS = mcmcOutB . BL.pack
 
 -- Perform warning action.
 mcmcWarnA :: Mcmc a () -> Mcmc a ()
 mcmcWarnA a = gets verbosity >>= \v -> info v a
 
 -- | Print warning message.
-mcmcWarnT :: BL.ByteString -> Mcmc a ()
-mcmcWarnT = mcmcWarnA . mcmcOutT . msgPrepare 'W'
+mcmcWarnB :: BL.ByteString -> Mcmc a ()
+mcmcWarnB = mcmcWarnA . mcmcOutB . msgPrepare 'W'
 
 -- | Print warning message.
 mcmcWarnS :: String -> Mcmc a ()
-mcmcWarnS = mcmcWarnT . BL.pack
+mcmcWarnS = mcmcWarnB . BL.pack
 
 -- Perform info action.
 mcmcInfoA :: Mcmc a () -> Mcmc a ()
 mcmcInfoA a = gets verbosity >>= \v -> info v a
 
 -- | Print info message.
-mcmcInfoT :: BL.ByteString -> Mcmc a ()
-mcmcInfoT = mcmcInfoA . mcmcOutT . msgPrepare 'I'
+mcmcInfoB :: BL.ByteString -> Mcmc a ()
+mcmcInfoB = mcmcInfoA . mcmcOutB . msgPrepare 'I'
 
 -- | Print info message.
 mcmcInfoS :: String -> Mcmc a ()
-mcmcInfoS = mcmcInfoT . BL.pack
+mcmcInfoS = mcmcInfoB . BL.pack
 
 -- Perform debug action.
 mcmcDebugA :: Mcmc a () -> Mcmc a ()
 mcmcDebugA a = gets verbosity >>= \v -> debug v a
 
 -- | Print debug message.
-mcmcDebugT :: BL.ByteString -> Mcmc a ()
-mcmcDebugT = mcmcDebugA . mcmcOutT . msgPrepare 'D'
+mcmcDebugB :: BL.ByteString -> Mcmc a ()
+mcmcDebugB = mcmcDebugA . mcmcOutB . msgPrepare 'D'
 
 -- | Print debug message.
 mcmcDebugS :: String -> Mcmc a ()
-mcmcDebugS = mcmcDebugT . BL.pack
+mcmcDebugS = mcmcDebugB . BL.pack
 
 -- | Auto tune the 'Proposal's in the 'Cycle' of the chain. Reset acceptance counts.
 -- See 'autotuneCycle'.
 mcmcAutotune :: Mcmc a ()
 mcmcAutotune = do
-  mcmcDebugT "Auto tune."
+  mcmcDebugB "Auto tune."
   s <- get
   let a = acceptance s
       c = cycle s
@@ -126,7 +126,7 @@ mcmcClean = do
       i = iteration s
   case cl of
     Just (Cleaner n f) | i `mod` n == 0 -> do
-      mcmcDebugT "Clean state."
+      mcmcDebugB "Clean state."
       let (Item st pr lh) = item s
       mcmcDebugS $ "Old prior and likelihood: " ++ show pr ++ ", " ++ show lh ++ "."
       let prF = priorF s
@@ -141,7 +141,7 @@ mcmcClean = do
 -- | Reset acceptance counts.
 mcmcResetA :: Mcmc a ()
 mcmcResetA = do
-  mcmcDebugT "Reset acceptance ratios."
+  mcmcDebugB "Reset acceptance ratios."
   s <- get
   let a = acceptance s
   put $ s {acceptance = resetA a}
@@ -174,7 +174,7 @@ mcmcOpenLog = do
         (True, _, _) -> openFile lfn AppendMode
   put s {logHandle = mh}
   mcmcDebugS $ "Log file name: " ++ lfn ++ "."
-  mcmcDebugT "Log file opened."
+  mcmcDebugB "Log file opened."
 
 -- Set the total number of iterations, the current time and open the 'Monitor's
 -- of the chain. See 'mOpen'.
@@ -207,7 +207,7 @@ mcmcReport = do
     Just t' -> mcmcInfoS $ "Auto tune every " <> show t' <> " iterations (during burn in only)."
     Nothing -> return ()
   mcmcInfoS $ "Run chain for " <> show n <> " iterations."
-  mcmcInfoT "Initial state."
+  mcmcInfoB "Initial state."
   mcmcMonitorExec
 
 -- Save the status of an MCMC run. See 'saveStatus'.
@@ -216,11 +216,11 @@ mcmcSave = do
   s <- get
   case save s of
     Just n -> do
-      mcmcInfoT $ "Save Markov chain with trace of length " <> BL.pack (show n) <> "."
-      mcmcInfoT "For long traces, or complex objects, this may take a while."
+      mcmcInfoB $ "Save Markov chain with trace of length " <> BL.pack (show n) <> "."
+      mcmcInfoB "For long traces, or complex objects, this may take a while."
       liftIO $ saveStatus (name s <> ".mcmc") s
-      mcmcInfoT "Done saving Markov chain."
-    Nothing -> mcmcInfoT "Do not save the Markov chain."
+      mcmcInfoB "Done saving Markov chain."
+    Nothing -> mcmcInfoB "Do not save the Markov chain."
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()
@@ -233,14 +233,14 @@ mcmcMonitorExec = do
       tr = trace s
       vb = verbosity s
   mt <- liftIO $ mExec vb i ss st tr j m
-  forM_ mt mcmcOutT
+  forM_ mt mcmcOutB
 
 -- Close the 'Monitor's of the chain. See 'mClose'.
 mcmcClose :: ToJSON a => Mcmc a ()
 mcmcClose = do
   s <- get
-  mcmcSummarizeCycle >>= mcmcInfoT
-  mcmcInfoT "Metropolis-Hastings sampler finished."
+  mcmcSummarizeCycle >>= mcmcInfoB
+  mcmcInfoB "Metropolis-Hastings sampler finished."
   let m = monitor s
   m' <- liftIO $ mClose m
   put $ s {monitor = m'}
@@ -249,7 +249,7 @@ mcmcClose = do
   let rt = case start s of
         Nothing -> error "mcmcClose: Start time not set."
         Just (_, st) -> t `diffUTCTime` st
-  mcmcInfoT $ "Wall clock run time: " <> renderDuration rt <> "."
+  mcmcInfoB $ "Wall clock run time: " <> renderDuration rt <> "."
   mcmcInfoS $ "End time: " <> fTime t
   case logHandle s of
     Just h -> liftIO $ hClose h
