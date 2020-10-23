@@ -166,14 +166,14 @@ priorDistribution cb cs (I l m h t k th r) =
       exponential 1 m,
       -- No prior on the height of the time tree but see the calibrations below.
       --
-      -- Birth and death process prior of the time tree.
+      -- Birth and death process prior on the time tree.
       birthDeath l m t,
       -- The reciprocal shape is exponentially distributed such that higher
       -- shape values are favored.
       exponential 10 k1,
-      -- The scale is exponentially distributed.
+      -- The prior on the scale is exponentially distributed.
       exponential 1 th,
-      -- The prior of the branch-wise rates is gamma distributed.
+      -- The prior on the branch-wise rates is gamma distributed.
       uncorrelatedGammaNoStem k th r
     ]
       ++ calibrations cb h t
