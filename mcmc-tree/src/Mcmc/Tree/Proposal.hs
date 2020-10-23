@@ -29,6 +29,7 @@ module Mcmc.Tree.Proposal
 where
 
 import Control.Lens
+import Control.Monad
 import Data.Bifunctor
 import ELynx.Tree hiding (description)
 import Mcmc.Proposal
@@ -59,23 +60,32 @@ slideBranch ::
   Proposal (Tree Double a)
 slideBranch s n w t = rootBranch @~ slideSymmetric s n w t
 
--- Minimum branch length.
-eps :: Double
-eps = 1e-12
+-- -- Minimum branch length.
+-- eps :: Double
+-- eps = 1e-12
 
 -- A very specific function that samples a delta value from the truncated normal
 -- distribution with given bounds [a,b] and also computes the required factor of
 -- the Metropolis-Hastings proposal ratio.
 truncatedNormalSample ::
-  Double -> Double -> Double -> Double -> GenIO -> IO (Double, Log Double)
+  -- Standard deviation.
+  Double ->
+  -- Tuning parameter.
+  Double ->
+  -- Left bound.
+  Double ->
+  -- Right bound.
+  Double ->
+  GenIO ->
+  IO (Double, Log Double)
 truncatedNormalSample s t a b g = do
   let s' = t * s
-      d = truncatedNormalDistr 0 s' a b
+      d = either error id $ truncatedNormalDistr 0 s' a b
   dx <- genContinuous d g
   -- Compute Metropolis-Hastings factor.
   let a' = a - dx
       b' = b - dx
-      d' = truncatedNormalDistr 0 s' a' b'
+      d' = either error id $ truncatedNormalDistr 0 s' a' b'
       qXY = Exp $ logDensity d dx
       qYX = Exp $ logDensity d' (- dx)
   return (dx, qYX / qXY)
@@ -86,17 +96,28 @@ slideNodeUltrametricF :: Double -> Tree Double Double -> Tree Double Double
 slideNodeUltrametricF dx (Node br h ts) = Node (br + dx) (h - dx) (map (applyStem (subtract dx)) ts)
 
 slideNodeUltrametricSimple ::
+  -- Standard deviation.
   Double ->
+  -- Tuning parameter.
   Double ->
   ProposalSimple (Tree Double Double)
 slideNodeUltrametricSimple _ _ (Node _ _ []) _ =
   error "slideNodeUltrametricSample: Cannot slide leaf node."
-slideNodeUltrametricSimple ds t tr@(Node br _ ts) g = do
-  let br' = minimum $ map branch ts
-      a = negate $ br - eps
-      b = br' - eps
-  (dx, q) <- truncatedNormalSample ds t a b g
+slideNodeUltrametricSimple s t tr@(Node br _ ts) g = do
+  when
+    (br <= 0)
+    (error $ "slideNodeUltrametricSimple: Parent branch length is zero or negative: " ++ show br ++ ".")
+  when
+    (br' <= 0)
+    (error $ "slideNodeUltrametricSimple: Minimum branch length is zero or negative: " ++ show br' ++ ".")
+  (dx, q) <- truncatedNormalSample s t a b g
   return (slideNodeUltrametricF dx tr, q)
+  where
+    br' = minimum $ map branch ts
+    -- a = negate $ br - eps
+    a = negate br
+    -- b = br' - eps
+    b = br'
 
 -- | Slide node (for ultrametric trees).
 --
@@ -122,7 +143,8 @@ slideNodeUltrametric ::
   Bool ->
   Proposal (Tree Double Double)
 slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple ds)
-  where description = "Slide node ultrametric; sd: " ++ show ds
+  where
+    description = "Slide node ultrametric; sd: " ++ show ds
 
 scaleTreeSimple :: Double -> Double -> ProposalSimple (Tree Double a)
 scaleTreeSimple k t =
@@ -144,7 +166,8 @@ scaleTree ::
   Bool ->
   Proposal (Tree Double a)
 scaleTree k = createProposal description (scaleTreeSimple k)
-  where description = "Scale tree; shape: " ++ show k
+  where
+    description = "Scale tree; shape: " ++ show k
 
 scaleTreeUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
 scaleTreeUltrametricSimple k t =
@@ -171,14 +194,16 @@ scaleTreeUltrametric ::
   Bool ->
   Proposal (Tree Double Double)
 scaleTreeUltrametric k = createProposal description (scaleTreeUltrametricSimple k)
-  where description = "Scale tree ultrametric; shape: " ++ show k
+  where
+    description = "Scale tree ultrametric; shape: " ++ show k
 
 -- The branch is elongated by dx. So if dx is positive, the node height is
 -- reduced.
 slideBranchScaleSubTreeF :: Double -> Tree Double Double -> Tree Double Double
-slideBranchScaleSubTreeF dx (Node br h ts) = Node (br + dx) h' $ map (bimap (*xi) (*xi)) ts
-  where h' = h - dx
-        xi = h' / h
+slideBranchScaleSubTreeF dx (Node br h ts) = Node (br + dx) h' $ map (bimap (* xi) (* xi)) ts
+  where
+    h' = h - dx
+    xi = h' / h
 
 scaleSubTreeUltrametricSimple ::
   Double ->
@@ -187,10 +212,21 @@ scaleSubTreeUltrametricSimple ::
 scaleSubTreeUltrametricSimple _ _ (Node _ _ []) _ =
   error "scaleSubTreeUltrametricSample: Cannot scale sub tree of leaf node."
 scaleSubTreeUltrametricSimple ds t tr g = do
-  let a = negate $ branch tr - eps
-      b = label tr - eps
+  when
+    (br <= 0)
+    (error $ "scaleSubTreeUltrametricSimple: Parent branch length is zero or negative: " ++ show br ++ ".")
+  when
+    (ht <= 0)
+    (error $ "scaleSubTreeUltrametricSimple: Node height is zero or negative: " ++ show ht ++ ".")
   (dx, q) <- truncatedNormalSample ds t a b g
   return (slideBranchScaleSubTreeF dx tr, q)
+  where
+    br = branch tr
+    ht = label tr
+    -- a = negate $ branch tr - eps
+    a = negate br
+    -- b = label tr - eps
+    b = ht
 
 -- | Scale the branches of the sub tree and slide the root branch so that the
 -- tree height is conserved.
@@ -212,7 +248,8 @@ scaleSubTreeUltrametric ::
   Bool ->
   Proposal (Tree Double Double)
 scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametricSimple sd)
-  where description = "Scale subtree ultrametrc; sd: " ++ show sd
+  where
+    description = "Scale subtree ultrametrc; sd: " ++ show sd
 
 contra :: (Tree Double Double, Tree Double a) -> Double -> (Tree Double Double, Tree Double a)
 contra (s, t) x = (bimap (* x) (* x) s, first (/ x) t)
@@ -240,20 +277,33 @@ scaleTreesContrarily ::
   Bool ->
   Proposal (Tree Double Double, Tree Double a)
 scaleTreesContrarily k = createProposal description (scaleTreesContrarilySimple k)
-  where description = "Scale trees contrarily; shape: " ++ show k
+  where
+    description = "Scale trees contrarily; shape: " ++ show k
 
 -- See 'truncatedNormalSample'. Dx is added to the left branch. I.e., if dx is
 -- positive, the left branch is elongated.
 pulleyTruncatedNormalSample :: Double -> Double -> Tree Double a -> GenIO -> IO (Double, Log Double)
-pulleyTruncatedNormalSample s t (Node _ _ [l, r]) = truncatedNormalSample s t a b
-  where a = negate $ branch l - eps
-        b = branch r - eps
+pulleyTruncatedNormalSample s t (Node _ _ [l, r]) = do
+  when
+    (brL <= 0)
+    (error $ "pulleyTruncatedNormalSample: Left branch is zero or negative: " ++ show brL ++ ".")
+  when
+    (brR <= 0)
+    (error $ "pulleyTruncatedNormalSample: Right branch is zero or negative: " ++ show brR ++ ".")
+  truncatedNormalSample s t a b
+  where
+    brL = branch l
+    brR = branch r
+    -- a = negate $ branch l - eps
+    a = negate brL
+    -- b = branch r - eps
+    b = brR
 pulleyTruncatedNormalSample _ _ _ = error "pulleyTruncatedNormalSample: Node is not bifurcating."
 
 pulleySimple :: Double -> Double -> ProposalSimple (Tree Double a)
 pulleySimple s t tr@(Node br lb [l, r]) g = do
   (dx, q) <- pulleyTruncatedNormalSample s t tr g
-  let tr' = Node br lb [applyStem (+dx) l, applyStem (subtract dx) r]
+  let tr' = Node br lb [applyStem (+ dx) l, applyStem (subtract dx) r]
   return (tr', q)
 pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
 
@@ -275,7 +325,8 @@ pulley ::
   Bool ->
   Proposal (Tree Double a)
 pulley s = createProposal description (pulleySimple s)
-  where description = "Pulley; sd: " ++ show s
+  where
+    description = "Pulley; sd: " ++ show s
 
 pulleyUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
 pulleyUltrametricSimple s t tr@(Node br lb [l, r]) g = do
@@ -301,4 +352,5 @@ pulleyUltrametric ::
   Bool ->
   Proposal (Tree Double Double)
 pulleyUltrametric d = createProposal description (pulleyUltrametricSimple d)
-  where description = "Pulley ultrametric; sd: " ++ show d
+  where
+    description = "Pulley ultrametric; sd: " ++ show d
