@@ -1,5 +1,6 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- Allow periodical cleansing of state (=Cleaner=).
 - Add description string to proposals, so that they can be identified in an
   easier way.
 - Add simplices and proposals on simplices.

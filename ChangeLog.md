@@ -4,6 +4,24 @@
 
 ## Unreleased changes
 
+-   Allow periodical cleansing of state (`Cleaner`).
+-   Add description string to proposals, so that they can be identified in an
+    easier way.
+-   Add simplices and proposals on simplices.
+-   `slideUniform` renamed to `slideUniformSymmetric`.
+-   Merge tools into internal.
+-   Do not export internal modules.
+
+
+## 0.2.4
+
+-   **Change order of arguments for proposals**.
+-   'slideStem' was renamed to 'slideBranch'.
+-   Change ProposalSimple from newtype to type.
+-   Contravariant instances of parameter and batch monitors. Use `(>$<)` instead
+    of `(@.)` and `(@#)`.
+-   Add `gammaDirichlet` prior for partitioned dating analyses.
+
 
 ## 0.2.3
 
