@@ -48,6 +48,7 @@ import Mcmc.Proposal
 import Mcmc.Save
 import Mcmc.Status hiding (debug)
 import Mcmc.Verbosity
+import Numeric.Log
 import System.Directory
 import System.IO
 import Prelude hiding (cycle)
@@ -128,13 +129,13 @@ mcmcClean = do
     Just (Cleaner n f) | i `mod` n == 0 -> do
       mcmcDebugB "Clean state."
       let (Item st pr lh) = item s
-      mcmcDebugS $ "Old prior and likelihood: " ++ show pr ++ ", " ++ show lh ++ "."
+      mcmcDebugS $ "Old log prior and log likelihood: " ++ show (ln pr) ++ ", " ++ show (ln lh) ++ "."
       let prF = priorF s
           lhF = likelihoodF s
           st' = f st
           pr' = prF st'
           lh' = lhF st'
-      mcmcDebugS $ "New prior and likelihood: " ++ show pr' ++ ", " ++ show lh' ++ "."
+      mcmcDebugS $ "New log prior and log likelihood: " ++ show (ln pr') ++ ", " ++ show (ln lh') ++ "."
       put $ s {item = Item st' pr' lh'}
     _ -> return ()
 
