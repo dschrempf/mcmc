@@ -15,16 +15,27 @@
 -- This example is more involved and includes estimation of a larger phylogeny
 -- by fitting the posterior with a multivariate normal distribution.
 --
--- The trees are read from a data file which is given relative to the @mcmc@ git
+-- The trees are read from a file which is given relative to the @mcmc@ git
 -- repository base directory. Hence, the compiled binary has to be executed from
--- this directory.
+-- the base directory.
+--
+-- The module hierarchy is organized as follows:
+--
+-- - Main: Functions to prepare the data, run and continue the
+--   Metropolis-Hasting sampler, and to inspect the application.
+--
+-- - Definitions: The state space, prior distribution, and the likelihood
+--   function of the sampler. Also includes the proposals and the monitor.
+--
+-- - Calibration and Constrain: Calibrations on node ages and node order
+--   constraints.
+--
+-- - Tools: Miscellaneous tools to prepare the data.
 module Main
   ( main,
   )
 where
 
-import Calibration
-import Constraint
 import Control.Lens
 import Control.Monad
 import Criterion
@@ -36,16 +47,26 @@ import Data.List
 import Data.Maybe
 import qualified Data.Set as S
 import qualified Data.Vector.Storable as V
-import Definitions
 import qualified ELynx.Topology.Rooted as T
-import ELynx.Tree
-import Mcmc
-import Mcmc.Tree
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 import System.Environment
 import System.Random.MWC hiding (uniform)
+
+{- ORMOLU_DISABLE -}
+-- The ELynx library includes functions to work on trees.
+import ELynx.Tree
+
+-- The Mcmc library includes the Metropolis-Hastings sampler.
+import Mcmc
+import Mcmc.Tree
+
+-- Local modules (see comment above).
+import Calibration
+import Constraint
+import Definitions
 import Tools
+{- ORMOLU_ENABLE -}
 
 fnMeanTree :: FilePath
 fnMeanTree = bnAnalysis ++ ".meantree"
