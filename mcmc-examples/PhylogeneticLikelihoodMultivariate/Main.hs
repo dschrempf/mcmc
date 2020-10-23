@@ -65,8 +65,8 @@ import Mcmc
 import Mcmc.Tree
 
 -- Local modules (see comment above).
-import Calibration
-import Constraint
+import Calibrations
+import Constraints
 import Definitions
 import Tools
 {- ORMOLU_ENABLE -}
