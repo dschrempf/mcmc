@@ -71,7 +71,7 @@ spec =
                   saveWith 100 $
                     status "SaveSpec" (const 1) lh proposals mon 0 nBurn nAutoTune nIter gen
         saveStatus "SaveSpec.json" s
-        s' <- loadStatus (const 1) lh proposals mon "SaveSpec.json"
+        s' <- loadStatus (const 1) lh Nothing proposals mon "SaveSpec.json"
         r <- mh s
         r' <- mh s'
         -- Done during 'loadStatus'.

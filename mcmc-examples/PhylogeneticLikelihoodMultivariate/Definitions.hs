@@ -16,6 +16,7 @@ module Definitions
   ( fnInTrees,
     bnAnalysis,
     I (..),
+    cleaner,
     initWith,
     priorDistribution,
     likelihoodFunction,
@@ -118,6 +119,16 @@ makeLenses ''I
 instance ToJSON I
 
 instance FromJSON I
+
+-- See 'cleaner'. This function makes the tree ultrametric again, normalizes the
+-- tree and sets the height values accordingly.
+cleanTimeTree :: I -> I
+cleanTimeTree = timeTree %~ (extend rootHeight . normalizeHeight . makeUltrametric)
+
+-- | Clean the state periodically. Otherwise, the tree diverges from being
+-- ultrametric.
+cleaner :: Cleaner I
+cleaner = Cleaner 100 cleanTimeTree
 
 -- | Initial state.
 --

@@ -214,7 +214,7 @@ main = do
       -- sets the tuning parameters of the proposals in the cycle. Using different
       -- proposals in the cycle, or using different monitors may lead to undefined
       -- behavior and is not supported.
-      s <- loadStatus pr (lh meanTree stdDevTree) proposals mon (nm ++ ".mcmc")
+      s <- loadStatus pr (lh meanTree stdDevTree) Nothing proposals mon (nm ++ ".mcmc")
       -- Continue the chain for the given number of iterations.
       void $ mhContinue (read nStr) s
     xs -> do

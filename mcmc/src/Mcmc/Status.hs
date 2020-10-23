@@ -21,8 +21,10 @@
 --
 -- Creation date: Tue May  5 18:01:15 2020.
 module Mcmc.Status
-  ( Status (..),
+  ( Cleaner (..),
+    Status (..),
     status,
+    cleanWith,
     saveWith,
     force,
     quiet,
@@ -41,6 +43,28 @@ import Numeric.Log
 import System.IO
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
+
+-- | Clean the state periodically.
+--
+-- The prior and the likelihood will be updated after the cleaning process.
+--
+-- For long chains, successive numerical errors can accumulate such that the
+-- state diverges from honoring specific required constraints. In these cases, a
+-- 'Cleaner' can be used to ensure that the required constraints of the state
+-- are honored. For example, the branches of an ultrametric phylogeny may
+-- diverge slightly after successful many proposals such that the phylogeny is
+-- not anymore ultrametric.
+--
+-- Please be aware that the Markov chain will not converge to the true posterior
+-- distribution if the state is changed substantially! Only apply subtle changes
+-- that are absolutely necessary to preserve the required properties of the
+-- state such as specific numerical constraints.
+data Cleaner a = Cleaner
+  { -- | Clean every given number of iterations.
+    clEvery :: Int,
+    -- | Cleaning function. Executed before monitoring the state.
+    clFunction :: a -> a
+  }
 
 -- | The 'Status' contains all information to run an MCMC chain. It is
 -- constructed using the function 'status'.
@@ -101,6 +125,8 @@ data Status a = Status
     -- | The likelihood function. The un-normalized posterior is the product of
     -- the prior and the likelihood.
     likelihoodF :: a -> Log Double,
+    -- | Clean the state periodically.
+    cleaner :: Maybe (Cleaner a),
     --
     -- Variables related to the algorithm; not saved.
 
@@ -157,10 +183,16 @@ status n p l c m x mB mT nI g
       Nothing
       p
       l
+      Nothing
       c
       m
   where
     i = Item x (p x) (l x)
+
+-- | Clean the state every given number of generations using the given function.
+-- See 'Cleaner'.
+cleanWith :: Cleaner a -> Status a -> Status a
+cleanWith c s = s {cleaner = Just c}
 
 -- | Save the Markov chain with trace of given length.
 saveWith :: Int -> Status a -> Status a

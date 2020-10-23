@@ -195,7 +195,7 @@ runMetropolisHastings = do
   g <- create
   -- Construct the status of the Markov chain.
   let s =
-        force . saveWith 1 . debug $
+        force . cleanWith cleaner . saveWith 1 . debug $
           -- Have a look at the 'status' function to understand the
           -- different parameters.
           status
@@ -221,6 +221,7 @@ continueMetropolisHastings n = do
     loadStatus
       (priorDistribution (getCalibrations meanTree) (getConstraints meanTree))
       (likelihoodFunction mu sigmaInv logSigmaDet)
+      (Just cleaner)
       (proposals $ identify meanTree)
       monitor
       (bnAnalysis ++ ".mcmc")

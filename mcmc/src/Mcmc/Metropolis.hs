@@ -86,6 +86,7 @@ mhIter ps = do
       t = trace s
       n = iteration s
   put $ s {trace = pushT i t, iteration = succ n}
+  mcmcClean
   mcmcMonitorExec
 
 -- Run N iterations.

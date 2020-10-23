@@ -24,6 +24,7 @@ module Mcmc.Mcmc
     mcmcDebugT,
     mcmcDebugS,
     mcmcAutotune,
+    mcmcClean,
     mcmcResetA,
     mcmcSummarizeCycle,
     mcmcReport,
@@ -40,6 +41,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Maybe
 import Data.Time.Clock
 import Data.Time.Format
+import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Monitor.Time
 import Mcmc.Proposal
@@ -56,6 +58,8 @@ type Mcmc a = StateT (Status a) IO
 
 msgPrepare :: Char -> BL.ByteString -> BL.ByteString
 msgPrepare c t = BL.cons c $ ": " <> t
+
+-- TODO: CHANGE THIS TO B (bytestring).
 
 -- | Write to standard output and log file.
 mcmcOutT :: BL.ByteString -> Mcmc a ()
@@ -113,6 +117,26 @@ mcmcAutotune = do
       c = cycle s
       c' = autotuneCycle a c
   put $ s {cycle = c'}
+
+-- | Clean the state.
+mcmcClean :: Mcmc a ()
+mcmcClean = do
+  s <- get
+  let cl = cleaner s
+      i = iteration s
+  case cl of
+    Just (Cleaner n f) | i `mod` n == 0 -> do
+      mcmcDebugT "Clean state."
+      let (Item st pr lh) = item s
+      mcmcDebugS $ "Old prior and likelihood: " ++ show pr ++ ", " ++ show lh ++ "."
+      let prF = priorF s
+          lhF = likelihoodF s
+          st' = f st
+          pr' = prF st'
+          lh' = lhF st'
+      mcmcDebugS $ "New prior and likelihood: " ++ show pr' ++ ", " ++ show lh' ++ "."
+      put $ s {item = Item st' pr' lh'}
+    _ -> return ()
 
 -- | Reset acceptance counts.
 mcmcResetA :: Mcmc a ()

@@ -114,6 +114,8 @@ module Mcmc
     -- space (see above) and to monitor the MCMC run, as well as some auxiliary
     -- information.
     status,
+    Cleaner (..),
+    cleanWith,
     saveWith,
     force,
     quiet,

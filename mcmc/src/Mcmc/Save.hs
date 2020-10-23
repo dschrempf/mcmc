@@ -68,7 +68,7 @@ data Save a
 $(deriveJSON defaultOptions ''Save)
 
 toSave :: Status a -> Save a
-toSave (Status nm it i tr ac br at is f sv vb g _ _ _ _ c _) =
+toSave (Status nm it i tr ac br at is f sv vb g _ _ _ _ _ c _) =
   Save
     nm
     it
@@ -102,11 +102,12 @@ saveStatus fn s = BL.writeFile fn $ compress $ encode (toSave s)
 fromSave ::
   (a -> Log Double) ->
   (a -> Log Double) ->
+  Maybe (Cleaner a) ->
   Cycle a ->
   Monitor a ->
   Save a ->
   Status a
-fromSave p l c m (Save nm it i tr ac' br at is f sv vb g' ts) =
+fromSave pr lh cl cc m (Save nm it i tr ac' br at is f sv vb g' ts) =
   Status
     nm
     it
@@ -122,16 +123,17 @@ fromSave p l c m (Save nm it i tr ac' br at is f sv vb g' ts) =
     g
     Nothing
     Nothing
-    p
-    l
-    c'
+    pr
+    lh
+    cl
+    cc'
     m
   where
-    ac = transformKeysA [0 ..] (ccProposals c) ac'
+    ac = transformKeysA [0 ..] (ccProposals cc) ac'
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
     -- the statistics package.
     g = unsafePerformIO $ restore $ toSeed g'
-    c' = tuneCycle (M.mapMaybe id $ M.fromList $ zip (ccProposals c) ts) c
+    cc' = tuneCycle (M.mapMaybe id $ M.fromList $ zip (ccProposals cc) ts) cc
 
 -- | Load a 'Status' from file.
 --
@@ -139,23 +141,29 @@ fromSave p l c m (Save nm it i tr ac' br at is f sv vb g' ts) =
 -- a chain is restored:
 -- - prior function
 -- - likelihood function
+-- - cleaning function
 -- - cycle
 -- - monitor
 --
 -- To avoid incomplete continued runs, the @.mcmc@ file is removed after load.
 loadStatus ::
   FromJSON a =>
+  -- | Prior function.
   (a -> Log Double) ->
+  -- | Likelihood function.
   (a -> Log Double) ->
+  -- | Cleaner, if needed.
+  Maybe (Cleaner a) ->
   Cycle a ->
   Monitor a ->
+  -- | Path of status to load.
   FilePath ->
   IO (Status a)
-loadStatus p l c m fn = do
+loadStatus pr lh cl cc mn fn = do
   res <- eitherDecode . decompress <$> BL.readFile fn
   let s = case res of
         Left err -> error err
-        Right sv -> fromSave p l c m sv
+        Right sv -> fromSave pr lh cl cc mn sv
   -- Check if prior and likelihood matches.
   let Item x svp svl = item s
   -- Recompute and check the prior and likelihood for the last state because the
@@ -163,10 +171,10 @@ loadStatus p l c m fn = do
   -- function, but having the same prior and likelihood at the last state is
   -- already a good indicator.
   when
-    (p x /= svp)
+    (pr x /= svp)
     (error "loadStatus: Provided prior function does not match the saved prior.")
   when
-    (l x /= svl)
+    (lh x /= svl)
     (error "loadStatus: Provided likelihood function does not match the saved likelihood.")
   removeFile fn
   return s
