@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
--- Module      :  Calibration
+-- Module      :  Calibrations
 -- Description :  Calibrations from fossil data
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -11,7 +11,7 @@
 -- Portability :  portable
 --
 -- Creation date: Mon Aug  3 22:37:27 2020.
-module Calibration
+module Calibrations
   ( Calibration,
     calibrations,
     getCalibrations,

@@ -31,6 +31,9 @@
 --   constraints.
 --
 -- - Tools: Miscellaneous tools to prepare the data.
+--
+-- If you try to understand what is going on, your starting point should be
+-- 'Definitions'.
 module Main
   ( main,
   )

@@ -27,8 +27,6 @@ module Definitions
   )
 where
 
-import Calibration
-import Constraint
 import Control.Comonad
 import Control.Lens
 import Data.Aeson
@@ -36,11 +34,18 @@ import Data.Bifunctor
 import qualified Data.Vector.Storable as V
 import ELynx.Tree
 import GHC.Generics
-import Mcmc
-import Mcmc.Tree
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
+
+{- ORMOLU_DISABLE -}
+import Mcmc
+import Mcmc.Tree
+
+-- Local modules.
+import Calibrations
+import Constraints
 import Tools
+{- ORMOLU_ENABLE -}
 
 -- | File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from

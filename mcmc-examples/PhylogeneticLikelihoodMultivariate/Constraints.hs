@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
--- Module      :  Constraint
+-- Module      :  Constraints
 -- Description :  Constrain node order
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -11,7 +11,7 @@
 -- Portability :  portable
 --
 -- Creation date: Thu Oct 22 17:55:06 2020.
-module Constraint
+module Constraints
   ( Constraint,
     constraints,
     getConstraints,
