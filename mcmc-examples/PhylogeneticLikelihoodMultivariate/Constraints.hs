@@ -39,7 +39,7 @@ type Constraint = (Path, Path)
 -- repeated.
 constraints :: [Constraint] -> Tree Double Double -> [Log Double]
 constraints xs t =
-  [constrainSoft 1e-4 y o t | (y, o) <- xs]
+  [constrainSoft 1e-3 y o t | (y, o) <- xs]
 
 -- | Find and constrain the constrained nodes on the tree.
 getConstraints :: Tree e BS.ByteString -> [Constraint]
@@ -48,10 +48,8 @@ getConstraints t = [(young, old)]
     young =
       fromMaybe
         (error "constrainedNodes: No MRCA young.")
-        -- (mrca [213, 200])
-        (mrca ["Pt_vittata", "Po_acrosti"] t)
+        (mrca ["Lindsaea_linearis", "Polystichum_acrostichoides"] t)
     old =
       fromMaybe
         (error "constrainedNodes: No MRCA old.")
-        -- (mrca [144, 143, 142])
-        (mrca ["Me_tosanus", "Me_vincent", "No_aenigma"] t)
+        (mrca ["Phaeomegaceros_coriaceus", "Nothoceros_aenigmaticus"] t)

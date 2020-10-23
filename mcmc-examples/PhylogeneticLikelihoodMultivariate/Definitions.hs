@@ -51,11 +51,13 @@ import Constraints
 import Tools
 {- ORMOLU_ENABLE -}
 
+-- import Debug.Trace
+
 -- | File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from
 -- these trees and used to approximate the phylogenetic likelihood.
 fnInTrees :: FilePath
-fnInTrees = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/plants_1.treelist.gz"
+fnInTrees = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/alignment_201020.phy_gtr_1.treelist"
 
 -- | Base name of analysis.
 bnAnalysis :: String
@@ -115,7 +117,7 @@ initWith t =
   I
     { _timeBirthRate = 1.0,
       _timeDeathRate = 1.0,
-      _timeHeight = 1000.0,
+      _timeHeight = 1200.0,
       _timeTree = t',
       _rateShape = 10.0,
       _rateScale = 2.0,

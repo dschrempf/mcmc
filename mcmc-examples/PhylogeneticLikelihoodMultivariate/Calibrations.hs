@@ -37,23 +37,25 @@ type Calibration = (Path, Double, Double)
 -- repeated.
 calibrations :: [Calibration] -> Double -> Tree Double Double -> [Log Double]
 calibrations xs h t =
-  [calibrateUniformSoft 1e-4 (a / h) (b / h) x t | (x, a, b) <- xs]
+  [calibrateUniformSoft 1e-3 (a / h) (b / h) x t | (x, a, b) <- xs]
 
 -- | Find and calibrate the calibrated nodes on the tree.
 getCalibrations :: Tree e BS.ByteString -> [Calibration]
 getCalibrations t =
-  [ rootNode,
+  [ cladeRoot t,
     cladeChlorophyceae t,
     cladeStreptophyta t,
     cladeEmbryophyta t,
     cladeSetaphyta t,
-    cladeMarchantiophyta t,
+    cladePelliidae t,
     cladeMarchantiales t,
-    cladeMetzgeriidae t,
-    cladePorellinae t,
-    cladeRadula t,
-    cladeFrullania t,
-    cladeBryophyta t,
+    cladeRicciales t,
+    cladeJungermanniidae t,
+    cladeJungermanniales t,
+    cladePorellineae t,
+    cladeRadulaceae t,
+    cladeFrullaniaceae t,
+    cladeSphagnopsida t,
     cladePolytrichopsida t,
     cladePolytrichaceae t,
     cladePolytrichum t,
@@ -61,238 +63,191 @@ getCalibrations t =
     cladeDicraniidae t,
     cladeHypnanae t,
     cladeTracheophyta t,
-    cladeLycopods t,
+    cladeLycopodiopphyta t,
     cladeIsoetales t,
-    cladeSelaginellales t,
+    cladeSelaginellaceae t,
+    cladeStachygynandrum t,
     cladeLycopodioideae t,
     cladeEuphyllophyta t,
-    cladePteridophyta t,
+    cladeMonilophyta t,
     cladeEquisetum t,
-    cladeEusporangia t,
-    cladeMarattia t,
+    cladeMarattiales t,
+    cladeEusporangiates t,
     cladeGleicheniales t,
-    cladeCyatheaceae t,
-    cladePteris t,
+    cladeCyatheales t,
+    cladeLindsaceae t,
+    cladeCystodiaceae t,
+    cladePteridaceae t,
     cladeEupolypods t,
     cladeSpermatophyta t,
-    cladeAcrogymnosperms t,
+    cladeAcrogymnospermae t,
     cladeCycadales t,
+    cladeGnetum t,
     cladePinopsida t,
-    cladePinales t,
     cladePinaceae t,
+    cladeParviflora t,
+    cladeRadiata t,
+    cladePonderosa t,
+    cladeTaxaceae t,
+    cladeJuniperus t,
     cladeAngiospermae t,
     cladeNympheales t,
-    cladeAnita t,
+    cladeAustrobaileyales t,
     cladeMesangiospermae t,
-    cladeLaurales t,
-    cladePiperaceae t,
+    cladeMagnoliids t,
+    cladePiperales t,
     cladeEudicots t,
-    cladeProteales t,
     cladeVitales t,
     cladeRosids t,
     cladeEricales t,
+    cladeMyrtales t,
     cladeAsteraceae t,
-    cladeSolanales t,
     cladeSalicaceae t,
+    cladeSolanales t,
     cladeMonocots t,
-    cladeDisocoreales t,
+    cladeDioscoreales t,
     cladeRiponogaceae t,
     cladeArecales t,
-    cladePoaceae t,
-    cladeBrachypodium t
-  ]
-
-rootNode :: Calibration
-rootNode = (root, 940.4, 1891)
-
--- Convert long names to short ones.
-toShort :: BS.ByteString -> BS.ByteString
-toShort x = toShort' $ take 2 $ BS.split '_' x
-
-toShort' :: [BS.ByteString] -> BS.ByteString
-toShort' [x, y] =
-  if l == 2
-    then BS.take 7 x <> BS.singleton '_' <> y'
-    else BS.take 2 x <> BS.singleton '_' <> y'
-  where
-    y' = BS.take 7 y
-    l = BS.length y'
-toShort' _ = error "toShort': List does not have two elements."
+    cladePoales t,
+    cladeBrachypodium t]
 
 mrca' :: [BS.ByteString] -> Tree e BS.ByteString -> Path
-mrca' xs = fromMaybe (error $ "mrca': Could not get MRCA for: " <> show xs) . mrca (map toShort xs)
+mrca' xs = fromMaybe (error $ "mrca': Could not get MRCA for: " <> show xs) . mrca xs
 
-cladeChlorophyceae :: Tree e BS.ByteString -> Calibration
+cladeRoot :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeChlorophyceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeStreptophyta :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeEmbryophyta :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeSetaphyta :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePelliidae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeMarchantiales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeRicciales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeJungermanniidae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeJungermanniales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePorellineae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeRadulaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeFrullaniaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeSphagnopsida :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePolytrichopsida :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePolytrichaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePolytrichum :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeFunariidae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeDicraniidae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeHypnanae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeTracheophyta :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeLycopodiopphyta :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeIsoetales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeSelaginellaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeStachygynandrum :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeLycopodioideae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeEuphyllophyta :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeMonilophyta :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeEquisetum :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeMarattiales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeEusporangiates :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeGleicheniales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeCyatheales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeLindsaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeCystodiaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePteridaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeEupolypods :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeSpermatophyta :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeAcrogymnospermae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeCycadales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeGnetum :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePinopsida :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePinaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeParviflora :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeRadiata :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePonderosa :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeTaxaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeJuniperus :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeAngiospermae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeNympheales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeAustrobaileyales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeMesangiospermae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeMagnoliids :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePiperales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeEudicots :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeVitales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeRosids :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeEricales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeMyrtales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeAsteraceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeSalicaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeSolanales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeMonocots :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeDioscoreales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeRiponogaceae :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeArecales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladePoales :: Tree e BS.ByteString -> (Path, Double, Double)
+cladeBrachypodium :: Tree e BS.ByteString -> (Path, Double, Double)
+
+cladeRoot t = (mrca' ["Uronema_belka", "Brachypodium_distachyon"] t, 940.4, 1891)
 cladeChlorophyceae t = (mrca' ["Uronema_belka", "Monomastix_opisthostigma"] t, 940.4, 1891)
-
-cladeStreptophyta :: Tree e BS.ByteString -> Calibration
-cladeStreptophyta t = (mrca' ["Entransia_fimbriat", "Lupinus_polyphyllus"] t, 469, 1891)
-
-cladeEmbryophyta :: Tree e BS.ByteString -> Calibration
-cladeEmbryophyta t = (mrca' ["Anthoceros_punctatus", "Lupinus_polyphyllus"] t, 469, 515.5)
-
-cladeSetaphyta :: Tree e BS.ByteString -> Calibration
-cladeSetaphyta t = (mrca' ["Sphagnum_lescurii", "Marchantia_emarginata"] t, 405, 515.5)
-
-cladeMarchantiophyta :: Tree e BS.ByteString -> Calibration
-cladeMarchantiophyta t = (mrca' ["Marchantia_emarginata", "Pellia_neesiana"] t, 405, 515.5)
-
-cladeMarchantiales :: Tree e BS.ByteString -> Calibration
-cladeMarchantiales t = (mrca' ["Sphaerocarpos_texanus", "Marchantia_emarginata"] t, 227, 515.5)
-
-cladeMetzgeriidae :: Tree e BS.ByteString -> Calibration
-cladeMetzgeriidae t = (mrca' ["Metzgeria_crassipilis", "Pallavicinia_lyellii"] t, 368.8, 515.5)
-
-cladePorellinae :: Tree e BS.ByteString -> Calibration
-cladePorellinae t = (mrca' ["Porella_pinnata", "Frullania_sp"] t, 98.17, 515.5)
-
-cladeRadula :: Tree e BS.ByteString -> Calibration
-cladeRadula t = (mrca' ["Radula_lindenbergia", "Porella_pinnata"] t, 98.17, 515.5)
-
-cladeFrullania :: Tree e BS.ByteString -> Calibration
-cladeFrullania t = (mrca' ["Frullania_sp", "Lejeuneaceae_sp"] t, 98.17, 515.5)
-
-cladeBryophyta :: Tree e BS.ByteString -> Calibration
-cladeBryophyta t = (mrca' ["Sphagnum_lescurii", "Tetraphis_pellucida"] t, 330.7, 515.5)
-
-cladePolytrichopsida :: Tree e BS.ByteString -> Calibration
-cladePolytrichopsida t = (mrca' ["Polytrichum_commune", "Buxbaumia_aphylla"] t, 271.8, 515.5)
-
-cladePolytrichaceae :: Tree e BS.ByteString -> Calibration
+cladeStreptophyta t = (mrca' ["Spirotaenia_minuta", "Brachypodium_distachyon"] t, 469, 1891)
+cladeEmbryophyta t = (mrca' ["Marchantia_polymorpha", "Brachypodium_distachyon"] t, 469, 515.5)
+cladeSetaphyta t = (mrca' ["Marchantia_polymorpha", "Takakia_lepidozioides"] t, 381.7, 515.5)
+cladePelliidae t = (mrca' ["Pellia_neesiana", "Pallavicinia_lyellii"] t, 160.4, 515.5)
+cladeMarchantiales t = (mrca' ["Marchantia_polymorpha", "Sphaerocarpos_texanus"] t, 227, 515.5)
+cladeRicciales t = (mrca' ["Riccia_berychiana", "Conocephalum_conicum"] t, 227, 515.5)
+cladeJungermanniidae t = (mrca' ["Porella_pinnata", "Metzgeria_crassipilis"] t, 144.9, 515.5)
+cladeJungermanniales t = (mrca' ["Porella_pinnata", "Schistochila_sp"] t, 112.7, 515.5)
+cladePorellineae t = (mrca' ["Porella_pinnata", "Lejeuneaceae_sp"] t, 98.17, 515.5)
+cladeRadulaceae t = (mrca' ["Radula_lindenbergia", "Lejeuneaceae_sp"] t, 98.17, 515.5)
+cladeFrullaniaceae t = (mrca' ["Frullania", "Lejeuneaceae_sp"] t, 98.17, 515.5)
+cladeSphagnopsida t = (mrca' ["Sphagnum_recurvatum", "Polytrichum_commune"] t, 330.7, 515.5)
+cladePolytrichopsida t = (mrca' ["Polytrichum_commune", "Ceratodon_purpureus"] t, 271.8, 515.5)
 cladePolytrichaceae t = (mrca' ["Polytrichum_commune", "Tetraphis_pellucida"] t, 133.3, 515.5)
-
-cladePolytrichum :: Tree e BS.ByteString -> Calibration
 cladePolytrichum t = (mrca' ["Polytrichum_commune", "Atrichum_angustatum"] t, 82.9, 515.5)
-
-cladeFunariidae :: Tree e BS.ByteString -> Calibration
-cladeFunariidae t = (mrca' ["Physcomitrella_patens", "Timmia_austriaca"] t, 268.3, 515.5)
-
-cladeDicraniidae :: Tree e BS.ByteString -> Calibration
-cladeDicraniidae t = (mrca' ["Ceratodon_purpureus", "Thuidium_delicatulum"] t, 133.3, 515.5)
-
-cladeHypnanae :: Tree e BS.ByteString -> Calibration
-cladeHypnanae t = (mrca' ["Bryum_argenteum", "Thuidium_delicatulum"] t, 133.3, 515.5)
-
-cladeTracheophyta :: Tree e BS.ByteString -> Calibration
-cladeTracheophyta t = (mrca' ["Isoetes_sp", "Lupinus_polyphyllus"] t, 420.7, 451)
-
-cladeLycopods :: Tree e BS.ByteString -> Calibration
-cladeLycopods t = (mrca' ["Isoetes_sp", "Huperzia_squarrosa"] t, 392.1, 451)
-
-cladeIsoetales :: Tree e BS.ByteString -> Calibration
-cladeIsoetales t = (mrca' ["Isoetes_sp", "Selaginella_selaginoides"] t, 386.8, 451)
-
-cladeSelaginellales :: Tree e BS.ByteString -> Calibration
-cladeSelaginellales t = (mrca' ["Selaginella_kraussiana", "Selaginella_selaginoides"] t, 323.8, 451)
-
-cladeLycopodioideae :: Tree e BS.ByteString -> Calibration
+cladeFunariidae t = (mrca' ["Physcomitrella_patens", "Ceratodon_purpureus"] t, 268.3, 515.5)
+cladeDicraniidae t = (mrca' ["Thuidium_delicatulum", "Ceratodon_purpureus"] t, 133.3, 515.5)
+cladeHypnanae t = (mrca' ["Bryum_argenteum", "Brachypodium_distachyon"] t, 133.3, 515.5)
+cladeTracheophyta t = (mrca' ["Isoetes_sp", "Brachypodium_distachyon"] t, 420.7, 451)
+cladeLycopodiopphyta t = (mrca' ["Isoetes_sp", "Huperzia_lucidula"] t, 392.1, 451)
+cladeIsoetales t = (mrca' ["Isoetes_sp", "Selaginella_kraussiana"] t, 386.8, 451)
+cladeSelaginellaceae t = (mrca' ["Selaginella_selaginoides", "Selaginella_kraussiana"] t, 323.8, 451)
+cladeStachygynandrum t = (mrca' ["Selaginella_apoda", "Selaginella_kraussiana"] t, 98.17, 451)
 cladeLycopodioideae t = (mrca' ["Pseudolycopodiella_caroliniana", "Lycopodium_deuterodensum"] t, 199, 451)
-
-cladeEuphyllophyta :: Tree e BS.ByteString -> Calibration
-cladeEuphyllophyta t = (mrca' ["Equisetum_diffusum", "Lupinus_polyphyllus"] t, 385.5, 451)
-
-cladePteridophyta :: Tree e BS.ByteString -> Calibration
-cladePteridophyta t = (mrca' ["Equisetum_diffusum", "Pteris_vittata"] t, 384.7, 451)
-
-cladeEquisetum :: Tree e BS.ByteString -> Calibration
--- XXX: This calibration was erroneous. The name was corrected.
--- cladeEquisetum t = (mrca' ["Equisetum_diffusum", "Equisetum_hyemale"] t, 64.96, 451)
-cladeEquisetum t = (mrca' ["Equisetum_diffusum", "Equisetum_hymale"] t, 64.96, 451)
-
-cladeEusporangia :: Tree e BS.ByteString -> Calibration
-cladeEusporangia t = (mrca' ["Danaea_nodosa", "Pteris_vittata"] t, 318.7, 451)
-
-cladeMarattia :: Tree e BS.ByteString -> Calibration
-cladeMarattia t = (mrca' ["Danaea_nodosa", "Marattia_attenuata"] t, 176, 451)
-
-cladeGleicheniales :: Tree e BS.ByteString -> Calibration
-cladeGleicheniales t = (mrca' ["Dipteris_conjugata", "Pteris_vittata"] t, 268.3, 451)
-
-cladeCyatheaceae :: Tree e BS.ByteString -> Calibration
-cladeCyatheaceae t = (mrca' ["Cyathea_spinulosa", "Thyrsopteris_elegans"] t, 178, 451)
-
-cladePteris :: Tree e BS.ByteString -> Calibration
-cladePteris t = (mrca' ["Pteris_vittata", "Cystopteris_fragilis"] t, 100.1, 451)
-
-cladeEupolypods :: Tree e BS.ByteString -> Calibration
-cladeEupolypods t = (mrca' ["Polystichum_acrostichoides", "Cystopteris_fragilis"] t, 65.5, 451)
-
-cladeSpermatophyta :: Tree e BS.ByteString -> Calibration
-cladeSpermatophyta t = (mrca' ["Ginkgo_biloba", "Lupinus_polyphyllus"] t, 308.14, 365.63)
-
-cladeAcrogymnosperms :: Tree e BS.ByteString -> Calibration
-cladeAcrogymnosperms t = (mrca' ["Ginkgo_biloba", "Cedrus_libani"] t, 308.14, 365.63)
-
-cladeCycadales :: Tree e BS.ByteString -> Calibration
-cladeCycadales t = (mrca' ["Ginkgo_biloba", "Cycas_micholitzii"] t, 264.7, 365.63)
-
-cladePinopsida :: Tree e BS.ByteString -> Calibration
-cladePinopsida t = (mrca' ["Juniperus_scopulorum", "Cedrus_libani"] t, 147, 321.48)
-
-cladePinales :: Tree e BS.ByteString -> Calibration
-cladePinales t = (mrca' ["Gnetum_montanum", "Cedrus_libani"] t, 119.6, 321.48)
-
-cladePinaceae :: Tree e BS.ByteString -> Calibration
-cladePinaceae t = (mrca' ["Pinus_ponderosa", "Cedrus_libani"] t, 99.6, 321.48)
-
-cladeAngiospermae :: Tree e BS.ByteString -> Calibration
-cladeAngiospermae t = (mrca' ["Amborella_trichopoda", "Lupinus_polyphyllus"] t, 125, 247)
-
-cladeNympheales :: Tree e BS.ByteString -> Calibration
-cladeNympheales t = (mrca' ["Nuphar_advena", "Lupinus_polyphyllus"] t, 125, 247)
-
-cladeAnita :: Tree e BS.ByteString -> Calibration
-cladeAnita t = (mrca' ["Illicium_floridanum", "Lupinus_polyphyllus"] t, 125, 247)
-
-cladeMesangiospermae :: Tree e BS.ByteString -> Calibration
-cladeMesangiospermae t = (mrca' ["Persea_borbonia", "Lupinus_polyphyllus"] t, 125, 247)
-
-cladeLaurales :: Tree e BS.ByteString -> Calibration
-cladeLaurales t = (mrca' ["Sarcandra_glabra", "Persea_borbonia"] t, 110.9, 247)
-
-cladePiperaceae :: Tree e BS.ByteString -> Calibration
--- XXX: This calibration was erroneous. The name was corrected.
--- cladePiperaceae t = (mrca' ["Saruma_henreyi", "Houttuynia_cordata"] t, 44.3, 247)
-cladePiperaceae t = (mrca' ["Saruma_henryi", "Houttuynia_cordata"] t, 44.3, 247)
-
-cladeEudicots :: Tree e BS.ByteString -> Calibration
-cladeEudicots t = (mrca' ["Escholzia_californica", "Lupinus_polyphyllus"] t, 119.6, 128.63)
-
-cladeProteales :: Tree e BS.ByteString -> Calibration
-cladeProteales t = (mrca' ["Nelumbo_nucifera", "Lupinus_polyphyllus"] t, 107.59, 128.63)
-
-cladeVitales :: Tree e BS.ByteString -> Calibration
-cladeVitales t = (mrca' ["Vitis_vinifera", "Lupinus_polyphyllus"] t, 85.8, 128.63)
-
-cladeRosids :: Tree e BS.ByteString -> Calibration
-cladeRosids t = (mrca' ["Kochia_scoparia", "Lupinus_polyphyllus"] t, 85.8, 128.63)
-
-cladeEricales :: Tree e BS.ByteString -> Calibration
-cladeEricales t = (mrca' ["Diospyros_malabarica", "Lupinus_polyphyllus"] t, 85.8, 128.63)
-
-cladeAsteraceae :: Tree e BS.ByteString -> Calibration
-cladeAsteraceae t = (mrca' ["Inula_helenium", "Solanum_tuberosum"] t, 41.5, 128.63)
-
-cladeSolanales :: Tree e BS.ByteString -> Calibration
-cladeSolanales t = (mrca' ["Ipomoea_purpurea", "Solanum_tuberosum"] t, 37.3, 128.63)
-
-cladeSalicaceae :: Tree e BS.ByteString -> Calibration
-cladeSalicaceae t = (mrca' ["Populus_euphratica", "Hibiscus_cannabinus"] t, 48.57, 128.63)
-
-cladeMonocots :: Tree e BS.ByteString -> Calibration
-cladeMonocots t = (mrca' ["Acorus_americanus", "Zea_mays"] t, 113, 128.63)
-
-cladeDisocoreales :: Tree e BS.ByteString -> Calibration
-cladeDisocoreales t = (mrca' ["Dioscorea_villosa", "Zea_mays"] t, 110.87, 128.63)
-
-cladeRiponogaceae :: Tree e BS.ByteString -> Calibration
+cladeEuphyllophyta t = (mrca' ["Equisetum_hymale", "Brachypodium_distachyon"] t, 385.5, 451)
+cladeMonilophyta t = (mrca' ["Equisetum_hymale", "Psilotum_nudum"] t, 384.7, 451)
+cladeEquisetum t = (mrca' ["Equisetum_hymale", "Equisetum_diffusum"] t, 64.96, 451)
+cladeMarattiales t = (mrca' ["Marattia_attenuata", "Danaea_nodosa"] t, 176, 451)
+cladeEusporangiates t = (mrca' ["Marattia_attenuata", "Dipteris_conjugata"] t, 318.71, 451)
+cladeGleicheniales t = (mrca' ["Dipteris_conjugata", "Thyrsopteris_elegans"] t, 268.3, 451)
+cladeCyatheales t = (mrca' ["Thyrsopteris_elegans", "Polystichum_acrostichoides"] t, 178, 451)
+cladeLindsaceae t = (mrca' ["Lindsaea_linearis", "Polystichum_acrostichoides"] t, 100.5, 451)
+cladeCystodiaceae t = (mrca' ["Cystodium_sorbifolium", "Polystichum_acrostichoides"] t, 98.17, 451)
+cladePteridaceae t = (mrca' ["Pteris_vittata", "Polystichum_acrostichoides"] t, 100.1, 451)
+cladeEupolypods t = (mrca' ["Gymnocarpium_dryopteris", "Polystichum_acrostichoides"] t, 71.5, 451)
+cladeSpermatophyta t = (mrca' ["Ginkgo_biloba", "Brachypodium_distachyon"] t, 308.14, 365.6)
+cladeAcrogymnospermae t = (mrca' ["Ginkgo_biloba", "Taxus_baccata"] t, 308.14, 365.6)
+cladeCycadales t = (mrca' ["Cycas_micholitzii", "Ginkgo_biloba"] t, 264.7, 365.6)
+cladeGnetum t = (mrca' ["Gnetum_montanum", "Ephedra_sinica"] t, 110, 321.4)
+cladePinopsida t = (mrca' ["Gnetum_montanum", "Cedrus_libani"] t, 153.6, 321.4)
+cladePinaceae t = (mrca' ["Pinus_parviflora", "Cedrus_libani"] t, 129, 321.4)
+cladeParviflora t = (mrca' ["Pinus_parviflora", "Pinus_radiata"] t, 89, 321.4)
+cladeRadiata t = (mrca' ["Pinus_jeffreyi", "Pinus_radiata"] t, 12, 321.4)
+cladePonderosa t = (mrca' ["Pinus_jeffreyi", "Pinus_ponderosa"] t, 6, 321.4)
+cladeTaxaceae t = (mrca' ["Taxus_baccata", "Juniperus_scopulorum"] t, 201, 321.4)
+cladeJuniperus t = (mrca' ["Cunninghamia_lanceolata", "Juniperus_scopulorum"] t, 83, 321.4)
+cladeAngiospermae t = (mrca' ["Amborella_trichopoda", "Brachypodium_distachyon"] t, 125, 247.0)
+cladeNympheales t = (mrca' ["Nuphar_advena", "Brachypodium_distachyon"] t, 125, 247.0)
+cladeAustrobaileyales t = (mrca' ["Illicium_parviflorum", "Brachypodium_distachyon"] t, 125, 247.0)
+cladeMesangiospermae t = (mrca' ["Sarcandra_glabra", "Brachypodium_distachyon"] t, 125, 247.0)
+cladeMagnoliids t = (mrca' ["Persea_borbonia", "Saruma_henryi"] t, 110.8, 247.0)
+cladePiperales t = (mrca' ["Houttuynia_cordata", "Saruma_henryi"] t, 44.3, 247.0)
+cladeEudicots t = (mrca' ["Podophyllum_peltatum", "Ipomoea_purpurea"] t, 119.6, 128.63)
+cladeVitales t = (mrca' ["Vitis_vinifera", "Ipomoea_purpurea"] t, 85.8, 128.63)
+cladeRosids t = (mrca' ["Kochia_scoparia", "Ipomoea_purpurea"] t, 85.8, 128.63)
+cladeEricales t = (mrca' ["Diospyros_malabarica", "Ipomoea_purpurea"] t, 85.8, 128.63)
+cladeMyrtales t = (mrca' ["Larrea_tridentata", "Oenothera_rosea"] t, 83.3, 128.63)
+cladeAsteraceae t = (mrca' ["Tanacetum_parthenium", "Catharanthus_roseus"] t, 41.5, 128.63)
+cladeSalicaceae t = (mrca' ["Populus_trichocarpa", "Hibiscus_cannabinus"] t, 48.57, 128.63)
+cladeSolanales t = (mrca' ["Solanum_tuberosum", "Ipomoea_purpurea"] t, 37.3, 128.63)
+cladeMonocots t = (mrca' ["Acorus_americanus", "Brachypodium_distachyon"] t, 119.5, 128.63)
+cladeDioscoreales t = (mrca' ["Dioscorea_villosa", "Brachypodium_distachyon"] t, 119.5, 128.63)
 cladeRiponogaceae t = (mrca' ["Smilax_bona_nox", "Colchicum_autumnale"] t, 50.5, 128.63)
-
-cladeArecales :: Tree e BS.ByteString -> Calibration
-cladeArecales t = (mrca' ["Sabal_bermudana", "Zea_mays"] t, 83.41, 128.63)
-
-cladePoaceae :: Tree e BS.ByteString -> Calibration
-cladePoaceae t = (mrca' ["Oryza_sativa", "Zea_mays"] t, 65.98, 128.63)
-
-cladeBrachypodium :: Tree e BS.ByteString -> Calibration
-cladeBrachypodium t = (mrca' ["Oryza_sativa", "Brachypodium_distachyon"] t, 33.97, 128.63)
+cladeArecales t = (mrca' ["Sabal_bermudana", "Brachypodium_distachyon"] t, 83.41, 128.63)
+cladePoales t = (mrca' ["Zea_mays", "Brachypodium_distachyon"] t, 66, 128.63)
+cladeBrachypodium t = (mrca' ["Oryza_sativa", "Brachypodium_distachyon"] t, 33.7, 128.63)

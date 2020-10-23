@@ -102,15 +102,32 @@ getPosteriorMatrixRooted = L.fromRows . map (sumFirstTwo . getBranches)
 getPosteriorMatrix :: [Tree Double a] -> L.Matrix Double
 getPosteriorMatrix = L.fromRows . map (V.fromList . branches)
 
+-- Only use this if absolutely necessary...
+beautifyVariance :: Double -> Double -> Double
+beautifyVariance _ x
+  | x < 0 = error "beautifyVariance: Variance is negative."
+  | x < eps = eps
+  | otherwise = x
+  where
+    eps = 1e-4
+
+-- Analyze the covariance matrix and change problematic values. This step is
+-- awful but necessary when there are not enough samples from the posterior.
+beautifyCovarianceMatrix :: L.Matrix Double -> L.Matrix Double
+beautifyCovarianceMatrix m =
+  L.accum m beautifyVariance [((i, i), 0) | i <- [0 .. nRows - 1]]
+  where
+    nRows = L.rows m
+
 -- Read trees and extract branch lengths.
 prepare :: IO ()
 prepare = do
   putStrLn "Read trees."
   trsAll <- someTrees fnInTrees
   let nTrees = length trsAll
-  putStrLn $ show nTrees ++ " read; skip a burn in of 1 trees."
-  let nBurnInTrees = nTrees `div` 10
+      nBurnInTrees = nTrees `div` 10
       trs = drop nBurnInTrees trsAll
+  putStrLn $ show nTrees ++ " read; skip a burn in of " ++ show nBurnInTrees ++ " trees."
 
   putStrLn "Check if trees have the same topology."
   let l = length $ nub $ map T.fromLabeledTree trs
@@ -137,8 +154,24 @@ prepare = do
       trsRooted = map (first fromLength . either error id . outgroup outgroups "root" . first Length) trs
   putStrLn "Get the posterior means and the posterior covariance matrix."
   let pmR = getPosteriorMatrixRooted trsRooted
-      (mu, sigma) = L.meanCov pmR
-      (sigmaInv, (logSigmaDet, _)) = L.invlndet $ L.unSym sigma
+      (mu, sigmaBare) = second L.unSym $ L.meanCov pmR
+  putStrLn $ "Minimum value of absolute values of covariance matrix: " ++ show (L.minElement $ L.cmap abs sigmaBare)
+  putStrLn $ "Maximum value of absolute values of covariance matrix: " ++ show (L.maxElement $ L.cmap abs sigmaBare)
+  let variancesBare = L.takeDiag sigmaBare
+  putStrLn "The variances are: "
+  print variancesBare
+  putStrLn $ "Minimum variance: " ++ show (L.minElement variancesBare)
+  putStrLn $ "Maximum variance: " ++ show (L.maxElement variancesBare)
+
+  putStrLn "Beautify covariance matrix. Ouch!"
+  let sigma = beautifyCovarianceMatrix sigmaBare
+      variances = L.takeDiag sigma
+  putStrLn $ "Minimum variance: " ++ show (L.minElement variances)
+  putStrLn $ "Maximum variance: " ++ show (L.maxElement variances)
+
+  putStrLn "Prepare the covariance matrix for the likelihood calculation."
+  let (sigmaInv, (logSigmaDet, _)) = L.invlndet sigma
+  putStrLn $ "The logarithm of the determinant of the covariance matrix is: " ++ show logSigmaDet
 
   putStrLn $ "Save the posterior means and covariances to " <> fnData <> "."
   encodeFile fnData (mu, L.toRows sigmaInv, logSigmaDet)
