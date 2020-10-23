@@ -78,6 +78,9 @@ bnAnalysis = "plh-multivariate"
 -- are used to measure the branch length such that d=T*R=(T/h)*(h*R):=t*r, where
 -- h is the root height of the tree measured in unit time.
 --
+-- In brief, the relative time and rate are defined as t=T/h, and r=R*h, where h
+-- is the root height.
+--
 -- This has two big advantages:
 --
 -- 1. The time tree object storing the relative times is a normalized tree with
