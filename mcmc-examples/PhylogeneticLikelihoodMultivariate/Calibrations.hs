@@ -29,11 +29,17 @@ type Calibration = (Path, Double, Double)
 
 -- | Calibration prior with uniform soft bounds.
 --
--- TODO: Write documentation;
+-- For a given set of calibrations, the absolute height of the time tree, and
+-- the relative time tree, calculate the calibration prior.
+--
+-- The calibrations have to be pre-computed with 'getCalibrations'. The reason
+-- is that finding the nodes on the tree is a slow process that should not be
+-- repeated.
 calibrations :: [Calibration] -> Double -> Tree Double Double -> [Log Double]
 calibrations xs h t =
   [calibrateUniformSoft 1e-4 (a / h) (b / h) x t | (x, a, b) <- xs]
 
+-- | Find and calibrate the calibrated nodes on the tree.
 getCalibrations :: Tree e BS.ByteString -> [Calibration]
 getCalibrations t =
   [ rootNode,

@@ -56,6 +56,7 @@ import Numeric.Log
 import System.Environment
 import System.Random.MWC hiding (uniform)
 
+-- Disable the syntax formatter Ormolu to highlight relevant module imports.
 {- ORMOLU_DISABLE -}
 -- The ELynx library includes functions to work on trees.
 import ELynx.Tree

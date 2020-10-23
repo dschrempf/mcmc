@@ -32,12 +32,16 @@ import Control.Lens
 import Data.Aeson
 import Data.Bifunctor
 import qualified Data.Vector.Storable as V
-import ELynx.Tree
 import GHC.Generics
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 
+-- Disable the syntax formatter Ormolu to highlight relevant module imports.
 {- ORMOLU_DISABLE -}
+-- The ELynx library includes functions to work on trees.
+import ELynx.Tree
+
+-- The Mcmc library includes the Metropolis-Hastings sampler.
 import Mcmc
 import Mcmc.Tree
 

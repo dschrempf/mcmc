@@ -31,13 +31,17 @@ type Constraint = (Path, Path)
 
 -- | Constraint prior.
 --
--- TODO: Write documentation;
+-- For a given set of constraints and the relative time tree, calculate the
+-- constraint prior.
+--
+-- The constraints have to be pre-computed with 'getConstraints'. The reason is
+-- that finding the nodes on the tree is a slow process that should not be
+-- repeated.
 constraints :: [Constraint] -> Tree Double Double -> [Log Double]
 constraints xs t =
   [constrainSoft 1e-4 y o t | (y, o) <- xs]
 
--- | The constraint induced by a horizontal gene transfer does not contradict
--- the node order of the substitution-like tree obtained from the sequences.
+-- | Find and constrain the constrained nodes on the tree.
 getConstraints :: Tree e BS.ByteString -> [Constraint]
 getConstraints t = [(young, old)]
   where
