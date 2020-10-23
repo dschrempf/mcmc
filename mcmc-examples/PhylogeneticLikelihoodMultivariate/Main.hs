@@ -104,8 +104,12 @@ getPosteriorMatrix = L.fromRows . map (V.fromList . branches)
 -- Read trees and extract branch lengths.
 prepare :: IO ()
 prepare = do
-  putStrLn "Read trees; skip a burn in of 1000 trees."
-  trs <- drop 1000 <$> someTrees fnInTrees
+  putStrLn "Read trees."
+  trsAll <- someTrees fnInTrees
+  let nTrees = length trsAll
+  putStrLn $ show nTrees ++ " read; skip a burn in of 1 trees."
+  let nBurnInTrees = nTrees `div` 10
+      trs = drop nBurnInTrees trsAll
 
   putStrLn "Check if trees have the same topology."
   let l = length $ nub $ map T.fromLabeledTree trs
