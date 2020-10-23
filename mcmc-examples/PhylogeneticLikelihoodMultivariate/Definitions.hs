@@ -69,15 +69,28 @@ bnAnalysis = "plh-multivariate"
 -- ensured by the types. In the future, we may just use one tree storing both,
 -- the times and the rates.
 --
--- Remark: Let t and r be the lengths of a branch of the time and rate trees
--- respectively. The length d of this branch measured in number of
--- substitutions is d=t*r. Since the time tree is normalized, the time tree
--- height is implicitly covered by r. The absolute rate is R = r/h, where h
--- is the height of the tree. Similarly, absolute time is T = t*h.
+-- Remark:
 --
--- I think this is a relatively clean solution. The absolute tree height is
--- only determined by the calibrations, and not by the phylogenetic
--- likelihood.
+-- Let T be the length of a branch measured in unit time, and R be the rate on
+-- this branch. Then, the length measured in number of substitutions of this
+-- very same branch is d=T*R. Internally, a relative time t and relative rate r
+-- are used to measure the branch length such that d=T*R=(T/h)*(h*R):=t*r, where
+-- h is the root height of the tree measured in unit time.
+--
+-- This has two big advantages:
+--
+-- 1. The time tree object storing the relative times is a normalized tree with
+--    root height 1.0.
+--
+-- 2. The likelihood can be calculated without consulting the root height h
+--    measured in unit time. This is important, because there is simply no
+--    information about the root age in the alignment which is used to calculate
+--    the likelihood.
+--
+-- In turn, the tree height h measured in unit time is only determined by the
+-- calibrations, the constraints, and the birth and death process prior.
+--
+-- I think this is a clean solution.
 data I = I
   { -- | Birth rate of time tree.
     _timeBirthRate :: Double,
