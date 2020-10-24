@@ -281,8 +281,25 @@ monParams =
 monStdOut :: MonitorStdOut I
 monStdOut = monitorStdOut monParams 1
 
-monFileParams :: MonitorFile I
-monFileParams = monitorFile "-params" monParams 1
+getNodeHeight :: Path -> I -> Double
+getNodeHeight p x = (*h) $ label $ current $ unsafeGoPath p $ fromTree t
+  where t = x ^. timeTree
+        h = x ^. timeHeight
+
+monCalibratedNodes :: [Calibration] -> [MonitorParameter I]
+monCalibratedNodes cb = [ getNodeHeight p >$< monitorDouble (name n a b) | (n, p, a, b) <- cb]
+  where name s l r = "Calibration " ++ s ++ " (" ++ show l ++ ", " ++ show r ++ ")"
+
+-- Positive if constraint is honored.
+deltaNodeHeight :: Path -> Path -> I -> Double
+deltaNodeHeight y o x = getNodeHeight o x - getNodeHeight y x
+
+monConstrainedNodes :: [Constraint] -> [MonitorParameter I]
+monConstrainedNodes cs = [ deltaNodeHeight y o >$< monitorDouble (name n) | (n, y, o) <- cs ]
+  where name s = "Constraint " ++ s
+
+monFileParams :: [Calibration] -> [Constraint] -> MonitorFile I
+monFileParams cb cs = monitorFile "-params" (monParams ++ monCalibratedNodes cb ++ monConstrainedNodes cs) 1
 
 absoluteTimeTree :: I -> Tree Double Int
 absoluteTimeTree s = identify $ first (* h) t
@@ -297,8 +314,8 @@ monFileRateTree :: MonitorFile I
 monFileRateTree = monitorFile "-ratetree" [_rateTree >$< monitorTree "RateTree"] 1
 
 -- | Monitor to standard output and files, as well as batch monitors.
-monitor :: Monitor I
-monitor = Monitor monStdOut [monFileParams, monFileTimeTree, monFileRateTree] []
+monitor :: [Calibration] -> [Constraint] -> Monitor I
+monitor cb cs = Monitor monStdOut [monFileParams cb cs, monFileTimeTree, monFileRateTree] []
 
 -- | Number of burn in iterations.
 nBurnIn :: Maybe Int

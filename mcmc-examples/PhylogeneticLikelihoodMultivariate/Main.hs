@@ -186,7 +186,9 @@ runMetropolisHastings = do
   print mu
   -- Initialize a starting state using the mean tree.
   let start = initWith $ identify meanTree
-      pr' = priorDistribution (getCalibrations meanTree) (getConstraints meanTree)
+      cb = getCalibrations meanTree
+      cs = getConstraints meanTree
+      pr' = priorDistribution cb cs
       lh' = likelihoodFunction mu sigmaInv logSigmaDet
       ccl' = proposals $ identify meanTree
   -- Create a seed value for the random number generator. Actually, the
@@ -203,7 +205,7 @@ runMetropolisHastings = do
             pr'
             lh'
             ccl'
-            monitor
+            (monitor cb cs)
             start
             nBurnIn
             nAutoTune
@@ -216,14 +218,16 @@ continueMetropolisHastings :: Int -> IO ()
 continueMetropolisHastings n = do
   meanTree <- getMeanTree
   (mu, sigmaInv, logSigmaDet) <- getData
+  let cb = getCalibrations meanTree
+      cs = getConstraints meanTree
   -- Load the MCMC status.
   s <-
     loadStatus
-      (priorDistribution (getCalibrations meanTree) (getConstraints meanTree))
+      (priorDistribution cb cs)
       (likelihoodFunction mu sigmaInv logSigmaDet)
       (Just cleaner)
       (proposals $ identify meanTree)
-      monitor
+      (monitor cb cs)
       (bnAnalysis ++ ".mcmc")
   void $ mhContinue n s
 

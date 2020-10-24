@@ -26,8 +26,9 @@ import Numeric.Log
 
 -- | Constraints define node orders.
 --
--- (a, b) ensures node a to be younger than node b.
-type Constraint = (Path, Path)
+-- @("name", a, b)@ ensures node @a@ to be younger than node @b@, and gives the
+-- constraint the name @name@.
+type Constraint = (String, Path, Path)
 
 -- | Constraint prior.
 --
@@ -39,11 +40,11 @@ type Constraint = (Path, Path)
 -- repeated.
 constraints :: [Constraint] -> Tree Double Double -> [Log Double]
 constraints xs t =
-  [constrainSoft 1e-3 y o t | (y, o) <- xs]
+  [constrainSoft 1e-3 y o t | (_, y, o) <- xs]
 
 -- | Find and constrain the constrained nodes on the tree.
 getConstraints :: Tree e BS.ByteString -> [Constraint]
-getConstraints t = [(young, old)]
+getConstraints t = [("hornwort->fern", young, old)]
   where
     young =
       fromMaybe
