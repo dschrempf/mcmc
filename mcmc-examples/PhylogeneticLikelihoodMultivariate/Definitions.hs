@@ -106,10 +106,8 @@ data I = I
     -- | Normalized time tree of height 1.0. Branch labels denote relative
     -- times; node labels denote relative node height.
     _timeTree :: Tree Double Double,
-    -- | Shape of the gamma distribution prior of the rates.
+    -- | Shape and inverse scale of the gamma distribution prior of the rates.
     _rateShape :: Double,
-    -- | Scale of the gamma distribution prior of the rates.
-    _rateScale :: Double,
     -- | Rate tree. Branch labels denote relative rates; node labels are unused.
     _rateTree :: Tree Double ()
   }
@@ -147,7 +145,6 @@ initWith t =
       _timeHeight = 1200.0,
       _timeTree = t',
       _rateShape = 10.0,
-      _rateScale = 2.0,
       _rateTree = bimap (const 1.0) (const ()) t
     }
   where
@@ -159,7 +156,7 @@ initWith t =
 
 -- | Prior distribution.
 priorDistribution :: [Calibration] -> [Constraint] -> I -> Log Double
-priorDistribution cb cs (I l m h t k th r) =
+priorDistribution cb cs (I l m h t k r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
@@ -171,10 +168,8 @@ priorDistribution cb cs (I l m h t k th r) =
       -- The reciprocal shape is exponentially distributed such that higher
       -- shape values are favored.
       exponential 10 k1,
-      -- The prior on the scale is exponentially distributed.
-      exponential 1 th,
       -- The prior on the branch-wise rates is gamma distributed.
-      uncorrelatedGammaNoStem k th r
+      uncorrelatedGammaNoStem k k1 r
     ]
       ++ calibrations cb h t
       ++ constraints cs t
@@ -268,8 +263,7 @@ proposals t =
     [ timeBirthRate @~ scaleUnbiased 10 "Time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "Time death rate" 10 True,
       timeHeight @~ scaleUnbiased 3000 "Time height" 10 True,
-      rateShape @~ scaleUnbiased 10 "Rate shape" 10 True,
-      rateScale @~ scaleUnbiased 10 "Rate scale" 10 True
+      rateShape @~ scaleUnbiased 10 "Rate shape" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
@@ -279,8 +273,7 @@ monParams =
   [ _timeBirthRate >$< monitorDouble "TimeBirthRate",
     _timeDeathRate >$< monitorDouble "TimeDeathRate",
     _timeHeight >$< monitorDouble "TimeHeight",
-    _rateShape >$< monitorDouble "RateShape",
-    _rateScale >$< monitorDouble "RateScale"
+    _rateShape >$< monitorDouble "RateShape"
   ]
 
 monStdOut :: MonitorStdOut I
