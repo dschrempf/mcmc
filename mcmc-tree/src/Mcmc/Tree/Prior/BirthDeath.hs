@@ -15,6 +15,7 @@ module Mcmc.Tree.Prior.BirthDeath
 where
 
 import Data.Bifunctor
+-- import Debug.Trace
 import ELynx.Tree
 import Numeric.Log
 
@@ -30,9 +31,9 @@ computeDE ::
   Double ->
   -- Branch length.
   Double ->
-  -- E at bottom of branch.
+  -- E at bottom of branch. Storage in log domain not necessary.
   Double ->
-  -- D, E.
+  -- D, E. Storage in log domain not necessary.
   (Double, Double)
 computeDE la mu dt e0 = (a / b / b, c / b)
   where
@@ -58,9 +59,9 @@ computeDENearCritical ::
   Double ->
   -- Branch length.
   Double ->
-  -- E at bottom of branch.
+  -- E at bottom of branch. Storage in log domain not necessary.
   Double ->
-  -- D, E.
+  -- D, E. Storage in log domain not necessary.
   (Double, Double)
 computeDENearCritical la mu dt e0 = (a / b / b, c / b)
   where
@@ -75,7 +76,7 @@ computeDENearCritical la mu dt e0 = (a / b / b, c / b)
 epsNearCritical :: Double
 epsNearCritical = 1e-6
 
--- | Birth and death prior.
+-- | Birth and death prior for bifurcating trees.
 --
 -- The sampling rate is 1.0; i.e., the extinction probability of leaves is 0.0.
 --
@@ -87,7 +88,11 @@ epsNearCritical = 1e-6
 --
 -- The aforementioned points are just multiplicative factors that don't
 -- influence the stationary distribution of the MCMC run. However, they do
--- change the prior, and hence, the posterior.
+-- change the absolute value of the prior function, and hence, the posterior.
+--
+-- Call 'error' if
+-- - The birth or death rate are negative.
+-- - The tree is not bifurcating.
 birthDeath ::
   -- | Birth rate.
   Double ->
@@ -96,25 +101,29 @@ birthDeath ::
   Tree Double a ->
   Log Double
 birthDeath la mu
-  | la < 0.0 = error "birthDeath: Birth rate lambda is negative."
-  | mu < 0.0 = error "birthDeath: Death rate mu is negative."
-  | epsNearCritical > abs (la - mu) = fst . birthDeathWith' computeDENearCritical la mu (Exp $ log la)
-  | otherwise = fst . birthDeathWith' computeDE la mu (Exp $ log la)
+  | la < 0.0 = error "birthDeath: Birth rate is negative."
+  | mu < 0.0 = error "birthDeath: Death rate is negative."
+  | epsNearCritical > abs (la - mu) = fst . birthDeathWith computeDENearCritical la mu (Exp $ log la)
+  | otherwise = fst . birthDeathWith computeDE la mu (Exp $ log la)
 
-birthDeathWith' ::
+birthDeathWith ::
+  -- Computation of D and E. Set to normal or near critical formula.
   (Double -> Double -> Double -> Double -> (Double, Double)) ->
+  -- Birth rate.
   Double ->
+  -- Death rate.
   Double ->
+  -- Birth rate in log domain.
   Log Double ->
   Tree Double a ->
   (Log Double, Double)
-birthDeathWith' f la mu _ (Node br _ []) = first (Exp . log) $ f la mu br 0
-birthDeathWith' f la mu logLa (Node br _ [l, r]) = ((Exp $ log dT) * dL * dR * logLa, eT)
+birthDeathWith f la mu _ (Node br _ []) = first (Exp . log) $ f la mu br 0
+birthDeathWith f la mu logLa (Node br _ [l, r]) = (Exp (log dT) * dL * dR * logLa, eT)
   where
-    (dL, eL) = birthDeathWith' f la mu logLa l
-    (dR, eR) = birthDeathWith' f la mu logLa r
+    (dL, eL) = birthDeathWith f la mu logLa l
+    (dR, eR) = birthDeathWith f la mu logLa r
     (dT, eT) = f la mu br (eL * eR)
-birthDeathWith' _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
+birthDeathWith _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 
 -- * Tests
 
