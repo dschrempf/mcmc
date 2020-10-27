@@ -60,8 +60,6 @@ type Mcmc a = StateT (Status a) IO
 msgPrepare :: Char -> BL.ByteString -> BL.ByteString
 msgPrepare c t = BL.cons c $ ": " <> t
 
--- TODO: CHANGE THIS TO B (bytestring).
-
 -- | Write to standard output and log file.
 mcmcOutB :: BL.ByteString -> Mcmc a ()
 mcmcOutB msg = do
