@@ -123,7 +123,7 @@ beautifyCovarianceMatrix m =
 prepare :: IO ()
 prepare = do
   putStrLn "Read trees."
-  trsAll <- someTrees fnInTrees
+  trsAll <- someTrees Standard fnInTrees
   let nTrees = length trsAll
       nBurnInTrees = nTrees `div` 10
       trs = drop nBurnInTrees trsAll

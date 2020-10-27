@@ -45,11 +45,5 @@ constraints xs t =
 getConstraints :: Tree e BS.ByteString -> [Constraint]
 getConstraints t = [("hornwort->fern", young, old)]
   where
-    young =
-      fromMaybe
-        (error "constrainedNodes: No MRCA young.")
-        (mrca ["Lindsaea_linearis", "Polystichum_acrostichoides"] t)
-    old =
-      fromMaybe
-        (error "constrainedNodes: No MRCA old.")
-        (mrca ["Phaeomegaceros_coriaceus", "Nothoceros_aenigmaticus"] t)
+    young = mrcaUnsafe ["Lindsaea_linearis", "Polystichum_acrostichoides"] t
+    old = mrcaUnsafe ["Phaeomegaceros_coriaceus", "Nothoceros_aenigmaticus"] t
