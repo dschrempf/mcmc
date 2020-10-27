@@ -26,7 +26,7 @@ import Statistics.Distribution.Normal
 
 -- Get the height of the node at path on the tree.
 --
--- Assume the node heights are stored as labels.
+-- __Assume the node labels denote node height__.
 getHeightFromNode :: Path -> Tree Double Double -> Double
 getHeightFromNode p = label . getSubTreeUnsafe p
 
@@ -36,9 +36,9 @@ getHeightFromNode p = label . getSubTreeUnsafe p
 -- Assume the branch and node labels denote branch length and node height,
 -- respecitvely.
 constrainHard ::
-  -- | Young node (closer to the leaves).
+  -- | Path to younger node (closer to the leaves).
   Path ->
-  -- | Old node (closer to the root).
+  -- | Path to older node (closer to the root).
   Path ->
   Tree Double Double ->
   Log Double
@@ -58,14 +58,13 @@ constrainHard y o t
 --   of the normal distribution also ensures that the first derivative is
 --   continuous.
 --
--- Assume the branch and node labels denote branch length and node height,
--- respecitvely.
+-- __Assume the node labels denote node height__.
 constrainSoft ::
   -- | Standard deviation of one sided normal distribution.
   Double ->
-  -- | Young node (closer to the leaves).
+  -- | Path to younger node (closer to the leaves).
   Path ->
-  -- | Old node (closer to the root).
+  -- | Path to older node (closer to the root).
   Path ->
   Tree Double Double ->
   Log Double
@@ -81,8 +80,7 @@ constrainSoft s y o t
 
 -- | Calibrate height of a node with given path using the normal distribution.
 --
--- Assume the branch and node labels denote branch length and node height,
--- respecitvely.
+-- __Assume the node labels denote node height__.
 calibrate ::
   -- | Mean.
   Double ->
@@ -95,8 +93,7 @@ calibrate m s p = Exp . logDensity (normalDistr m s) . getHeightFromNode p
 
 -- | Calibrate height of a node with given path using the uniform distribution.
 --
--- Assume the branch and node labels denote branch length and node height,
--- respecitvely.
+-- __Assume the node labels denote node height__.
 calibrateUniform ::
   -- | Lower bound.
   Double ->
@@ -121,8 +118,7 @@ calibrateUniform a b p t
 --   the complete distribution of the constrained is continuous. Use of the
 --   normal distribution also ensures that the first derivative is continuous.
 --
--- Assume the branch and node labels denote branch length and node height,
--- respecitvely.
+-- __Assume the node labels denote node height__.
 calibrateUniformSoft ::
   -- | Standard deviation of one sided normal distributions.
   Double ->
