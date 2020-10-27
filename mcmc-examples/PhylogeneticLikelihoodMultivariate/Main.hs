@@ -50,7 +50,6 @@ import Data.List
 import Data.Maybe
 import qualified Data.Set as S
 import qualified Data.Vector.Storable as V
-import qualified ELynx.Topology.Rooted as T
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 import System.Environment
@@ -59,6 +58,7 @@ import System.Random.MWC hiding (uniform)
 -- Disable the syntax formatter Ormolu to highlight relevant module imports.
 {- ORMOLU_DISABLE -}
 -- The ELynx library includes functions to work on trees.
+import qualified ELynx.Topology as T
 import ELynx.Tree
 
 -- The Mcmc library includes the Metropolis-Hastings sampler.
