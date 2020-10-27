@@ -10,10 +10,7 @@
 --
 -- Creation date: Mon Jul 27 10:49:11 2020.
 module Mcmc.Tree.Prior.Node
-  ( Path,
-    root,
-    mrca,
-    constrainHard,
+  ( constrainHard,
     constrainSoft,
     calibrate,
     calibrateUniform,
@@ -21,40 +18,17 @@ module Mcmc.Tree.Prior.Node
   )
 where
 
-import Control.Monad
 import Data.List
-import Data.Maybe
-import qualified Data.Set as S
 import ELynx.Tree
-import Mcmc.Tree.Lens
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
 
-isAncestor :: Ord a => [a] -> Tree e a -> Bool
-isAncestor xs t = not $ any (`S.notMember` lvs) xs
-  where
-    lvs = S.fromList $ leaves t
-
-isMrca :: Ord a => [a] -> Tree e a -> Bool
-isMrca xs t = isAncestor xs t && all (not . isAncestor xs) (forest t)
-
--- | The position of the root.
-root :: Path
-root = []
-
--- | Get the path to the MRCA of the given list of node labels on the given
--- tree.
-mrca :: Ord a => [a] -> Tree e a -> Maybe Path
-mrca xs = (return . tail) <=< go 0
-  where
-    go i t
-      | isMrca xs t = Just [i]
-      | isAncestor xs t = Just $ i : head (catMaybes [go j t' | (j, t') <- zip [0 ..] (forest t)])
-      | otherwise = Nothing
-
-getHeightFromNode :: [Int] -> Tree Double Double -> Double
-getHeightFromNode p = label . current . unsafeGoPath p . fromTree
+-- Get the height of the node at path on the tree.
+--
+-- Assume the node heights are stored as labels.
+getHeightFromNode :: Path -> Tree Double Double -> Double
+getHeightFromNode p = label . getSubTreeUnsafe p
 
 -- | Hard constrain order of nodes with given paths using a truncated uniform
 -- distribution.

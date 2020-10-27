@@ -23,6 +23,7 @@ library
       Mcmc.Tree.Import
       Mcmc.Tree.Lens
       Mcmc.Tree.Monitor
+      Mcmc.Tree.Mrca
       Mcmc.Tree.Prior.BirthDeath
       Mcmc.Tree.Prior.Branch
       Mcmc.Tree.Prior.Node

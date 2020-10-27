@@ -13,7 +13,7 @@
 -- Creation date: Wed Aug 19 08:55:42 2020.
 module Mcmc.Tree.Lens
   ( Path,
-    nodeAt,
+    subTreeAt,
     rootLabel,
     rootBranch,
   )
@@ -22,21 +22,12 @@ where
 import Control.Lens
 import ELynx.Tree
 
--- | Path from the root of a tree to the node of the tree.
---
--- The position is specific to a tree topology. If the topology changes, the
--- position becomes invalid.
-type Path = [Int]
-
 -- | Lens to a specific node.
-nodeAt :: Path -> Lens' (Tree e a) (Tree e a)
-nodeAt pth =
+subTreeAt :: Path -> Lens' (Tree e a) (Tree e a)
+subTreeAt p =
   lens
-    (current . unsafeGoPath pth . fromTree)
-    ( \t t' ->
-        let pos = unsafeGoPath pth $ fromTree t
-         in toTree $ pos {current = t'}
-    )
+    (getSubTreeUnsafe p)
+    (\t t' -> let pos = goPathUnsafe p $ fromTree t in toTree $ pos {current = t'})
 
 -- | Lens to the label of the root node.
 rootLabel :: Lens' (Tree e a) a

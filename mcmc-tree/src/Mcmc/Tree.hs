@@ -25,7 +25,8 @@ module Mcmc.Tree
     -- * Proposals
     module Mcmc.Tree.Proposal,
 
-    -- * Lenses
+    -- * Accessors
+    module Mcmc.Tree.Mrca,
     module Mcmc.Tree.Lens,
   )
 where
@@ -33,6 +34,7 @@ where
 import Mcmc.Tree.Import
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Monitor
+import Mcmc.Tree.Mrca
 import Mcmc.Tree.Prior.BirthDeath
 import Mcmc.Tree.Prior.Branch
 import Mcmc.Tree.Prior.Node

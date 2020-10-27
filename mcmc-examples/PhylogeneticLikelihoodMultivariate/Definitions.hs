@@ -220,7 +220,7 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
   (timeTree @~ pulleyUltrametric 0.01 "Time tree root" 5 True) :
-  [ (timeTree . nodeAt pth)
+  [ (timeTree . subTreeAt pth)
       @~ slideNodeUltrametric 0.01 ("Time tree node " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
       -- Since the stem does not change the likelihood, it is set to zero, and
@@ -228,34 +228,34 @@ proposalsTimeTree t =
       not (null pth),
       -- Also, we do not slide leaf nodes, since this would break
       -- ultrametricity.
-      not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
+      not (null $ forest $ getSubTreeUnsafe pth t)
   ]
-    ++ [ (timeTree . nodeAt pth)
+    ++ [ (timeTree . subTreeAt pth)
            @~ scaleSubTreeUltrametric 0.01 ("Time tree node " ++ show lb) 1 True
          | (pth, lb) <- itoList t,
            -- Don't scale the sub tree of the root node, because we are not
            -- interested in changing the length of the stem.
            not (null pth),
            -- Sub trees of leaves cannot be scaled.
-           not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
+           not (null $ forest $ getSubTreeUnsafe pth t)
        ]
 
 -- Proposals for the rate tree.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
   (rateTree @~ pulley 0.1 "Rate tree root" 5 True) :
-  [ (rateTree . nodeAt pth)
+  [ (rateTree . subTreeAt pth)
       @~ slideBranch 0.1 ("Rate tree branch " ++ show lb) 1 True
     | (pth, lb) <- itoList t,
       -- Since the stem does not change the likelihood, it is set to zero, and
       -- we do not slide the stem.
       not (null pth)
   ]
-    ++ [ (rateTree . nodeAt pth)
+    ++ [ (rateTree . subTreeAt pth)
            @~ scaleTree 100 ("Rate tree node " ++ show lb) 1 True
          | (pth, lb) <- itoList t,
            -- Path does not lead to a leaf.
-           not (null $ forest $ current $ unsafeGoPath pth $ fromTree t)
+           not (null $ forest $ current $ goPathUnsafe pth $ fromTree t)
        ]
 
 -- | The complete cycle includes proposals for the other parameters.
@@ -282,7 +282,7 @@ monStdOut :: MonitorStdOut I
 monStdOut = monitorStdOut monParams 1
 
 getNodeHeight :: Path -> I -> Double
-getNodeHeight p x = (*h) $ label $ current $ unsafeGoPath p $ fromTree t
+getNodeHeight p x = (*h) $ label $ getSubTreeUnsafe p t
   where t = x ^. timeTree
         h = x ^. timeHeight
 

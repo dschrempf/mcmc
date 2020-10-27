@@ -19,7 +19,6 @@ module Constraints
 where
 
 import qualified Data.ByteString.Char8 as BS
-import Data.Maybe
 import ELynx.Tree
 import Mcmc.Tree
 import Numeric.Log

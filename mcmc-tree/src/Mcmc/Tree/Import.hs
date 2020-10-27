@@ -55,7 +55,7 @@ oneTree f = do
   return $ first fromLength $ either error id $ phyloToLengthTree t
 
 -- | Parse one or more Newick trees until end of file.
-someTrees :: FilePath -> IO [Tree Double BS.ByteString]
-someTrees f = do
-  pts <- parseFileWith (someNewick Standard) f
+someTrees :: NewickFormat -> FilePath -> IO [Tree Double BS.ByteString]
+someTrees fm fn = do
+  pts <- parseFileWith (someNewick fm) fn
   return $ map (first fromLength . either error id . phyloToLengthTree) pts

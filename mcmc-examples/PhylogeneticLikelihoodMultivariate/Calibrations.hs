@@ -19,7 +19,6 @@ module Calibrations
 where
 
 import qualified Data.ByteString.Char8 as BS
-import Data.Maybe
 import ELynx.Tree
 import Mcmc.Tree
 import Numeric.Log
@@ -111,8 +110,6 @@ getCalibrations t =
     cladePoales t,
     cladeBrachypodium t]
 
-mrca' :: [BS.ByteString] -> Tree e BS.ByteString -> Path
-mrca' xs = fromMaybe (error $ "mrca': Could not get MRCA for: " <> show xs) . mrca xs
 
 cladeRoot :: Tree e BS.ByteString -> (String, Path, Double, Double)
 cladeChlorophyceae :: Tree e BS.ByteString -> (String, Path, Double, Double)
