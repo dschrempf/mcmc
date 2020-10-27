@@ -10,9 +10,8 @@
 --
 -- Creation date: Thu Jul 23 09:10:07 2020.
 --
--- For reasons of computational efficiency, functions working with ultrametric
--- trees (@functionNameUltrametric@) __assume the node labels denote node
--- height__ and handle these values accordingly.
+-- For reasons of computational efficiency some functions, for example, the ones
+-- working with ultrametric trees, use a tree object directly storing the node height.
 module Mcmc.Tree.Proposal
   ( -- * Slide branches
     slideBranch,
@@ -35,6 +34,7 @@ import ELynx.Tree hiding (description)
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Slide
+import Mcmc.Tree.Height
 import Mcmc.Tree.Lens
 import Numeric.Log
 import Statistics.Distribution
@@ -92,15 +92,16 @@ truncatedNormalSample s t a b g = do
 
 -- The branch is elongated by dx. So if dx is positive, the node height is
 -- reduced.
-slideNodeUltrametricF :: Double -> Tree Double Double -> Tree Double Double
-slideNodeUltrametricF dx (Node br h ts) = Node (br + dx) (h - dx) (map (applyStem (subtract dx)) ts)
+slideNodeUltrametricF :: Double -> HeightTree a -> HeightTree a
+slideNodeUltrametricF dx (Node br lb ts) =
+  Node (br + dx) (applyHeight (subtract dx) lb) (map (applyStem (subtract dx)) ts)
 
 slideNodeUltrametricSimple ::
   -- Standard deviation.
   Double ->
   -- Tuning parameter.
   Double ->
-  ProposalSimple (Tree Double Double)
+  ProposalSimple (HeightTree a)
 slideNodeUltrametricSimple _ _ (Node _ _ []) _ =
   error "slideNodeUltrametricSample: Cannot slide leaf node."
 slideNodeUltrametricSimple s t tr@(Node br _ ts) g = do
@@ -130,8 +131,6 @@ slideNodeUltrametricSimple s t tr@(Node br _ ts) g = do
 --
 -- A normal distribution truncated at the origin and the closest daughter node
 -- is used.
---
--- __Assume the node labels denote node height__.
 slideNodeUltrametric ::
   -- | Standard deviation.
   Double ->
@@ -141,7 +140,7 @@ slideNodeUltrametric ::
   Int ->
   -- | Enable tuning.
   Bool ->
-  Proposal (Tree Double Double)
+  Proposal (HeightTree a)
 slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple ds)
   where
     description = "Slide node ultrametric; sd: " ++ show ds
@@ -169,17 +168,15 @@ scaleTree k = createProposal description (scaleTreeSimple k)
   where
     description = "Scale tree; shape: " ++ show k
 
-scaleTreeUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
+scaleTreeUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double (HeightLabel a))
 scaleTreeUltrametricSimple k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
-    (\tr x -> bimap (* x) (* x) tr)
+    (\tr x -> bimap (* x) (applyHeight (* x)) tr)
     (Just recip)
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
---
--- __Assume node labels denote node height__.
 --
 -- __The height is changed.__ Do not use this proposal on a sub tree of an
 -- ultrametric tree. Instead, use 'scaleSubTreeUltrametric'.
@@ -192,7 +189,7 @@ scaleTreeUltrametric ::
   Int ->
   -- | Enable tuning.
   Bool ->
-  Proposal (Tree Double Double)
+  Proposal (HeightTree a)
 scaleTreeUltrametric k = createProposal description (scaleTreeUltrametricSimple k)
   where
     description = "Scale tree ultrametric; shape: " ++ show k
@@ -235,8 +232,6 @@ scaleSubTreeUltrametricSimple ds t tr g = do
 --
 -- A normal distribution truncated at the parent node (or the origin) and the
 -- leaves is used to slide the given node.
---
--- __Assume the node labels denote node height__.
 scaleSubTreeUltrametric ::
   -- | Standard deviation.
   Double ->
@@ -339,8 +334,6 @@ pulleyUltrametricSimple _ _ _ _ = error "pulleyUltrametricSimple: Node is not bi
 --
 -- See 'pulley', but for ultrametric trees. The sub trees are scaled such that
 -- the tree heights are conserved and the tree remains ultrametric.
---
--- __Assume the node labels denote node height__.
 pulleyUltrametric ::
   -- | Standard deviation.
   Double ->
