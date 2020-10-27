@@ -33,8 +33,7 @@ getHeightFromNode p = label . getSubTreeUnsafe p
 -- | Hard constrain order of nodes with given paths using a truncated uniform
 -- distribution.
 --
--- Assume the branch and node labels denote branch length and node height,
--- respecitvely.
+-- __Assume the node labels denote node height__.
 constrainHard ::
   -- | Path to younger node (closer to the leaves).
   Path ->

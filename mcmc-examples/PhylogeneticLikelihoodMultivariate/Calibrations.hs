@@ -34,6 +34,8 @@ type Calibration = (String, Path, Double, Double)
 -- The calibrations have to be pre-computed with 'getCalibrations'. The reason
 -- is that finding the nodes on the tree is a slow process that should not be
 -- repeated.
+--
+-- __Assume the node labels denote node height__.
 calibrations :: [Calibration] -> Double -> Tree Double Double -> [Log Double]
 calibrations xs h t =
   [calibrateUniformSoft 1e-3 (a / h) (b / h) x t | (_, x, a, b) <- xs]
