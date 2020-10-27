@@ -39,7 +39,7 @@ type Constraint = (String, Path, Path)
 -- repeated.
 --
 -- __Assume the node labels denote node height__.
-constraints :: [Constraint] -> Tree Double Double -> [Log Double]
+constraints :: HasHeight a => [Constraint] -> Tree Double a -> [Log Double]
 constraints xs t =
   [constrainSoft 1e-3 y o t | (_, y, o) <- xs]
 

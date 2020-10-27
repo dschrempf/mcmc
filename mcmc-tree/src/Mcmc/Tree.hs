@@ -13,8 +13,9 @@ module Mcmc.Tree
   ( -- * Import
     module Mcmc.Tree.Import,
 
-    -- * Special tree data types
+    -- * Tree types
     module Mcmc.Tree.Height,
+    module Mcmc.Tree.Types,
 
     -- * Monitors
     module Mcmc.Tree.Monitor,
@@ -44,3 +45,4 @@ import Mcmc.Tree.Prior.Branch
 import Mcmc.Tree.Prior.Node
 import Mcmc.Tree.Prior.RelaxedClock
 import Mcmc.Tree.Proposal
+import Mcmc.Tree.Types

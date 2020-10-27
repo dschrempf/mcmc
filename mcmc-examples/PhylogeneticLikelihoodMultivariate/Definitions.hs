@@ -28,10 +28,10 @@ module Definitions
   )
 where
 
-import Control.Comonad
 import Control.Lens
 import Data.Aeson
 import Data.Bifunctor
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.Vector.Storable as V
 import GHC.Generics
 import qualified Numeric.LinearAlgebra as L
@@ -95,7 +95,6 @@ bnAnalysis = "plh-multivariate"
 -- Remark: The topologies of the time and rate tree are equal. This is, however,
 -- not ensured by the types. In the future, we may just use one tree storing
 -- both, the times and the rates.
---
 data I = I
   { -- | Birth rate of time tree.
     _timeBirthRate :: Double,
@@ -105,12 +104,13 @@ data I = I
     -- calibrations.
     _timeHeight :: Double,
     -- | Normalized time tree of height 1.0. Branch labels denote relative
-    -- times; node labels denote relative node height.
-    _timeTree :: Tree Double Double,
+    -- times; node labels store relative node height and names.
+    _timeTree :: TimeTree,
     -- | Shape and inverse scale of the gamma distribution prior of the rates.
     _rateShape :: Double,
-    -- | Rate tree. Branch labels denote relative rates; node labels are unused.
-    _rateTree :: Tree Double ()
+    -- | Rate tree. Branch labels denote relative rates; node labels store
+    -- names.
+    _rateTree :: RateTree
   }
   deriving (Generic)
 
@@ -125,7 +125,7 @@ instance FromJSON I
 -- See 'cleaner'. This function makes the tree ultrametric again, normalizes the
 -- tree and sets the height values accordingly.
 cleanTimeTree :: I -> I
-cleanTimeTree = timeTree %~ (extend rootHeight . normalizeHeight . makeUltrametric)
+cleanTimeTree = timeTree %~ (toTimeTree . normalizeHeight . makeUltrametric . fromTimeTree)
 
 -- | Clean the state periodically. Otherwise, the tree diverges from being
 -- ultrametric.
@@ -138,7 +138,7 @@ cleaner = Cleaner 100 cleanTimeTree
 -- tree, the terminal branches are elongated such that the tree becomes
 -- ultrametric ('makeUltrametric'). For the rate tree, we just use the topology
 -- and set all rates to 1.0.
-initWith :: Tree Double Int -> I
+initWith :: SubstitutionTree -> I
 initWith t =
   I
     { _timeBirthRate = 1.0,
@@ -146,10 +146,10 @@ initWith t =
       _timeHeight = 1200.0,
       _timeTree = t',
       _rateShape = 10.0,
-      _rateTree = bimap (const 1.0) (const ()) t
+      _rateTree = first (const 1.0) t
     }
   where
-    t' = extend rootHeight $ normalizeHeight $ makeUltrametric t
+    t' = toTimeTree $ normalizeHeight $ makeUltrametric t
 
 -- Calibrations are defined in the module 'Calibration'.
 
@@ -222,7 +222,7 @@ proposalsTimeTree t =
   (timeTree @~ pulleyUltrametric 0.01 "Time tree root" 5 True) :
   [ (timeTree . subTreeAt pth)
       @~ slideNodeUltrametric 0.01 ("Time tree node " ++ show lb) 1 True
-    | (pth, lb) <- itoList t,
+    | (pth, lb) <- itoList $ identify t,
       -- Since the stem does not change the likelihood, it is set to zero, and
       -- we do not slide the root node.
       not (null pth),
@@ -232,7 +232,7 @@ proposalsTimeTree t =
   ]
     ++ [ (timeTree . subTreeAt pth)
            @~ scaleSubTreeUltrametric 0.01 ("Time tree node " ++ show lb) 1 True
-         | (pth, lb) <- itoList t,
+         | (pth, lb) <- itoList $ identify t,
            -- Don't scale the sub tree of the root node, because we are not
            -- interested in changing the length of the stem.
            not (null pth),
@@ -246,14 +246,14 @@ proposalsRateTree t =
   (rateTree @~ pulley 0.1 "Rate tree root" 5 True) :
   [ (rateTree . subTreeAt pth)
       @~ slideBranch 0.1 ("Rate tree branch " ++ show lb) 1 True
-    | (pth, lb) <- itoList t,
+    | (pth, lb) <- itoList $ identify t,
       -- Since the stem does not change the likelihood, it is set to zero, and
       -- we do not slide the stem.
       not (null pth)
   ]
     ++ [ (rateTree . subTreeAt pth)
            @~ scaleTree 100 ("Rate tree node " ++ show lb) 1 True
-         | (pth, lb) <- itoList t,
+         | (pth, lb) <- itoList $ identify t,
            -- Path does not lead to a leaf.
            not (null $ forest $ current $ goPathUnsafe pth $ fromTree t)
        ]
@@ -282,27 +282,30 @@ monStdOut :: MonitorStdOut I
 monStdOut = monitorStdOut monParams 1
 
 getNodeHeight :: Path -> I -> Double
-getNodeHeight p x = (*h) $ label $ getSubTreeUnsafe p t
-  where t = x ^. timeTree
-        h = x ^. timeHeight
+getNodeHeight p x = (* h) $ getHeight $ label $ getSubTreeUnsafe p t
+  where
+    t = x ^. timeTree
+    h = x ^. timeHeight
 
 monCalibratedNodes :: [Calibration] -> [MonitorParameter I]
-monCalibratedNodes cb = [ getNodeHeight p >$< monitorDouble (name n a b) | (n, p, a, b) <- cb]
-  where name s l r = "Calibration " ++ s ++ " (" ++ show l ++ ", " ++ show r ++ ")"
+monCalibratedNodes cb = [getNodeHeight p >$< monitorDouble (name n a b) | (n, p, a, b) <- cb]
+  where
+    name s l r = "Calibration " ++ s ++ " (" ++ show l ++ ", " ++ show r ++ ")"
 
 -- Positive if constraint is honored.
 deltaNodeHeight :: Path -> Path -> I -> Double
 deltaNodeHeight y o x = getNodeHeight o x - getNodeHeight y x
 
 monConstrainedNodes :: [Constraint] -> [MonitorParameter I]
-monConstrainedNodes cs = [ deltaNodeHeight y o >$< monitorDouble (name n) | (n, y, o) <- cs ]
-  where name s = "Constraint " ++ s
+monConstrainedNodes cs = [deltaNodeHeight y o >$< monitorDouble (name n) | (n, y, o) <- cs]
+  where
+    name s = "Constraint " ++ s
 
 monFileParams :: [Calibration] -> [Constraint] -> MonitorFile I
 monFileParams cb cs = monitorFile "-params" (monParams ++ monCalibratedNodes cb ++ monConstrainedNodes cs) 1
 
-absoluteTimeTree :: I -> Tree Double Int
-absoluteTimeTree s = identify $ first (* h) t
+absoluteTimeTree :: I -> Tree Double BS.ByteString
+absoluteTimeTree s = first (* h) $ fromTimeTree t
   where
     h = s ^. timeHeight
     t = s ^. timeTree

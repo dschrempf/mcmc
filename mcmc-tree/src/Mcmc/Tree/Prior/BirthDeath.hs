@@ -157,11 +157,12 @@ birthDeathWith _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 
 -- -- Assume that node labels denote node heights.
 -- birthDeathPointProcess ::
+--   HasHeight a =>
 --   -- | Birth rate.
 --   Double ->
 --   -- | Death rate.
 --   Double ->
---   Tree Double Double ->
+--   Tree Double a ->
 --   Log Double
 -- birthDeathPointProcess l m t
 --   | l < 0.0 = error "birthDeath: Birth rate lambda is negative."

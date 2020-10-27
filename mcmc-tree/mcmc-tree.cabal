@@ -30,6 +30,7 @@ library
       Mcmc.Tree.Prior.Node
       Mcmc.Tree.Prior.RelaxedClock
       Mcmc.Tree.Proposal
+      Mcmc.Tree.Types
       Statistics.Distribution.TruncatedNormal
       Paths_mcmc_tree
   autogen-modules:
@@ -38,9 +39,11 @@ library
       src
   ghc-options: -Wall
   build-depends:
-      attoparsec
+      aeson
+    , attoparsec
     , base >=4.7 && <5
     , bytestring
+    , comonad
     , containers
     , dirichlet
     , elynx-tree

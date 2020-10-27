@@ -46,8 +46,8 @@ import System.Random.MWC
 --
 -- Use a normal distribution with mean 0 and given standard deviation.
 --
--- This proposal slides the root branch. To slide other branches, see 'nodeAt'.
--- For example, @nodeAt path @~ slideNodeUltrametric ...@.
+-- This proposal slides the root branch. To slide other branches, see 'subTreeAt'.
+-- For example, @subTreeAt path @~ slideNodeUltrametric ...@.
 slideBranch ::
   -- | Standard deviation.
   Double ->
@@ -92,16 +92,17 @@ truncatedNormalSample s t a b g = do
 
 -- The branch is elongated by dx. So if dx is positive, the node height is
 -- reduced.
-slideNodeUltrametricF :: Double -> HeightTree a -> HeightTree a
+slideNodeUltrametricF :: HasHeight a => Double -> Tree Double a -> Tree Double a
 slideNodeUltrametricF dx (Node br lb ts) =
   Node (br + dx) (applyHeight (subtract dx) lb) (map (applyStem (subtract dx)) ts)
 
 slideNodeUltrametricSimple ::
+  HasHeight a =>
   -- Standard deviation.
   Double ->
   -- Tuning parameter.
   Double ->
-  ProposalSimple (HeightTree a)
+  ProposalSimple (Tree Double a)
 slideNodeUltrametricSimple _ _ (Node _ _ []) _ =
   error "slideNodeUltrametricSample: Cannot slide leaf node."
 slideNodeUltrametricSimple s t tr@(Node br _ ts) g = do
@@ -132,6 +133,7 @@ slideNodeUltrametricSimple s t tr@(Node br _ ts) g = do
 -- A normal distribution truncated at the origin and the closest daughter node
 -- is used.
 slideNodeUltrametric ::
+  HasHeight a =>
   -- | Standard deviation.
   Double ->
   -- | Name.
@@ -140,7 +142,7 @@ slideNodeUltrametric ::
   Int ->
   -- | Enable tuning.
   Bool ->
-  Proposal (HeightTree a)
+  Proposal (Tree Double a)
 slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple ds)
   where
     description = "Slide node ultrametric; sd: " ++ show ds
@@ -168,7 +170,11 @@ scaleTree k = createProposal description (scaleTreeSimple k)
   where
     description = "Scale tree; shape: " ++ show k
 
-scaleTreeUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double (HeightLabel a))
+scaleTreeUltrametricSimple ::
+  HasHeight a =>
+  Double ->
+  Double ->
+  ProposalSimple (Tree Double a)
 scaleTreeUltrametricSimple k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
@@ -181,6 +187,7 @@ scaleTreeUltrametricSimple k t =
 -- __The height is changed.__ Do not use this proposal on a sub tree of an
 -- ultrametric tree. Instead, use 'scaleSubTreeUltrametric'.
 scaleTreeUltrametric ::
+  HasHeight a =>
   -- | Shape.
   Double ->
   -- | Name.
@@ -189,23 +196,26 @@ scaleTreeUltrametric ::
   Int ->
   -- | Enable tuning.
   Bool ->
-  Proposal (HeightTree a)
+  Proposal (Tree Double a)
 scaleTreeUltrametric k = createProposal description (scaleTreeUltrametricSimple k)
   where
     description = "Scale tree ultrametric; shape: " ++ show k
 
 -- The branch is elongated by dx. So if dx is positive, the node height is
 -- reduced.
-slideBranchScaleSubTreeF :: Double -> Tree Double Double -> Tree Double Double
-slideBranchScaleSubTreeF dx (Node br h ts) = Node (br + dx) h' $ map (bimap (* xi) (* xi)) ts
+slideBranchScaleSubTreeF :: HasHeight a => Double -> Tree Double a -> Tree Double a
+slideBranchScaleSubTreeF dx (Node br lb ts) =
+  Node (br + dx) (setHeight h' lb) $ map (bimap (* xi) (applyHeight (* xi))) ts
   where
+    h = getHeight lb
     h' = h - dx
     xi = h' / h
 
 scaleSubTreeUltrametricSimple ::
+  HasHeight a =>
   Double ->
   Double ->
-  ProposalSimple (Tree Double Double)
+  ProposalSimple (Tree Double a)
 scaleSubTreeUltrametricSimple _ _ (Node _ _ []) _ =
   error "scaleSubTreeUltrametricSample: Cannot scale sub tree of leaf node."
 scaleSubTreeUltrametricSimple ds t tr g = do
@@ -219,7 +229,7 @@ scaleSubTreeUltrametricSimple ds t tr g = do
   return (slideBranchScaleSubTreeF dx tr, q)
   where
     br = branch tr
-    ht = label tr
+    ht = getHeight $ label tr
     -- a = negate $ branch tr - eps
     a = negate br
     -- b = label tr - eps
@@ -233,6 +243,7 @@ scaleSubTreeUltrametricSimple ds t tr g = do
 -- A normal distribution truncated at the parent node (or the origin) and the
 -- leaves is used to slide the given node.
 scaleSubTreeUltrametric ::
+  HasHeight a =>
   -- | Standard deviation.
   Double ->
   -- | Name.
@@ -241,15 +252,15 @@ scaleSubTreeUltrametric ::
   Int ->
   -- | Enable tuning.
   Bool ->
-  Proposal (Tree Double Double)
+  Proposal (Tree Double a)
 scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametricSimple sd)
   where
     description = "Scale subtree ultrametrc; sd: " ++ show sd
 
-contra :: (Tree Double Double, Tree Double a) -> Double -> (Tree Double Double, Tree Double a)
-contra (s, t) x = (bimap (* x) (* x) s, first (/ x) t)
+contra :: (Tree Double a, Tree Double b) -> Double -> (Tree Double a, Tree Double b)
+contra (s, t) x = (first (*x) s, first (/ x) t)
 
-scaleTreesContrarilySimple :: Double -> Double -> ProposalSimple (Tree Double Double, Tree Double a)
+scaleTreesContrarilySimple :: Double -> Double -> ProposalSimple (Tree Double a, Tree Double b)
 scaleTreesContrarilySimple k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
@@ -270,7 +281,7 @@ scaleTreesContrarily ::
   Int ->
   -- | Enable tuning.
   Bool ->
-  Proposal (Tree Double Double, Tree Double a)
+  Proposal (Tree Double a, Tree Double b)
 scaleTreesContrarily k = createProposal description (scaleTreesContrarilySimple k)
   where
     description = "Scale trees contrarily; shape: " ++ show k
@@ -323,7 +334,7 @@ pulley s = createProposal description (pulleySimple s)
   where
     description = "Pulley; sd: " ++ show s
 
-pulleyUltrametricSimple :: Double -> Double -> ProposalSimple (Tree Double Double)
+pulleyUltrametricSimple :: HasHeight a => Double -> Double -> ProposalSimple (Tree Double a)
 pulleyUltrametricSimple s t tr@(Node br lb [l, r]) g = do
   (dx, q) <- pulleyTruncatedNormalSample s t tr g
   let tr' = Node br lb [slideBranchScaleSubTreeF dx l, slideBranchScaleSubTreeF (negate dx) r]
@@ -335,6 +346,7 @@ pulleyUltrametricSimple _ _ _ _ = error "pulleyUltrametricSimple: Node is not bi
 -- See 'pulley', but for ultrametric trees. The sub trees are scaled such that
 -- the tree heights are conserved and the tree remains ultrametric.
 pulleyUltrametric ::
+  HasHeight a =>
   -- | Standard deviation.
   Double ->
   -- | Name.
@@ -343,7 +355,7 @@ pulleyUltrametric ::
   Int ->
   -- | Enable tuning.
   Bool ->
-  Proposal (Tree Double Double)
+  Proposal (Tree Double a)
 pulleyUltrametric d = createProposal description (pulleyUltrametricSimple d)
   where
     description = "Pulley ultrametric; sd: " ++ show d

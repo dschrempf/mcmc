@@ -1,6 +1,8 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- |
 -- Module      :  Mcmc.Tree.Height
--- Description :  Special tree object storing height
+-- Description :  Special tree object for time trees
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -13,13 +15,13 @@ module Mcmc.Tree.Height
   ( HasHeight (..),
     applyHeight,
     HeightLabel (..),
-    HeightTree,
   )
 where
 
-import ELynx.Tree
+import Data.Aeson
+import Data.Aeson.TH
 
--- | A class for node labels that have an associated height.
+-- | Class of types with information about height.
 class HasHeight a where
   getHeight :: a -> Double
   setHeight :: Double -> a -> a
@@ -28,16 +30,15 @@ class HasHeight a where
 applyHeight :: HasHeight a => (Double -> Double) -> a -> a
 applyHeight f l = setHeight (f $ getHeight l) l
 
--- | Directly store the node height together with the node label.
+-- | A node label with a height.
 --
--- The node height is often used and queried repeatedly, but height calculation
--- is costly. Here, the node height is stored together with the node label.
-newtype HeightLabel a = HeightLabel {getLabel :: (Double, a)}
+-- The node height is often used, but height calculation is costly. Direct storage
+-- of the node height together with the node label saves time.
+newtype HeightLabel a = HeightLabel {fromHeightLabel :: (Double, a)}
   deriving (Show, Eq)
 
-instance HasHeight (HeightLabel a) where
-  getHeight = fst . getLabel
-  setHeight x (HeightLabel (_, lb)) = HeightLabel (x, lb)
+$(deriveJSON defaultOptions ''HeightLabel)
 
--- | A tree with stored node height.
-type HeightTree a = Tree Double (HeightLabel a)
+instance HasHeight (HeightLabel a) where
+  getHeight = fst . fromHeightLabel
+  setHeight x (HeightLabel (_, lb)) = HeightLabel (x, lb)

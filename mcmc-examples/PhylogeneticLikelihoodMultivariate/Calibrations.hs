@@ -36,7 +36,7 @@ type Calibration = (String, Path, Double, Double)
 -- repeated.
 --
 -- __Assume the node labels denote node height__.
-calibrations :: [Calibration] -> Double -> Tree Double Double -> [Log Double]
+calibrations :: HasHeight a => [Calibration] -> Double -> Tree Double a -> [Log Double]
 calibrations xs h t =
   [calibrateUniformSoft 1e-3 (a / h) (b / h) x t | (_, x, a, b) <- xs]
 

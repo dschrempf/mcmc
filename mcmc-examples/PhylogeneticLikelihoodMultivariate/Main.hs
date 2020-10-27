@@ -185,12 +185,12 @@ runMetropolisHastings = do
   putStrLn "The posterior means of the branch lengths are:"
   print mu
   -- Initialize a starting state using the mean tree.
-  let start = initWith $ identify meanTree
+  let start = initWith meanTree
       cb = getCalibrations meanTree
       cs = getConstraints meanTree
       pr' = priorDistribution cb cs
       lh' = likelihoodFunction mu sigmaInv logSigmaDet
-      ccl' = proposals $ identify meanTree
+      ccl' = proposals meanTree
   -- Create a seed value for the random number generator. Actually, the
   -- 'create' function is deterministic, but useful during development. For
   -- real analyses, use 'createSystemRandom'.
@@ -226,16 +226,10 @@ continueMetropolisHastings n = do
       (priorDistribution cb cs)
       (likelihoodFunction mu sigmaInv logSigmaDet)
       (Just cleaner)
-      (proposals $ identify meanTree)
+      (proposals meanTree)
       (monitor cb cs)
       (bnAnalysis ++ ".mcmc")
   void $ mhContinue n s
-
-convert :: IO ()
-convert = do
-  meanTree <- getMeanTree
-  let tbl = zip (map BS.unpack $ leaves meanTree) (map show $ leaves $ identify meanTree)
-  putStr $ unlines $ map show tbl
 
 -- Benchmark different functions used by the MCMC sampler.
 runBench :: IO ()
@@ -262,7 +256,7 @@ runBench = do
   putStrLn "Benchmark get a leaf."
   benchmark $ nf bf2 tr
   putStrLn "Benchmark calculation of prior."
-  let i = initWith $ identify tr
+  let i = initWith tr
       pr' = priorDistribution (getCalibrations tr) (getConstraints tr)
   benchmark $ nf pr' i
   (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' fnData
@@ -281,7 +275,7 @@ inspect = do
   let lvs = leaves tr
   putStrLn $ "The mean tree has " <> show (length lvs) <> " leaves."
 
-  let i = initWith $ identify tr
+  let i = initWith tr
       pr' = priorDistribution (getCalibrations tr) (getConstraints tr)
   putStrLn $ "Test if time tree is ultrametric: " <> show (ultrametric $ _timeTree i)
   putStrLn $ "Initial prior: " <> show (pr' i) <> "."
@@ -314,9 +308,6 @@ main = do
     -- Continue sampling.
     ["continue", n] -> do
       continueMetropolisHastings (read n)
-    -- Print conversion of leaves.
-    ["convert"] -> do
-      convert
     -- Benchmark different functions used by the MCMC sampler.
     ["bench"] -> do
       runBench
@@ -324,7 +315,7 @@ main = do
     ["inspect"] -> do
       inspect
     -- Print usage instructions if none of the previous commands was entered.
-    _ -> putStrLn "Use one command of: [prepare|run|continue N|convert|bench|inspect]."
+    _ -> putStrLn "Use one command of: [prepare|run|continue N|bench|inspect]."
 
 -- Post scriptum:
 --
