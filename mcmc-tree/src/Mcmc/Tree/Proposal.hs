@@ -10,9 +10,9 @@
 --
 -- Creation date: Thu Jul 23 09:10:07 2020.
 --
--- For reasons of computational efficiency, all functions named
--- @nameUltrametric@ __assume the node labels denote node height__ and handle
--- these values accordingly.
+-- For reasons of computational efficiency, functions working with ultrametric
+-- trees (@functionNameUltrametric@) __assume the node labels denote node
+-- height__ and handle these values accordingly.
 module Mcmc.Tree.Proposal
   ( -- * Slide branches
     slideBranch,
