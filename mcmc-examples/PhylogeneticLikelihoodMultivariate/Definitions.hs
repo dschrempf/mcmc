@@ -165,15 +165,16 @@ priorDistribution cb cs (I l m h t mu k r) =
       --
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
-      -- Exponential prior on the rate mean.
+      -- Gamma prior on the rate mean.
       gamma 100 1e-5 mu,
-      -- Exponential prior on the rate variance.
+      -- Gamma prior on the rate variance.
       gamma 100 0.1 k,
       -- Uncorrelated log normal prior on the branch-wise rates.
-      uncorrelatedGammaNoStem k (1/k) r
+      uncorrelatedGammaNoStem k k1 r
     ]
       ++ calibrations cb h t
       ++ constraints cs t
+  where k1 = recip k
 
 -- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
@@ -206,6 +207,7 @@ likelihoodFunction ::
   -- | Current state.
   I ->
   Log Double
+-- likelihoodFunction mu sigmaInv logSigmaDet x = 1.0
 likelihoodFunction mu sigmaInv logSigmaDet x =
   logDensityMultivariateNormal mu sigmaInv logSigmaDet distances
   where

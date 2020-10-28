@@ -150,8 +150,8 @@ prepare = do
   BL.writeFile fnMeanTree (toNewick $ measurableToPhyloTree tr)
 
   putStrLn "Root the trees at the midpoint of the mean tree."
-  let outgroups = fst $ fromBipartition $ either error id $ bipartition tr
-      trsRooted = map (first fromLength . either error id . outgroup outgroups "root" . first Length) trs
+  let outgrp = fst $ fromBipartition $ either error id $ bipartition tr
+      trsRooted = map (first fromLength . either error id . outgroup outgrp "root" . first Length) trs
   putStrLn "Get the posterior means and the posterior covariance matrix."
   let pmR = getPosteriorMatrixRooted trsRooted
       (mu, sigmaBare) = second L.unSym $ L.meanCov pmR
