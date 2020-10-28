@@ -36,6 +36,7 @@ import qualified Data.Vector.Storable as V
 import GHC.Generics
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
+-- import Debug.Trace
 
 -- Disable the syntax formatter Ormolu to highlight relevant module imports.
 {- ORMOLU_DISABLE -}
@@ -52,7 +53,6 @@ import Constraints
 import Tools
 {- ORMOLU_ENABLE -}
 
--- import Debug.Trace
 
 -- | File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from
@@ -155,7 +155,7 @@ initWith t =
 
 -- | Prior distribution.
 priorDistribution :: [Calibration] -> [Constraint] -> I -> Log Double
-priorDistribution cb cs (I l m h t mu v r) =
+priorDistribution cb cs (I l m h t mu k r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
@@ -165,12 +165,12 @@ priorDistribution cb cs (I l m h t mu v r) =
       --
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
-      -- Gamma prior on the rate mean.
-      gamma 100 10 mu,
-      -- Gamma prior on the rate variance.
-      gamma 10 0.01 v,
+      -- Exponential prior on the rate mean.
+      gamma 100 1e-5 mu,
+      -- Exponential prior on the rate variance.
+      gamma 100 0.1 k,
       -- Uncorrelated log normal prior on the branch-wise rates.
-      uncorrelatedLogNormalNoStem 1.0 v r
+      uncorrelatedGammaNoStem k (1/k) r
     ]
       ++ calibrations cb h t
       ++ constraints cs t
