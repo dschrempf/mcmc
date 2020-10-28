@@ -167,7 +167,7 @@ priorDistribution cb cs (I l m h t mu v r) =
       birthDeath l m t,
       -- Gamma prior on the rate mean. The mean is k*theta=1/1200.
       gamma (recip $ 1200 * 5) 5 mu,
-      -- Strong gamma prior on the rate variance. The mean is k*theta=0.01.
+      -- Strong gamma prior on the rate variance. The mean is k*theta=0.001.
       gamma 1 0.001 v,
       -- Uncorrelated log normal prior on the branch-wise rates.
       uncorrelatedLogNormalNoStem 1.0 v r
