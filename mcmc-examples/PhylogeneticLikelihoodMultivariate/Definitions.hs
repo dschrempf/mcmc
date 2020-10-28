@@ -147,7 +147,7 @@ initWith t =
       _timeDeathRate = 1.0,
       _timeHeight = 1200.0,
       _timeTree = t',
-      _rateNorm = 1,
+      _rateNorm = 500,
       _rateShape = 10.0,
       _rateTree = first (const 1.0) t
     }
@@ -170,8 +170,8 @@ priorDistribution cb cs (I l m h t n k r) =
       --
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
-      -- Exponential prior on the rate normalization constant.
-      exponential 1 n,
+      -- Uniform prior on the rate normalization constant.
+      uniform 1 1000 n,
       -- Exponential prior on the reciprocal shape such that higher shape values
       -- are favored.
       exponential 10 k1,
