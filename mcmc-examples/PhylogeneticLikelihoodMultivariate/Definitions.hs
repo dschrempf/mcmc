@@ -146,7 +146,7 @@ initWith t =
       _timeDeathRate = 1.0,
       _timeHeight = 1000.0,
       _timeTree = t',
-      _rateMean = 1000.0,
+      _rateMean = 1.0,
       _rateVariance = 0.1,
       _rateTree = first (const 1.0) t
     }
@@ -170,11 +170,11 @@ priorDistribution cb cs (I l m h t n v r) =
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
       -- Gamma prior on the rate mean.
-      gamma 100 10 n,
-      -- Gamma prior on the rate variance.
-      gamma 10 0.01 v,
+      exponential 0.1 n,
+      -- -- Gamma prior on the rate variance.
+      gamma 10 0.1 v,
       -- Uncorrelated Gamma prior on the branch-wise rates.
-      uncorrelatedLogNormalNoStem n v r
+      uncorrelatedGammaNoStem 3 (1/3) r
     ]
       ++ calibrations cb h t
       ++ constraints cs t
@@ -216,7 +216,8 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
     times = getBranches (x ^. timeTree)
     rates = getBranches (x ^. rateTree)
     tHeight = x ^. timeHeight
-    distances = V.map (/ tHeight) $ sumFirstTwo $ V.zipWith (*) times rates
+    rMean = x ^. rateMean
+    distances = V.map (* (rMean / tHeight)) $ sumFirstTwo $ V.zipWith (*) times rates
 
 -- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
