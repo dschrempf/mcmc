@@ -266,9 +266,10 @@ proposalsRateTree t =
        ]
 
 heightNormPair :: Lens' I (Double, Double)
-heightNormPair = lens
-                 (\x -> (x ^. timeHeight, x ^. rateNorm))
-                 (\x (h, n) -> x {_timeHeight = h, _rateNorm = n})
+heightNormPair =
+  lens
+    (\x -> (x ^. timeHeight, x ^. rateNorm))
+    (\x (h, n) -> x {_timeHeight = h, _rateNorm = n})
 
 -- | The complete cycle includes proposals for the other parameters.
 proposals :: Show a => Tree e a -> Cycle I
@@ -284,40 +285,51 @@ proposals t =
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
 
+getRateTreeLength :: I -> Double
+getRateTreeLength x = totalBranchLength $ x ^. rateTree
+
 monParams :: [MonitorParameter I]
 monParams =
   [ _timeBirthRate >$< monitorDouble "TimeBirthRate",
     _timeDeathRate >$< monitorDouble "TimeDeathRate",
     _timeHeight >$< monitorDouble "TimeHeight",
     _rateNorm >$< monitorDouble "RateNorm",
-    _rateShape >$< monitorDouble "RateShape"
+    _rateShape >$< monitorDouble "RateShape",
+    getRateTreeLength >$< monitorDouble "RateLength"
   ]
 
 monStdOut :: MonitorStdOut I
 monStdOut = monitorStdOut monParams 1
 
-getNodeHeight :: Path -> I -> Double
-getNodeHeight p x = (* h) $ getHeight $ label $ getSubTreeUnsafe p t
+getTimeTreeNodeHeight :: Path -> I -> Double
+getTimeTreeNodeHeight p x = (* h) $ getHeight $ label $ getSubTreeUnsafe p t
   where
     t = x ^. timeTree
     h = x ^. timeHeight
 
 monCalibratedNodes :: [Calibration] -> [MonitorParameter I]
-monCalibratedNodes cb = [getNodeHeight p >$< monitorDouble (name n a b) | (n, p, a, b) <- cb]
+monCalibratedNodes cb = [getTimeTreeNodeHeight p >$< monitorDouble (name n a b) | (n, p, a, b) <- cb]
   where
     name s l r = "Calibration " ++ s ++ " (" ++ show l ++ ", " ++ show r ++ ")"
 
 -- Positive if constraint is honored.
-deltaNodeHeight :: Path -> Path -> I -> Double
-deltaNodeHeight y o x = getNodeHeight o x - getNodeHeight y x
+getTimeTreeDeltaNodeHeight :: Path -> Path -> I -> Double
+getTimeTreeDeltaNodeHeight y o x = getTimeTreeNodeHeight o x - getTimeTreeNodeHeight y x
 
 monConstrainedNodes :: [Constraint] -> [MonitorParameter I]
-monConstrainedNodes cs = [deltaNodeHeight y o >$< monitorDouble (name n) | (n, y, o) <- cs]
+monConstrainedNodes cs = [getTimeTreeDeltaNodeHeight y o >$< monitorDouble (name n) | (n, y, o) <- cs]
   where
     name s = "Constraint " ++ s
 
 monFileParams :: [Calibration] -> [Constraint] -> MonitorFile I
-monFileParams cb cs = monitorFile "-params" (monParams ++ monCalibratedNodes cb ++ monConstrainedNodes cs) 1
+monFileParams cb cs =
+  monitorFile
+    "-params"
+    ( monParams
+        ++ monCalibratedNodes cb
+        ++ monConstrainedNodes cs
+    )
+    1
 
 absoluteTimeTree :: I -> Tree Double BS.ByteString
 absoluteTimeTree s = first (* h) $ fromTimeTree t
