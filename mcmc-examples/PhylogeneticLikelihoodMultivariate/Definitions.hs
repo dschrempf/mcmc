@@ -66,51 +66,47 @@ bnAnalysis = "plh-multivariate"
 
 -- | State space containing all parameters.
 --
--- Let T be the length of a branch measured in unit time (e.g., in million
--- years), and R be the absolute rate on this branch. Then, the length of this
--- very same branch measured in average number of substitutions is d=T*R.
+-- We are interested in inferring an ultrametric tree with branch lengths
+-- measured in unit time (e.g., in million years). Let T be the length of a
+-- branch of the time tree, and R be the absolute evolutionary rate on this
+-- branch. Then, the length of this very same branch measured in average number
+-- of substitutions is d=T*R.
 --
--- Internally, a relative time t and relative rate r are used to measure the
--- branch length such that d=T*R=(T/h)*(h*R):=t*r, where h is the root height of
--- the tree measured in unit time.
+-- Internally, a relative time t and relative rate r are used such that the
+-- branch length measured in average number of substitution is
+-- d=T*R=(t*h)*(r*mu), where h is the root height of the time tree, and mu is
+-- the mean rate.
 --
--- In brief, the relative time and rate are defined as t=T/h, and r=R*h, where h
--- is the root height.
+-- In brief, the relative time and rate are defined as t=T/h, and r=R/mu, where
+-- h is the root height and mu is the mean rate.
 --
 -- This has two advantages:
 --
 -- 1. The ultrametric tree object storing the relative times is a normalized
 --    tree with root height 1.0.
 --
--- 2. The phylogenetic likelihood, which solely depends on d, can be calculated
---    without consulting the root height h measured in unit time. This is
---    important, because there is simply no information about the root height in
---    the alignment which is used to calculate the phylogenetic likelihood.
---
--- In turn, the tree height h measured in unit time is only determined by the
--- calibrations, the constraints, and the birth and death process prior.
---
--- I think this is a clean solution.
+-- 2. The relative rates have a mean of 1.0.
 --
 -- Remark: The topologies of the time and rate tree are equal. This is, however,
--- not ensured by the types. In the future, we may just use one tree storing
--- both, the times and the rates.
+-- not ensured by the types. One could just use one tree storing both, the times
+-- and the rates.
 data I = I
-  { -- | Birth rate of time tree.
+  { -- | Birth rate of relative time tree.
     _timeBirthRate :: Double,
-    -- | Death rate of time tree.
+    -- | Death rate of relative time tree.
     _timeDeathRate :: Double,
-    -- | Height of the time tree in absolute time measured in million years, see
-    -- calibrations.
+    -- | Height of the absolute time tree in unit time. Here, we use units of
+    -- million years; see the calibrations.
     _timeHeight :: Double,
     -- | Normalized time tree of height 1.0. Branch labels denote relative
     -- times; node labels store relative node height and names.
     _timeTree :: TimeTree,
-    -- | Rate norm.
-    _rateNorm :: Double,
-    -- | Rate variance.
+    -- | The mean of the absolute rates.
+    _rateMean :: Double,
+    -- | The variance of the logarithm of the relative rates.
     _rateVariance :: Double,
-    -- | Rate tree. Branch labels denote rates; node labels store names.
+    -- | Relative rate tree. Branch labels denote relative rates with mean 1.0;
+    -- node labels store names.
     _rateTree :: RateTree
   }
   deriving (Generic)
@@ -146,7 +142,7 @@ initWith t =
       _timeDeathRate = 1.0,
       _timeHeight = 1200.0,
       _timeTree = t',
-      _rateNorm = 1200.0,
+      _rateMean = 1 / 1200.0,
       _rateVariance = 4,
       _rateTree = first (const 1.0) t
     }
@@ -159,21 +155,21 @@ initWith t =
 
 -- | Prior distribution.
 priorDistribution :: [Calibration] -> [Constraint] -> I -> Log Double
-priorDistribution cb cs (I l m h t n v r) =
+priorDistribution cb cs (I l m h t mu v r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
       exponential 1 m,
-      -- No explicit prior on the height of the time tree but see the
-      -- calibrations below.
+      -- No explicit prior on the height of the time tree. However, calibrations
+      -- are used (see below).
       --
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
-      -- Gamma prior on the rate norm.
-      gamma (1200/5) 5 n,
-      -- Strong gamma prior on the rate variance.
+      -- Gamma prior on the rate mean. The mean is k*theta=1/1200.
+      gamma (recip $ 1200 * 5) 5 mu,
+      -- Strong gamma prior on the rate variance. The mean is k*theta=0.01.
       gamma 1 0.01 v,
-      -- Uncorrelated Gamma prior on the branch-wise rates.
+      -- Uncorrelated log normal prior on the branch-wise rates.
       uncorrelatedLogNormalNoStem 1.0 v r
     ]
       ++ calibrations cb h t
@@ -215,9 +211,9 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
   where
     times = getBranches (x ^. timeTree)
     rates = getBranches (x ^. rateTree)
-    tHeight = x ^. timeHeight
-    rNorm = x ^. rateNorm
-    distances = V.map (* (rNorm / tHeight)) $ sumFirstTwo $ V.zipWith (*) times rates
+    tH = x ^. timeHeight
+    rMu = x ^. rateMean
+    distances = V.map (* (tH * rMu)) $ sumFirstTwo $ V.zipWith (*) times rates
 
 -- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
@@ -261,11 +257,12 @@ proposalsRateTree t =
            not (null $ forest $ current $ goPathUnsafe pth $ fromTree t)
        ]
 
+-- Create an accessor for a contrary proposal, see below.
 timeHeightRateNormPair :: Lens' I (Double, Double)
 timeHeightRateNormPair =
   lens
-    (\x -> (x ^. timeHeight, x ^. rateNorm))
-    (\x (h, n) -> x {_timeHeight = h, _rateNorm = n})
+    (\x -> (x ^. timeHeight, x ^. rateMean))
+    (\x (h, mu) -> x {_timeHeight = h, _rateMean = mu})
 
 -- | The complete cycle includes proposals for the other parameters.
 proposals :: Show a => Tree e a -> Cycle I
@@ -274,22 +271,24 @@ proposals t =
     [ timeBirthRate @~ scaleUnbiased 10 "Time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "Time death rate" 10 True,
       timeHeight @~ scaleUnbiased 3000 "Time height" 10 True,
-      rateNorm @~ scaleUnbiased 10 "Rate norm" 10 True,
+      rateMean @~ scaleUnbiased 10 "Rate mean" 10 True,
       rateVariance @~ scaleUnbiased 10 "Rate variance" 10 True,
-      timeHeightRateNormPair @~ scaleContrarily 10 0.1 "Time height, rate norm" 10 True
+      timeHeightRateNormPair @~ scaleContrarily 10 0.1 "Time height, rate mean" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
 
+-- Monitor the average rate. Useful, because it should not deviate from 1.0 too
+-- much.
 getRateAverage :: I -> Double
-getRateAverage x = (/353) $ totalBranchLength $ x ^. rateTree
+getRateAverage x = (/ 353) $ totalBranchLength $ x ^. rateTree
 
 monParams :: [MonitorParameter I]
 monParams =
   [ _timeBirthRate >$< monitorDouble "TimeBirthRate",
     _timeDeathRate >$< monitorDouble "TimeDeathRate",
     _timeHeight >$< monitorDouble "TimeHeight",
-    _rateNorm >$< monitorDouble "RateNorm",
+    _rateMean >$< monitorDouble "RateMean",
     _rateVariance >$< monitorDouble "RateVariance",
     getRateAverage >$< monitorDouble "RateAverage"
   ]
