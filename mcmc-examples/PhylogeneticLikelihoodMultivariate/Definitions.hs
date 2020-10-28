@@ -171,10 +171,10 @@ priorDistribution cb cs (I l m h t n k r) =
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
       -- Uniform prior on the rate normalization constant.
-      uniform 1 1000 n,
+      exponential 1 n,
       -- Exponential prior on the reciprocal shape such that higher shape values
       -- are favored.
-      exponential 10 k1,
+      exponential 100 k1,
       -- Uncorrelated Gamma prior on the branch-wise rates.
       uncorrelatedGammaNoStem k k1 r
     ]
