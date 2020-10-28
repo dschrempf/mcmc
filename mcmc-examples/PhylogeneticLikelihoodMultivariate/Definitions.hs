@@ -174,7 +174,7 @@ priorDistribution cb cs (I l m h t n k r) =
       exponential 0.1 n,
       -- Exponential prior on the reciprocal shape such that higher shape values
       -- are favored.
-      exponential 10 k1,
+      exponential 1000 k1,
       -- Uncorrelated Gamma prior on the branch-wise rates.
       uncorrelatedGammaNoStem k k1 r
     ]
