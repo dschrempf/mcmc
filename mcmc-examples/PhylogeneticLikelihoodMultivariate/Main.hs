@@ -102,22 +102,22 @@ getPosteriorMatrixRooted = L.fromRows . map (sumFirstTwo . getBranches)
 getPosteriorMatrix :: [Tree Double a] -> L.Matrix Double
 getPosteriorMatrix = L.fromRows . map (V.fromList . branches)
 
--- Only use this if absolutely necessary...
-beautifyVariance :: Double -> Double -> Double
-beautifyVariance _ x
-  | x < 0 = error "beautifyVariance: Variance is negative."
-  | x < eps = eps
-  | otherwise = x
-  where
-    eps = 1e-4
+-- -- Only use this if absolutely necessary...
+-- beautifyVariance :: Double -> Double -> Double
+-- beautifyVariance _ x
+--   | x < 0 = error "beautifyVariance: Variance is negative."
+--   | x < eps = eps
+--   | otherwise = x
+--   where
+--     eps = 1e-4
 
--- Analyze the covariance matrix and change problematic values. This step is
--- awful but necessary when there are not enough samples from the posterior.
-beautifyCovarianceMatrix :: L.Matrix Double -> L.Matrix Double
-beautifyCovarianceMatrix m =
-  L.accum m beautifyVariance [((i, i), 0) | i <- [0 .. nRows - 1]]
-  where
-    nRows = L.rows m
+-- -- Analyze the covariance matrix and change problematic values. This step is
+-- -- awful but necessary when there are not enough samples from the posterior.
+-- beautifyCovarianceMatrix :: L.Matrix Double -> L.Matrix Double
+-- beautifyCovarianceMatrix m =
+--   L.accum m beautifyVariance [((i, i), 0) | i <- [0 .. nRows - 1]]
+--   where
+--     nRows = L.rows m
 
 -- Read trees and extract branch lengths.
 prepare :: IO ()
@@ -163,11 +163,14 @@ prepare = do
   putStrLn $ "Minimum variance: " ++ show (L.minElement variancesBare)
   putStrLn $ "Maximum variance: " ++ show (L.maxElement variancesBare)
 
-  putStrLn "Beautify covariance matrix. Ouch!"
-  let sigma = beautifyCovarianceMatrix sigmaBare
-      variances = L.takeDiag sigma
-  putStrLn $ "Minimum variance: " ++ show (L.minElement variances)
-  putStrLn $ "Maximum variance: " ++ show (L.maxElement variances)
+  -- putStrLn "Beautify covariance matrix. Ouch!"
+  -- let sigma = beautifyCovarianceMatrix sigmaBare
+  --     variances = L.takeDiag sigma
+  -- putStrLn $ "Minimum variance: " ++ show (L.minElement variances)
+  -- putStrLn $ "Maximum variance: " ++ show (L.maxElement variances)
+
+  putStrLn "Do no beautify covariance matrix. That's the way to go."
+  let sigma = sigmaBare
 
   putStrLn "Prepare the covariance matrix for the likelihood calculation."
   let (sigmaInv, (logSigmaDet, _)) = L.invlndet sigma
