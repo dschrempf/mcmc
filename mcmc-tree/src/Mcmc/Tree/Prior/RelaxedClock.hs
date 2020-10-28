@@ -82,9 +82,9 @@ uncorrelatedGammaNoStem k th = branchesWithNoStem (gamma k th)
 
 -- A variant of the log normal distribution. See Yang 2006, equation (7.23).
 logNormal :: Double -> Double -> Double -> Log Double
-logNormal mu var r = Exp $ negate t1 - e
+logNormal mu var r = Exp $ negate t - e
   where
-    t1 = m_ln_sqrt_2_pi + log (r * sqrt var)
+    t = m_ln_sqrt_2_pi + log (r * sqrt var)
     a = recip $ 2 * var
     b = log (r / mu) + 0.5 * var
     e = a * (b ** 2)

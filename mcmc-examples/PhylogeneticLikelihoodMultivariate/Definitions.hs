@@ -108,10 +108,9 @@ data I = I
     _timeTree :: TimeTree,
     -- | Rate mean.
     _rateMean :: Double,
-    -- | Shape and inverse scale of the gamma distribution prior of the rates.
-    _rateShape :: Double,
-    -- | Rate tree. Branch labels denote relative rates; node labels store
-    -- names.
+    -- | Rate variance.
+    _rateVariance :: Double,
+    -- | Rate tree. Branch labels denote rates; node labels store names.
     _rateTree :: RateTree
   }
   deriving (Generic)
@@ -148,7 +147,7 @@ initWith t =
       _timeHeight = 1000.0,
       _timeTree = t',
       _rateMean = 1000.0,
-      _rateShape = 4.0,
+      _rateVariance = 4.0,
       _rateTree = first (const 1.0) t
     }
   where
@@ -160,7 +159,7 @@ initWith t =
 
 -- | Prior distribution.
 priorDistribution :: [Calibration] -> [Constraint] -> I -> Log Double
-priorDistribution cb cs (I l m h t n k r) =
+priorDistribution cb cs (I l m h t n v r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
@@ -170,18 +169,15 @@ priorDistribution cb cs (I l m h t n k r) =
       --
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
-      -- Gamma prior on the rate mean constant.
+      -- Gamma prior on the rate mean.
       gamma 100 10 n,
-      -- Exponential prior on the reciprocal shape such that higher shape values
-      -- are favored.
-      exponential 10 k1,
+      -- Gamma prior on the rate variance.
+      gamma 10 0.01 v,
       -- Uncorrelated Gamma prior on the branch-wise rates.
-      uncorrelatedGammaNoStem k k1 r
+      uncorrelatedLogNormalNoStem n v r
     ]
       ++ calibrations cb h t
       ++ constraints cs t
-  where
-    k1 = 1 / k
 
 -- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
@@ -279,7 +275,7 @@ proposals t =
       timeDeathRate @~ scaleUnbiased 10 "Time death rate" 10 True,
       timeHeight @~ scaleUnbiased 3000 "Time height" 10 True,
       rateMean @~ scaleUnbiased 10 "Rate mean" 10 True,
-      rateShape @~ scaleUnbiased 10 "Rate shape" 10 True,
+      rateVariance @~ scaleUnbiased 10 "Rate variance" 10 True,
       timeHeightRateMeanPair @~ scaleContrarily 10 0.1 "Time height, rate mean" 10 True
     ]
       ++ proposalsTimeTree t
@@ -294,7 +290,7 @@ monParams =
     _timeDeathRate >$< monitorDouble "TimeDeathRate",
     _timeHeight >$< monitorDouble "TimeHeight",
     _rateMean >$< monitorDouble "RateMean",
-    _rateShape >$< monitorDouble "RateShape",
+    _rateVariance >$< monitorDouble "RateVariance",
     getRateTreeLength >$< monitorDouble "RateLength"
   ]
 
