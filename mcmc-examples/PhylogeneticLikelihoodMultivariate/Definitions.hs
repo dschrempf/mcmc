@@ -146,7 +146,7 @@ initWith t =
       _timeDeathRate = 1.0,
       _timeHeight = 1200.0,
       _timeTree = t',
-      _rateNorm = 1000.0,
+      _rateNorm = 1200.0,
       _rateVariance = 4,
       _rateTree = first (const 1.0) t
     }
@@ -159,7 +159,7 @@ initWith t =
 
 -- | Prior distribution.
 priorDistribution :: [Calibration] -> [Constraint] -> I -> Log Double
-priorDistribution cb cs (I l m h t n k r) =
+priorDistribution cb cs (I l m h t n v r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
@@ -170,11 +170,11 @@ priorDistribution cb cs (I l m h t n k r) =
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
       -- Gamma prior on the rate norm.
-      gamma 100 10 n,
+      gamma (1200/5) 5 n,
       -- Strong gamma prior on the rate variance.
-      gamma 4 0.01 k,
+      gamma 1 0.01 v,
       -- Uncorrelated Gamma prior on the branch-wise rates.
-      uncorrelatedLogNormalNoStem 1.0 k r
+      uncorrelatedLogNormalNoStem 1.0 v r
     ]
       ++ calibrations cb h t
       ++ constraints cs t
