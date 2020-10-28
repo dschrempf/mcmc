@@ -106,8 +106,8 @@ data I = I
     -- | Normalized time tree of height 1.0. Branch labels denote relative
     -- times; node labels store relative node height and names.
     _timeTree :: TimeTree,
-    -- | Rate mean.
-    _rateMean :: Double,
+    -- | Rate norm.
+    _rateNorm :: Double,
     -- | Rate variance.
     _rateVariance :: Double,
     -- | Rate tree. Branch labels denote rates; node labels store names.
@@ -146,9 +146,9 @@ initWith t =
       _timeDeathRate = 1.0,
       _timeHeight = 1200.0,
       _timeTree = t',
-      _rateMean = 1000.0,
+      _rateNorm = 1000.0,
       _rateVariance = 4,
-      _rateTree = first (const 1000.0) t
+      _rateTree = first (const 1.0) t
     }
   where
     t' = toTimeTree $ normalizeHeight $ makeUltrametric t
@@ -169,12 +169,12 @@ priorDistribution cb cs (I l m h t n k r) =
       --
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
-      -- Gamma prior on the rate mean.
-      gamma 100 10 n,
-      -- -- Gamma prior on the rate variance.
-      gamma 10 0.01 k,
+      -- Weak gamma prior on the rate norm.
+      gamma 10 100 n,
+      -- Strong gamma prior on the rate variance.
+      gamma 4 0.01 k,
       -- Uncorrelated Gamma prior on the branch-wise rates.
-      uncorrelatedLogNormalNoStem n k r
+      uncorrelatedLogNormalNoStem 1.0 k r
     ]
       ++ calibrations cb h t
       ++ constraints cs t
@@ -216,8 +216,8 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
     times = getBranches (x ^. timeTree)
     rates = getBranches (x ^. rateTree)
     tHeight = x ^. timeHeight
-    -- rMean = x ^. rateMean
-    distances = V.map (/ tHeight) $ sumFirstTwo $ V.zipWith (*) times rates
+    rNorm = x ^. rateNorm
+    distances = V.map (* (rNorm / tHeight)) $ sumFirstTwo $ V.zipWith (*) times rates
 
 -- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
@@ -261,11 +261,11 @@ proposalsRateTree t =
            not (null $ forest $ current $ goPathUnsafe pth $ fromTree t)
        ]
 
-timeHeightRateMeanPair :: Lens' I (Double, Double)
-timeHeightRateMeanPair =
+timeHeightRateNormPair :: Lens' I (Double, Double)
+timeHeightRateNormPair =
   lens
-    (\x -> (x ^. timeHeight, x ^. rateMean))
-    (\x (h, n) -> x {_timeHeight = h, _rateMean = n})
+    (\x -> (x ^. timeHeight, x ^. rateNorm))
+    (\x (h, n) -> x {_timeHeight = h, _rateNorm = n})
 
 -- | The complete cycle includes proposals for the other parameters.
 proposals :: Show a => Tree e a -> Cycle I
@@ -274,9 +274,9 @@ proposals t =
     [ timeBirthRate @~ scaleUnbiased 10 "Time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "Time death rate" 10 True,
       timeHeight @~ scaleUnbiased 3000 "Time height" 10 True,
-      rateMean @~ scaleUnbiased 10 "Rate mean" 10 True,
-      rateVariance @~ scaleUnbiased 10 "Rate variance" 10 True
-      -- timeHeightRateMeanPair @~ scaleContrarily 10 0.1 "Time height, rate mean" 10 True
+      rateNorm @~ scaleUnbiased 10 "Rate norm" 10 True,
+      rateVariance @~ scaleUnbiased 10 "Rate variance" 10 True,
+      timeHeightRateNormPair @~ scaleContrarily 10 0.1 "Time height, rate norm" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
@@ -289,7 +289,7 @@ monParams =
   [ _timeBirthRate >$< monitorDouble "TimeBirthRate",
     _timeDeathRate >$< monitorDouble "TimeDeathRate",
     _timeHeight >$< monitorDouble "TimeHeight",
-    _rateMean >$< monitorDouble "RateMean",
+    _rateNorm >$< monitorDouble "RateNorm",
     _rateVariance >$< monitorDouble "RateVariance",
     getRateAverage >$< monitorDouble "RateAverage"
   ]
@@ -356,4 +356,4 @@ nAutoTune = Just 100
 -- | Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
 -- nIterations = 10
-nIterations = 10000
+nIterations = 40000
