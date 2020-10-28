@@ -108,8 +108,8 @@ data I = I
     _timeTree :: TimeTree,
     -- | Rate mean.
     _rateMean :: Double,
-    -- | Rate variance.
-    _rateVariance :: Double,
+    -- | Rate shape.
+    _rateShape :: Double,
     -- | Rate tree. Branch labels denote rates; node labels store names.
     _rateTree :: RateTree
   }
@@ -146,8 +146,8 @@ initWith t =
       _timeDeathRate = 1.0,
       _timeHeight = 1000.0,
       _timeTree = t',
-      _rateMean = 1.0,
-      _rateVariance = 0.1,
+      _rateMean = 1000.0,
+      _rateShape = 10,
       _rateTree = first (const 1.0) t
     }
   where
@@ -159,7 +159,7 @@ initWith t =
 
 -- | Prior distribution.
 priorDistribution :: [Calibration] -> [Constraint] -> I -> Log Double
-priorDistribution cb cs (I l m h t n v r) =
+priorDistribution cb cs (I l m h t n k r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
@@ -172,12 +172,13 @@ priorDistribution cb cs (I l m h t n v r) =
       -- Gamma prior on the rate mean.
       exponential 0.1 n,
       -- -- Gamma prior on the rate variance.
-      gamma 10 0.1 v,
+      exponential 100 k1,
       -- Uncorrelated Gamma prior on the branch-wise rates.
-      uncorrelatedGammaNoStem 3 (1/3) r
+      uncorrelatedGammaNoStem k k1 r
     ]
       ++ calibrations cb h t
       ++ constraints cs t
+  where k1 = recip k
 
 -- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
@@ -275,7 +276,7 @@ proposals t =
       timeDeathRate @~ scaleUnbiased 10 "Time death rate" 10 True,
       timeHeight @~ scaleUnbiased 3000 "Time height" 10 True,
       rateMean @~ scaleUnbiased 10 "Rate mean" 10 True,
-      rateVariance @~ scaleUnbiased 10 "Rate variance" 10 True,
+      rateShape @~ scaleUnbiased 10 "Rate shape" 10 True,
       timeHeightRateMeanPair @~ scaleContrarily 10 0.1 "Time height, rate mean" 10 True
     ]
       ++ proposalsTimeTree t
@@ -290,7 +291,7 @@ monParams =
     _timeDeathRate >$< monitorDouble "TimeDeathRate",
     _timeHeight >$< monitorDouble "TimeHeight",
     _rateMean >$< monitorDouble "RateMean",
-    _rateVariance >$< monitorDouble "RateVariance",
+    _rateShape >$< monitorDouble "RateShape",
     getRateTreeLength >$< monitorDouble "RateLength"
   ]
 
