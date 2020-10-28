@@ -147,7 +147,7 @@ initWith t =
       _timeHeight = 1000.0,
       _timeTree = t',
       _rateMean = 1000.0,
-      _rateVariance = 4.0,
+      _rateVariance = 0.1,
       _rateTree = first (const 1.0) t
     }
   where
@@ -216,8 +216,7 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
     times = getBranches (x ^. timeTree)
     rates = getBranches (x ^. rateTree)
     tHeight = x ^. timeHeight
-    rMean = x ^. rateMean
-    distances = V.map (* (rMean / tHeight)) $ sumFirstTwo $ V.zipWith (*) times rates
+    distances = V.map (/ tHeight) $ sumFirstTwo $ V.zipWith (*) times rates
 
 -- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
