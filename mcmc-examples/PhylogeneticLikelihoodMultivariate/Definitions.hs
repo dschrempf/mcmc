@@ -169,8 +169,8 @@ priorDistribution cb cs (I l m h t n k r) =
       --
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
-      -- Weak gamma prior on the rate norm.
-      gamma 10 100 n,
+      -- Gamma prior on the rate norm.
+      gamma 100 10 n,
       -- Strong gamma prior on the rate variance.
       gamma 4 0.01 k,
       -- Uncorrelated Gamma prior on the branch-wise rates.
