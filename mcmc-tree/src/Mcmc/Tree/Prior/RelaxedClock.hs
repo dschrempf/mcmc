@@ -13,6 +13,8 @@ module Mcmc.Tree.Prior.RelaxedClock
   ( gammaDirichlet,
     uncorrelatedGamma,
     uncorrelatedGammaNoStem,
+    uncorrelatedLogNormal,
+    uncorrelatedLogNormalNoStem,
     whiteNoise,
     whiteNoiseNoStem,
   )
@@ -23,6 +25,7 @@ import ELynx.Tree
 import Mcmc.Prior
 import Mcmc.Tree.Prior.Branch
 import Numeric.Log hiding (sum)
+import Numeric.MathFunctions.Constants
 import Statistics.Distribution.Dirichlet
 
 -- | Gamma Dirichlet prior.
@@ -60,8 +63,9 @@ import Statistics.Distribution.Dirichlet
 -- - The number of partitions is smaller than two.
 gammaDirichlet :: Double -> Double -> Double -> Double -> V.Vector Double -> Log Double
 gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmetric ddSym xs
-  where muPrior = gamma alphaMu betaMu muMean
-        ddSym = either error id $ dirichletDistributionSymmetric (V.length xs) alpha
+  where
+    muPrior = gamma alphaMu betaMu muMean
+    ddSym = either error id $ dirichletDistributionSymmetric (V.length xs) alpha
 
 -- | Uncorrelated gamma model.
 --
@@ -75,6 +79,28 @@ uncorrelatedGamma k th = branchesWith (gamma k th)
 -- | See 'uncorrelatedGamma' but ignore the stem.
 uncorrelatedGammaNoStem :: Double -> Double -> Tree Double a -> Log Double
 uncorrelatedGammaNoStem k th = branchesWithNoStem (gamma k th)
+
+-- A variant of the log normal distribution. See Yang 2006, equation (7.23).
+logNormal :: Double -> Double -> Double -> Log Double
+logNormal mu var r = Exp $ negate t1 - e
+  where
+    t1 = m_ln_sqrt_2_pi + log (r * sqrt var)
+    a = recip $ 2 * var
+    b = log (r / mu) + 0.5 * var
+    e = a * (b ** 2)
+
+-- | Uncorrelated log normal model.
+--
+-- The rates are distributed according to a log normal distribution with given
+-- mean and variance.
+--
+-- See Computational Molecular Evolution (Yang, 2006), Section 7.4.
+uncorrelatedLogNormal :: Double -> Double -> Tree Double a -> Log Double
+uncorrelatedLogNormal mu var = branchesWith (logNormal mu var)
+
+-- | See 'uncorrelatedLogNormal' but ignore the stem.
+uncorrelatedLogNormalNoStem :: Double -> Double -> Tree Double a -> Log Double
+uncorrelatedLogNormalNoStem mu var = branchesWithNoStem (logNormal mu var)
 
 -- | White noise model.
 --
