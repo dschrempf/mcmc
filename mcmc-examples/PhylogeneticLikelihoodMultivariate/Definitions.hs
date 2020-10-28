@@ -106,8 +106,8 @@ data I = I
     -- | Normalized time tree of height 1.0. Branch labels denote relative
     -- times; node labels store relative node height and names.
     _timeTree :: TimeTree,
-    -- | Rate normalization constant.
-    _rateNorm :: Double,
+    -- | Rate mean.
+    _rateMean :: Double,
     -- | Shape and inverse scale of the gamma distribution prior of the rates.
     _rateShape :: Double,
     -- | Rate tree. Branch labels denote relative rates; node labels store
@@ -147,7 +147,7 @@ initWith t =
       _timeDeathRate = 1.0,
       _timeHeight = 1200.0,
       _timeTree = t',
-      _rateNorm = 1200.0,
+      _rateMean = 1200.0,
       _rateShape = 4.0,
       _rateTree = first (const 1.0) t
     }
@@ -170,11 +170,11 @@ priorDistribution cb cs (I l m h t n k r) =
       --
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
-      -- Weak exponential prior on the rate normalization constant.
-      exponential 0.1 n,
+      -- Gamma prior on the rate mean constant.
+      gamma 100 10 n,
       -- Exponential prior on the reciprocal shape such that higher shape values
       -- are favored.
-      exponential 1000 k1,
+      exponential 10 k1,
       -- Uncorrelated Gamma prior on the branch-wise rates.
       uncorrelatedGammaNoStem k k1 r
     ]
@@ -220,8 +220,8 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
     times = getBranches (x ^. timeTree)
     rates = getBranches (x ^. rateTree)
     tHeight = x ^. timeHeight
-    rNorm = x ^. rateNorm
-    distances = V.map (* (rNorm / tHeight)) $ sumFirstTwo $ V.zipWith (*) times rates
+    rMean = x ^. rateMean
+    distances = V.map (* (rMean / tHeight)) $ sumFirstTwo $ V.zipWith (*) times rates
 
 -- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
@@ -265,11 +265,11 @@ proposalsRateTree t =
            not (null $ forest $ current $ goPathUnsafe pth $ fromTree t)
        ]
 
-heightNormPair :: Lens' I (Double, Double)
-heightNormPair =
+timeHeightRateMeanPair :: Lens' I (Double, Double)
+timeHeightRateMeanPair =
   lens
-    (\x -> (x ^. timeHeight, x ^. rateNorm))
-    (\x (h, n) -> x {_timeHeight = h, _rateNorm = n})
+    (\x -> (x ^. timeHeight, x ^. rateMean))
+    (\x (h, n) -> x {_timeHeight = h, _rateMean = n})
 
 -- | The complete cycle includes proposals for the other parameters.
 proposals :: Show a => Tree e a -> Cycle I
@@ -278,9 +278,9 @@ proposals t =
     [ timeBirthRate @~ scaleUnbiased 10 "Time birth rate" 10 True,
       timeDeathRate @~ scaleUnbiased 10 "Time death rate" 10 True,
       timeHeight @~ scaleUnbiased 3000 "Time height" 10 True,
-      rateNorm @~ scaleUnbiased 10 "Rate norm" 10 True,
+      rateMean @~ scaleUnbiased 10 "Rate mean" 10 True,
       rateShape @~ scaleUnbiased 10 "Rate shape" 10 True,
-      heightNormPair @~ scaleContrarily 10 0.1 "Time height, rate norm" 10 True
+      timeHeightRateMeanPair @~ scaleContrarily 10 0.1 "Time height, rate mean" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
@@ -293,7 +293,7 @@ monParams =
   [ _timeBirthRate >$< monitorDouble "TimeBirthRate",
     _timeDeathRate >$< monitorDouble "TimeDeathRate",
     _timeHeight >$< monitorDouble "TimeHeight",
-    _rateNorm >$< monitorDouble "RateNorm",
+    _rateMean >$< monitorDouble "RateMean",
     _rateShape >$< monitorDouble "RateShape",
     getRateTreeLength >$< monitorDouble "RateLength"
   ]
