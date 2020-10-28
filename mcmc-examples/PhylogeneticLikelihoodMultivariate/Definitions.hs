@@ -140,9 +140,9 @@ initWith t =
   I
     { _timeBirthRate = 1.0,
       _timeDeathRate = 1.0,
-      _timeHeight = 1200.0,
+      _timeHeight = 1000.0,
       _timeTree = t',
-      _rateMean = 1 / 1200.0,
+      _rateMean = 1 / 1000.0,
       _rateVariance = 4,
       _rateTree = first (const 1.0) t
     }
