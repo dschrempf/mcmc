@@ -108,8 +108,8 @@ data I = I
     _timeTree :: TimeTree,
     -- | Rate mean.
     _rateMean :: Double,
-    -- | Rate shape.
-    _rateShape :: Double,
+    -- | Rate variance.
+    _rateVariance :: Double,
     -- | Rate tree. Branch labels denote rates; node labels store names.
     _rateTree :: RateTree
   }
@@ -144,11 +144,11 @@ initWith t =
   I
     { _timeBirthRate = 1.0,
       _timeDeathRate = 1.0,
-      _timeHeight = 1000.0,
+      _timeHeight = 1200.0,
       _timeTree = t',
       _rateMean = 1000.0,
-      _rateShape = 10,
-      _rateTree = first (const 1.0) t
+      _rateVariance = 4,
+      _rateTree = first (const 1000.0) t
     }
   where
     t' = toTimeTree $ normalizeHeight $ makeUltrametric t
@@ -170,15 +170,14 @@ priorDistribution cb cs (I l m h t n k r) =
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
       -- Gamma prior on the rate mean.
-      exponential 0.1 n,
+      gamma 100 10 n,
       -- -- Gamma prior on the rate variance.
-      exponential 100 k1,
+      gamma 10 0.01 k,
       -- Uncorrelated Gamma prior on the branch-wise rates.
-      uncorrelatedGammaNoStem k k1 r
+      uncorrelatedLogNormalNoStem n k r
     ]
       ++ calibrations cb h t
       ++ constraints cs t
-  where k1 = recip k
 
 -- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution.
@@ -217,8 +216,8 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
     times = getBranches (x ^. timeTree)
     rates = getBranches (x ^. rateTree)
     tHeight = x ^. timeHeight
-    rMean = x ^. rateMean
-    distances = V.map (* (rMean / tHeight)) $ sumFirstTwo $ V.zipWith (*) times rates
+    -- rMean = x ^. rateMean
+    distances = V.map (/ tHeight) $ sumFirstTwo $ V.zipWith (*) times rates
 
 -- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
@@ -276,14 +275,14 @@ proposals t =
       timeDeathRate @~ scaleUnbiased 10 "Time death rate" 10 True,
       timeHeight @~ scaleUnbiased 3000 "Time height" 10 True,
       rateMean @~ scaleUnbiased 10 "Rate mean" 10 True,
-      rateShape @~ scaleUnbiased 10 "Rate shape" 10 True,
-      timeHeightRateMeanPair @~ scaleContrarily 10 0.1 "Time height, rate mean" 10 True
+      rateVariance @~ scaleUnbiased 10 "Rate variance" 10 True
+      -- timeHeightRateMeanPair @~ scaleContrarily 10 0.1 "Time height, rate mean" 10 True
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
 
-getRateTreeLength :: I -> Double
-getRateTreeLength x = totalBranchLength $ x ^. rateTree
+getRateAverage :: I -> Double
+getRateAverage x = (/353) $ totalBranchLength $ x ^. rateTree
 
 monParams :: [MonitorParameter I]
 monParams =
@@ -291,8 +290,8 @@ monParams =
     _timeDeathRate >$< monitorDouble "TimeDeathRate",
     _timeHeight >$< monitorDouble "TimeHeight",
     _rateMean >$< monitorDouble "RateMean",
-    _rateShape >$< monitorDouble "RateShape",
-    getRateTreeLength >$< monitorDouble "RateLength"
+    _rateVariance >$< monitorDouble "RateVariance",
+    getRateAverage >$< monitorDouble "RateAverage"
   ]
 
 monStdOut :: MonitorStdOut I
