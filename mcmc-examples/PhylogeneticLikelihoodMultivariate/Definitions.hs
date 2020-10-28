@@ -170,8 +170,8 @@ priorDistribution cb cs (I l m h t n k r) =
       --
       -- Birth and death process prior on the time tree.
       birthDeath l m t,
-      -- Uniform prior on the rate normalization constant.
-      uniform 1 2000 n,
+      -- Weak exponential prior on the rate normalization constant.
+      exponential 0.1 n,
       -- Exponential prior on the reciprocal shape such that higher shape values
       -- are favored.
       exponential 10 k1,
