@@ -93,7 +93,8 @@ slideBactrian ::
   Bool ->
   Proposal Double
 slideBactrian m s = createProposal description (bactrianAdditiveSimple m s)
-  where description = "Slide Bactrian; spike: " ++ show m ++ ", sd: " ++ show s
+  where
+    description = "Slide Bactrian; spike: " ++ show m ++ ", sd: " ++ show s
 
 -- We have:
 -- x  (1+dx ) = x'
@@ -111,10 +112,12 @@ bactrianMult ::
   GenIO ->
   IO (Double, Log Double)
 bactrianMult m s x g = do
-  dx <- genBactrian m s g
-  let qXY = logDensityBactrian m s dx
-      qYX = logDensityBactrian m s (fInv dx)
-  return (x * (1 + dx), qYX / qXY)
+  du <- genBactrian m s g
+  let qXY = logDensityBactrian m s du
+      qYX = logDensityBactrian m s (fInv du)
+      u = 1.0 + du
+      jac = Exp $ log $ recip u
+  return (x * u, qYX / qXY * jac)
 
 bactrianMultSimple :: Double -> Double -> Double -> ProposalSimple Double
 bactrianMultSimple m s t
@@ -138,4 +141,5 @@ scaleBactrian ::
   Bool ->
   Proposal Double
 scaleBactrian m s = createProposal description (bactrianMultSimple m s)
-  where description = "Scale Bactrian; spike: " ++ show m <> ", sd: " <> show s
+  where
+    description = "Scale Bactrian; spike: " ++ show m <> ", sd: " <> show s

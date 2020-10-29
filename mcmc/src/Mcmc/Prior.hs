@@ -13,7 +13,9 @@
 -- Creation date: Thu Jul 23 13:26:14 2020.
 module Mcmc.Prior
   ( -- * Continuous priors
+    largerThan,
     positive,
+    lowerThan,
     negative,
     uniform,
     normal,
@@ -35,17 +37,25 @@ import qualified Statistics.Distribution.Exponential as S
 import qualified Statistics.Distribution.Gamma as S
 import qualified Statistics.Distribution.Normal as S
 
--- | Improper uniform prior; larger than 0.
-positive :: Double -> Log Double
-positive x
-  | x <= 0 = 0
+-- | Improper uniform prior; strictly larger than a given value.
+largerThan :: Double -> Double -> Log Double
+largerThan a x
+  | x <= a = 0
   | otherwise = 1
 
--- | Improper uniform prior; lower than 0.
-negative :: Double -> Log Double
-negative x
-  | x >= 0 = 0
+-- | Improper uniform prior; strictly larger than zero.
+positive :: Double -> Log Double
+positive = largerThan 0
+
+-- | Improper uniform prior; strictly lower than a given value.
+lowerThan :: Double -> Double -> Log Double
+lowerThan b x
+  | x >= b = 0
   | otherwise = 1
+
+-- | Improper uniform prior; strictly lower than zero.
+negative :: Double -> Log Double
+negative = lowerThan 0
 
 -- | Uniform prior on [a, b].
 uniform ::

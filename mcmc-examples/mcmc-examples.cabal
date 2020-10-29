@@ -115,3 +115,22 @@ executable plh-multivariate
     , vector
     , zippers
   default-language: Haskell2010
+
+executable test
+  main-is: Test.hs
+  other-modules:
+      Paths_mcmc_examples
+  autogen-modules:
+      Paths_mcmc_examples
+  hs-source-dirs:
+      Test
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , lens
+    , log-domain
+    , mcmc
+    , mwc-random
+    , statistics
+  default-language: Haskell2010

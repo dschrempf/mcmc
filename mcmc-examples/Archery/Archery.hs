@@ -58,9 +58,9 @@ lh xs p
 -- slide the precision of the archer.
 proposals :: Cycle Precision
 proposals = fromList [slideUniformSymmetric 1.0 "Mu" 1 True]
--- proposals = fromList [scale 1.1 "mu; scale" 1 1 True]
--- proposals = fromList [slide 0.08 0.8 "mu; slide, biased" 1 True]
--- proposals = fromList [scaleBactrian 0.5 1.0 "mu; scale bactrian" 1 True]
+-- proposals = fromList [scaleUnbiased 1.6 "mu; scale" 1 True]
+-- proposals = fromList [slide 0.06 0.8 "mu; slide, biased" 1 True]
+-- proposals = fromList [scaleBactrian 0.3 0.3 "mu; scale bactrian" 1 True]
 
 -- Monitor the precision of the archer.
 monMu :: MonitorParameter Precision

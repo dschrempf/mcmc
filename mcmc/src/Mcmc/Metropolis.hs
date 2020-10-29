@@ -47,7 +47,7 @@ import Prelude hiding (cycle)
 -- proposal when either fY or q are zero (Chapter 1). Since I trust the author
 -- of Chapter 1 (Charles Geyer) I choose to follow option (b).
 mhRatio :: Log Double -> Log Double -> Log Double -> Log Double
--- q = qYX / qXY
+-- q = qYX / qXY * jXY; see 'ProposalSimple'.
 mhRatio fX fY q = fY * q / fX
 {-# INLINE mhRatio #-}
 

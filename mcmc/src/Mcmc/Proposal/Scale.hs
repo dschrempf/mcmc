@@ -18,6 +18,7 @@ module Mcmc.Proposal.Scale
   )
 where
 
+import Numeric.Log
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Statistics.Distribution.Gamma
@@ -25,7 +26,14 @@ import Statistics.Distribution.Gamma
 -- The actual proposal with tuning parameter. The tuning parameter does not
 -- change the mean.
 scaleSimple :: Double -> Double -> Double -> ProposalSimple Double
-scaleSimple k th t = genericContinuous (gammaDistr (k / t) (th * t)) (*) (Just recip)
+scaleSimple k th t =
+  genericContinuous
+    (gammaDistr (k / t) (th * t))
+    (*)
+    (Just recip)
+    (Just jac)
+  where
+    jac _ = Exp . log . recip
 
 -- | Multiplicative proposal with Gamma distributed kernel.
 scale ::
@@ -41,7 +49,8 @@ scale ::
   Bool ->
   Proposal Double
 scale k th = createProposal description (scaleSimple k th)
-  where description = "Scale; shape: " ++ show k ++ ", scale: " ++ show th
+  where
+    description = "Scale; shape: " ++ show k ++ ", scale: " ++ show th
 
 -- | Multiplicative proposal with Gamma distributed kernel.
 --
@@ -58,13 +67,23 @@ scaleUnbiased ::
   Bool ->
   Proposal Double
 scaleUnbiased k = createProposal description (scaleSimple k (1 / k))
-  where description = "Scale unbiased; shape: " ++ show k
-
-contra :: (Double, Double) -> Double -> (Double, Double)
-contra (x, y) z = (x * z, y / z)
+  where
+    description = "Scale unbiased; shape: " ++ show k
 
 scaleContrarilySimple :: Double -> Double -> Double -> ProposalSimple (Double, Double)
-scaleContrarilySimple k th t = genericContinuous (gammaDistr (k / t) (th * t)) contra (Just recip)
+scaleContrarilySimple k th t =
+  genericContinuous
+    (gammaDistr (k / t) (th * t))
+    contra
+    (Just recip)
+    (Just jac)
+  where contra (x, y) u = (x * u, y / u)
+        jac _ u = Exp $ log $ recip $ u*u
+
+-- -- Determinant of Jacobian matrix.
+-- contraJac :: (Double, Double) -> Double
+-- contraJac (x, y) = x * y
+
 
 -- | Multiplicative proposal with Gamma distributed kernel.
 --
@@ -83,4 +102,5 @@ scaleContrarily ::
   Bool ->
   Proposal (Double, Double)
 scaleContrarily k th = createProposal description (scaleContrarilySimple k th)
-  where description = "Scale contrariliy; shape: " ++ show k ++ ", scale: " ++ show th
+  where
+    description = "Scale contrariliy; shape: " ++ show k ++ ", scale: " ++ show th

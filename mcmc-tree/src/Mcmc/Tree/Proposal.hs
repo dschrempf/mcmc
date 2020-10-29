@@ -67,6 +67,8 @@ slideBranch s n w t = rootBranch @~ slideSymmetric s n w t
 -- A very specific function that samples a delta value from the truncated normal
 -- distribution with given bounds [a,b] and also computes the required factor of
 -- the Metropolis-Hastings proposal ratio.
+--
+-- NO JACOBIAN IS COMPUTED, because we do not know how the proposal will be used.
 truncatedNormalSample ::
   -- Standard deviation.
   Double ->
@@ -81,20 +83,21 @@ truncatedNormalSample ::
 truncatedNormalSample s t a b g = do
   let s' = t * s
       d = either error id $ truncatedNormalDistr 0 s' a b
-  dx <- genContinuous d g
+  u <- genContinuous d g
   -- Compute Metropolis-Hastings factor.
-  let a' = a - dx
-      b' = b - dx
+  let a' = a - u
+      b' = b - u
       d' = either error id $ truncatedNormalDistr 0 s' a' b'
-      qXY = Exp $ logDensity d dx
-      qYX = Exp $ logDensity d' (- dx)
-  return (dx, qYX / qXY)
+      qXY = Exp $ logDensity d u
+      qYX = Exp $ logDensity d' (- u)
+  -- NO JACOBIAN IS COMPUTED.
+  return (u, qYX / qXY)
 
--- The branch is elongated by dx. So if dx is positive, the node height is
+-- The branch is elongated by u. So if u is positive, the node height is
 -- reduced.
 slideNodeUltrametricF :: HasHeight a => Double -> Tree Double a -> Tree Double a
-slideNodeUltrametricF dx (Node br lb ts) =
-  Node (br + dx) (applyHeight (subtract dx) lb) (map (applyStem (subtract dx)) ts)
+slideNodeUltrametricF u (Node br lb ts) =
+  Node (br + u) (applyHeight (subtract u) lb) (map (applyStem (subtract u)) ts)
 
 slideNodeUltrametricSimple ::
   HasHeight a =>
@@ -108,12 +111,17 @@ slideNodeUltrametricSimple _ _ (Node _ _ []) _ =
 slideNodeUltrametricSimple s t tr@(Node br _ ts) g = do
   when
     (br <= 0)
-    (error $ "slideNodeUltrametricSimple: Parent branch length is zero or negative: " ++ show br ++ ".")
+    ( error $
+        "slideNodeUltrametricSimple: Parent branch length is zero or negative: " ++ show br ++ "."
+    )
   when
     (br' <= 0)
-    (error $ "slideNodeUltrametricSimple: Minimum branch length is zero or negative: " ++ show br' ++ ".")
-  (dx, q) <- truncatedNormalSample s t a b g
-  return (slideNodeUltrametricF dx tr, q)
+    ( error $
+        "slideNodeUltrametricSimple: Minimum branch length is zero or negative: " ++ show br' ++ "."
+    )
+  -- The determinant of the Jacobian is -1.0.
+  (u, q) <- truncatedNormalSample s t a b g
+  return (slideNodeUltrametricF u tr, q)
   where
     br' = minimum $ map branch ts
     -- a = negate $ br - eps
@@ -153,6 +161,10 @@ scaleTreeSimple k t =
     (gammaDistr (k / t) (t / k))
     (\tr x -> first (* x) tr)
     (Just recip)
+    (Just jac)
+  where
+    -- XXX: Scaling of the stem is included. This may be an issue.
+    jac tr u = Exp $ fromIntegral (length tr - 2) * log (recip u)
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
@@ -180,6 +192,10 @@ scaleTreeUltrametricSimple k t =
     (gammaDistr (k / t) (t / k))
     (\tr x -> bimap (* x) (applyHeight (* x)) tr)
     (Just recip)
+    (Just jac)
+  where
+    -- XXX: Scaling of the stem is included. This may be an issue.
+    jac tr u = Exp $ fromIntegral (length tr - 2) * log (recip u)
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
@@ -201,16 +217,17 @@ scaleTreeUltrametric k = createProposal description (scaleTreeUltrametricSimple 
   where
     description = "Scale tree ultrametric; shape: " ++ show k
 
--- The branch is elongated by dx. So if dx is positive, the node height is
+-- The branch is elongated by u. So if u is positive, the node height is
 -- reduced.
 slideBranchScaleSubTreeF :: HasHeight a => Double -> Tree Double a -> Tree Double a
-slideBranchScaleSubTreeF dx (Node br lb ts) =
-  Node (br + dx) (setHeight h' lb) $ map (bimap (* xi) (applyHeight (* xi))) ts
+slideBranchScaleSubTreeF u (Node br lb ts) =
+  Node (br + u) (setHeight h' lb) $ map (bimap (* xi) (applyHeight (* xi))) ts
   where
     h = getHeight lb
-    h' = h - dx
+    h' = h - u
     xi = h' / h
 
+-- TODO: CONTINUE HERE.
 scaleSubTreeUltrametricSimple ::
   HasHeight a =>
   Double ->
@@ -225,8 +242,11 @@ scaleSubTreeUltrametricSimple ds t tr g = do
   when
     (ht <= 0)
     (error $ "scaleSubTreeUltrametricSimple: Node height is zero or negative: " ++ show ht ++ ".")
-  (dx, q) <- truncatedNormalSample ds t a b g
-  return (slideBranchScaleSubTreeF dx tr, q)
+  -- The determinant of the Jacobian is not included.
+  (u, q) <- truncatedNormalSample ds t a b g
+  -- Do not include the stem, because u is added in this case.
+  let jac = Exp $ fromIntegral (length tr - 1) * log (recip u)
+  return (slideBranchScaleSubTreeF u tr, q * jac)
   where
     br = branch tr
     ht = getHeight $ label tr
@@ -258,7 +278,7 @@ scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametric
     description = "Scale subtree ultrametrc; sd: " ++ show sd
 
 contra :: (Tree Double a, Tree Double b) -> Double -> (Tree Double a, Tree Double b)
-contra (s, t) x = (first (*x) s, first (/ x) t)
+contra (s, t) x = (first (* x) s, first (/ x) t)
 
 scaleTreesContrarilySimple :: Double -> Double -> ProposalSimple (Tree Double a, Tree Double b)
 scaleTreesContrarilySimple k t =
@@ -266,6 +286,9 @@ scaleTreesContrarilySimple k t =
     (gammaDistr (k / t) (t / k))
     contra
     (Just recip)
+    (Just jac)
+  where
+    jac (l, r) u = undefined
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
@@ -286,7 +309,7 @@ scaleTreesContrarily k = createProposal description (scaleTreesContrarilySimple 
   where
     description = "Scale trees contrarily; shape: " ++ show k
 
--- See 'truncatedNormalSample'. Dx is added to the left branch. I.e., if dx is
+-- See 'truncatedNormalSample'. U is added to the left branch. I.e., if u is
 -- positive, the left branch is elongated.
 pulleyTruncatedNormalSample :: Double -> Double -> Tree Double a -> GenIO -> IO (Double, Log Double)
 pulleyTruncatedNormalSample s t (Node _ _ [l, r]) = do
@@ -308,8 +331,8 @@ pulleyTruncatedNormalSample _ _ _ = error "pulleyTruncatedNormalSample: Node is 
 
 pulleySimple :: Double -> Double -> ProposalSimple (Tree Double a)
 pulleySimple s t tr@(Node br lb [l, r]) g = do
-  (dx, q) <- pulleyTruncatedNormalSample s t tr g
-  let tr' = Node br lb [applyStem (+ dx) l, applyStem (subtract dx) r]
+  (u, q) <- pulleyTruncatedNormalSample s t tr g
+  let tr' = Node br lb [applyStem (+ u) l, applyStem (subtract u) r]
   return (tr', q)
 pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
 
@@ -336,8 +359,8 @@ pulley s = createProposal description (pulleySimple s)
 
 pulleyUltrametricSimple :: HasHeight a => Double -> Double -> ProposalSimple (Tree Double a)
 pulleyUltrametricSimple s t tr@(Node br lb [l, r]) g = do
-  (dx, q) <- pulleyTruncatedNormalSample s t tr g
-  let tr' = Node br lb [slideBranchScaleSubTreeF dx l, slideBranchScaleSubTreeF (negate dx) r]
+  (u, q) <- pulleyTruncatedNormalSample s t tr g
+  let tr' = Node br lb [slideBranchScaleSubTreeF u l, slideBranchScaleSubTreeF (negate u) r]
   return (tr', q)
 pulleyUltrametricSimple _ _ _ _ = error "pulleyUltrametricSimple: Node is not bifurcating."
 

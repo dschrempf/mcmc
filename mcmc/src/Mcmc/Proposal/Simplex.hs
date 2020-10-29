@@ -110,12 +110,15 @@ dirichletSimple t (SimplexUnsafe xs) g = do
   -- traceShowM ys
   -- Have to check if parameters are valid (because zeroes do occur).
   let eitherDdYs = dirichletDistribution $ V.map tf ys
-  let mhRatio = case eitherDdYs of
+  let r = case eitherDdYs of
         -- Set ratio to 0; so that the proposal will not be accepted.
         Left _ -> 0
         Right ddYs -> dirichletDensity ddYs xs / dirichletDensity ddXs ys
+  -- I do not think a Jacobian is necessary in this case. I do know that if a
+  -- subset of states is updated a Jacobian would be necessary.
+  --
   -- traceShowM mhRatio
-  return (SimplexUnsafe ys, mhRatio)
+  return (SimplexUnsafe ys, r)
   where
     tf = getTuningFunction t
 
@@ -149,20 +152,30 @@ betaSimple i t (SimplexUnsafe xs) g = do
   let aX = xI
       bX = xsSum - xI
       bdXI = betaDistr (tf aX) (tf bX)
+  -- New value of element i.
   yI <- genContVar bdXI g
   -- Shape parameters of beta distribution.
   let aY = yI
       bY = 1.0 - yI
       eitherBdYI = betaDistrE (tf aY) (tf bY)
   -- See 'dirichlet', which has the same construct.
-  let mhRatio = case eitherBdYI of
+  let r = case eitherBdYI of
         Nothing -> 0
         Just bdYI -> Exp $ logDensity bdYI xI - logDensity bdXI yI
+      -- The absolute value of the determinant of the Jacobian. Derivation takes
+      -- a while...
+      ja1 = bY / bX
+      jac = Exp $ fromIntegral (V.length xs - 2) * log ja1
   -- Construct new vector.
   let
-    nf x = x * bY / bX
+    -- Normalization function for other elements.
+    -- nf x = x * bY / bX
+    --
+    -- It turns out, that this factor is also needed to compute the determinant
+    -- of the Jacobian above.
+    nf x = x * ja1
     ys = V.generate (V.length xs) (\j -> if i==j then yI else nf (xs V.! j))
-  return (either error id $ simplexFromVector ys, mhRatio)
+  return (either error id $ simplexFromVector ys, r * jac)
   where
     xI = xs V.! i
     xsSum = V.sum xs

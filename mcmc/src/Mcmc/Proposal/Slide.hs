@@ -26,7 +26,8 @@ import Statistics.Distribution.Uniform
 
 -- The actual proposal with tuning parameter.
 slideSimple :: Double -> Double -> Double -> ProposalSimple Double
-slideSimple m s t = genericContinuous (normalDistr m (s * t)) (+) (Just negate)
+slideSimple m s t =
+  genericContinuous (normalDistr m (s * t)) (+) (Just negate) Nothing
 
 -- | Additive proposal with normally distributed kernel.
 slide ::
@@ -42,11 +43,13 @@ slide ::
   Bool ->
   Proposal Double
 slide m s = createProposal description (slideSimple m s)
-  where description = "Slide; mean: " ++ show m ++ ", sd: " ++ show s
+  where
+    description = "Slide; mean: " ++ show m ++ ", sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
 slideSymmetricSimple :: Double -> Double -> ProposalSimple Double
-slideSymmetricSimple s t = genericContinuous (normalDistr 0.0 (s * t)) (+) Nothing
+slideSymmetricSimple s t =
+  genericContinuous (normalDistr 0.0 (s * t)) (+) Nothing Nothing
 
 -- | Additive proposal with normally distributed kernel with mean zero. This
 -- proposal is very fast, because the Metropolis-Hastings ratio does not include
@@ -62,12 +65,13 @@ slideSymmetric ::
   Bool ->
   Proposal Double
 slideSymmetric s = createProposal description (slideSymmetricSimple s)
-  where description = "Slide symmetric; sd: " ++ show s
+  where
+    description = "Slide symmetric; sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
 slideUniformSimple :: Double -> Double -> ProposalSimple Double
 slideUniformSimple d t =
-  genericContinuous (uniformDistr (- t * d) (t * d)) (+) Nothing
+  genericContinuous (uniformDistr (- t * d) (t * d)) (+) Nothing Nothing
 
 -- | Additive proposal with uniformly distributed kernel with mean zero. This
 -- proposal is very fast, because the Metropolis-Hastings ratio does not include
@@ -83,13 +87,15 @@ slideUniformSymmetric ::
   Bool ->
   Proposal Double
 slideUniformSymmetric d = createProposal description (slideUniformSimple d)
-  where description = "Slide uniform symmetric; delta: " ++ show d
+  where
+    description = "Slide uniform symmetric; delta: " ++ show d
 
 contra :: (Double, Double) -> Double -> (Double, Double)
-contra (x, y) d = (x + d, y - d)
+contra (x, y) u = (x + u, y - u)
 
 slideContrarilySimple :: Double -> Double -> Double -> ProposalSimple (Double, Double)
-slideContrarilySimple m s t = genericContinuous (normalDistr m (s * t)) contra (Just negate)
+slideContrarilySimple m s t =
+  genericContinuous (normalDistr m (s * t)) contra (Just negate) Nothing
 
 -- | Additive proposal with normally distributed kernel.
 --
@@ -108,4 +114,5 @@ slideContrarily ::
   Bool ->
   Proposal (Double, Double)
 slideContrarily m s = createProposal description (slideContrarilySimple m s)
-  where description = "Slide contrarily; mean: " ++ show m ++ ", sd: " ++ show s
+  where
+    description = "Slide contrarily; mean: " ++ show m ++ ", sd: " ++ show s
