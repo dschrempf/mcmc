@@ -155,6 +155,11 @@ slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple
   where
     description = "Slide node ultrametric; sd: " ++ show ds
 
+-- -- TODO.
+-- data HandleStem = WithStem | WithoutStem
+--
+-- scaleTreeSimple :: HandleStem -> Double -> Double -> ProposalSimple (Tree Double a)
+
 scaleTreeSimple :: Double -> Double -> ProposalSimple (Tree Double a)
 scaleTreeSimple k t =
   genericContinuous
@@ -168,6 +173,11 @@ scaleTreeSimple k t =
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
+--
+-- Because of the specificly used determinant of the Jacobian matrix, this
+-- proposal is only valid, if all branch lengths free variables with strictly
+-- positive values (including the stem). For example, ultrametric trees do not
+-- fulfill this criterion.
 scaleTree ::
   -- | Shape.
   Double ->
@@ -181,6 +191,9 @@ scaleTree ::
 scaleTree k = createProposal description (scaleTreeSimple k)
   where
     description = "Scale tree; shape: " ++ show k
+
+-- TODO: CONTINUE HERE. For ultrametric trees, we have some constraints. The
+-- Jacobian may be different!
 
 scaleTreeUltrametricSimple ::
   HasHeight a =>
@@ -227,7 +240,6 @@ slideBranchScaleSubTreeF u (Node br lb ts) =
     h' = h - u
     xi = h' / h
 
--- TODO: CONTINUE HERE.
 scaleSubTreeUltrametricSimple ::
   HasHeight a =>
   Double ->
