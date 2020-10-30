@@ -203,6 +203,10 @@ scaleTree k = createProposal description (scaleTreeSimple k)
 -- of the inner nodes (and possibly the stem length) have to be used as
 -- parameters.
 
+-- TODO: Calculation of number of inner nodes may be slow.
+nInnerNodes :: Tree e a -> Int
+nInnerNodes tr = length tr - length (leaves tr)
+
 scaleTreeUltrametricSimple ::
   HasHeight a =>
   Double ->
@@ -217,8 +221,6 @@ scaleTreeUltrametricSimple k t =
   where
     -- TODO: Scaling of the stem is included. This may be an issue.
     --
-    -- TODO: Calculation of number of inner nodes may be slow.
-    nInnerNodes tr = length tr - length (leaves tr)
     -- (-2) for the entry corresponding to f(u), (+1) for the stem makes (-1) in
     -- total.
     jac tr u = Exp $ fromIntegral (nInnerNodes tr - 1) * log (recip u)
@@ -243,15 +245,13 @@ scaleTreeUltrametric k = createProposal description (scaleTreeUltrametricSimple 
   where
     description = "Scale tree ultrametric; shape: " ++ show k
 
--- The branch is elongated by u. So if u is positive, the node height is
--- reduced.
-slideBranchScaleSubTreeF :: HasHeight a => Double -> Tree Double a -> Tree Double a
-slideBranchScaleSubTreeF u (Node br lb ts) =
-  Node (br + u) (setHeight h' lb) $ map (bimap (* xi) (applyHeight (* xi))) ts
-  where
-    h = getHeight lb
-    h' = h - u
-    xi = h' / h
+-- The stem is elongated by u. So if u is positive, the node height is reduced.
+--
+-- The scaling factor for inner node heights is also given, since it is
+-- calculated below.
+slideBranchScaleSubTreeF :: HasHeight a => Double -> Double -> Tree Double a -> Tree Double a
+slideBranchScaleSubTreeF u sf (Node br lb ts) =
+  Node (br + u) (applyHeight (subtract u) lb) $ map (bimap (* sf) (applyHeight (* sf))) ts
 
 scaleSubTreeUltrametricSimple ::
   HasHeight a =>
@@ -269,9 +269,14 @@ scaleSubTreeUltrametricSimple ds t tr g = do
     (error $ "scaleSubTreeUltrametricSimple: Node height is zero or negative: " ++ show ht ++ ".")
   -- The determinant of the Jacobian is not included.
   (u, q) <- truncatedNormalSample ds t a b g
-  -- Do not include the stem, because u is added in this case.
-  let jac = Exp $ fromIntegral (length tr - 1) * log (recip u)
-  return (slideBranchScaleSubTreeF u tr, q * jac)
+  -- For the calculation of the Jacobian matrix, parameterize the tree into the
+  -- stem length, the height of the root, and the heights of other inner nodes.
+  --
+  -- (-1) because the root height has an additive change.
+  --
+  -- (ht - u)/ht = (1.0 - u/ht) is the scaling factor.
+  let jac tr = Exp $ fromIntegral (nInnerNodes tr - 1) * log (1.0 - u/ht)
+  return (slideBranchScaleSubTreeF u tr, q * jac tr)
   where
     br = branch tr
     ht = getHeight $ label tr
