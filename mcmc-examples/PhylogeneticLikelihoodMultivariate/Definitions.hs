@@ -143,7 +143,7 @@ initWith t =
       _timeHeight = 1000.0,
       _timeTree = t',
       _rateMean = 1 / 1000.0,
-      _rateShape = 4,
+      _rateShape = 10,
       _rateTree = setStem 0 $ first (const 1.0) t
     }
   where
