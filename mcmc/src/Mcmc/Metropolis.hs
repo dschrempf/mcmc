@@ -46,9 +46,10 @@ import Prelude hiding (cycle)
 -- Handbook of Markov Chain Monte Carlo), or (b) almost surely reject the
 -- proposal when either fY or q are zero (Chapter 1). Since I trust the author
 -- of Chapter 1 (Charles Geyer) I choose to follow option (b).
-mhRatio :: Log Double -> Log Double -> Log Double -> Log Double
+mhRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 -- q = qYX / qXY * jXY; see 'ProposalSimple'.
-mhRatio fX fY q = fY * q / fX
+-- j = Jacobian.
+mhRatio fX fY q j = fY / fX * q * j
 {-# INLINE mhRatio #-}
 
 mhPropose :: Proposal a -> Mcmc a ()
@@ -61,11 +62,11 @@ mhPropose m = do
       a = acceptance s
       g = generator s
   -- 1. Sample new state.
-  (!y, !q) <- liftIO $ p x g
+  (!y, !q, !j) <- liftIO $ p x g
   -- 2. Calculate Metropolis-Hastings ratio.
   let !pY = pF y
       !lY = lF y
-      !r = mhRatio (pX * lX) (pY * lY) q
+      !r = mhRatio (pX * lX) (pY * lY) q j
   -- 3. Accept or reject.
   if ln r >= 0.0
     then put $ s {item = Item y pY lY, acceptance = pushA m True a}

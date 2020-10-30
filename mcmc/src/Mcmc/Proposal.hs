@@ -108,18 +108,26 @@ instance Ord (Proposal a) where
 --
 -- In order to calculate the Metropolis-Hastings ratio, we need to know the
 -- ratio of the backward to forward kernels (i.e., the probability masses or
--- probability densities). For unbiased proposals, this ratio is 1.0. For biased
--- proposals, the ratio is qYX / qXY * jXY, where qXY is the probability density
--- to move from X to Y, and jXY is the absolute value of the determinant of the
--- Jacobian of the proposal.
-type ProposalSimple a = a -> GenIO -> IO (a, Log Double)
+-- probability densities) and the absolute value of the determinant of the
+-- Jacobian matrix.
+--
+-- For unbiased proposals, these values are 1.0 such that
+--
+-- @
+-- proposalSimpleUnbiased x g = return (x', 1.0, 1.0)
+-- @
+--
+-- For biased proposals, the kernel ratio is qYX / qXY, where qXY is the
+-- probability density to move from X to Y, and the absolute value of the
+-- determinant of the Jacobian matrix differs from 1.0.
+type ProposalSimple a = a -> GenIO -> IO (a, Log Double, Log Double)
 
 convertS :: Lens' b a -> ProposalSimple a -> ProposalSimple b
 convertS l s = s'
   where
     s' v g = do
-      (x', r) <- s (v ^. l) g
-      return (set l x' v, r)
+      (x', r, j) <- s (v ^. l) g
+      return (set l x' v, r, j)
 
 -- | Tune the acceptance ratio of a 'Proposal'; see 'tune', or 'autotuneCycle'.
 data Tuner a = Tuner

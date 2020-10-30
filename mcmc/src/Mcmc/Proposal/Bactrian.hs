@@ -52,10 +52,10 @@ bactrianAdditive ::
   Double ->
   Double ->
   GenIO ->
-  IO (Double, Log Double)
+  IO (Double, Log Double, Log Double)
 bactrianAdditive m s x g = do
   dx <- genBactrian m s g
-  return (x + dx, 1.0)
+  return (x + dx, 1.0, 1.0)
 
 -- bactrianSimple lens spike stdDev tune forwardOp backwardOp
 bactrianAdditiveSimple ::
@@ -110,14 +110,14 @@ bactrianMult ::
   Double ->
   Double ->
   GenIO ->
-  IO (Double, Log Double)
+  IO (Double, Log Double, Log Double)
 bactrianMult m s x g = do
   du <- genBactrian m s g
   let qXY = logDensityBactrian m s du
       qYX = logDensityBactrian m s (fInv du)
       u = 1.0 + du
       jac = Exp $ log $ recip u
-  return (x * u, qYX / qXY * jac)
+  return (x * u, qYX / qXY, jac)
 
 bactrianMultSimple :: Double -> Double -> Double -> ProposalSimple Double
 bactrianMultSimple m s t

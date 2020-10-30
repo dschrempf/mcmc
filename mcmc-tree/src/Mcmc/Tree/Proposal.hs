@@ -35,7 +35,7 @@ import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Slide
 import Mcmc.Tree.Height
 import Mcmc.Tree.Lens
-import Numeric.Log
+import Numeric.Log hiding (sum)
 import Statistics.Distribution
 import Statistics.Distribution.Gamma
 import Statistics.Distribution.TruncatedNormal
@@ -120,7 +120,7 @@ slideNodeUltrametricSimple s t tr@(Node br _ ts) g = do
     )
   -- The determinant of the Jacobian is -1.0.
   (u, q) <- truncatedNormalSample s t a b g
-  return (slideNodeUltrametricF u tr, q)
+  return (slideNodeUltrametricF u tr, q, 1.0)
   where
     br' = minimum $ map branch ts
     -- a = negate $ br - eps
@@ -163,14 +163,14 @@ scaleTreeSimple :: Double -> Double -> ProposalSimple (Tree Double a)
 scaleTreeSimple k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
-    (\tr x -> first (* x) tr)
+    (\tr u -> first (* u) tr)
     (Just recip)
     (Just jac)
   where
     -- TODO: Scaling of the stem is included. This may be an issue.
     --
     -- TODO: Length calculation may be slow.
-    jac tr u = Exp $ fromIntegral (length tr - 2) * log (recip u)
+    jac tr u = Exp $ fromIntegral (length tr - 2) * log u
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
@@ -204,7 +204,8 @@ scaleTree k = createProposal description (scaleTreeSimple k)
 
 -- TODO: Calculation of number of inner nodes may be slow.
 nInnerNodes :: Tree e a -> Int
-nInnerNodes tr = length tr - length (leaves tr)
+nInnerNodes (Node _ _ []) = 0
+nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 
 scaleTreeUltrametricSimple ::
   HasHeight a =>
@@ -220,9 +221,9 @@ scaleTreeUltrametricSimple k t =
   where
     -- TODO: Scaling of the stem is included. This may be an issue.
     --
-    -- (-2) for the entry corresponding to f(u), (+1) for the stem makes (-1) in
-    -- total.
-    jac tr u = Exp $ fromIntegral (nInnerNodes tr - 1) * log (recip u)
+    -- (-2) for the entry corresponding to f(u)=1/u, (+1) for the stem makes
+    -- (-1) in total.
+    jac tr u = Exp $ fromIntegral (nInnerNodes tr - 1) * log u
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
@@ -276,7 +277,7 @@ scaleSubTreeUltrametricSimple ds t tr g = do
   -- Scaling factor (xi, not x_i) (ht - u)/ht = (1.0 - u/ht).
   let xi = 1.0 - u / ht
       jac = Exp $ fromIntegral (nInnerNodes tr - 1) * log xi
-  return (slideBranchScaleSubTreeF u xi tr, q * jac)
+  return (slideBranchScaleSubTreeF u xi tr, q, jac)
   where
     br = branch tr
     ht = getHeight $ label tr
@@ -368,7 +369,7 @@ pulleySimple s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyTruncatedNormalSample s t tr g
   let tr' = Node br lb [applyStem (+ u) l, applyStem (subtract u) r]
   -- The determinant of the Jacobian matrix is (-1).
-  return (tr', q)
+  return (tr', q, 1.0)
 pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
 
 -- | Use a node as a pulley.
@@ -410,11 +411,10 @@ pulleyUltrametricSimple s t tr@(Node br lb [l, r]) g = do
   -- and right node heights are now treated in a different way. For reference, I
   -- took a picture, 20201030_122839_DRO.jpg.
   --
-  -- (-1)
   -- (-1) because the root height has an additive change.
   let jacL = Exp $ fromIntegral (nInnerNodes l - 1) * log xiL
       jacR = Exp $ fromIntegral (nInnerNodes r - 1) * log xiL
-  return (tr', q * jacL * jacR)
+  return (tr', q, jacL * jacR)
 pulleyUltrametricSimple _ _ _ _ = error "pulleyUltrametricSimple: Node is not bifurcating."
 
 -- | Use a node as a pulley.
