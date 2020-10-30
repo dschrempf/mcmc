@@ -29,6 +29,7 @@ where
 import Control.Lens
 import Control.Monad
 import Data.Bifunctor
+-- import Debug.Trace
 import ELynx.Tree hiding (description)
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
@@ -107,25 +108,20 @@ slideNodeUltrametricSimple ::
   ProposalSimple (Tree Double a)
 slideNodeUltrametricSimple _ _ (Node _ _ []) _ =
   error "slideNodeUltrametricSample: Cannot slide leaf node."
-slideNodeUltrametricSimple s t tr@(Node br _ ts) g = do
-  when
-    (br <= 0)
-    ( error $
-        "slideNodeUltrametricSimple: Parent branch length is zero or negative: " ++ show br ++ "."
-    )
-  when
-    (br' <= 0)
-    ( error $
-        "slideNodeUltrametricSimple: Minimum branch length is zero or negative: " ++ show br' ++ "."
-    )
-  -- The determinant of the Jacobian is -1.0.
-  (u, q) <- truncatedNormalSample s t a b g
-  return (slideNodeUltrametricF u tr, q, 1.0)
+slideNodeUltrametricSimple s t tr@(Node br _ ts) g
+  | br <= 0 =
+    error $
+      "slideNodeUltrametricSimple: Parent branch length is zero or negative: " ++ show br ++ "."
+  | br' <= 0 =
+    error $
+      "slideNodeUltrametricSimple: Minimum branch length is zero or negative: " ++ show br' ++ "."
+  | otherwise = do
+    -- The determinant of the Jacobian is -1.0.
+    (u, q) <- truncatedNormalSample s t a b g
+    return (slideNodeUltrametricF u tr, q, 1.0)
   where
     br' = minimum $ map branch ts
-    -- a = negate $ br - eps
     a = negate br
-    -- b = br' - eps
     b = br'
 
 -- | Slide node (for ultrametric trees).
@@ -250,11 +246,11 @@ scaleTreeUltrametric k = createProposal description (scaleTreeUltrametricSimple 
 -- The scaling factor for inner node heights is also given, since it is
 -- calculated below.
 slideBranchScaleSubTreeF :: HasHeight a => Double -> Double -> Tree Double a -> Tree Double a
-slideBranchScaleSubTreeF u sf (Node br lb ts) =
-  Node (br + u) (applyHeight (subtract u) lb) $ map (bimap (* sf) (applyHeight (* sf))) ts
+slideBranchScaleSubTreeF u xi (Node br lb ts) =
+    Node (br + u) (applyHeight (subtract u) lb) $ map (bimap (* xi) (applyHeight (* xi))) ts
 
 scaleSubTreeUltrametricSimple ::
-  HasHeight a =>
+  (HasHeight a, Show a) =>
   Double ->
   Double ->
   ProposalSimple (Tree Double a)
@@ -263,10 +259,14 @@ scaleSubTreeUltrametricSimple _ _ (Node _ _ []) _ =
 scaleSubTreeUltrametricSimple ds t tr g = do
   when
     (br <= 0)
-    (error $ "scaleSubTreeUltrametricSimple: Parent branch length is zero or negative: " ++ show br ++ ".")
+    ( error $
+        "scaleSubTreeUltrametricSimple: Parent branch length is zero or negative: " ++ show br ++ "." ++ show tr
+    )
   when
     (ht <= 0)
-    (error $ "scaleSubTreeUltrametricSimple: Node height is zero or negative: " ++ show ht ++ ".")
+    ( error $
+        "scaleSubTreeUltrametricSimple: Node height is zero or negative: " ++ show ht ++ "."
+    )
   -- The determinant of the Jacobian is not included.
   (u, q) <- truncatedNormalSample ds t a b g
   -- For the calculation of the Jacobian matrix, parameterize the tree into the
@@ -281,9 +281,7 @@ scaleSubTreeUltrametricSimple ds t tr g = do
   where
     br = branch tr
     ht = getHeight $ label tr
-    -- a = negate $ branch tr - eps
     a = negate br
-    -- b = label tr - eps
     b = ht
 
 -- | Scale the branches of the sub tree and slide the root branch so that the
@@ -294,7 +292,7 @@ scaleSubTreeUltrametricSimple ds t tr g = do
 -- A normal distribution truncated at the parent node (or the origin) and the
 -- leaves is used to slide the given node.
 scaleSubTreeUltrametric ::
-  HasHeight a =>
+  (HasHeight a, Show a) =>
   -- | Standard deviation.
   Double ->
   -- | Name.
@@ -346,21 +344,20 @@ scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametric
 
 -- See 'truncatedNormalSample'. U is added to the left branch. I.e., if u is
 -- positive, the left branch is elongated.
-pulleyTruncatedNormalSample :: Double -> Double -> Tree Double a -> GenIO -> IO (Double, Log Double)
-pulleyTruncatedNormalSample s t (Node _ _ [l, r]) = do
-  when
-    (brL <= 0)
-    (error $ "pulleyTruncatedNormalSample: Left branch is zero or negative: " ++ show brL ++ ".")
-  when
-    (brR <= 0)
-    (error $ "pulleyTruncatedNormalSample: Right branch is zero or negative: " ++ show brR ++ ".")
-  truncatedNormalSample s t a b
+pulleyTruncatedNormalSample ::
+  Double -> Double -> Tree Double a -> GenIO -> IO (Double, Log Double)
+pulleyTruncatedNormalSample s t (Node _ _ [l, r])
+  | brL <= 0 =
+    error $
+      "pulleyTruncatedNormalSample: Left branch is zero or negative: " ++ show brL ++ "."
+  | brR <= 0 =
+    error $
+      "pulleyTruncatedNormalSample: Right branch is zero or negative: " ++ show brR ++ "."
+  | otherwise = truncatedNormalSample s t a b
   where
     brL = branch l
     brR = branch r
-    -- a = negate $ branch l - eps
     a = negate brL
-    -- b = branch r - eps
     b = brR
 pulleyTruncatedNormalSample _ _ _ = error "pulleyTruncatedNormalSample: Node is not bifurcating."
 
@@ -393,9 +390,40 @@ pulley s = createProposal description (pulleySimple s)
   where
     description = "Pulley; sd: " ++ show s
 
+-- See 'pulleyTruncatedNormalSample'. However, we have to honor more constraints
+-- in the ultrametric case.
+pulleyUltrametricTruncatedNormalSample ::
+  HasHeight a =>
+  Double ->
+  Double ->
+  Tree Double a ->
+  GenIO ->
+  IO (Double, Log Double)
+pulleyUltrametricTruncatedNormalSample s t (Node _ lb [l, r])
+  | brL <= 0 =
+    error $
+      "pulleyUltrametricTruncatedNormalSample: Left branch is zero or negative: " ++ show brL ++ "."
+  | brR <= 0 =
+    error $
+      "pulleyUltrametricTruncatedNormalSample: Right branch is zero or negative: " ++ show brR ++ "."
+  | otherwise = do truncatedNormalSample s t a b
+  where
+    -- Left and right branch length.
+    brL = branch l
+    brR = branch r
+    -- The new branch lengths are not allowed to exceed the height of the node.
+    ht = getHeight lb
+    -- The constraints are larger than 0.
+    constraintRightBoundary = ht - brL
+    constraintLeftBoundary = ht - brR
+    a = negate $ minimum [brL, constraintLeftBoundary]
+    b = minimum [brR, constraintRightBoundary]
+pulleyUltrametricTruncatedNormalSample _ _ _ =
+  error "pulleyUltrametricTruncatedNormalSample: Node is not bifurcating."
+
 pulleyUltrametricSimple :: HasHeight a => Double -> Double -> ProposalSimple (Tree Double a)
 pulleyUltrametricSimple s t tr@(Node br lb [l, r]) g = do
-  (u, q) <- pulleyTruncatedNormalSample s t tr g
+  (u, q) <- pulleyUltrametricTruncatedNormalSample s t tr g
   -- Left.
   let hL = getHeight $ label l
       -- Scaling factor left. (hL - u)/hL = (1.0 - u/hL).
@@ -413,7 +441,7 @@ pulleyUltrametricSimple s t tr@(Node br lb [l, r]) g = do
   --
   -- (-1) because the root height has an additive change.
   let jacL = Exp $ fromIntegral (nInnerNodes l - 1) * log xiL
-      jacR = Exp $ fromIntegral (nInnerNodes r - 1) * log xiL
+      jacR = Exp $ fromIntegral (nInnerNodes r - 1) * log xiR
   return (tr', q, jacL * jacR)
 pulleyUltrametricSimple _ _ _ _ = error "pulleyUltrametricSimple: Node is not bifurcating."
 

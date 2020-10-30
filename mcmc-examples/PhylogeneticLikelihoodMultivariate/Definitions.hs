@@ -36,6 +36,7 @@ import qualified Data.Vector.Storable as V
 import GHC.Generics
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
+
 -- import Debug.Trace
 
 -- Disable the syntax formatter Ormolu to highlight relevant module imports.
@@ -52,7 +53,6 @@ import Calibrations
 import Constraints
 import Tools
 {- ORMOLU_ENABLE -}
-
 
 -- | File storing unrooted trees obtained from a Bayesian phylogenetic analysis.
 -- The posterior means and covariances of the branch lengths are obtained from
@@ -103,8 +103,8 @@ data I = I
     _timeTree :: TimeTree,
     -- | The mean of the absolute rates.
     _rateMean :: Double,
-    -- | The variance of the logarithm of the relative rates.
-    _rateVariance :: Double,
+    -- | The shape of the relative rates.
+    _rateShape :: Double,
     -- | Relative rate tree. Branch labels denote relative rates with mean 1.0;
     -- node labels store names.
     _rateTree :: RateTree
@@ -143,8 +143,8 @@ initWith t =
       _timeHeight = 1000.0,
       _timeTree = t',
       _rateMean = 1 / 1000.0,
-      _rateVariance = 4,
-      _rateTree = first (const 1.0) t
+      _rateShape = 4,
+      _rateTree = setStem 0 $ first (const 1.0) t
     }
   where
     t' = toTimeTree $ normalizeHeight $ makeUltrametric t
@@ -167,8 +167,8 @@ priorDistribution cb cs (I l m h t mu k r) =
       birthDeath l m t,
       -- Gamma prior on the rate mean.
       gamma 100 1e-5 mu,
-      -- Gamma prior on the rate variance.
-      gamma 100 0.1 k,
+      -- Gamma prior on the shape parameter of the rate prior.
+      gamma 10 1.0 k,
       -- Uncorrelated log normal prior on the branch-wise rates.
       uncorrelatedGammaNoStem k k1 r
     ]
@@ -274,7 +274,7 @@ proposals t =
       timeDeathRate @~ scaleUnbiased 10 "Time death rate" 10 True,
       timeHeight @~ scaleUnbiased 3000 "Time height" 10 True,
       rateMean @~ scaleUnbiased 10 "Rate mean" 10 True,
-      rateVariance @~ scaleUnbiased 10 "Rate variance" 10 True,
+      rateShape @~ scaleUnbiased 10 "Rate shape" 10 True,
       timeHeightRateNormPair @~ scaleContrarily 10 0.1 "Time height, rate mean" 10 True
     ]
       ++ proposalsTimeTree t
@@ -282,8 +282,11 @@ proposals t =
 
 -- Monitor the average rate. Useful, because it should not deviate from 1.0 too
 -- much.
-getRateAverage :: I -> Double
-getRateAverage x = (/ 353) $ totalBranchLength $ x ^. rateTree
+getAverageBranchLength :: (I -> Tree Double a) -> I -> Double
+getAverageBranchLength f x = (/ n) $ totalBranchLength r
+  where
+    r = f x
+    n = fromIntegral $ length r - 1
 
 monParams :: [MonitorParameter I]
 monParams =
@@ -291,8 +294,8 @@ monParams =
     _timeDeathRate >$< monitorDouble "TimeDeathRate",
     _timeHeight >$< monitorDouble "TimeHeight",
     _rateMean >$< monitorDouble "RateMean",
-    _rateVariance >$< monitorDouble "RateVariance",
-    getRateAverage >$< monitorDouble "RateAverage"
+    _rateShape >$< monitorDouble "RateShape",
+    getAverageBranchLength _rateTree >$< monitorDouble "RateAverage"
   ]
 
 monStdOut :: MonitorStdOut I
