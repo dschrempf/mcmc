@@ -168,7 +168,9 @@ scaleTreeSimple k t =
     (Just recip)
     (Just jac)
   where
-    -- XXX: Scaling of the stem is included. This may be an issue.
+    -- TODO: Scaling of the stem is included. This may be an issue.
+    --
+    -- TODO: Length calculation may be slow.
     jac tr u = Exp $ fromIntegral (length tr - 2) * log (recip u)
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
@@ -192,8 +194,14 @@ scaleTree k = createProposal description (scaleTreeSimple k)
   where
     description = "Scale tree; shape: " ++ show k
 
--- TODO: CONTINUE HERE. For ultrametric trees, we have some constraints. The
--- Jacobian may be different!
+-- TODO: There is now a distinction between tree types storing the node height
+-- only, and ultrametric trees, because the Jacobian matrices differ. For
+-- ultrametric trees, some branch lengths are constrained, whereas for normal
+-- trees, all branch lengths can vary freely.
+--
+-- For the calculation of the Jacobian matrices of ultrametric trees, the height
+-- of the inner nodes (and possibly the stem length) have to be used as
+-- parameters.
 
 scaleTreeUltrametricSimple ::
   HasHeight a =>
@@ -207,8 +215,13 @@ scaleTreeUltrametricSimple k t =
     (Just recip)
     (Just jac)
   where
-    -- XXX: Scaling of the stem is included. This may be an issue.
-    jac tr u = Exp $ fromIntegral (length tr - 2) * log (recip u)
+    -- TODO: Scaling of the stem is included. This may be an issue.
+    --
+    -- TODO: Calculation of number of inner nodes may be slow.
+    nInnerNodes tr = length tr - length (leaves tr)
+    -- (-2) for the entry corresponding to f(u), (+1) for the stem makes (-1) in
+    -- total.
+    jac tr u = Exp $ fromIntegral (nInnerNodes tr - 1) * log (recip u)
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
