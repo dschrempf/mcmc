@@ -21,7 +21,6 @@ module Mcmc.Tree.Proposal
     scaleTree,
     scaleTreeUltrametric,
     scaleSubTreeUltrametric,
-    scaleTreesContrarily,
     pulley,
     pulleyUltrametric,
   )
@@ -274,9 +273,10 @@ scaleSubTreeUltrametricSimple ds t tr g = do
   --
   -- (-1) because the root height has an additive change.
   --
-  -- (ht - u)/ht = (1.0 - u/ht) is the scaling factor.
-  let jac tr = Exp $ fromIntegral (nInnerNodes tr - 1) * log (1.0 - u/ht)
-  return (slideBranchScaleSubTreeF u tr, q * jac tr)
+  -- Scaling factor (xi, not x_i) (ht - u)/ht = (1.0 - u/ht).
+  let xi = 1.0 - u / ht
+      jac = Exp $ fromIntegral (nInnerNodes tr - 1) * log xi
+  return (slideBranchScaleSubTreeF u xi tr, q * jac)
   where
     br = branch tr
     ht = getHeight $ label tr
@@ -307,37 +307,41 @@ scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametric
   where
     description = "Scale subtree ultrametrc; sd: " ++ show sd
 
-contra :: (Tree Double a, Tree Double b) -> Double -> (Tree Double a, Tree Double b)
-contra (s, t) x = (first (* x) s, first (/ x) t)
+-- XXX: I removed this function for now, because it has too many special cases.
+-- The Jacobian differs for ultrametric and trees without constraints, and so we
+-- would need at least three functions (UM, UM), (N, N), (N, U).
 
-scaleTreesContrarilySimple :: Double -> Double -> ProposalSimple (Tree Double a, Tree Double b)
-scaleTreesContrarilySimple k t =
-  genericContinuous
-    (gammaDistr (k / t) (t / k))
-    contra
-    (Just recip)
-    (Just jac)
-  where
-    jac (l, r) u = undefined
+-- contra :: (Tree Double a, Tree Double b) -> Double -> (Tree Double a, Tree Double b)
+-- contra (s, t) x = (first (* x) s, first (/ x) t)
 
--- | Scale all branches with a gamma distributed kernel of given shape. The
--- scale is set such that the mean is 1.0.
---
--- The two trees are scaled contrarily so that the product of their heights
--- stays constant. Contrary proposals are useful when parameters are confounded.
-scaleTreesContrarily ::
-  -- | Shape.
-  Double ->
-  -- | Name.
-  String ->
-  -- | Weight.
-  Int ->
-  -- | Enable tuning.
-  Bool ->
-  Proposal (Tree Double a, Tree Double b)
-scaleTreesContrarily k = createProposal description (scaleTreesContrarilySimple k)
-  where
-    description = "Scale trees contrarily; shape: " ++ show k
+-- scaleTreesContrarilySimple :: Double -> Double -> ProposalSimple (Tree Double a, Tree Double b)
+-- scaleTreesContrarilySimple k t =
+--   genericContinuous
+--     (gammaDistr (k / t) (t / k))
+--     contra
+--     (Just recip)
+--     (Just jac)
+--   where
+--     jac (l, r) u = undefined
+
+-- -- | Scale all branches with a gamma distributed kernel of given shape. The
+-- -- scale is set such that the mean is 1.0.
+-- --
+-- -- The two trees are scaled contrarily so that the product of their heights
+-- -- stays constant. Contrary proposals are useful when parameters are confounded.
+-- scaleTreesContrarily ::
+--   -- | Shape.
+--   Double ->
+--   -- | Name.
+--   String ->
+--   -- | Weight.
+--   Int ->
+--   -- | Enable tuning.
+--   Bool ->
+--   Proposal (Tree Double a, Tree Double b)
+-- scaleTreesContrarily k = createProposal description (scaleTreesContrarilySimple k)
+--   where
+--     description = "Scale trees contrarily; shape: " ++ show k
 
 -- See 'truncatedNormalSample'. U is added to the left branch. I.e., if u is
 -- positive, the left branch is elongated.
@@ -363,6 +367,7 @@ pulleySimple :: Double -> Double -> ProposalSimple (Tree Double a)
 pulleySimple s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyTruncatedNormalSample s t tr g
   let tr' = Node br lb [applyStem (+ u) l, applyStem (subtract u) r]
+  -- The determinant of the Jacobian matrix is (-1).
   return (tr', q)
 pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
 
@@ -372,7 +377,7 @@ pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
 -- first and second daughter branches are elongated/shortened by the same
 -- amount.
 --
--- The height of the two sub trees changes.
+-- The heights of the two sub trees change.
 pulley ::
   -- | Standard deviation.
   Double ->
@@ -390,8 +395,26 @@ pulley s = createProposal description (pulleySimple s)
 pulleyUltrametricSimple :: HasHeight a => Double -> Double -> ProposalSimple (Tree Double a)
 pulleyUltrametricSimple s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyTruncatedNormalSample s t tr g
-  let tr' = Node br lb [slideBranchScaleSubTreeF u l, slideBranchScaleSubTreeF (negate u) r]
-  return (tr', q)
+  -- Left.
+  let hL = getHeight $ label l
+      -- Scaling factor left. (hL - u)/hL = (1.0 - u/hL).
+      xiL = 1.0 - u / hL
+  -- Right.
+  let hR = getHeight $ label r
+      -- Scaling factor right. (hR + u)/hR = (1.0 + u/hR).
+      xiR = 1.0 + u / hR
+  let tr' = Node br lb [slideBranchScaleSubTreeF u xiL l, slideBranchScaleSubTreeF (negate u) xiR r]
+  -- The calculation of the Jacobian matrix is very lengthy. Similar to before,
+  -- we parameterize the tree into the two branch lengths leading to the pulley
+  -- node, and the node heights of all other internal nodes. However, the left
+  -- and right node heights are now treated in a different way. For reference, I
+  -- took a picture, 20201030_122839_DRO.jpg.
+  --
+  -- (-1)
+  -- (-1) because the root height has an additive change.
+  let jacL = Exp $ fromIntegral (nInnerNodes l - 1) * log xiL
+      jacR = Exp $ fromIntegral (nInnerNodes r - 1) * log xiL
+  return (tr', q * jacL * jacR)
 pulleyUltrametricSimple _ _ _ _ = error "pulleyUltrametricSimple: Node is not bifurcating."
 
 -- | Use a node as a pulley.
