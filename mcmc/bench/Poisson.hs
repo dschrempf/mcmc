@@ -48,10 +48,10 @@ lh x =
   product [f ft yr x | (ft, yr) <- zip fatalities normalizedYears]
 
 proposalAlpha :: Proposal I
-proposalAlpha = _1 @~ slideSymmetric 0.2 "alpha" (Weight 1) NoTune
+proposalAlpha = _1 @~ slideSymmetric 0.2 "alpha" (PWeight 1) NoTune
 
 proposalBeta :: Proposal I
-proposalBeta = _2 @~ slideSymmetric 0.2 "beta" (Weight 1) NoTune
+proposalBeta = _2 @~ slideSymmetric 0.2 "beta" (PWeight 1) NoTune
 
 proposals :: Cycle I
 proposals = fromList [proposalAlpha, proposalBeta]

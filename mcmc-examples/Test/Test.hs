@@ -33,9 +33,9 @@ lh _ = 1.0
 proposals :: Cycle I
 proposals =
   fromList
-    [ _1 @~ slideSymmetric 1 "x" (Weight 5) Tune,
-      _2 @~ slideSymmetric 1 "y" (Weight 5) Tune,
-      scaleContrarily 1.0 1.0 "x y" (Weight 5) Tune
+    [ _1 @~ slideSymmetric 1 "x" (PWeight 5) Tune,
+      _2 @~ slideSymmetric 1 "y" (PWeight 5) Tune,
+      scaleContrarily 1.0 1.0 "x y" (PWeight 5) Tune
     ]
 
 -- Monitor the precision of the archer.

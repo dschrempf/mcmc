@@ -15,7 +15,7 @@
 -- Creation date: Wed May 20 13:42:53 2020.
 module Mcmc.Proposal
   ( -- * Proposal
-    Weight (..),
+    PWeight (..),
     Proposal (..),
     (@~),
     ProposalSimple,
@@ -61,9 +61,12 @@ import Mcmc.Internal.Shuffle
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
+-- -- | Proposal name.
+-- newtype PName = PName {fromPName :: String}
+
 -- | The weight determines how often a 'Proposal' is executed per iteration of
 -- the Markov chain.
-newtype Weight = Weight { fromWeight :: Int }
+newtype PWeight = PWeight {fromPWeight :: Int}
   deriving (Show, Eq)
 
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
@@ -81,7 +84,7 @@ data Proposal a = Proposal
     pDescription :: String,
     -- | The weight determines how often a 'Proposal' is executed per iteration of
     -- the Markov chain.
-    pWeight :: Weight,
+    pWeight :: PWeight,
     -- | Simple proposal without name, weight, and tuning information.
     pSimple :: ProposalSimple a,
     -- | Tuning is disabled if set to 'Nothing'.
@@ -96,7 +99,7 @@ instance Eq (Proposal a) where
   m == n = pName m == pName n && pDescription m == pDescription n
 
 instance Ord (Proposal a) where
-  compare = compare `on` (\p -> (pDescription p, pName p, fromWeight $ pWeight p))
+  compare = compare `on` (\p -> (pDescription p, pName p, fromPWeight $ pWeight p))
 
 -- | Convert a proposal from one data type to another using a lens.
 --
@@ -161,8 +164,8 @@ createProposal ::
   (Double -> ProposalSimple a) ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Activate tuning?
   Tune ->
   Proposal a
@@ -267,7 +270,7 @@ getNIterations (Cycle xs o) n g = case o of
     return [psR ++ reverse psR | psR <- psRs]
   SequentialReversibleO -> return $ replicate n $ ps ++ reverse ps
   where
-    !ps = concat [replicate (fromWeight $ pWeight m) m | m <- xs]
+    !ps = concat [replicate (fromPWeight $ pWeight m) m | m <- xs]
 
 -- | Tune 'Proposal's in the 'Cycle'. See 'tune'.
 tuneCycle :: Map (Proposal a) Double -> Cycle a -> Cycle a
@@ -324,7 +327,7 @@ summarizeProposal m r =
     tuneParamStr
     manualAdjustmentStr
   where
-    weight = BB.toLazyByteString $ BB.intDec $ fromWeight $ pWeight m
+    weight = BB.toLazyByteString $ BB.intDec $ fromPWeight $ pWeight m
     nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) r
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) r
     acceptRatio = BL.fromStrict $ maybe "" (BC.toFixed 3 . (^. _3)) r
@@ -350,7 +353,7 @@ summarizeCycle a c =
       ++ [hLine proposalHeader]
   where
     ps = ccProposals c
-    mpi = BB.toLazyByteString $ BB.intDec $ sum $ map (fromWeight . pWeight) ps
+    mpi = BB.toLazyByteString $ BB.intDec $ sum $ map (fromPWeight . pWeight) ps
     ar m = acceptanceRatio m a
 
 -- | For each key @k@, store the number of accepted and rejected proposals.

@@ -43,8 +43,8 @@ scale ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal Double
@@ -61,8 +61,8 @@ scaleUnbiased ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal Double
@@ -96,8 +96,8 @@ scaleContrarily ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal (Double, Double)

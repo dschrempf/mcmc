@@ -87,8 +87,8 @@ slideBactrian ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal Double
@@ -135,8 +135,8 @@ scaleBactrian ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal Double

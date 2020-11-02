@@ -37,8 +37,8 @@ slide ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal Double
@@ -59,8 +59,8 @@ slideSymmetric ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal Double
@@ -81,8 +81,8 @@ slideUniformSymmetric ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal Double
@@ -108,8 +108,8 @@ slideContrarily ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal (Double, Double)

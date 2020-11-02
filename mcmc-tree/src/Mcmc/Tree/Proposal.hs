@@ -53,8 +53,8 @@ slideBranch ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Double a)
@@ -141,8 +141,8 @@ slideNodeUltrametric ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Double a)
@@ -180,8 +180,8 @@ scaleTree ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Double a)
@@ -232,8 +232,8 @@ scaleTreeUltrametric ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Double a)
@@ -297,8 +297,8 @@ scaleSubTreeUltrametric ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Double a)
@@ -333,7 +333,7 @@ scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametric
 --   Double ->
 --   -- | Name.
 --   String ->
---   -- | Weight.
+--   -- | PWeight.
 --   Int ->
 --   -- | Enable tuning.
 --   Bool ->
@@ -381,8 +381,8 @@ pulley ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Double a)
@@ -455,8 +455,8 @@ pulleyUltrametric ::
   Double ->
   -- | Name.
   String ->
-  -- | Weight.
-  Weight ->
+  -- | PWeight.
+  PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Double a)
