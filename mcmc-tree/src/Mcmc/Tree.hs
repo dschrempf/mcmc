@@ -13,7 +13,7 @@ module Mcmc.Tree
   ( -- * Import
     module Mcmc.Tree.Import,
 
-    -- * Tree types
+    -- * Types
     module Mcmc.Tree.Height,
     module Mcmc.Tree.Types,
 

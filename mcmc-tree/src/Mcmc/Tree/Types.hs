@@ -14,7 +14,12 @@
 --
 -- Type synonyms to improve code readability.
 module Mcmc.Tree.Types
-  ( SubstitutionTree,
+  (
+    -- * Miscellaneous
+    HandleStem (..),
+
+    -- * Trees.
+    SubstitutionTree,
     TimeTree,
     toTimeTree,
     fromTimeTree,
@@ -28,6 +33,12 @@ import Data.Bifunctor
 import qualified Data.ByteString.Char8 as BS
 import ELynx.Tree
 import Mcmc.Tree.Height
+
+-- | Should the stem be handled.
+--
+-- For example, should the stem be considered when calculating the Jacobian
+-- during execution of a proposal, or the branch-wise prior?
+data HandleStem = WithStem | WithoutStem
 
 -- | Substitution tree.
 --

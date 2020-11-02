@@ -254,7 +254,7 @@ proposalsRateTree t =
       not (null pth)
   ]
     ++ [ (rateTree . subTreeAt pth)
-           @~ scaleTree 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
+           @~ scaleTree WithoutStem 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
            -- Path does not lead to a leaf.
            not (null $ forest $ current $ goPathUnsafe pth $ fromTree t)

@@ -35,6 +35,7 @@ import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Slide
 import Mcmc.Tree.Height
+import Mcmc.Tree.Types
 import Mcmc.Tree.Lens
 import Numeric.Log hiding (sum)
 import Statistics.Distribution
@@ -150,23 +151,21 @@ slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple
   where
     description = PDescription $ "Slide node ultrametric; sd: " ++ show ds
 
--- -- TODO.
--- data HandleStem = WithStem | WithoutStem
---
--- scaleTreeSimple :: HandleStem -> Double -> Double -> ProposalSimple (Tree Double a)
-
-scaleTreeSimple :: Double -> Double -> ProposalSimple (Tree Double a)
-scaleTreeSimple k t =
+scaleTreeSimple :: HandleStem -> Double -> Double -> ProposalSimple (Tree Double a)
+scaleTreeSimple stem k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
-    (\tr u -> first (* u) tr)
+    scaleTreeF
     (Just recip)
     (Just jac)
   where
-    -- TODO: Scaling of the stem is included. This may be an issue.
-    --
+    scaleTreeF tr@(Node br lb ts) u = case stem of
+      WithStem -> first (* u) tr
+      WithoutStem -> Node br lb $ map (first (* u)) ts
     -- TODO: Length calculation may be slow.
-    jac tr u = Exp $ fromIntegral (length tr - 2) * log u
+    jac tr u = case stem of
+      WithStem -> Exp $ fromIntegral (length tr - 2) * log u
+      WithoutStem -> Exp $ fromIntegral (length tr - 3) * log u
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
@@ -176,6 +175,8 @@ scaleTreeSimple k t =
 -- positive values (including the stem). For example, ultrametric trees do not
 -- fulfill this criterion.
 scaleTree ::
+  -- | Handle the stem?
+  HandleStem ->
   -- | Shape.
   Double ->
   -- | Name.
@@ -185,9 +186,11 @@ scaleTree ::
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Double a)
-scaleTree k = createProposal description (scaleTreeSimple k)
+scaleTree s k = createProposal description (scaleTreeSimple s k)
   where
     description = PDescription $ "Scale tree; shape: " ++ show k
+
+-- TODO: CONTINUE HERE (HANDLE STEM). ALSO PROCEED TO PRIORS.
 
 -- TODO: There is now a distinction between tree types storing the node height
 -- only, and ultrametric trees, because the Jacobian matrices differ. For
