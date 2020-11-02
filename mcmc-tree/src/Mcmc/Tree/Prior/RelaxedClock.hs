@@ -12,11 +12,8 @@
 module Mcmc.Tree.Prior.RelaxedClock
   ( gammaDirichlet,
     uncorrelatedGamma,
-    uncorrelatedGammaNoStem,
     uncorrelatedLogNormal,
-    uncorrelatedLogNormalNoStem,
     whiteNoise,
-    whiteNoiseNoStem,
   )
 where
 
@@ -26,6 +23,7 @@ import qualified Data.Vector.Unboxed as V
 import ELynx.Tree
 import Mcmc.Prior
 import Mcmc.Tree.Prior.Branch
+import Mcmc.Tree.Types
 import Numeric.Log hiding (sum)
 import Numeric.MathFunctions.Constants
 import Statistics.Distribution.Dirichlet
@@ -75,12 +73,8 @@ gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmet
 -- and scale.
 --
 -- For a version that ignores the stem, see 'uncorrelatedGammaNoStem'.
-uncorrelatedGamma :: Double -> Double -> Tree Double a -> Log Double
-uncorrelatedGamma k th = branchesWith (gamma k th)
-
--- | See 'uncorrelatedGamma' but ignore the stem.
-uncorrelatedGammaNoStem :: Double -> Double -> Tree Double a -> Log Double
-uncorrelatedGammaNoStem k th = branchesWithNoStem (gamma k th)
+uncorrelatedGamma :: HandleStem -> Double -> Double -> Tree Double a -> Log Double
+uncorrelatedGamma s k th = branchesWith s (gamma k th)
 
 -- A variant of the log normal distribution. See Yang 2006, equation (7.23).
 logNormal :: Double -> Double -> Double -> Log Double
@@ -97,14 +91,10 @@ logNormal mu var r = Exp $ negate t - e
 -- mean and variance.
 --
 -- See Computational Molecular Evolution (Yang, 2006), Section 7.4.
-uncorrelatedLogNormal :: Double -> Double -> Tree Double a -> Log Double
-uncorrelatedLogNormal mu var = branchesWith (logNormal mu var)
+uncorrelatedLogNormal :: HandleStem -> Double -> Double -> Tree Double a -> Log Double
+uncorrelatedLogNormal s mu var = branchesWith s (logNormal mu var)
 
--- | See 'uncorrelatedLogNormal' but ignore the stem.
-uncorrelatedLogNormalNoStem :: Double -> Double -> Tree Double a -> Log Double
-uncorrelatedLogNormalNoStem mu var = branchesWithNoStem (logNormal mu var)
-
--- | White noise model.
+-- | Auto-correlated white noise model.
 --
 -- The rates are distributed according to a white noise process with given
 -- variance.
@@ -116,11 +106,8 @@ uncorrelatedLogNormalNoStem mu var = branchesWithNoStem (logNormal mu var)
 -- For a version that ignores the stem, see 'whiteNoiseNoStem'.
 --
 -- Gives unexpected results if the topologies do not match.
-whiteNoise :: Double -> Tree Double a -> Tree Double a -> Log Double
-whiteNoise v t r = gamma k (1 / k) (branch r) * whiteNoiseNoStem v t r
+whiteNoise :: HandleStem -> Double -> Tree Double a -> Tree Double a -> Log Double
+whiteNoise WithStem v t r = gamma k (1 / k) (branch r) * whiteNoise WithoutStem v t r
   where
     k = branch t / v
-
--- | See 'whiteNoise' but ignore the stem.
-whiteNoiseNoStem :: Double -> Tree Double a -> Tree Double a -> Log Double
-whiteNoiseNoStem v (Node _ _ ts) (Node _ _ rs) = product $ zipWith (whiteNoise v) ts rs
+whiteNoise WithoutStem v t r = product $ zipWith (whiteNoise WithStem v) (forest t) (forest r)

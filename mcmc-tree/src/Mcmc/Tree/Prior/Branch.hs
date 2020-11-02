@@ -11,30 +11,23 @@
 -- Creation date: Mon Jul 27 10:49:11 2020.
 module Mcmc.Tree.Prior.Branch
   ( branchesWith,
-    branchesWithNoStem,
     parBranchesWith,
-    parBranchesWithNoStem,
   )
 where
 
 import ELynx.Tree
+import Mcmc.Tree.Types
 import Numeric.Log
 
 -- | Branch length prior with given distribution.
 branchesWith ::
+  HandleStem ->
   -- | Branch prior distribution.
   (Double -> Log Double) ->
   Tree Double a ->
   Log Double
-branchesWith f = product . map f . branches
-
--- | See 'branchesWith' but ignore the stem.
-branchesWithNoStem ::
-  -- | Branch prior distribution.
-  (Double -> Log Double) ->
-  Tree Double a ->
-  Log Double
-branchesWithNoStem f = product . map f . tail . branches
+branchesWith WithStem f = product . map f . branches
+branchesWith WithoutStem f = product . map f . tail . branches
 
 -- | See 'branchesWith'.
 --
@@ -42,15 +35,9 @@ branchesWithNoStem f = product . map f . tail . branches
 -- the branch prior distribution takes time to evaluate.
 parBranchesWith ::
   Int ->
+  HandleStem ->
   (Double -> Log Double) ->
   Tree Double a ->
   Log Double
-parBranchesWith n f = parBranchFoldMap n f (*)
-
--- | See 'parBranchesWith' but ignore the stem.
-parBranchesWithNoStem ::
-  Int ->
-  (Double -> Log Double) ->
-  Tree Double a ->
-  Log Double
-parBranchesWithNoStem n f = product . map (parBranchFoldMap (n -1) f (*)) . forest
+parBranchesWith n WithStem f = parBranchFoldMap n f (*)
+parBranchesWith n WithoutStem f = product . map (parBranchFoldMap (n -1) f (*)) . forest

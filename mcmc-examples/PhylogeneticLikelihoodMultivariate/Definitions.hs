@@ -170,7 +170,7 @@ priorDistribution cb cs (I l m h t mu k r) =
       -- Gamma prior on the shape parameter of the rate prior.
       gamma 10 1.0 k,
       -- Uncorrelated log normal prior on the branch-wise rates.
-      uncorrelatedGammaNoStem k k1 r
+      uncorrelatedGamma WithoutStem k k1 r
     ]
       ++ calibrations cb h t
       ++ constraints cs t

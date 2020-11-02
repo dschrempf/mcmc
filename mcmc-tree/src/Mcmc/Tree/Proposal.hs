@@ -13,7 +13,7 @@
 -- For reasons of computational efficiency some functions, for example, the ones
 -- working with ultrametric trees, use a tree object directly storing the node height.
 module Mcmc.Tree.Proposal
-  ( -- * Slide branches
+  ( -- * Slide branches or nodes
     slideBranch,
     slideNodeUltrametric,
 
@@ -47,8 +47,8 @@ import System.Random.MWC
 --
 -- Use a normal distribution with mean 0 and given standard deviation.
 --
--- This proposal slides the root branch. To slide other branches, see 'subTreeAt'.
--- For example, @subTreeAt path @~ slideNodeUltrametric ...@.
+-- This proposal slides the stem. To slide other branches, see 'subTreeAt'. For
+-- example, @subTreeAt path @~ slideNodeUltrametric ...@.
 slideBranch ::
   -- | Standard deviation.
   Double ->
@@ -151,21 +151,22 @@ slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple
   where
     description = PDescription $ "Slide node ultrametric; sd: " ++ show ds
 
+scaleTreeFunction :: HandleStem -> Tree Double a -> Double -> Tree Double a
+scaleTreeFunction WithStem tr u = first (* u) tr
+scaleTreeFunction WithoutStem (Node br lb ts) u = Node br lb $ map (first (* u)) ts
+
+-- TODO: Length calculation may be slow.
+scaleTreeJacobian :: HandleStem -> Tree Double a -> Double -> Log Double
+scaleTreeJacobian WithStem tr u = Exp $ fromIntegral (length tr - 2) * log u
+scaleTreeJacobian WithoutStem tr u = Exp $ fromIntegral (length tr - 3) * log u
+
 scaleTreeSimple :: HandleStem -> Double -> Double -> ProposalSimple (Tree Double a)
-scaleTreeSimple stem k t =
+scaleTreeSimple s k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
-    scaleTreeF
+    (scaleTreeFunction s)
     (Just recip)
-    (Just jac)
-  where
-    scaleTreeF tr@(Node br lb ts) u = case stem of
-      WithStem -> first (* u) tr
-      WithoutStem -> Node br lb $ map (first (* u)) ts
-    -- TODO: Length calculation may be slow.
-    jac tr u = case stem of
-      WithStem -> Exp $ fromIntegral (length tr - 2) * log u
-      WithoutStem -> Exp $ fromIntegral (length tr - 3) * log u
+    (Just $ scaleTreeJacobian s)
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
@@ -190,12 +191,10 @@ scaleTree s k = createProposal description (scaleTreeSimple s k)
   where
     description = PDescription $ "Scale tree; shape: " ++ show k
 
--- TODO: CONTINUE HERE (HANDLE STEM). ALSO PROCEED TO PRIORS.
-
--- TODO: There is now a distinction between tree types storing the node height
--- only, and ultrametric trees, because the Jacobian matrices differ. For
--- ultrametric trees, some branch lengths are constrained, whereas for normal
--- trees, all branch lengths can vary freely.
+-- There is a distinction between tree types storing the node height only, and
+-- ultrametric trees, because the Jacobian matrices differ. For ultrametric
+-- trees, some branch lengths are constrained, whereas for normal trees, all
+-- branch lengths can vary freely.
 --
 -- For the calculation of the Jacobian matrices of ultrametric trees, the height
 -- of the inner nodes (and possibly the stem length) have to be used as
@@ -206,23 +205,29 @@ nInnerNodes :: Tree e a -> Int
 nInnerNodes (Node _ _ []) = 0
 nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 
+scaleTreeUltrametricFunction :: HasHeight a => HandleStem -> Tree Double a -> Double -> Tree Double a
+scaleTreeUltrametricFunction WithStem tr u = bimap (* u) (applyHeight (* u)) tr
+scaleTreeUltrametricFunction WithoutStem (Node br lb ts) u =
+  Node br (applyHeight (* u) lb) $ map (bimap (* u) (applyHeight (* u))) ts
+
+-- (-2) for the entry corresponding to f(u)=1/u, (+1) for the stem makes
+-- (-1) in total.
+scaleTreeUltrametricJacobian :: HandleStem -> Tree Double a -> Double -> Log Double
+scaleTreeUltrametricJacobian WithStem tr u = Exp $ fromIntegral (nInnerNodes tr - 1) * log u
+scaleTreeUltrametricJacobian WithoutStem tr u = Exp $ fromIntegral (nInnerNodes tr - 2) * log u
+
 scaleTreeUltrametricSimple ::
   HasHeight a =>
+  HandleStem ->
   Double ->
   Double ->
   ProposalSimple (Tree Double a)
-scaleTreeUltrametricSimple k t =
+scaleTreeUltrametricSimple s k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
-    (\tr x -> bimap (* x) (applyHeight (* x)) tr)
+    (scaleTreeUltrametricFunction s)
     (Just recip)
-    (Just jac)
-  where
-    -- TODO: Scaling of the stem is included. This may be an issue.
-    --
-    -- (-2) for the entry corresponding to f(u)=1/u, (+1) for the stem makes
-    -- (-1) in total.
-    jac tr u = Exp $ fromIntegral (nInnerNodes tr - 1) * log u
+    (Just $ scaleTreeUltrametricJacobian s)
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
@@ -231,6 +236,8 @@ scaleTreeUltrametricSimple k t =
 -- ultrametric tree. Instead, use 'scaleSubTreeUltrametric'.
 scaleTreeUltrametric ::
   HasHeight a =>
+  -- | Handle the stem?
+  HandleStem ->
   -- | Shape.
   Double ->
   -- | Name.
@@ -240,7 +247,7 @@ scaleTreeUltrametric ::
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Double a)
-scaleTreeUltrametric k = createProposal description (scaleTreeUltrametricSimple k)
+scaleTreeUltrametric s k = createProposal description (scaleTreeUltrametricSimple s k)
   where
     description = PDescription $ "Scale tree ultrametric; shape: " ++ show k
 
@@ -279,16 +286,16 @@ scaleSubTreeUltrametricSimple ds t tr g = do
   --
   -- Scaling factor (xi, not x_i) (ht - u)/ht = (1.0 - u/ht).
   let xi = 1.0 - u / ht
-      jac = Exp $ fromIntegral (nInnerNodes tr - 1) * log xi
-  return (slideBranchScaleSubTreeF u xi tr, q, jac)
+      jacobian = Exp $ fromIntegral (nInnerNodes tr - 1) * log xi
+  return (slideBranchScaleSubTreeF u xi tr, q, jacobian)
   where
     br = branch tr
     ht = getHeight $ label tr
     a = negate br
     b = ht
 
--- | Scale the branches of the sub tree and slide the root branch so that the
--- tree height is conserved.
+-- | Scale the branches of the sub tree and slide the stem so that the tree
+-- height is conserved.
 --
 -- See also 'scaleTreeUltrametric'.
 --
@@ -322,9 +329,9 @@ scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametric
 --     (gammaDistr (k / t) (t / k))
 --     contra
 --     (Just recip)
---     (Just jac)
+--     (Just jacobian)
 --   where
---     jac (l, r) u = undefined
+--     jacobian (l, r) u = undefined
 
 -- -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- -- scale is set such that the mean is 1.0.
@@ -443,9 +450,9 @@ pulleyUltrametricSimple s t tr@(Node br lb [l, r]) g = do
   -- took a picture, 20201030_122839_DRO.jpg.
   --
   -- (-1) because the root height has an additive change.
-  let jacL = Exp $ fromIntegral (nInnerNodes l - 1) * log xiL
-      jacR = Exp $ fromIntegral (nInnerNodes r - 1) * log xiR
-  return (tr', q, jacL * jacR)
+  let jacobianL = Exp $ fromIntegral (nInnerNodes l - 1) * log xiL
+      jacobianR = Exp $ fromIntegral (nInnerNodes r - 1) * log xiR
+  return (tr', q, jacobianL * jacobianR)
 pulleyUltrametricSimple _ _ _ _ = error "pulleyUltrametricSimple: Node is not bifurcating."
 
 -- | Use a node as a pulley.
