@@ -88,9 +88,9 @@ slideBactrian ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal Double
 slideBactrian m s = createProposal description (bactrianAdditiveSimple m s)
   where
@@ -136,9 +136,9 @@ scaleBactrian ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal Double
 scaleBactrian m s = createProposal description (bactrianMultSimple m s)
   where

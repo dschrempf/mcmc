@@ -38,9 +38,9 @@ slide ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal Double
 slide m s = createProposal description (slideSimple m s)
   where
@@ -60,9 +60,9 @@ slideSymmetric ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal Double
 slideSymmetric s = createProposal description (slideSymmetricSimple s)
   where
@@ -82,9 +82,9 @@ slideUniformSymmetric ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal Double
 slideUniformSymmetric d = createProposal description (slideUniformSimple d)
   where
@@ -109,9 +109,9 @@ slideContrarily ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal (Double, Double)
 slideContrarily m s = createProposal description (slideContrarilySimple m s)
   where

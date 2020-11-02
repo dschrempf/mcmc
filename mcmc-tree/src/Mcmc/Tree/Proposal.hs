@@ -54,9 +54,9 @@ slideBranch ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal (Tree Double a)
 slideBranch s n w t = rootBranch @~ slideSymmetric s n w t
 
@@ -142,9 +142,9 @@ slideNodeUltrametric ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal (Tree Double a)
 slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple ds)
   where
@@ -181,9 +181,9 @@ scaleTree ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal (Tree Double a)
 scaleTree k = createProposal description (scaleTreeSimple k)
   where
@@ -233,9 +233,9 @@ scaleTreeUltrametric ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal (Tree Double a)
 scaleTreeUltrametric k = createProposal description (scaleTreeUltrametricSimple k)
   where
@@ -298,9 +298,9 @@ scaleSubTreeUltrametric ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal (Tree Double a)
 scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametricSimple sd)
   where
@@ -382,9 +382,9 @@ pulley ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal (Tree Double a)
 pulley s = createProposal description (pulleySimple s)
   where
@@ -456,9 +456,9 @@ pulleyUltrametric ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal (Tree Double a)
 pulleyUltrametric d = createProposal description (pulleyUltrametricSimple d)
   where

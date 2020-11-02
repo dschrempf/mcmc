@@ -20,6 +20,8 @@ module Mcmc.Tree.Prior.RelaxedClock
   )
 where
 
+-- XXX: Auto correlated UGAM model: https://doi.org/10.1111/mec.12953.
+
 import qualified Data.Vector.Unboxed as V
 import ELynx.Tree
 import Mcmc.Prior

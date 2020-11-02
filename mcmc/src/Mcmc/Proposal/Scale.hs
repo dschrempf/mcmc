@@ -44,9 +44,9 @@ scale ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal Double
 scale k th = createProposal description (scaleSimple k th)
   where
@@ -62,9 +62,9 @@ scaleUnbiased ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal Double
 scaleUnbiased k = createProposal description (scaleSimple k (1 / k))
   where
@@ -97,9 +97,9 @@ scaleContrarily ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Enable tuning.
-  Bool ->
+  Tune ->
   Proposal (Double, Double)
 scaleContrarily k th = createProposal description (scaleContrarilySimple k th)
   where

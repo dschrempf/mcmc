@@ -82,8 +82,10 @@ module Mcmc
     -- B. R., Huelsenbeck, J. P., …, Revbayes: bayesian phylogenetic inference using
     -- graphical models and an interactive model-specification language, Systematic
     -- Biology, 65(4), 726–736 (2016). http://dx.doi.org/10.1093/sysbio/syw021
+    Weight (Weight),
     Proposal,
     (@~),
+    Tune (..),
     scale,
     scaleUnbiased,
     scaleContrarily,

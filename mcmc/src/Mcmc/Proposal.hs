@@ -15,10 +15,12 @@
 -- Creation date: Wed May 20 13:42:53 2020.
 module Mcmc.Proposal
   ( -- * Proposal
+    Weight (..),
     Proposal (..),
     (@~),
     ProposalSimple,
     Tuner (tParam, tFunc),
+    Tune (..),
     createProposal,
     tune,
 
@@ -59,6 +61,11 @@ import Mcmc.Internal.Shuffle
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
+-- | The weight determines how often a 'Proposal' is executed per iteration of
+-- the Markov chain.
+newtype Weight = Weight { fromWeight :: Int }
+  deriving (Show, Eq)
+
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability mass or probability density
 -- conditioned on the current state (i.e., a kernel).
@@ -74,7 +81,7 @@ data Proposal a = Proposal
     pDescription :: String,
     -- | The weight determines how often a 'Proposal' is executed per iteration of
     -- the Markov chain.
-    pWeight :: Int,
+    pWeight :: Weight,
     -- | Simple proposal without name, weight, and tuning information.
     pSimple :: ProposalSimple a,
     -- | Tuning is disabled if set to 'Nothing'.
@@ -89,7 +96,7 @@ instance Eq (Proposal a) where
   m == n = pName m == pName n && pDescription m == pDescription n
 
 instance Ord (Proposal a) where
-  compare = compare `on` (\p -> (pDescription p, pName p, pWeight p))
+  compare = compare `on` (\p -> (pDescription p, pName p, fromWeight $ pWeight p))
 
 -- | Convert a proposal from one data type to another using a lens.
 --
@@ -140,6 +147,10 @@ convertT l (Tuner p f) = Tuner p f'
   where
     f' x = convertS l $ f x
 
+-- | Tune the proposal?
+data Tune = Tune | NoTune
+  deriving (Show, Eq)
+
 -- | Create a possibly tuneable proposal.
 createProposal ::
   -- | Description of the proposal type and parameters.
@@ -151,12 +162,12 @@ createProposal ::
   -- | Name.
   String ->
   -- | Weight.
-  Int ->
+  Weight ->
   -- | Activate tuning?
-  Bool ->
+  Tune ->
   Proposal a
-createProposal d f n w True = Proposal n d w (f 1.0) (Just $ Tuner 1.0 f)
-createProposal d f n w False = Proposal n d w (f 1.0) Nothing
+createProposal d f n w Tune = Proposal n d w (f 1.0) (Just $ Tuner 1.0 f)
+createProposal d f n w NoTune = Proposal n d w (f 1.0) Nothing
 
 -- Minimal tuning parameter; subject to change.
 tuningParamMin :: Double
@@ -256,7 +267,7 @@ getNIterations (Cycle xs o) n g = case o of
     return [psR ++ reverse psR | psR <- psRs]
   SequentialReversibleO -> return $ replicate n $ ps ++ reverse ps
   where
-    !ps = concat [replicate (pWeight m) m | m <- xs]
+    !ps = concat [replicate (fromWeight $ pWeight m) m | m <- xs]
 
 -- | Tune 'Proposal's in the 'Cycle'. See 'tune'.
 tuneCycle :: Map (Proposal a) Double -> Cycle a -> Cycle a
@@ -313,7 +324,7 @@ summarizeProposal m r =
     tuneParamStr
     manualAdjustmentStr
   where
-    weight = BB.toLazyByteString $ BB.intDec $ pWeight m
+    weight = BB.toLazyByteString $ BB.intDec $ fromWeight $ pWeight m
     nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) r
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) r
     acceptRatio = BL.fromStrict $ maybe "" (BC.toFixed 3 . (^. _3)) r
@@ -339,7 +350,7 @@ summarizeCycle a c =
       ++ [hLine proposalHeader]
   where
     ps = ccProposals c
-    mpi = BB.toLazyByteString $ BB.intDec $ sum $ map pWeight ps
+    mpi = BB.toLazyByteString $ BB.intDec $ sum $ map (fromWeight . pWeight) ps
     ar m = acceptanceRatio m a
 
 -- | For each key @k@, store the number of accepted and rejected proposals.
