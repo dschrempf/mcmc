@@ -102,7 +102,6 @@ slideNodeUltrametricF u (Node br lb ts) =
   Node
     (br & lengthE %~ (+ u))
     (lb & heightL . lengthE %~ subtract u)
-    -- (ts & mapped . rootBranch . lengthE %~ subtract u)
     (map (rootBranch . lengthE %~ subtract u) ts)
 
 slideNodeUltrametricSimple ::
