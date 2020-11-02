@@ -42,7 +42,7 @@ scale ::
   -- | Scale.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -50,7 +50,7 @@ scale ::
   Proposal Double
 scale k th = createProposal description (scaleSimple k th)
   where
-    description = "Scale; shape: " ++ show k ++ ", scale: " ++ show th
+    description = PDescription $ "Scale; shape: " ++ show k ++ ", scale: " ++ show th
 
 -- | Multiplicative proposal with Gamma distributed kernel.
 --
@@ -60,7 +60,7 @@ scaleUnbiased ::
   -- | Shape.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -68,7 +68,7 @@ scaleUnbiased ::
   Proposal Double
 scaleUnbiased k = createProposal description (scaleSimple k (1 / k))
   where
-    description = "Scale unbiased; shape: " ++ show k
+    description = PDescription $ "Scale unbiased; shape: " ++ show k
 
 scaleContrarilySimple :: Double -> Double -> Double -> ProposalSimple (Double, Double)
 scaleContrarilySimple k th t =
@@ -95,7 +95,7 @@ scaleContrarily ::
   -- | Scale.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -103,4 +103,4 @@ scaleContrarily ::
   Proposal (Double, Double)
 scaleContrarily k th = createProposal description (scaleContrarilySimple k th)
   where
-    description = "Scale contrariliy; shape: " ++ show k ++ ", scale: " ++ show th
+    description = PDescription $ "Scale contrariliy; shape: " ++ show k ++ ", scale: " ++ show th

@@ -1,7 +1,8 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- Give proposal parameters =PName=, =PDescription=, and =PWeight= newtype
+  wrappers.
 - Give =Tune= a data type.
-- Give =PWeight= a newtype wrapper.
 - Allow periodical cleansing of state (=Cleaner=).
 - Add description string to proposals, so that they can be identified in an
   easier way.

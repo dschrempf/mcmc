@@ -15,6 +15,8 @@
 -- Creation date: Wed May 20 13:42:53 2020.
 module Mcmc.Proposal
   ( -- * Proposal
+    PName (..),
+    PDescription (..),
     PWeight (..),
     Proposal (..),
     (@~),
@@ -61,13 +63,18 @@ import Mcmc.Internal.Shuffle
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
--- -- | Proposal name.
--- newtype PName = PName {fromPName :: String}
+-- | Proposal name.
+newtype PName = PName {fromPName :: String}
+  deriving (Show, Eq, Ord)
+
+-- | Proposal description.
+newtype PDescription = PDescription {fromPDescription :: String}
+  deriving (Show, Eq, Ord)
 
 -- | The weight determines how often a 'Proposal' is executed per iteration of
 -- the Markov chain.
 newtype PWeight = PWeight {fromPWeight :: Int}
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability mass or probability density
@@ -79,9 +86,9 @@ newtype PWeight = PWeight {fromPWeight :: Int}
 -- No proposals with the same name and description are allowed in a 'Cycle'.
 data Proposal a = Proposal
   { -- | Name of the affected variable.
-    pName :: String,
+    pName :: PName,
     -- | Description of the proposal type and parameters.
-    pDescription :: String,
+    pDescription :: PDescription,
     -- | The weight determines how often a 'Proposal' is executed per iteration of
     -- the Markov chain.
     pWeight :: PWeight,
@@ -91,15 +98,15 @@ data Proposal a = Proposal
     pTuner :: Maybe (Tuner a)
   }
 
--- This should be removed.
+-- XXX: This should be removed.
 instance Show (Proposal a) where
-  show m = pName m <> " " <> pDescription m <> ", weight " <> show (pWeight m)
+  show m = fromPName (pName m) <> " " <> fromPDescription (pDescription m) <> ", weight " <> show (fromPWeight $ pWeight m)
 
 instance Eq (Proposal a) where
   m == n = pName m == pName n && pDescription m == pDescription n
 
 instance Ord (Proposal a) where
-  compare = compare `on` (\p -> (pDescription p, pName p, fromPWeight $ pWeight p))
+  compare = compare `on` (\p -> (pDescription p, pName p, pWeight p))
 
 -- | Convert a proposal from one data type to another using a lens.
 --
@@ -157,13 +164,13 @@ data Tune = Tune | NoTune
 -- | Create a possibly tuneable proposal.
 createProposal ::
   -- | Description of the proposal type and parameters.
-  String ->
+  PDescription ->
   -- | Function creating a simple proposal for a given tuning parameter. The
   -- larger the tuning parameter, the larger the proposal (and the lower the
   -- expected acceptance ratio), and vice versa.
   (Double -> ProposalSimple a) ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Activate tuning?
@@ -318,8 +325,8 @@ proposalHeader =
 summarizeProposal :: Proposal a -> Maybe (Int, Int, Double) -> BL.ByteString
 summarizeProposal m r =
   renderRow
-    (BL.pack $ pName m)
-    (BL.pack $ pDescription m)
+    (BL.pack $ fromPName $ pName m)
+    (BL.pack $ fromPDescription $ pDescription m)
     weight
     nAccept
     nReject

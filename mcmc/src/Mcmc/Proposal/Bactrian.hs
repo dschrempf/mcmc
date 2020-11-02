@@ -86,7 +86,7 @@ slideBactrian ::
   -- | Standard deviation.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -94,7 +94,7 @@ slideBactrian ::
   Proposal Double
 slideBactrian m s = createProposal description (bactrianAdditiveSimple m s)
   where
-    description = "Slide Bactrian; spike: " ++ show m ++ ", sd: " ++ show s
+    description = PDescription $ "Slide Bactrian; spike: " ++ show m ++ ", sd: " ++ show s
 
 -- We have:
 -- x  (1+dx ) = x'
@@ -134,7 +134,7 @@ scaleBactrian ::
   -- | Standard deviation.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -142,4 +142,4 @@ scaleBactrian ::
   Proposal Double
 scaleBactrian m s = createProposal description (bactrianMultSimple m s)
   where
-    description = "Scale Bactrian; spike: " ++ show m <> ", sd: " <> show s
+    description = PDescription $ "Scale Bactrian; spike: " ++ show m <> ", sd: " <> show s

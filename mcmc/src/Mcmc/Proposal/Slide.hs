@@ -36,7 +36,7 @@ slide ::
   -- | Standard deviation.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -44,7 +44,7 @@ slide ::
   Proposal Double
 slide m s = createProposal description (slideSimple m s)
   where
-    description = "Slide; mean: " ++ show m ++ ", sd: " ++ show s
+    description = PDescription $ "Slide; mean: " ++ show m ++ ", sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
 slideSymmetricSimple :: Double -> Double -> ProposalSimple Double
@@ -58,7 +58,7 @@ slideSymmetric ::
   -- | Standard deviation.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -66,7 +66,7 @@ slideSymmetric ::
   Proposal Double
 slideSymmetric s = createProposal description (slideSymmetricSimple s)
   where
-    description = "Slide symmetric; sd: " ++ show s
+    description = PDescription $ "Slide symmetric; sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
 slideUniformSimple :: Double -> Double -> ProposalSimple Double
@@ -80,7 +80,7 @@ slideUniformSymmetric ::
   -- | Delta.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -88,7 +88,7 @@ slideUniformSymmetric ::
   Proposal Double
 slideUniformSymmetric d = createProposal description (slideUniformSimple d)
   where
-    description = "Slide uniform symmetric; delta: " ++ show d
+    description = PDescription $ "Slide uniform symmetric; delta: " ++ show d
 
 contra :: (Double, Double) -> Double -> (Double, Double)
 contra (x, y) u = (x + u, y - u)
@@ -107,7 +107,7 @@ slideContrarily ::
   -- | Standard deviation.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -115,4 +115,4 @@ slideContrarily ::
   Proposal (Double, Double)
 slideContrarily m s = createProposal description (slideContrarilySimple m s)
   where
-    description = "Slide contrarily; mean: " ++ show m ++ ", sd: " ++ show s
+    description = PDescription $ "Slide contrarily; mean: " ++ show m ++ ", sd: " ++ show s

@@ -52,7 +52,7 @@ slideBranch ::
   -- | Standard deviation.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -140,7 +140,7 @@ slideNodeUltrametric ::
   -- | Standard deviation.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -148,7 +148,7 @@ slideNodeUltrametric ::
   Proposal (Tree Double a)
 slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple ds)
   where
-    description = "Slide node ultrametric; sd: " ++ show ds
+    description = PDescription $ "Slide node ultrametric; sd: " ++ show ds
 
 -- -- TODO.
 -- data HandleStem = WithStem | WithoutStem
@@ -179,7 +179,7 @@ scaleTree ::
   -- | Shape.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -187,7 +187,7 @@ scaleTree ::
   Proposal (Tree Double a)
 scaleTree k = createProposal description (scaleTreeSimple k)
   where
-    description = "Scale tree; shape: " ++ show k
+    description = PDescription $ "Scale tree; shape: " ++ show k
 
 -- TODO: There is now a distinction between tree types storing the node height
 -- only, and ultrametric trees, because the Jacobian matrices differ. For
@@ -231,7 +231,7 @@ scaleTreeUltrametric ::
   -- | Shape.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -239,7 +239,7 @@ scaleTreeUltrametric ::
   Proposal (Tree Double a)
 scaleTreeUltrametric k = createProposal description (scaleTreeUltrametricSimple k)
   where
-    description = "Scale tree ultrametric; shape: " ++ show k
+    description = PDescription $ "Scale tree ultrametric; shape: " ++ show k
 
 -- The stem is elongated by u. So if u is positive, the node height is reduced.
 --
@@ -296,7 +296,7 @@ scaleSubTreeUltrametric ::
   -- | Standard deviation.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -304,7 +304,7 @@ scaleSubTreeUltrametric ::
   Proposal (Tree Double a)
 scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametricSimple sd)
   where
-    description = "Scale subtree ultrametrc; sd: " ++ show sd
+    description = PDescription $ "Scale subtree ultrametrc; sd: " ++ show sd
 
 -- XXX: I removed this function for now, because it has too many special cases.
 -- The Jacobian differs for ultrametric and trees without constraints, and so we
@@ -380,7 +380,7 @@ pulley ::
   -- | Standard deviation.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -388,7 +388,7 @@ pulley ::
   Proposal (Tree Double a)
 pulley s = createProposal description (pulleySimple s)
   where
-    description = "Pulley; sd: " ++ show s
+    description = PDescription $ "Pulley; sd: " ++ show s
 
 -- See 'pulleyTruncatedNormalSample'. However, we have to honor more constraints
 -- in the ultrametric case.
@@ -454,7 +454,7 @@ pulleyUltrametric ::
   -- | Standard deviation.
   Double ->
   -- | Name.
-  String ->
+  PName ->
   -- | PWeight.
   PWeight ->
   -- | Enable tuning.
@@ -462,4 +462,4 @@ pulleyUltrametric ::
   Proposal (Tree Double a)
 pulleyUltrametric d = createProposal description (pulleyUltrametricSimple d)
   where
-    description = "Pulley ultrametric; sd: " ++ show d
+    description = PDescription $ "Pulley ultrametric; sd: " ++ show d
