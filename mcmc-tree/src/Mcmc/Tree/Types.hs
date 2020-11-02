@@ -20,14 +20,15 @@ module Mcmc.Tree.Types
 
     -- * Height labels
     HasHeight (..),
-    applyHeight,
     HeightLabel (..),
+    heightL,
     toHeightTree,
     fromHeightTree,
   )
 where
 
 import Control.Comonad
+import Control.Lens
 import Data.Aeson
 import Data.Aeson.TH
 import Data.Bifunctor
@@ -44,10 +45,6 @@ class HasHeight a where
   getHeight :: a -> Length
   setHeight :: Length -> a -> a
 
--- | Change the height.
-applyHeight :: HasHeight a => (Length -> Length) -> a -> a
-applyHeight f l = setHeight (f $ getHeight l) l
-
 -- | A node label with a height.
 --
 -- The node height is often used, but height calculation is costly. Direct storage
@@ -60,6 +57,10 @@ $(deriveJSON defaultOptions ''HeightLabel)
 instance HasHeight (HeightLabel a) where
   getHeight = fst . fromHeightLabel
   setHeight x (HeightLabel (_, lb)) = HeightLabel (x, lb)
+
+-- | Height of label.
+heightL :: HasHeight a => Lens' a Length
+heightL = lens getHeight (flip setHeight)
 
 -- | (Re)calculate node heights for a given tree.
 toHeightTree :: Tree Length a -> Tree Length (HeightLabel a)

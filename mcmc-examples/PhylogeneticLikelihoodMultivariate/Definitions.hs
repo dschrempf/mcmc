@@ -221,7 +221,8 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
   (timeTree @~ pulleyUltrametric 0.01 (PName "Time tree root") (PWeight 5) Tune) :
-  [ (timeTree . subTreeAt pth)
+  [ {-# SCC slideNodeUltrametric #-}
+    (timeTree . subTreeAt pth)
       @~ slideNodeUltrametric 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
     | (pth, lb) <- itoList $ identify t,
       -- Since the stem does not change the likelihood, it is set to zero, and
@@ -231,7 +232,8 @@ proposalsTimeTree t =
       -- ultrametricity.
       not (null $ forest $ getSubTreeUnsafe pth t)
   ]
-    ++ [ (timeTree . subTreeAt pth)
+    ++ [ {-# SCC scaleSubTreeUltrametric #-}
+         (timeTree . subTreeAt pth)
            @~ scaleSubTreeUltrametric 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
            -- Don't scale the sub tree of the root node, because we are not
@@ -245,14 +247,16 @@ proposalsTimeTree t =
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
   (rateTree @~ pulley 0.1 (PName "Rate tree root") (PWeight 5) Tune) :
-  [ (rateTree . subTreeAt pth)
-      @~ slideBranch 0.1 (PName $ "Rate tree branch " ++ show lb) (PWeight 1) Tune
+  [ {-# SCC slideBranch #-}
+    (rateTree . subTreeAt pth)
+      @~ scaleBranch 0.1 (PName $ "Rate tree branch " ++ show lb) (PWeight 1) Tune
     | (pth, lb) <- itoList $ identify t,
       -- Since the stem does not change the likelihood, it is set to zero, and
       -- we do not slide the stem.
       not (null pth)
   ]
-    ++ [ (rateTree . subTreeAt pth)
+    ++ [ {-# SCC scaleTree #-}
+         (rateTree . subTreeAt pth)
            @~ scaleTree WithoutStem 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
            -- Path does not lead to a leaf.

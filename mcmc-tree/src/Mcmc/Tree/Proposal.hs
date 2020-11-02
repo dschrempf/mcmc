@@ -13,15 +13,15 @@
 -- For reasons of computational efficiency some functions, for example, the ones
 -- working with ultrametric trees, use a tree object directly storing the node height.
 module Mcmc.Tree.Proposal
-  ( -- * Slide branches or nodes
-    slideBranch,
-    slideNodeUltrametric,
-
-    -- * Scale trees
+  ( -- * Unconstrained trees
+    scaleBranch,
     scaleTree,
+    pulley,
+
+    -- * Ultrametric trees
+    slideNodeUltrametric,
     scaleTreeUltrametric,
     scaleSubTreeUltrametric,
-    pulley,
     pulleyUltrametric,
   )
 where
@@ -33,7 +33,7 @@ import Data.Bifunctor
 import ELynx.Tree hiding (description)
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
-import Mcmc.Proposal.Slide
+import Mcmc.Proposal.Scale
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Types
 import Numeric.Log hiding (sum)
@@ -42,13 +42,13 @@ import Statistics.Distribution.Gamma
 import Statistics.Distribution.TruncatedNormal
 import System.Random.MWC
 
--- | Slide branch.
+-- | Scale branch.
 --
--- Use a normal distribution with mean 0 and given standard deviation.
+-- See 'scaleUnbiased'.
 --
--- This proposal slides the stem. To slide other branches, see 'subTreeAt'. For
+-- This proposal scales the stem. To slide other branches, see 'subTreeAt'. For
 -- example, @subTreeAt path @~ slideNodeUltrametric ...@.
-slideBranch ::
+scaleBranch ::
   -- | Standard deviation.
   Double ->
   -- | Name.
@@ -58,7 +58,7 @@ slideBranch ::
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Length a)
-slideBranch s n w t = (rootBranch . lengthE) @~ slideSymmetric s n w t
+scaleBranch s n w t = (rootBranch . lengthE) @~ scaleUnbiased s n w t
 
 -- -- Minimum branch length.
 -- eps :: Double
@@ -93,26 +93,16 @@ truncatedNormalSample s t a b g = do
   -- NO JACOBIAN IS COMPUTED.
   return (u, qYX / qXY)
 
--- Apply a function to the 'Length'. Throw error if length becomes negative.
-applyLengthE :: (Double -> Double) -> Length -> Length
-applyLengthE f = either error id . toLength . f . fromLength
-
--- Apply a function to the height. Throw error if height becomes negative.
-applyHeightE :: HasHeight a => (Double -> Double) -> a -> a
-applyHeightE = applyHeight . applyLengthE
-
--- Apply a function to the stem. Throw error if length becomes negative.
-applyStemE :: (Double -> Double) -> Tree Length a -> Tree Length a
-applyStemE = applyStem . applyLengthE
+-- TODO: CONTINUE HERE.
 
 -- The branch is elongated by u. So if u is positive, the node height is
 -- reduced.
 slideNodeUltrametricF :: HasHeight a => Double -> Tree Length a -> Tree Length a
 slideNodeUltrametricF u (Node br lb ts) =
   Node
-    (applyLengthE (+ u) br)
-    (applyHeightE (subtract u) lb)
-    (map (applyStemE (subtract u)) ts)
+    (br & lengthE %~ (+ u))
+    (lb & heightL . lengthE %~ subtract u)
+    (ts & (mapped rootBranch lengthE) %~ subtract u)
 
 slideNodeUltrametricSimple ::
   HasHeight a =>
