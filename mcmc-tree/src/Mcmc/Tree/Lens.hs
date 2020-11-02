@@ -16,23 +16,28 @@ module Mcmc.Tree.Lens
     subTreeAt,
     rootLabel,
     rootBranch,
+    lengthE,
   )
 where
 
 import Control.Lens
 import ELynx.Tree
 
--- | Lens to a specific node.
+-- | A specific node.
 subTreeAt :: Path -> Lens' (Tree e a) (Tree e a)
 subTreeAt p =
   lens
     (getSubTreeUnsafe p)
     (\t t' -> let pos = goPathUnsafe p $ fromTree t in toTree $ pos {current = t'})
 
--- | Lens to the label of the root node.
+-- | Label of the root node.
 rootLabel :: Lens' (Tree e a) a
 rootLabel = lens label (\(Node br _ ts) lb -> Node br lb ts)
 
--- | Lens to the branch of the root node.
+-- | Branch of the root node.
 rootBranch :: Lens' (Tree e a) e
 rootBranch = lens branch (\(Node _ lb ts) br -> Node br lb ts)
+
+-- | Length. Setter calls 'error' if length is negative.
+lengthE:: Lens' Length Double
+lengthE = lens fromLength (\_ x -> either error id $ toLength x)

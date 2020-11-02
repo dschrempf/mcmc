@@ -24,10 +24,10 @@ branchesWith ::
   HandleStem ->
   -- | Branch prior distribution.
   (Double -> Log Double) ->
-  Tree Double a ->
+  Tree Length a ->
   Log Double
-branchesWith WithStem f = product . map f . branches
-branchesWith WithoutStem f = product . map f . tail . branches
+branchesWith WithStem f = product . map (f . fromLength) . branches
+branchesWith WithoutStem f = product . map (f . fromLength) . tail . branches
 
 -- | See 'branchesWith'.
 --
@@ -37,7 +37,8 @@ parBranchesWith ::
   Int ->
   HandleStem ->
   (Double -> Log Double) ->
-  Tree Double a ->
+  Tree Length a ->
   Log Double
-parBranchesWith n WithStem f = parBranchFoldMap n f (*)
-parBranchesWith n WithoutStem f = product . map (parBranchFoldMap (n -1) f (*)) . forest
+parBranchesWith n WithStem f = parBranchFoldMap n (f . fromLength) (*)
+parBranchesWith n WithoutStem f =
+  product . map (parBranchFoldMap (n -1) (f . fromLength) (*)) . forest

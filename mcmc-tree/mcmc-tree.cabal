@@ -20,7 +20,6 @@ library
   exposed-modules:
       Mcmc.Tree
   other-modules:
-      Mcmc.Tree.Height
       Mcmc.Tree.Import
       Mcmc.Tree.Lens
       Mcmc.Tree.Monitor

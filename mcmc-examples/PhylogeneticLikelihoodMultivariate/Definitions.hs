@@ -31,7 +31,6 @@ where
 import Control.Lens
 import Data.Aeson
 import Data.Bifunctor
-import qualified Data.ByteString.Char8 as BS
 import qualified Data.Vector.Storable as V
 import GHC.Generics
 import qualified Numeric.LinearAlgebra as L
@@ -100,14 +99,14 @@ data I = I
     _timeHeight :: Double,
     -- | Normalized time tree of height 1.0. Branch labels denote relative
     -- times; node labels store relative node height and names.
-    _timeTree :: TimeTree,
+    _timeTree :: Tree Length (HeightLabel Name),
     -- | The mean of the absolute rates.
     _rateMean :: Double,
     -- | The shape of the relative rates.
     _rateShape :: Double,
     -- | Relative rate tree. Branch labels denote relative rates with mean 1.0;
     -- node labels store names.
-    _rateTree :: RateTree
+    _rateTree :: Tree Length Name
   }
   deriving (Generic)
 
@@ -122,7 +121,7 @@ instance FromJSON I
 -- See 'cleaner'. This function makes the tree ultrametric again, normalizes the
 -- tree and sets the height values accordingly.
 cleanTimeTree :: I -> I
-cleanTimeTree = timeTree %~ (toTimeTree . normalizeHeight . makeUltrametric . fromTimeTree)
+cleanTimeTree = timeTree %~ (normalizeHeight . makeUltrametric)
 
 -- | Clean the state periodically. Otherwise, the tree diverges from being
 -- ultrametric.
@@ -135,7 +134,7 @@ cleaner = Cleaner 100 cleanTimeTree
 -- tree, the terminal branches are elongated such that the tree becomes
 -- ultrametric ('makeUltrametric'). For the rate tree, we just use the topology
 -- and set all rates to 1.0.
-initWith :: SubstitutionTree -> I
+initWith :: Tree Length Name -> I
 initWith t =
   I
     { _timeBirthRate = 1.0,
@@ -147,7 +146,7 @@ initWith t =
       _rateTree = setStem 0 $ first (const 1.0) t
     }
   where
-    t' = toTimeTree $ normalizeHeight $ makeUltrametric t
+    t' = toHeightTree $ normalizeHeight $ makeUltrametric t
 
 -- Calibrations are defined in the module 'Calibration'.
 
@@ -283,8 +282,8 @@ proposals t =
 
 -- Monitor the average rate. Useful, because it should not deviate from 1.0 too
 -- much.
-getAverageBranchLength :: (I -> Tree Double a) -> I -> Double
-getAverageBranchLength f x = (/ n) $ totalBranchLength r
+getAverageBranchLength :: (I -> Tree Length a) -> I -> Double
+getAverageBranchLength f x = (/ n) $ fromLength $ totalLength r
   where
     r = f x
     n = fromIntegral $ length r - 1
@@ -303,7 +302,7 @@ monStdOut :: MonitorStdOut I
 monStdOut = monitorStdOut monParams 1
 
 getTimeTreeNodeHeight :: Path -> I -> Double
-getTimeTreeNodeHeight p x = (* h) $ getHeight $ label $ getSubTreeUnsafe p t
+getTimeTreeNodeHeight p x = (* h) $ fromLength $ getHeight $ label $ getSubTreeUnsafe p t
   where
     t = x ^. timeTree
     h = x ^. timeHeight
@@ -332,11 +331,11 @@ monFileParams cb cs =
     )
     1
 
-absoluteTimeTree :: I -> Tree Double BS.ByteString
-absoluteTimeTree s = first (* h) $ fromTimeTree t
+absoluteTimeTree :: I -> Tree Length Name
+absoluteTimeTree s = first (* h) t
   where
-    h = s ^. timeHeight
-    t = s ^. timeTree
+    h = either error id $ toLength $ s ^. timeHeight
+    t = fromHeightTree $ s ^. timeTree
 
 monFileTimeTree :: MonitorFile I
 monFileTimeTree = monitorFile "-timetree" [absoluteTimeTree >$< monitorTree "TimeTree"] 1

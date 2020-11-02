@@ -71,9 +71,7 @@ gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmet
 --
 -- The rates are distributed according to a gamma distribution with given shape
 -- and scale.
---
--- For a version that ignores the stem, see 'uncorrelatedGammaNoStem'.
-uncorrelatedGamma :: HandleStem -> Double -> Double -> Tree Double a -> Log Double
+uncorrelatedGamma :: HandleStem -> Double -> Double -> Tree Length a -> Log Double
 uncorrelatedGamma s k th = branchesWith s (gamma k th)
 
 -- A variant of the log normal distribution. See Yang 2006, equation (7.23).
@@ -91,7 +89,7 @@ logNormal mu var r = Exp $ negate t - e
 -- mean and variance.
 --
 -- See Computational Molecular Evolution (Yang, 2006), Section 7.4.
-uncorrelatedLogNormal :: HandleStem -> Double -> Double -> Tree Double a -> Log Double
+uncorrelatedLogNormal :: HandleStem -> Double -> Double -> Tree Length a -> Log Double
 uncorrelatedLogNormal s mu var = branchesWith s (logNormal mu var)
 
 -- | Auto-correlated white noise model.
@@ -103,11 +101,9 @@ uncorrelatedLogNormal s mu var = branchesWith s (logNormal mu var)
 -- are expected to have a distribution of rates with a lower variance than short
 -- branches.
 --
--- For a version that ignores the stem, see 'whiteNoiseNoStem'.
---
 -- Gives unexpected results if the topologies do not match.
-whiteNoise :: HandleStem -> Double -> Tree Double a -> Tree Double a -> Log Double
-whiteNoise WithStem v t r = gamma k (1 / k) (branch r) * whiteNoise WithoutStem v t r
+whiteNoise :: HandleStem -> Double -> Tree Length a -> Tree Length a -> Log Double
+whiteNoise WithStem v t r = gamma k (1 / k) (fromLength $ branch r) * whiteNoise WithoutStem v t r
   where
-    k = branch t / v
+    k = fromLength (branch t) / v
 whiteNoise WithoutStem v t r = product $ zipWith (whiteNoise WithStem v) (forest t) (forest r)

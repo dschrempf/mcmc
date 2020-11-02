@@ -98,7 +98,7 @@ birthDeath ::
   Double ->
   -- | Death rate.
   Double ->
-  Tree Double a ->
+  Tree Length a ->
   Log Double
 birthDeath la mu
   | la < 0.0 = error "birthDeath: Birth rate is negative."
@@ -115,14 +115,14 @@ birthDeathWith ::
   Double ->
   -- Birth rate in log domain.
   Log Double ->
-  Tree Double a ->
+  Tree Length a ->
   (Log Double, Double)
-birthDeathWith f la mu _ (Node br _ []) = first (Exp . log) $ f la mu br 0
+birthDeathWith f la mu _ (Node br _ []) = first (Exp . log) $ f la mu (fromLength br) 0
 birthDeathWith f la mu logLa (Node br _ [l, r]) = (Exp (log dT) * dL * dR * logLa, eT)
   where
     (dL, eL) = birthDeathWith f la mu logLa l
     (dR, eR) = birthDeathWith f la mu logLa r
-    (dT, eT) = f la mu br (eL * eR)
+    (dT, eT) = f la mu (fromLength br) (eL * eR)
 birthDeathWith _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 
 -- * Tests

@@ -44,7 +44,6 @@ import Control.Monad
 import Criterion
 import Data.Aeson
 import Data.Bifunctor
-import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.List
 import Data.Maybe
@@ -77,7 +76,7 @@ fnMeanTree = bnAnalysis ++ ".meantree"
 
 -- The rooted tree with posterior mean branch lengths will be stored in a file
 -- with this name.
-getMeanTree :: IO (Tree Double BS.ByteString)
+getMeanTree :: IO (Tree Length Name)
 getMeanTree = oneTree fnMeanTree
 
 fnData :: FilePath
@@ -93,14 +92,14 @@ getData = do
 
 -- Get the posterior matrix of branch lengths of rooted trees. Merge the two
 -- branch lengths leading to the root.
-getPosteriorMatrixRooted :: [Tree Double a] -> L.Matrix Double
+getPosteriorMatrixRooted :: [Tree Length a] -> L.Matrix Double
 getPosteriorMatrixRooted = L.fromRows . map (sumFirstTwo . getBranches)
 
 -- Get the posterior matrix of branch lengths of unrooted trees (trees with
 -- multifurcating root nodes). Before midpoint rooting, the mean branch lengths
 -- of the unrooted trees have to be determined.
-getPosteriorMatrix :: [Tree Double a] -> L.Matrix Double
-getPosteriorMatrix = L.fromRows . map (V.fromList . branches)
+getPosteriorMatrix :: [Tree Length a] -> L.Matrix Double
+getPosteriorMatrix = L.fromRows . map (V.fromList . map fromLength . branches)
 
 -- -- Only use this if absolutely necessary...
 -- beautifyVariance :: Double -> Double -> Double
@@ -140,7 +139,7 @@ prepare = do
   print means
   let meanTree =
         fromMaybe (error "Could not label tree with mean branch lengths") $
-          setBranches (map Length $ V.toList means) (head trs)
+          setBranches (map (either error id . toLength) $ V.toList means) (head trs)
       lvs = leaves meanTree
       trOutgroup = either error id $ outgroup (S.singleton $ head lvs) "root" meanTree
       tr = either error id $ midpoint trOutgroup
@@ -151,7 +150,7 @@ prepare = do
 
   putStrLn "Root the trees at the midpoint of the mean tree."
   let outgrp = fst $ fromBipartition $ either error id $ bipartition tr
-      trsRooted = map (first fromLength . either error id . outgroup outgrp "root" . first Length) trs
+      trsRooted = map (either error id . outgroup outgrp "root") trs
   putStrLn "Get the posterior means and the posterior covariance matrix."
   let pmR = getPosteriorMatrixRooted trsRooted
       (mu, sigmaBare) = second L.unSym $ L.meanCov pmR

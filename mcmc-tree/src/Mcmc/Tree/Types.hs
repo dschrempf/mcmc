@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |
@@ -14,25 +15,23 @@
 --
 -- Type synonyms to improve code readability.
 module Mcmc.Tree.Types
-  (
-    -- * Miscellaneous
+  ( -- * Miscellaneous
     HandleStem (..),
 
-    -- * Trees.
-    SubstitutionTree,
-    TimeTree,
-    toTimeTree,
-    fromTimeTree,
-    RateTree,
+    -- * Height labels
+    HasHeight (..),
+    applyHeight,
+    HeightLabel (..),
+    toHeightTree,
+    fromHeightTree,
   )
 where
 
 import Control.Comonad
 import Data.Aeson
+import Data.Aeson.TH
 import Data.Bifunctor
-import qualified Data.ByteString.Char8 as BS
 import ELynx.Tree
-import Mcmc.Tree.Height
 
 -- | Should the stem be handled.
 --
@@ -40,40 +39,32 @@ import Mcmc.Tree.Height
 -- during execution of a proposal, or the branch-wise prior?
 data HandleStem = WithStem | WithoutStem
 
--- | Substitution tree.
+-- | Class of types with information about height.
+class HasHeight a where
+  getHeight :: a -> Length
+  setHeight :: Length -> a -> a
+
+-- | Change the height.
+applyHeight :: HasHeight a => (Length -> Length) -> a -> a
+applyHeight f l = setHeight (f $ getHeight l) l
+
+-- | A node label with a height.
 --
--- The branches are measured in number of substitutions.
---
--- The node labels store the node names.
-type SubstitutionTree = Tree Double BS.ByteString
+-- The node height is often used, but height calculation is costly. Direct storage
+-- of the node height together with the node label saves time.
+newtype HeightLabel a = HeightLabel {fromHeightLabel :: (Length, a)}
+  deriving (Show, Eq)
 
--- | Time tree.
---
--- The branches are measured in time and denote durations.
---
--- The node labels store the node ages together with the names.
-type TimeTree = Tree Double (HeightLabel BS.ByteString)
+$(deriveJSON defaultOptions ''HeightLabel)
 
--- | Calculate node ages.
-toTimeTree :: Tree Double BS.ByteString -> TimeTree
-toTimeTree = extend (\t -> HeightLabel (rootHeight t, label t))
+instance HasHeight (HeightLabel a) where
+  getHeight = fst . fromHeightLabel
+  setHeight x (HeightLabel (_, lb)) = HeightLabel (x, lb)
 
--- | Forget node ages.
-fromTimeTree :: TimeTree -> Tree Double BS.ByteString
-fromTimeTree = second (snd . fromHeightLabel)
+-- | (Re)calculate node heights for a given tree.
+toHeightTree :: Tree Length a -> Tree Length (HeightLabel a)
+toHeightTree = extend (\t -> HeightLabel (rootHeight t, label t))
 
--- | Rate tree.
---
--- The branches are measured in relative or absolute rates.
---
--- The node labels store names.
-type RateTree = Tree Double BS.ByteString
-
--- This is pretty lame, but I need JSON instances.
-
-instance ToJSON BS.ByteString where
-  toJSON = toJSON . BS.unpack
-  toEncoding = toEncoding . BS.unpack
-
-instance FromJSON BS.ByteString where
-  parseJSON = fmap BS.pack . parseJSON
+-- | Remove information about height from label.
+fromHeightTree :: Tree e (HeightLabel a) -> Tree e a
+fromHeightTree = second (snd . fromHeightLabel)

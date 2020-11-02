@@ -14,7 +14,6 @@ module Mcmc.Tree
     module Mcmc.Tree.Import,
 
     -- * Types
-    module Mcmc.Tree.Height,
     module Mcmc.Tree.Types,
 
     -- * Monitors
@@ -35,7 +34,6 @@ module Mcmc.Tree
   )
 where
 
-import Mcmc.Tree.Height
 import Mcmc.Tree.Import
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Monitor

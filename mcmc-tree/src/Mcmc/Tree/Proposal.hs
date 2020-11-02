@@ -34,9 +34,8 @@ import ELynx.Tree hiding (description)
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Slide
-import Mcmc.Tree.Height
-import Mcmc.Tree.Types
 import Mcmc.Tree.Lens
+import Mcmc.Tree.Types
 import Numeric.Log hiding (sum)
 import Statistics.Distribution
 import Statistics.Distribution.Gamma
@@ -58,8 +57,8 @@ slideBranch ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal (Tree Double a)
-slideBranch s n w t = rootBranch @~ slideSymmetric s n w t
+  Proposal (Tree Length a)
+slideBranch s n w t = (rootBranch . lengthE) @~ slideSymmetric s n w t
 
 -- -- Minimum branch length.
 -- eps :: Double
@@ -94,11 +93,26 @@ truncatedNormalSample s t a b g = do
   -- NO JACOBIAN IS COMPUTED.
   return (u, qYX / qXY)
 
+-- Apply a function to the 'Length'. Throw error if length becomes negative.
+applyLengthE :: (Double -> Double) -> Length -> Length
+applyLengthE f = either error id . toLength . f . fromLength
+
+-- Apply a function to the height. Throw error if height becomes negative.
+applyHeightE :: HasHeight a => (Double -> Double) -> a -> a
+applyHeightE = applyHeight . applyLengthE
+
+-- Apply a function to the stem. Throw error if length becomes negative.
+applyStemE :: (Double -> Double) -> Tree Length a -> Tree Length a
+applyStemE = applyStem . applyLengthE
+
 -- The branch is elongated by u. So if u is positive, the node height is
 -- reduced.
-slideNodeUltrametricF :: HasHeight a => Double -> Tree Double a -> Tree Double a
+slideNodeUltrametricF :: HasHeight a => Double -> Tree Length a -> Tree Length a
 slideNodeUltrametricF u (Node br lb ts) =
-  Node (br + u) (applyHeight (subtract u) lb) (map (applyStem (subtract u)) ts)
+  Node
+    (applyLengthE (+ u) br)
+    (applyHeightE (subtract u) lb)
+    (map (applyStemE (subtract u)) ts)
 
 slideNodeUltrametricSimple ::
   HasHeight a =>
@@ -106,7 +120,7 @@ slideNodeUltrametricSimple ::
   Double ->
   -- Tuning parameter.
   Double ->
-  ProposalSimple (Tree Double a)
+  ProposalSimple (Tree Length a)
 slideNodeUltrametricSimple _ _ (Node _ _ []) _ =
   error "slideNodeUltrametricSample: Cannot slide leaf node."
 slideNodeUltrametricSimple s t tr@(Node br _ ts) g
@@ -122,8 +136,8 @@ slideNodeUltrametricSimple s t tr@(Node br _ ts) g
     return (slideNodeUltrametricF u tr, q, 1.0)
   where
     br' = minimum $ map branch ts
-    a = negate br
-    b = br'
+    a = fromLength $ negate br
+    b = fromLength br'
 
 -- | Slide node (for ultrametric trees).
 --
@@ -146,21 +160,22 @@ slideNodeUltrametric ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal (Tree Double a)
+  Proposal (Tree Length a)
 slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple ds)
   where
     description = PDescription $ "Slide node ultrametric; sd: " ++ show ds
 
-scaleTreeFunction :: HandleStem -> Tree Double a -> Double -> Tree Double a
-scaleTreeFunction WithStem tr u = first (* u) tr
-scaleTreeFunction WithoutStem (Node br lb ts) u = Node br lb $ map (first (* u)) ts
+scaleTreeFunction :: HandleStem -> Tree Length a -> Double -> Tree Length a
+scaleTreeFunction WithStem tr u = first (applyLengthE (* u)) tr
+scaleTreeFunction WithoutStem (Node br lb ts) u =
+  Node br lb $ map (first (applyLengthE (* u))) ts
 
 -- TODO: Length calculation may be slow.
-scaleTreeJacobian :: HandleStem -> Tree Double a -> Double -> Log Double
+scaleTreeJacobian :: HandleStem -> Tree e a -> Double -> Log Double
 scaleTreeJacobian WithStem tr u = Exp $ fromIntegral (length tr - 2) * log u
 scaleTreeJacobian WithoutStem tr u = Exp $ fromIntegral (length tr - 3) * log u
 
-scaleTreeSimple :: HandleStem -> Double -> Double -> ProposalSimple (Tree Double a)
+scaleTreeSimple :: HandleStem -> Double -> Double -> ProposalSimple (Tree Length a)
 scaleTreeSimple s k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
@@ -186,7 +201,7 @@ scaleTree ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal (Tree Double a)
+  Proposal (Tree Length a)
 scaleTree s k = createProposal description (scaleTreeSimple s k)
   where
     description = PDescription $ "Scale tree; shape: " ++ show k
@@ -205,14 +220,26 @@ nInnerNodes :: Tree e a -> Int
 nInnerNodes (Node _ _ []) = 0
 nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 
-scaleTreeUltrametricFunction :: HasHeight a => HandleStem -> Tree Double a -> Double -> Tree Double a
-scaleTreeUltrametricFunction WithStem tr u = bimap (* u) (applyHeight (* u)) tr
+scaleTreeUltrametricFunction :: HasHeight a => HandleStem -> Tree Length a -> Double -> Tree Length a
+scaleTreeUltrametricFunction WithStem tr u =
+  bimap
+    (applyLengthE (* u))
+    (applyHeightE (* u))
+    tr
 scaleTreeUltrametricFunction WithoutStem (Node br lb ts) u =
-  Node br (applyHeight (* u) lb) $ map (bimap (* u) (applyHeight (* u))) ts
+  Node
+    br
+    (applyHeightE (* u) lb)
+    $ map
+      ( bimap
+          (applyLengthE (* u))
+          (applyHeightE (* u))
+      )
+      ts
 
 -- (-2) for the entry corresponding to f(u)=1/u, (+1) for the stem makes
 -- (-1) in total.
-scaleTreeUltrametricJacobian :: HandleStem -> Tree Double a -> Double -> Log Double
+scaleTreeUltrametricJacobian :: HandleStem -> Tree e a -> Double -> Log Double
 scaleTreeUltrametricJacobian WithStem tr u = Exp $ fromIntegral (nInnerNodes tr - 1) * log u
 scaleTreeUltrametricJacobian WithoutStem tr u = Exp $ fromIntegral (nInnerNodes tr - 2) * log u
 
@@ -221,7 +248,7 @@ scaleTreeUltrametricSimple ::
   HandleStem ->
   Double ->
   Double ->
-  ProposalSimple (Tree Double a)
+  ProposalSimple (Tree Length a)
 scaleTreeUltrametricSimple s k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
@@ -246,7 +273,7 @@ scaleTreeUltrametric ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal (Tree Double a)
+  Proposal (Tree Length a)
 scaleTreeUltrametric s k = createProposal description (scaleTreeUltrametricSimple s k)
   where
     description = PDescription $ "Scale tree ultrametric; shape: " ++ show k
@@ -255,15 +282,18 @@ scaleTreeUltrametric s k = createProposal description (scaleTreeUltrametricSimpl
 --
 -- The scaling factor for inner node heights is also given, since it is
 -- calculated below.
-slideBranchScaleSubTreeF :: HasHeight a => Double -> Double -> Tree Double a -> Tree Double a
+slideBranchScaleSubTreeF :: HasHeight a => Double -> Double -> Tree Length a -> Tree Length a
 slideBranchScaleSubTreeF u xi (Node br lb ts) =
-    Node (br + u) (applyHeight (subtract u) lb) $ map (bimap (* xi) (applyHeight (* xi))) ts
+  Node
+    (applyLengthE (+ u) br)
+    (applyHeightE (subtract u) lb)
+    $ map (bimap (applyLengthE (* xi)) (applyHeightE (* xi))) ts
 
 scaleSubTreeUltrametricSimple ::
   (HasHeight a, Show a) =>
   Double ->
   Double ->
-  ProposalSimple (Tree Double a)
+  ProposalSimple (Tree Length a)
 scaleSubTreeUltrametricSimple _ _ (Node _ _ []) _ =
   error "scaleSubTreeUltrametricSample: Cannot scale sub tree of leaf node."
 scaleSubTreeUltrametricSimple ds t tr g = do
@@ -285,14 +315,14 @@ scaleSubTreeUltrametricSimple ds t tr g = do
   -- (-1) because the root height has an additive change.
   --
   -- Scaling factor (xi, not x_i) (ht - u)/ht = (1.0 - u/ht).
-  let xi = 1.0 - u / ht
+  let xi = 1.0 - u / b
       jacobian = Exp $ fromIntegral (nInnerNodes tr - 1) * log xi
   return (slideBranchScaleSubTreeF u xi tr, q, jacobian)
   where
     br = branch tr
     ht = getHeight $ label tr
-    a = negate br
-    b = ht
+    a = fromLength $ negate br
+    b = fromLength ht
 
 -- | Scale the branches of the sub tree and slide the stem so that the tree
 -- height is conserved.
@@ -311,51 +341,15 @@ scaleSubTreeUltrametric ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal (Tree Double a)
+  Proposal (Tree Length a)
 scaleSubTreeUltrametric sd = createProposal description (scaleSubTreeUltrametricSimple sd)
   where
     description = PDescription $ "Scale subtree ultrametrc; sd: " ++ show sd
 
--- XXX: I removed this function for now, because it has too many special cases.
--- The Jacobian differs for ultrametric and trees without constraints, and so we
--- would need at least three functions (UM, UM), (N, N), (N, U).
-
--- contra :: (Tree Double a, Tree Double b) -> Double -> (Tree Double a, Tree Double b)
--- contra (s, t) x = (first (* x) s, first (/ x) t)
-
--- scaleTreesContrarilySimple :: Double -> Double -> ProposalSimple (Tree Double a, Tree Double b)
--- scaleTreesContrarilySimple k t =
---   genericContinuous
---     (gammaDistr (k / t) (t / k))
---     contra
---     (Just recip)
---     (Just jacobian)
---   where
---     jacobian (l, r) u = undefined
-
--- -- | Scale all branches with a gamma distributed kernel of given shape. The
--- -- scale is set such that the mean is 1.0.
--- --
--- -- The two trees are scaled contrarily so that the product of their heights
--- -- stays constant. Contrary proposals are useful when parameters are confounded.
--- scaleTreesContrarily ::
---   -- | Shape.
---   Double ->
---   -- | Name.
---   String ->
---   -- | PWeight.
---   Int ->
---   -- | Enable tuning.
---   Bool ->
---   Proposal (Tree Double a, Tree Double b)
--- scaleTreesContrarily k = createProposal description (scaleTreesContrarilySimple k)
---   where
---     description = "Scale trees contrarily; shape: " ++ show k
-
 -- See 'truncatedNormalSample'. U is added to the left branch. I.e., if u is
 -- positive, the left branch is elongated.
 pulleyTruncatedNormalSample ::
-  Double -> Double -> Tree Double a -> GenIO -> IO (Double, Log Double)
+  Double -> Double -> Tree Length a -> GenIO -> IO (Double, Log Double)
 pulleyTruncatedNormalSample s t (Node _ _ [l, r])
   | brL <= 0 =
     error $
@@ -367,14 +361,14 @@ pulleyTruncatedNormalSample s t (Node _ _ [l, r])
   where
     brL = branch l
     brR = branch r
-    a = negate brL
-    b = brR
+    a = fromLength $ negate brL
+    b = fromLength brR
 pulleyTruncatedNormalSample _ _ _ = error "pulleyTruncatedNormalSample: Node is not bifurcating."
 
-pulleySimple :: Double -> Double -> ProposalSimple (Tree Double a)
+pulleySimple :: Double -> Double -> ProposalSimple (Tree Length a)
 pulleySimple s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyTruncatedNormalSample s t tr g
-  let tr' = Node br lb [applyStem (+ u) l, applyStem (subtract u) r]
+  let tr' = Node br lb [applyStemE (+ u) l, applyStemE (subtract u) r]
   -- The determinant of the Jacobian matrix is (-1).
   return (tr', q, 1.0)
 pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
@@ -395,7 +389,7 @@ pulley ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal (Tree Double a)
+  Proposal (Tree Length a)
 pulley s = createProposal description (pulleySimple s)
   where
     description = PDescription $ "Pulley; sd: " ++ show s
@@ -406,7 +400,7 @@ pulleyUltrametricTruncatedNormalSample ::
   HasHeight a =>
   Double ->
   Double ->
-  Tree Double a ->
+  Tree Length a ->
   GenIO ->
   IO (Double, Log Double)
 pulleyUltrametricTruncatedNormalSample s t (Node _ lb [l, r])
@@ -426,22 +420,22 @@ pulleyUltrametricTruncatedNormalSample s t (Node _ lb [l, r])
     -- The constraints are larger than 0.
     constraintRightBoundary = ht - brL
     constraintLeftBoundary = ht - brR
-    a = negate $ minimum [brL, constraintLeftBoundary]
-    b = minimum [brR, constraintRightBoundary]
+    a = fromLength $ negate $ minimum [brL, constraintLeftBoundary]
+    b = fromLength $ minimum [brR, constraintRightBoundary]
 pulleyUltrametricTruncatedNormalSample _ _ _ =
   error "pulleyUltrametricTruncatedNormalSample: Node is not bifurcating."
 
-pulleyUltrametricSimple :: HasHeight a => Double -> Double -> ProposalSimple (Tree Double a)
+pulleyUltrametricSimple :: HasHeight a => Double -> Double -> ProposalSimple (Tree Length a)
 pulleyUltrametricSimple s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyUltrametricTruncatedNormalSample s t tr g
   -- Left.
   let hL = getHeight $ label l
       -- Scaling factor left. (hL - u)/hL = (1.0 - u/hL).
-      xiL = 1.0 - u / hL
+      xiL = 1.0 - u / fromLength hL
   -- Right.
   let hR = getHeight $ label r
       -- Scaling factor right. (hR + u)/hR = (1.0 + u/hR).
-      xiR = 1.0 + u / hR
+      xiR = 1.0 + u / fromLength hR
   let tr' = Node br lb [slideBranchScaleSubTreeF u xiL l, slideBranchScaleSubTreeF (negate u) xiR r]
   -- The calculation of the Jacobian matrix is very lengthy. Similar to before,
   -- we parameterize the tree into the two branch lengths leading to the pulley
@@ -469,7 +463,7 @@ pulleyUltrametric ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal (Tree Double a)
+  Proposal (Tree Length a)
 pulleyUltrametric d = createProposal description (pulleyUltrametricSimple d)
   where
     description = PDescription $ "Pulley ultrametric; sd: " ++ show d

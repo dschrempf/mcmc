@@ -18,7 +18,6 @@ module Constraints
   )
 where
 
-import qualified Data.ByteString.Char8 as BS
 import ELynx.Tree
 import Mcmc.Tree
 import Numeric.Log
@@ -37,14 +36,12 @@ type Constraint = (String, Path, Path)
 -- The constraints have to be pre-computed with 'getConstraints'. The reason is
 -- that finding the nodes on the tree is a slow process that should not be
 -- repeated.
---
--- __Assume the node labels denote node height__.
-constraints :: HasHeight a => [Constraint] -> Tree Double a -> [Log Double]
+constraints :: HasHeight a => [Constraint] -> Tree Length a -> [Log Double]
 constraints xs t =
   [constrainSoft 1e-3 y o t | (_, y, o) <- xs]
 
 -- | Find and constrain the constrained nodes on the tree.
-getConstraints :: Tree e BS.ByteString -> [Constraint]
+getConstraints :: Tree e Name -> [Constraint]
 getConstraints t = [("hornwort->fern", young, old)]
   where
     young = mrcaUnsafe ["Lindsaea_linearis", "Polystichum_acrostichoides"] t

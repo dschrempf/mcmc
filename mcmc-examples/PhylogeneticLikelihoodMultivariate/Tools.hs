@@ -22,11 +22,11 @@ import ELynx.Tree
 -- | Get all branches of a rooted tree. Store the branches in a vector such that
 -- the two branches leading to the root are the first two entries of the vector.
 -- Ignore the root branch.
-getBranches :: Tree Double a -> V.Vector Double
+getBranches :: Tree Length a -> V.Vector Double
 getBranches (Node _ _ [l, r]) = V.fromList $ head ls : head rs : tail ls ++ tail rs
   where
-    ls = branches l
-    rs = branches r
+    ls = map fromLength $ branches l
+    rs = map fromLength $ branches r
 getBranches _ = error "getBranches: Root node is not bifurcating."
 
 -- | Sum the first two elements of a vector. Needed to merge the two branches

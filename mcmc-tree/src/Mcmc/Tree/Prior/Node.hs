@@ -20,7 +20,7 @@ where
 
 import Data.List
 import ELynx.Tree
-import Mcmc.Tree.Height
+import Mcmc.Tree.Types
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
@@ -28,20 +28,18 @@ import Statistics.Distribution.Normal
 -- Get the height of the node at path on the tree.
 --
 -- __Assume the node labels denote node height__.
-getHeightFromNode :: HasHeight a => Path -> Tree Double a -> Double
+getHeightFromNode :: HasHeight a => Path -> Tree e a -> Length
 getHeightFromNode p = getHeight . label . getSubTreeUnsafe p
 
 -- | Hard constrain order of nodes with given paths using a truncated uniform
 -- distribution.
---
--- __Assume the node labels denote node height__.
 constrainHard ::
   HasHeight a =>
   -- | Path to younger node (closer to the leaves).
   Path ->
   -- | Path to older node (closer to the root).
   Path ->
-  Tree Double a ->
+  Tree e a ->
   Log Double
 constrainHard y o t
   | y `isPrefixOf` o = error "constrainHard: Young node is direct ancestor of old node (?)."
@@ -58,8 +56,6 @@ constrainHard y o t
 --   such that the complete distribution of the constrained is continuous. Use
 --   of the normal distribution also ensures that the first derivative is
 --   continuous.
---
--- __Assume the node labels denote node height__.
 constrainSoft ::
   HasHeight a =>
   -- | Standard deviation of one sided normal distribution.
@@ -68,7 +64,7 @@ constrainSoft ::
   Path ->
   -- | Path to older node (closer to the root).
   Path ->
-  Tree Double a ->
+  Tree e a ->
   Log Double
 constrainSoft s y o t
   | y `isPrefixOf` o = error "constrainSoft: Young node is direct ancestor of old node (?)."
@@ -76,13 +72,11 @@ constrainSoft s y o t
   | hY < hO = 1
   | otherwise = Exp $ logDensity d (hY - hO) - logDensity d 0
   where
-    hY = getHeightFromNode y t
-    hO = getHeightFromNode o t
+    hY = fromLength $ getHeightFromNode y t
+    hO = fromLength $ getHeightFromNode o t
     d = normalDistr 0 s
 
 -- | Calibrate height of a node with given path using the normal distribution.
---
--- __Assume the node labels denote node height__.
 calibrate ::
   HasHeight a =>
   -- | Mean.
@@ -90,13 +84,11 @@ calibrate ::
   -- | Standard deviation.
   Double ->
   Path ->
-  Tree Double a ->
+  Tree e a ->
   Log Double
-calibrate m s p = Exp . logDensity (normalDistr m s) . getHeightFromNode p
+calibrate m s p = Exp . logDensity (normalDistr m s) . fromLength . getHeightFromNode p
 
 -- | Calibrate height of a node with given path using the uniform distribution.
---
--- __Assume the node labels denote node height__.
 calibrateUniform ::
   HasHeight a =>
   -- | Lower bound.
@@ -104,14 +96,14 @@ calibrateUniform ::
   -- | Upper bound.
   Double ->
   Path ->
-  Tree Double a ->
+  Tree e a ->
   Log Double
 calibrateUniform a b p t
   | h > b = 0
   | h < a = 0
   | otherwise = 1
   where
-    h = getHeightFromNode p t
+    h = fromLength $ getHeightFromNode p t
 
 -- | Calibrate height of a node with given path.
 --
@@ -121,8 +113,6 @@ calibrateUniform a b p t
 --   standard deviation is used. The normal distribution is normalized such that
 --   the complete distribution of the constrained is continuous. Use of the
 --   normal distribution also ensures that the first derivative is continuous.
---
--- __Assume the node labels denote node height__.
 calibrateUniformSoft ::
   HasHeight a =>
   -- | Standard deviation of one sided normal distributions.
@@ -132,12 +122,12 @@ calibrateUniformSoft ::
   -- | Upper bound.
   Double ->
   Path ->
-  Tree Double a ->
+  Tree e a ->
   Log Double
 calibrateUniformSoft s a b p t
   | h > b = Exp $ logDensity d (h - b) - logDensity d 0
   | h < a = Exp $ logDensity d (a - h) - logDensity d 0
   | otherwise = 1
   where
-    h = getHeightFromNode p t
+    h = fromLength $ getHeightFromNode p t
     d = normalDistr 0 s

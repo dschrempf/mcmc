@@ -22,7 +22,6 @@ where
 import Codec.Compression.GZip
 import Control.Lens
 import Data.Attoparsec.Lazy
-import Data.Bifunctor
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.List
@@ -49,13 +48,13 @@ parseFileWith p f = do
   return $ either error id $ parseOnly p l
 
 -- | Parse first Newick tree in file.
-oneTree :: FilePath -> IO (Tree Double BS.ByteString)
+oneTree :: FilePath -> IO (Tree Length Name)
 oneTree f = do
   t <- parseFileWith (newick Standard) f
-  return $ first fromLength $ either error id $ phyloToLengthTree t
+  return $ either error id $ phyloToLengthTree t
 
 -- | Parse one or more Newick trees until end of file.
-someTrees :: NewickFormat -> FilePath -> IO [Tree Double BS.ByteString]
+someTrees :: NewickFormat -> FilePath -> IO [Tree Length Name]
 someTrees fm fn = do
   pts <- parseFileWith (someNewick fm) fn
-  return $ map (first fromLength . either error id . phyloToLengthTree) pts
+  return $ map (either error id . phyloToLengthTree) pts
