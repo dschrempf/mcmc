@@ -58,6 +58,7 @@ lh xs p
 -- slide the precision of the archer.
 proposals :: Cycle Precision
 proposals = fromList [slideUniformSymmetric 1.0 (PName "Mu") (PWeight 1) Tune]
+
 -- proposals = fromList [scaleUnbiased 1.6 (PName "Mu") (PWeight 1) Tune]
 -- proposals = fromList [slide 0.06 0.8 (PName "Mu") (PWeight 1) Tune]
 -- proposals = fromList [scaleBactrian 0.3 0.3 (PName "Mu") (PWeight 1) Tune]

@@ -167,14 +167,13 @@ betaSimple i t (SimplexUnsafe xs) g = do
       ja1 = bY / bX
       jac = Exp $ fromIntegral (V.length xs - 2) * log ja1
   -- Construct new vector.
-  let
-    -- Normalization function for other elements.
-    -- nf x = x * bY / bX
-    --
-    -- It turns out, that this factor is also needed to compute the determinant
-    -- of the Jacobian above.
-    nf x = x * ja1
-    ys = V.generate (V.length xs) (\j -> if i==j then yI else nf (xs V.! j))
+  let -- Normalization function for other elements.
+      -- nf x = x * bY / bX
+      --
+      -- It turns out, that this factor is also needed to compute the determinant
+      -- of the Jacobian above.
+      nf x = x * ja1
+      ys = V.generate (V.length xs) (\j -> if i == j then yI else nf (xs V.! j))
   return (either error id $ simplexFromVector ys, r, jac)
   where
     xI = xs V.! i
@@ -200,4 +199,5 @@ betaSimple i t (SimplexUnsafe xs) g = do
 -- element vector of the simplex.
 beta :: Int -> PName -> PWeight -> Tune -> Proposal Simplex
 beta i = createProposal description (betaSimple i)
-  where description = PDescription $ "Beta; coordinate: " ++ show i
+  where
+    description = PDescription $ "Beta; coordinate: " ++ show i

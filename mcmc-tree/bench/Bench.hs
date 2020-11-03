@@ -57,7 +57,8 @@ changeLeaf l x t = t & l .~ x
 
 getPath :: (Show a, Eq a) => a -> Tree e a -> Path
 getPath x t = fst $ fromMaybe err $ ifind (\_ n -> n == x) t
-  where err = error $ show x <> " not found."
+  where
+    err = error $ show x <> " not found."
 
 main :: IO ()
 main = do

@@ -18,9 +18,9 @@ module Mcmc.Proposal.Scale
   )
 where
 
-import Numeric.Log
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
+import Numeric.Log
 import Statistics.Distribution.Gamma
 
 -- The actual proposal with tuning parameter. The tuning parameter does not
@@ -77,13 +77,13 @@ scaleContrarilySimple k th t =
     contra
     (Just recip)
     (Just jac)
-  where contra (x, y) u = (x * u, y / u)
-        jac _ u = Exp $ log $ recip $ u*u
+  where
+    contra (x, y) u = (x * u, y / u)
+    jac _ u = Exp $ log $ recip $ u * u
 
 -- -- Determinant of Jacobian matrix.
 -- contraJac :: (Double, Double) -> Double
 -- contraJac (x, y) = x * y
-
 
 -- | Multiplicative proposal with Gamma distributed kernel.
 --

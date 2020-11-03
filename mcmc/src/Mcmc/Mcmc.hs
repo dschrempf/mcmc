@@ -138,10 +138,12 @@ mcmcClean = do
         "New log prior and log likelihood: " ++ show (ln pr') ++ ", " ++ show (ln lh') ++ "."
       let dLogPr = abs $ ln pr - ln pr'
           dLogLh = abs $ ln lh - ln lh'
-      when (dLogPr > 0.01)
-        (mcmcWarnS $ "Log of old and new prior differ by " ++ show dLogPr ++ "." )
-      when (dLogPr > 0.01)
-        (mcmcWarnS $ "Log of old and new likelihood differ by " ++ show dLogLh ++ "." )
+      when
+        (dLogPr > 0.01)
+        (mcmcWarnS $ "Log of old and new prior differ by " ++ show dLogPr ++ ".")
+      when
+        (dLogPr > 0.01)
+        (mcmcWarnS $ "Log of old and new likelihood differ by " ++ show dLogLh ++ ".")
       put $ s {item = Item st' pr' lh'}
     _ -> return ()
 
