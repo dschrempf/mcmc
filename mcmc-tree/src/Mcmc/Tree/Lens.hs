@@ -14,8 +14,8 @@
 module Mcmc.Tree.Lens
   ( Path,
     subTreeAt,
-    rootLabel,
-    rootBranch,
+    root,
+    stem,
     lengthE,
   )
 where
@@ -23,20 +23,41 @@ where
 import Control.Lens
 import ELynx.Tree
 
--- | A specific node.
+splitAt' :: Int -> [a] -> ([a], a, [a])
+splitAt' i xs = (ls, head rs, tail rs)
+  where
+    (ls, rs) = splitAt i xs
+
+assemble :: e -> a -> [Tree e a] -> [Tree e a] -> Tree e a -> Tree e a
+assemble br lb ls rs c = Node br lb $ ls ++ (c : rs)
+
+-- | A specific sub tree.
 subTreeAt :: Path -> Lens' (Tree e a) (Tree e a)
-subTreeAt p =
-  lens
-    (getSubTreeUnsafe p)
-    (\t t' -> let pos = goPathUnsafe p $ fromTree t in toTree $ pos {current = t'})
+subTreeAt pth f s = go s pth
+  where
+    go t [] = f t
+    go (Node lb br ts) (x : xs) =
+      let (ls, c, rs) = splitAt' x ts
+       in assemble lb br ls rs <$> go c xs
+
+-- -- Around 10 percent slower for trees with five to ten levels, because they
+-- -- have to be traversed twice. However, the loss of speed may be worse for
+-- -- deeper structures.
+--
+-- -- | A specific sub tree.
+-- subTreeAt :: Path -> Lens' (Tree e a) (Tree e a)
+-- subTreeAt p =
+--   lens
+--     (getSubTreeUnsafe p)
+--     (\t t' -> let pos = goPathUnsafe p $ fromTree t in toTree $ pos {current = t'})
 
 -- | Label of the root node.
-rootLabel :: Lens' (Tree e a) a
-rootLabel = lens label (\(Node br _ ts) lb -> Node br lb ts)
+root :: Lens' (Tree e a) a
+root = lens label (\(Node br _ ts) lb -> Node br lb ts)
 
--- | Branch of the root node.
-rootBranch :: Lens' (Tree e a) e
-rootBranch = lens branch (\(Node _ lb ts) br -> Node br lb ts)
+-- | Branch attached to the root node.
+stem :: Lens' (Tree e a) e
+stem = lens branch (\(Node _ lb ts) br -> Node br lb ts)
 
 -- | Length. Setter calls 'error' if length is negative.
 lengthE:: Lens' Length Double

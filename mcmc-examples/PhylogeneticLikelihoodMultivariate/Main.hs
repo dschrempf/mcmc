@@ -39,9 +39,7 @@ module Main
   )
 where
 
-import Control.Lens
 import Control.Monad
-import Criterion
 import Data.Aeson
 import Data.Bifunctor
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -233,43 +231,6 @@ continueMetropolisHastings n = do
       (bnAnalysis ++ ".mcmc")
   void $ mhContinue n s
 
--- Benchmark different functions used by the MCMC sampler.
-runBench :: IO ()
-runBench = do
-  tr <- getMeanTree
-  let (pth, _) =
-        fromMaybe (error "Gn_montanu not found.") $
-          ifind (\_ n -> n == "Gn_montanu") tr
-  putStrLn $ "The path to \"Gn_montanu\" is: " <> show pth
-  let bf1 =
-        toTree . insertLabel "Bla"
-          . fromMaybe (error "Path does not lead to a leaf.")
-          . goPath pth
-          . fromTree
-  putStrLn $ "Change a leaf: " <> show (bf1 tr) <> "."
-  putStrLn "Benchmark change a leaf."
-  benchmark $ nf bf1 tr
-  let bf2 =
-        label . current
-          . fromMaybe (error "Path does not lead to a leaf.")
-          . goPath pth
-          . fromTree
-  putStrLn $ "Leaf to get: " <> show (bf2 tr) <> "."
-  putStrLn "Benchmark get a leaf."
-  benchmark $ nf bf2 tr
-  putStrLn "Benchmark calculation of prior."
-  let i = initWith tr
-      pr' = priorDistribution (getCalibrations tr) (getConstraints tr)
-  benchmark $ nf pr' i
-  (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' fnData
-  let sigmaInv = L.fromRows sigmaInvRows
-      lh' = likelihoodFunction mu sigmaInv logSigmaDet
-  putStrLn "Benchmark calculation of likelihood."
-  benchmark $ nf lh' i
-
-  putStrLn "Benchmark identify."
-  benchmark $ nf identify tr
-
 -- Inspect different objects; useful for debugging.
 inspect :: IO ()
 inspect = do
@@ -311,13 +272,11 @@ main = do
     ["continue", n] -> do
       continueMetropolisHastings (read n)
     -- Benchmark different functions used by the MCMC sampler.
-    ["bench"] -> do
-      runBench
     -- Inspect different objects; useful for debugging.
     ["inspect"] -> do
       inspect
     -- Print usage instructions if none of the previous commands was entered.
-    _ -> putStrLn "Use one command of: [prepare|run|continue N|bench|inspect]."
+    _ -> putStrLn "Use one command of: [prepare|run|continue N|inspect]."
 
 -- Post scriptum:
 --

@@ -58,7 +58,7 @@ scaleBranch ::
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Length a)
-scaleBranch s n w t = (rootBranch . lengthE) @~ scaleUnbiased s n w t
+scaleBranch s n w t = (stem . lengthE) @~ scaleUnbiased s n w t
 
 -- -- Minimum branch length.
 -- eps :: Double
@@ -102,7 +102,7 @@ slideNodeUltrametricF u (Node br lb ts) =
   Node
     (br & lengthE %~ (+ u))
     (lb & heightL . lengthE %~ subtract u)
-    (map (rootBranch . lengthE %~ subtract u) ts)
+    (map (stem . lengthE %~ subtract u) ts)
 
 slideNodeUltrametricSimple ::
   HasHeight a =>
@@ -131,12 +131,12 @@ slideNodeUltrametricSimple s t tr@(Node br _ ts) g
 
 -- | Slide node (for ultrametric trees).
 --
--- For ultrametric trees, we cannot exclusively slide the branch such as with
--- 'slideBranch', because this would change the height and if the proposal is
+-- For ultrametric trees, we cannot exclusively scale the branch such as with
+-- 'scaleBranch', because this would change the height and if the proposal is
 -- used on a non-root node, it would break ultrametricity of the tree. Instead,
--- we need to slide the root node. That is, when the stem is elongated, we need
--- to shorten the daughter branches, and vice versa, such that the tree height
--- is conserved.
+-- we can slide the root node. That is, when the stem is elongated, we need to
+-- shorten the daughter branches, and vice versa, such that the tree height is
+-- conserved.
 --
 -- A normal distribution truncated at the origin and the closest daughter node
 -- is used.
@@ -362,8 +362,8 @@ pulleySimple s t tr@(Node br lb [l, r]) g = do
         Node
           br
           lb
-          [ l & rootBranch . lengthE %~ (+ u),
-            r & rootBranch . lengthE %~ subtract u
+          [ l & stem . lengthE %~ (+ u),
+            r & stem . lengthE %~ subtract u
           ]
   -- The determinant of the Jacobian matrix is (-1).
   return (tr', q, 1.0)
