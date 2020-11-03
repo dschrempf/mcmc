@@ -16,7 +16,8 @@ module Mcmc.Tree.Lens
     subTreeAt,
     root,
     stem,
-    lengthE,
+    lengthError,
+    lengthUnsafe,
   )
 where
 
@@ -27,11 +28,16 @@ splitAt' :: Int -> [a] -> ([a], a, [a])
 splitAt' i xs = (ls, head rs, tail rs)
   where
     (ls, rs) = splitAt i xs
+{-# INLINE splitAt' #-}
 
-assemble :: e -> a -> [Tree e a] -> [Tree e a] -> Tree e a -> Tree e a
-assemble br lb ls rs c = Node br lb $ ls ++ (c : rs)
+-- type Lens s t a b = forall f. Functor f => (a -> f b) -> s -> f t
+-- type Lens' s a = forall f. Functor f => (a -> f a) -> s -> f s
+-- lens :: (s -> a) -> (s -> b -> t) -> Lens s t a b
+-- lens sa sbt afb s = sbt s <$> afb (sa s)
 
 -- | A specific sub tree.
+--
+-- Call 'error' if the path is invalid.
 subTreeAt :: Path -> Lens' (Tree e a) (Tree e a)
 subTreeAt pth f s = go s pth
   where
@@ -39,6 +45,8 @@ subTreeAt pth f s = go s pth
     go (Node lb br ts) (x : xs) =
       let (ls, c, rs) = splitAt' x ts
        in assemble lb br ls rs <$> go c xs
+    assemble :: e -> a -> Forest e a -> Forest e a -> Tree e a -> Tree e a
+    assemble br lb ls rs c = Node br lb $ ls ++ (c : rs)
 
 -- -- Around 10 percent slower for trees with five to ten levels, because they
 -- -- have to be traversed twice. However, the loss of speed may be worse for
@@ -51,14 +59,30 @@ subTreeAt pth f s = go s pth
 --     (getSubTreeUnsafe p)
 --     (\t t' -> let pos = goPathUnsafe p $ fromTree t in toTree $ pos {current = t'})
 
+
 -- | Label of the root node.
 root :: Lens' (Tree e a) a
-root = lens label (\(Node br _ ts) lb -> Node br lb ts)
+root f (Node br lb ts) = assemble br ts <$> f lb
+  where
+    assemble :: e -> Forest e a -> a -> Tree e a
+    assemble br' ts' lb' = Node br' lb' ts'
 
 -- | Branch attached to the root node.
 stem :: Lens' (Tree e a) e
-stem = lens branch (\(Node _ lb ts) br -> Node br lb ts)
+stem f (Node br lb ts) = assemble lb ts <$> f br
+  where
+    assemble :: a -> Forest e a -> e -> Tree e a
+    assemble lb' ts' br' = Node br' lb' ts'
 
--- | Length. Setter calls 'error' if length is negative.
-lengthE:: Lens' Length Double
-lengthE = lens fromLength (\_ x -> either error id $ toLength x)
+-- | Length.
+--
+-- Call 'error' if length is negative.
+lengthError :: Lens' Length Double
+lengthError f l = either error id . toLength <$> f (fromLength l)
+
+
+-- | Length.
+--
+-- Non-negativity property is not ensured.
+lengthUnsafe :: Lens' Length Double
+lengthUnsafe f l = toLengthUnsafe <$> f (fromLength l)
