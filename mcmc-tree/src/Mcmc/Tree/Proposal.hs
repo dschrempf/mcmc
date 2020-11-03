@@ -53,8 +53,8 @@ lengthL = lengthU
 --
 -- See 'scaleUnbiased'.
 --
--- This proposal scales the stem. To slide other branches, see 'subTreeAt'. For
--- example, @subTreeAt path @~ slideNodeUltrametric ...@.
+-- This proposal scales the stem. To slide other branches, see 'subTreeAtE'. For
+-- example, @subTreeAtE path @~ slideNodeUltrametric ...@.
 scaleBranch ::
   -- | Standard deviation.
   Double ->

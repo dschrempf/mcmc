@@ -69,13 +69,13 @@ main = do
   -- -- Some debugging.
   -- putStrLn $ "The path to \"Gnetum_montanum\" is: " <> show pth <> "."
   -- print $ toNewick $ measurableToPhyloTree tr
-  -- let tr' = changeLeaf (subTreeAt' pth . root) "" tr
+  -- let tr' = changeLeaf (subTreeAtE pth . root) "" tr
   -- print $ toNewick $ measurableToPhyloTree tr'
   defaultMain
     -- Optimized lenses are around 10 percent faster for this tree.
     [ bgroup
         "lens"
-        [ bench "change leaf Gn, optimized lens" $ nf (changeLeaf (subTreeAt pthGn . labelL) "") tr,
-          bench "change leaf Br, optimized lens" $ nf (changeLeaf (subTreeAt pthBr . labelL) "") tr
+        [ bench "change leaf Gn, optimized lens" $ nf (changeLeaf (subTreeAtE pthGn . labelL) "") tr,
+          bench "change leaf Br, optimized lens" $ nf (changeLeaf (subTreeAtE pthBr . labelL) "") tr
         ]
     ]

@@ -13,7 +13,7 @@
 -- Creation date: Wed Aug 19 08:55:42 2020.
 module Mcmc.Tree.Lens
   ( Path,
-    subTreeAt,
+    subTreeAtE,
     branchL,
     labelL,
     forestL,
@@ -39,8 +39,8 @@ splitAt' i xs = (ls, head rs, tail rs)
 -- | A specific sub tree.
 --
 -- Call 'error' if the path is invalid.
-subTreeAt :: Path -> Lens' (Tree e a) (Tree e a)
-subTreeAt pth f s = go s pth
+subTreeAtE :: Path -> Lens' (Tree e a) (Tree e a)
+subTreeAtE pth f s = go s pth
   where
     go t [] = f t
     go (Node lb br ts) (x : xs) =
@@ -54,8 +54,8 @@ subTreeAt pth f s = go s pth
 -- -- deeper structures.
 --
 -- -- | A specific sub tree.
--- subTreeAt :: Path -> Lens' (Tree e a) (Tree e a)
--- subTreeAt p =
+-- subTreeAtE :: Path -> Lens' (Tree e a) (Tree e a)
+-- subTreeAtE p =
 --   lens
 --     (getSubTreeUnsafe p)
 --     (\t t' -> let pos = goPathUnsafe p $ fromTree t in toTree $ pos {current = t'})
