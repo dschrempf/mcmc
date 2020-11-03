@@ -14,10 +14,11 @@
 module Mcmc.Tree.Lens
   ( Path,
     subTreeAt,
-    root,
-    stem,
-    lengthError,
-    lengthUnsafe,
+    branchL,
+    labelL,
+    forestL,
+    lengthE,
+    lengthU,
   )
 where
 
@@ -59,30 +60,32 @@ subTreeAt pth f s = go s pth
 --     (getSubTreeUnsafe p)
 --     (\t t' -> let pos = goPathUnsafe p $ fromTree t in toTree $ pos {current = t'})
 
-
--- | Label of the root node.
-root :: Lens' (Tree e a) a
-root f (Node br lb ts) = assemble br ts <$> f lb
-  where
-    assemble :: e -> Forest e a -> a -> Tree e a
-    assemble br' ts' lb' = Node br' lb' ts'
-
 -- | Branch attached to the root node.
-stem :: Lens' (Tree e a) e
-stem f (Node br lb ts) = assemble lb ts <$> f br
+branchL :: Lens' (Tree e a) e
+branchL f (Node br lb ts) = assemble lb ts <$> f br
   where
     assemble :: a -> Forest e a -> e -> Tree e a
     assemble lb' ts' br' = Node br' lb' ts'
 
--- | Length.
+-- | Label of the root node.
+labelL :: Lens' (Tree e a) a
+labelL f (Node br lb ts) = assemble br ts <$> f lb
+  where
+    assemble :: e -> Forest e a -> a -> Tree e a
+    assemble br' ts' lb' = Node br' lb' ts'
+
+-- | Forest of the root node.
+forestL :: Lens' (Tree e a) (Forest e a)
+forestL f (Node br lb ts) = Node br lb <$> f ts
+
+-- | Length, error.
 --
 -- Call 'error' if length is negative.
-lengthError :: Lens' Length Double
-lengthError f l = either error id . toLength <$> f (fromLength l)
+lengthE :: Lens' Length Double
+lengthE f l = either error id . toLength <$> f (fromLength l)
 
-
--- | Length.
+-- | Length, unsafe.
 --
 -- Non-negativity property is not ensured.
-lengthUnsafe :: Lens' Length Double
-lengthUnsafe f l = toLengthUnsafe <$> f (fromLength l)
+lengthU :: Lens' Length Double
+lengthU f l = toLengthUnsafe <$> f (fromLength l)

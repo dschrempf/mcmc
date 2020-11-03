@@ -58,7 +58,7 @@ scaleBranch ::
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Length a)
-scaleBranch s n w t = (stem . lengthError) @~ scaleUnbiased s n w t
+scaleBranch s n w t = (branchL . lengthE) @~ scaleUnbiased s n w t
 
 -- -- Minimum branch length.
 -- eps :: Double
@@ -100,9 +100,9 @@ truncatedNormalSample s t a b g = do
 slideNodeUltrametricF :: HasHeight a => Double -> Tree Length a -> Tree Length a
 slideNodeUltrametricF u (Node br lb ts) =
   Node
-    (br & lengthError %~ (+ u))
-    (lb & heightL . lengthError %~ subtract u)
-    (map (stem . lengthError %~ subtract u) ts)
+    (br & lengthE %~ (+ u))
+    (lb & heightL . lengthE %~ subtract u)
+    (map (branchL . lengthE %~ subtract u) ts)
 
 slideNodeUltrametricSimple ::
   HasHeight a =>
@@ -156,9 +156,9 @@ slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple
     description = PDescription $ "Slide node ultrametric; sd: " ++ show ds
 
 scaleTreeFunction :: HandleStem -> Tree Length a -> Double -> Tree Length a
-scaleTreeFunction WithStem tr u = first (lengthError %~ (* u)) tr
+scaleTreeFunction WithStem tr u = first (lengthE %~ (* u)) tr
 scaleTreeFunction WithoutStem (Node br lb ts) u =
-  Node br lb $ map (first (lengthError %~ (* u))) ts
+  Node br lb $ map (first (lengthE %~ (* u))) ts
 
 -- TODO: Length calculation may be slow.
 scaleTreeJacobian :: HandleStem -> Tree e a -> Double -> Log Double
@@ -213,17 +213,17 @@ nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 scaleTreeUltrametricFunction :: HasHeight a => HandleStem -> Tree Length a -> Double -> Tree Length a
 scaleTreeUltrametricFunction WithStem tr u =
   bimap
-    (lengthError %~ (* u))
-    (heightL . lengthError %~ (* u))
+    (lengthE %~ (* u))
+    (heightL . lengthE %~ (* u))
     tr
 scaleTreeUltrametricFunction WithoutStem (Node br lb ts) u =
   Node
     br
-    (lb & heightL . lengthError %~ (* u))
+    (lb & heightL . lengthE %~ (* u))
     $ map
       ( bimap
-          (lengthError %~ (* u))
-          (heightL . lengthError %~ (* u))
+          (lengthE %~ (* u))
+          (heightL . lengthE %~ (* u))
       )
       ts
 
@@ -275,9 +275,9 @@ scaleTreeUltrametric s k = createProposal description (scaleTreeUltrametricSimpl
 slideBranchScaleSubTreeF :: HasHeight a => Double -> Double -> Tree Length a -> Tree Length a
 slideBranchScaleSubTreeF u xi (Node br lb ts) =
   Node
-    (br & lengthError %~ (+ u))
-    (lb & heightL . lengthError %~ subtract u)
-    $ map (bimap (lengthError %~ (* xi)) (heightL . lengthError %~ (* xi))) ts
+    (br & lengthE %~ (+ u))
+    (lb & heightL . lengthE %~ subtract u)
+    $ map (bimap (lengthE %~ (* xi)) (heightL . lengthE %~ (* xi))) ts
 
 scaleSubTreeUltrametricSimple ::
   (HasHeight a, Show a) =>
@@ -362,8 +362,8 @@ pulleySimple s t tr@(Node br lb [l, r]) g = do
         Node
           br
           lb
-          [ l & stem . lengthError %~ (+ u),
-            r & stem . lengthError %~ subtract u
+          [ l & branchL . lengthE %~ (+ u),
+            r & branchL . lengthE %~ subtract u
           ]
   -- The determinant of the Jacobian matrix is (-1).
   return (tr', q, 1.0)

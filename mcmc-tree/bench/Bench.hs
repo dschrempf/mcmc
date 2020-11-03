@@ -75,7 +75,7 @@ main = do
     -- Optimized lenses are around 10 percent faster for this tree.
     [ bgroup
         "lens"
-        [ bench "change leaf Gn, optimized lens" $ nf (changeLeaf (subTreeAt' pthGn . root) "") tr,
-          bench "change leaf Br, optimized lens" $ nf (changeLeaf (subTreeAt' pthBr . root) "") tr
+        [ bench "change leaf Gn, optimized lens" $ nf (changeLeaf (subTreeAt pthGn . labelL) "") tr,
+          bench "change leaf Br, optimized lens" $ nf (changeLeaf (subTreeAt pthBr . labelL) "") tr
         ]
     ]
