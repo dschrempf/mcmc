@@ -52,30 +52,6 @@ import Mcmc.Tree
 --   putStrLn "Benchmark identify."
 --   benchmark $ nf identify tr
 
--- type Lens s t a b = forall f. Functor f => (a -> f b) -> s -> f t
--- type Lens' s a = forall f. Functor f => (a -> f a) -> s -> f s
--- lens :: (s -> a) -> (s -> b -> t) -> Lens s t a b
--- lens sa sbt afb s = sbt s <$> afb (sa s)
-
-splitAt' :: Int -> [a] -> ([a], a, [a])
-splitAt' i xs = (ls, head rs, tail rs)
-  where
-    (ls, rs) = splitAt i xs
-
-assemble :: e -> a -> [Tree e a] -> [Tree e a] -> Tree e a -> Tree e a
-assemble br lb ls rs c = Node br lb $ ls ++ (c : rs)
-
-subTreeAt' :: Path -> Lens' (Tree e a) (Tree e a)
--- subTreeAt' p afb s = sbt s <$> afb (sa s)
---   where sbt t t' = let pos = goPathUnsafe p $ fromTree t in toTree $ pos {current = t'}
---         sa = getSubTreeUnsafe p
-subTreeAt' pth f s = go s pth
-  where
-    go t [] = f t
-    go (Node lb br ts) (x : xs) =
-      let (ls, c, rs) = splitAt' x ts
-       in assemble lb br ls rs <$> go c xs
-
 changeLeaf :: Lens' (Tree e a) a -> a -> Tree e a -> Tree e a
 changeLeaf l x t = t & l .~ x
 
@@ -96,11 +72,10 @@ main = do
   -- let tr' = changeLeaf (subTreeAt' pth . root) "" tr
   -- print $ toNewick $ measurableToPhyloTree tr'
   defaultMain
+    -- Optimized lenses are around 10 percent faster for this tree.
     [ bgroup
         "lens"
-        [ bench "change leaf Gn, lens with zipper" $ nf (changeLeaf (subTreeAt pthGn . root) "") tr,
-          bench "change leaf Gn, optimized lens" $ nf (changeLeaf (subTreeAt' pthGn . root) "") tr,
-          bench "change leaf Br, lens with zipper" $ nf (changeLeaf (subTreeAt pthBr . root) "") tr,
+        [ bench "change leaf Gn, optimized lens" $ nf (changeLeaf (subTreeAt' pthGn . root) "") tr,
           bench "change leaf Br, optimized lens" $ nf (changeLeaf (subTreeAt' pthBr . root) "") tr
         ]
     ]
