@@ -44,6 +44,7 @@ data HandleStem = WithStem | WithoutStem
 class HasHeight a where
   getHeight :: a -> Length
   setHeight :: Length -> a -> a
+  modHeight :: (Length -> Length) -> a -> a
 
 -- | A node label with a height.
 --
@@ -57,6 +58,7 @@ $(deriveJSON defaultOptions ''HeightLabel)
 instance HasHeight (HeightLabel a) where
   getHeight = fst . fromHeightLabel
   setHeight x (HeightLabel (_, lb)) = HeightLabel (x, lb)
+  modHeight f (HeightLabel (x, lb)) = HeightLabel (f x, lb)
 
 -- | Height of label.
 heightL :: HasHeight a => Lens' a Length

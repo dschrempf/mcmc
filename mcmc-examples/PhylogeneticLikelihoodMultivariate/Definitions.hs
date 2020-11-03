@@ -230,7 +230,7 @@ proposalsTimeTree t =
       not (null pth),
       -- Also, we do not slide leaf nodes, since this would break
       -- ultrametricity.
-      not (null $ forest $ getSubTreeUnsafe pth t)
+      not $ null $ t ^. subTreeAt pth . forestL
   ]
     ++ [ {-# SCC scaleSubTreeUltrametric #-}
          (timeTree . subTreeAt pth)
@@ -238,9 +238,9 @@ proposalsTimeTree t =
          | (pth, lb) <- itoList $ identify t,
            -- Don't scale the sub tree of the root node, because we are not
            -- interested in changing the length of the stem.
-           not (null pth),
+           not $ null pth,
            -- Sub trees of leaves cannot be scaled.
-           not (null $ forest $ getSubTreeUnsafe pth t)
+           not $ null $ t ^. subTreeAt pth . forestL
        ]
 
 -- Proposals for the rate tree.
@@ -260,7 +260,7 @@ proposalsRateTree t =
            @~ scaleTree WithoutStem 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
            -- Path does not lead to a leaf.
-           not (null $ forest $ current $ goPathUnsafe pth $ fromTree t)
+           not (null $ t ^. subTreeAt pth . forestL)
        ]
 
 -- Create an accessor for a contrary proposal, see below.
@@ -306,7 +306,7 @@ monStdOut :: MonitorStdOut I
 monStdOut = monitorStdOut monParams 1
 
 getTimeTreeNodeHeight :: Path -> I -> Double
-getTimeTreeNodeHeight p x = (* h) $ fromLength $ getHeight $ label $ getSubTreeUnsafe p t
+getTimeTreeNodeHeight p x = (* h) $ fromLength $ t ^. subTreeAt p . labelL . heightL
   where
     t = x ^. timeTree
     h = x ^. timeHeight
