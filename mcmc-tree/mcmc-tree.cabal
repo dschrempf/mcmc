@@ -29,7 +29,9 @@ library
       Mcmc.Tree.Prior.Branch
       Mcmc.Tree.Prior.Node
       Mcmc.Tree.Prior.RelaxedClock
-      Mcmc.Tree.Proposal
+      Mcmc.Tree.Proposal.Common
+      Mcmc.Tree.Proposal.Ultrametric
+      Mcmc.Tree.Proposal.Unconstrained
       Mcmc.Tree.Types
       Statistics.Distribution.TruncatedNormal
       Paths_mcmc_tree

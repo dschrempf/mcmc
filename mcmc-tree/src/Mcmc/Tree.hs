@@ -26,7 +26,8 @@ module Mcmc.Tree
     module Mcmc.Tree.Prior.RelaxedClock,
 
     -- * Proposals
-    module Mcmc.Tree.Proposal,
+    module Mcmc.Tree.Proposal.Unconstrained,
+    module Mcmc.Tree.Proposal.Ultrametric,
 
     -- * Accessors
     module Mcmc.Tree.Mrca,
@@ -42,5 +43,6 @@ import Mcmc.Tree.Prior.BirthDeath
 import Mcmc.Tree.Prior.Branch
 import Mcmc.Tree.Prior.Node
 import Mcmc.Tree.Prior.RelaxedClock
-import Mcmc.Tree.Proposal
+import Mcmc.Tree.Proposal.Ultrametric
+import Mcmc.Tree.Proposal.Unconstrained
 import Mcmc.Tree.Types
