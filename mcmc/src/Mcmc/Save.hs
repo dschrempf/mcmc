@@ -102,12 +102,12 @@ saveStatus fn s = BL.writeFile fn $ compress $ encode (toSave s)
 fromSave ::
   (a -> Log Double) ->
   (a -> Log Double) ->
-  Maybe (Cleaner a) ->
   Cycle a ->
   Monitor a ->
+  Maybe (Cleaner a) ->
   Save a ->
   Status a
-fromSave pr lh cl cc m (Save nm it i tr ac' br at is f sv vb g' ts) =
+fromSave pr lh cc m cl (Save nm it i tr ac' br at is f sv vb g' ts) =
   Status
     nm
     it
@@ -152,18 +152,18 @@ loadStatus ::
   (a -> Log Double) ->
   -- | Likelihood function.
   (a -> Log Double) ->
-  -- | Cleaner, if needed.
-  Maybe (Cleaner a) ->
   Cycle a ->
   Monitor a ->
+  -- | Cleaner, if needed.
+  Maybe (Cleaner a) ->
   -- | Path of status to load.
   FilePath ->
   IO (Status a)
-loadStatus pr lh cl cc mn fn = do
+loadStatus pr lh cc mn cl fn = do
   res <- eitherDecode . decompress <$> BL.readFile fn
   let s = case res of
         Left err -> error err
-        Right sv -> fromSave pr lh cl cc mn sv
+        Right sv -> fromSave pr lh cc mn cl sv
   -- Check if prior and likelihood matches.
   let Item x svp svl = item s
   -- Recompute and check the prior and likelihood for the last state because the

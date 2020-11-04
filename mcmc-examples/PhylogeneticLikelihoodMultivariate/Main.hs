@@ -48,7 +48,6 @@ import Data.Maybe
 import qualified Data.Set as S
 import qualified Data.Vector.Storable as V
 import qualified Numeric.LinearAlgebra as L
-import Numeric.Log
 import System.Environment
 import System.Random.MWC hiding (uniform)
 
@@ -122,9 +121,11 @@ prepare = do
   putStrLn "Read trees."
   trsAll <- someTrees Standard fnInTrees
   let nTrees = length trsAll
-      nBurnInTrees = nTrees `div` 10
+  putStrLn $ show nTrees ++ " read."
+
+  let nBurnInTrees = nTrees `div` 10
       trs = drop nBurnInTrees trsAll
-  putStrLn $ show nTrees ++ " read; skip a burn in of " ++ show nBurnInTrees ++ " trees."
+  putStrLn $ "Skip a burn in of " ++ show nBurnInTrees ++ " trees."
 
   putStrLn "Check if trees have the same topology."
   let l = length $ nub $ map T.fromLabeledTree trs
@@ -146,9 +147,13 @@ prepare = do
   putStrLn $ "Save the mean tree to " <> fnMeanTree <> "."
   BL.writeFile fnMeanTree (toNewick $ measurableToPhyloTree tr)
 
+  -- Rooting is only necessary if the obtained trees are unrooted. Here, the
+  -- midpoint of the mean tree is used as root. If available, an outgroup could
+  -- also be used.
   putStrLn "Root the trees at the midpoint of the mean tree."
   let outgrp = fst $ fromBipartition $ either error id $ bipartition tr
       trsRooted = map (either error id . outgroup outgrp "root") trs
+
   putStrLn "Get the posterior means and the posterior covariance matrix."
   let pmR = getPosteriorMatrixRooted trsRooted
       (mu, sigmaBare) = second L.unSym $ L.meanCov pmR
@@ -165,8 +170,6 @@ prepare = do
   --     variances = L.takeDiag sigma
   -- putStrLn $ "Minimum variance: " ++ show (L.minElement variances)
   -- putStrLn $ "Maximum variance: " ++ show (L.maxElement variances)
-
-  putStrLn "Do no beautify covariance matrix. That's the way to go."
   let sigma = sigmaBare
 
   putStrLn "Prepare the covariance matrix for the likelihood calculation."
@@ -184,18 +187,30 @@ runMetropolisHastings = do
   (mu, sigmaInv, logSigmaDet) <- getData
   putStrLn "The posterior means of the branch lengths are:"
   print mu
-  -- Initialize a starting state using the mean tree.
-  let start = initWith meanTree
+
+  -- Use the mean tree, and the posterior means and covariances to initialize
+  -- various objects.
+  let -- Calibrations.
       cb = getCalibrations meanTree
+      -- Constraints.
       cs = getConstraints meanTree
+      -- Prior function.
       pr' = priorDistribution cb cs
+      -- Likelihood function.
       lh' = likelihoodFunction mu sigmaInv logSigmaDet
+      -- Proposal cycle.
       ccl' = proposals meanTree
+      -- Monitor.
+      mon' = monitor cb cs
+      -- Starting state.
+      start' = initWith meanTree
+
   -- Create a seed value for the random number generator. Actually, the
   -- 'create' function is deterministic, but useful during development. For
   -- real analyses, use 'createSystemRandom'.
   g <- create
-  -- Construct the status of the Markov chain.
+
+  -- Construct the Markov chain.
   let s =
         force . cleanWith cleaner . saveWith 1 . debug $
           -- Have a look at the 'status' function to understand the
@@ -205,29 +220,47 @@ runMetropolisHastings = do
             pr'
             lh'
             ccl'
-            (monitor cb cs)
-            start
+            mon'
+            start'
             nBurnIn
             nAutoTune
             nIterations
             g
+
   -- Run the Markov chain.
   void $ mh s
 
 continueMetropolisHastings :: Int -> IO ()
 continueMetropolisHastings n = do
+  -- Read the mean tree and the posterior means and covariances.
   meanTree <- getMeanTree
   (mu, sigmaInv, logSigmaDet) <- getData
-  let cb = getCalibrations meanTree
+  putStrLn "The posterior means of the branch lengths are:"
+  print mu
+
+  -- Use the mean tree, and the posterior means and covariances to initialize
+  -- various objects.
+  let -- Calibrations.
+      cb = getCalibrations meanTree
+      -- Constraints.
       cs = getConstraints meanTree
+      -- Prior function.
+      pr' = priorDistribution cb cs
+      -- Likelihood function.
+      lh' = likelihoodFunction mu sigmaInv logSigmaDet
+      -- Proposal cycle.
+      ccl' = proposals meanTree
+      -- Monitor.
+      mon' = monitor cb cs
+
   -- Load the MCMC status.
   s <-
     loadStatus
-      (priorDistribution cb cs)
-      (likelihoodFunction mu sigmaInv logSigmaDet)
+      pr'
+      lh'
+      ccl'
+      mon'
       (Just cleaner)
-      (proposals meanTree)
-      (monitor cb cs)
       (bnAnalysis ++ ".mcmc")
   void $ mhContinue n s
 
@@ -248,4 +281,3 @@ main = do
       continueMetropolisHastings (read n)
     -- Print usage instructions if none of the previous commands was entered.
     _ -> putStrLn "Use one command of: [prepare|run|continue N]."
-
