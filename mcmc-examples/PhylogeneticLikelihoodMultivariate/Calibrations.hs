@@ -22,7 +22,10 @@ import ELynx.Tree
 import Mcmc.Tree
 import Numeric.Log
 
--- | Calibrate a node with given path at given age.
+-- | A calibration is specified by a name, a node at given path, and height boundaries.
+--
+-- For example, @let c = ("MyRootCalibration", [], YOUNG, OLD)@ ensures that the
+-- root node is older than YOUNG, and younger than OLD.
 type Calibration = (String, Path, Double, Double)
 
 -- | Calibration prior with uniform soft bounds.
@@ -30,11 +33,9 @@ type Calibration = (String, Path, Double, Double)
 -- For a given set of calibrations, the absolute height of the time tree, and
 -- the relative time tree, calculate the calibration prior.
 --
--- The calibrations have to be pre-computed with 'getCalibrations'. The reason
--- is that finding the nodes on the tree is a slow process that should not be
--- repeated.
---
--- __Assume the node labels denote node height__.
+-- The calibrations have to be precomputed with 'getCalibrations'. The reason is
+-- that finding the nodes on the tree is a slow process not to be repeated after
+-- each proposal.
 calibrations :: HasHeight a => [Calibration] -> Double -> Tree Length a -> [Log Double]
 calibrations xs h t =
   [calibrateUniformSoft 1e-3 (a / h) (b / h) x t | (_, x, a, b) <- xs]

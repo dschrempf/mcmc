@@ -1,5 +1,6 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- =noData= allows running a chain without likelihood function.
 - Give proposal parameters =PName=, =PDescription=, and =PWeight= newtype
   wrappers.
 - Give =Tune= a data type.

@@ -24,8 +24,8 @@ import Numeric.Log
 
 -- | Constraints define node orders.
 --
--- @("name", a, b)@ ensures node @a@ to be younger than node @b@, and gives the
--- constraint the name @name@.
+-- For example, @("MyConstraint", YOUNG, OLD)@ ensures node @YOUNG@ to be
+-- younger than node @OLD@, and gives the constraint the name @MyConstraint@.
 type Constraint = (String, Path, Path)
 
 -- | Constraint prior.
