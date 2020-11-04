@@ -3,7 +3,7 @@
 
 -- |
 -- Module      :  Definitions
--- Description :  State space, prior, likelihood etc.
+-- Description :  State space, prior function, likelihood function and more.
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -66,7 +66,7 @@ bnAnalysis = "plh-multivariate"
 -- | State space containing all parameters.
 --
 -- We are interested in inferring an ultrametric tree with branch lengths
--- measured in unit time (e.g., in million years). Let T be the length of a
+-- measured in units of time (e.g., in million years). Let T be the length of a
 -- branch of the time tree, and R be the absolute evolutionary rate on this
 -- branch. Then, the length of this very same branch measured in average number
 -- of substitutions is d=T*R.
@@ -118,12 +118,12 @@ instance ToJSON I
 
 instance FromJSON I
 
--- See 'cleaner'. This function makes the tree ultrametric again, normalizes the
--- tree and sets the height values accordingly.
+-- See 'cleaner'. This function makes the time tree ultrametric again,
+-- normalizes the tree and sets the height values accordingly.
 cleanTimeTree :: I -> I
 cleanTimeTree = timeTree %~ (recalculateHeights . normalizeHeight . makeUltrametric)
 
--- | Clean the state periodically. Otherwise, the tree diverges from being
+-- | Clean the time tree periodically. Otherwise, it diverges from being
 -- ultrametric.
 cleaner :: Cleaner I
 cleaner = Cleaner 50 cleanTimeTree
@@ -148,9 +148,9 @@ initWith t =
   where
     t' = toHeightTree $ normalizeHeight $ makeUltrametric t
 
--- Calibrations are defined in the module 'Calibration'.
+-- The calibrations are defined in the module 'Calibration'.
 
--- Constraints are defined in the module 'Constraint'.
+-- The constraints are defined in the module 'Constraint'.
 
 -- | Prior distribution.
 priorDistribution :: [Calibration] -> [Constraint] -> I -> Log Double
@@ -207,7 +207,6 @@ likelihoodFunction ::
   -- | Current state.
   I ->
   Log Double
--- likelihoodFunction mu sigmaInv logSigmaDet x = 1.0
 likelihoodFunction mu sigmaInv logSigmaDet x =
   logDensityMultivariateNormal mu sigmaInv logSigmaDet distances
   where
@@ -220,7 +219,9 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
 -- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
+  -- Pulley on the root node.
   (timeTree @~ pulleyUltrametric t 0.01 (PName "Time tree root") (PWeight 5) Tune) :
+  -- Slide nodes excluding the root and the leaves.
   [ {-# SCC slideNodeUltrametric #-}
     (timeTree . subTreeAtE pth)
       @~ slideNodeUltrametric 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
@@ -232,6 +233,7 @@ proposalsTimeTree t =
       -- ultrametricity.
       not $ null $ t ^. subTreeAtE pth . forestL
   ]
+    -- Scale sub trees of inner nodes excluding the root and the leaves.
     ++ [ {-# SCC scaleSubTreeUltrametric #-}
          (timeTree . subTreeAtE pth)
            @~ scaleSubTreeUltrametric s 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
@@ -247,7 +249,9 @@ proposalsTimeTree t =
 -- Proposals for the rate tree.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
+  -- Pulley on the root node.
   (rateTree @~ pulley 0.1 (PName "Rate tree root") (PWeight 5) Tune) :
+  -- Scale branches excluding the stem.
   [ {-# SCC slideBranch #-}
     (rateTree . subTreeAtE pth)
       @~ scaleBranch 0.1 (PName $ "Rate tree branch " ++ show lb) (PWeight 1) Tune
@@ -256,6 +260,7 @@ proposalsRateTree t =
       -- we do not slide the stem.
       not (null pth)
   ]
+    -- Scale trees of inner nodes excluding the root and the leaves.
     ++ [ {-# SCC scaleTree #-}
          (rateTree . subTreeAtE pth)
            @~ scaleTree s WithoutStem 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
@@ -265,14 +270,14 @@ proposalsRateTree t =
            not $ null $ forest s
        ]
 
--- Create an accessor for a contrary proposal, see below.
+-- Lens for a contrary proposal.
 timeHeightRateNormPair :: Lens' I (Double, Double)
 timeHeightRateNormPair =
   lens
     (\x -> (x ^. timeHeight, x ^. rateMean))
     (\x (h, mu) -> x {_timeHeight = h, _rateMean = mu})
 
--- | The complete cycle includes proposals for the other parameters.
+-- | The proposal cycle includes proposals for the other parameters.
 proposals :: Show a => Tree e a -> Cycle I
 proposals t =
   fromList $
@@ -299,6 +304,7 @@ proposals t =
 -- monDeltaHeight pth x = fromLength (t ^. labelL . heightL - rootHeight t)
 --   where t = x ^. timeTree . subTreeAtE pth
 
+-- Monitor parameters.
 monParams :: [MonitorParameter I]
 monParams =
   [ _timeBirthRate >$< monitorDouble "TimeBirthRate",
@@ -310,30 +316,36 @@ monParams =
     -- monDeltaHeight [0,0] >$< monitorDoubleE "Delta Root"
   ]
 
+-- Monitor to standard output.
 monStdOut :: MonitorStdOut I
 -- Screen width doesn't support more than four parameter monitors.
 monStdOut = monitorStdOut (take 4 monParams) 1
 
+-- Get the height of the node at path. Useful to have a look at calibrated nodes.
 getTimeTreeNodeHeight :: Path -> I -> Double
 getTimeTreeNodeHeight p x = (* h) $ fromLength $ t ^. subTreeAtE p . labelL . heightL
   where
     t = x ^. timeTree
     h = x ^. timeHeight
 
+-- Monitor the height of calibrated nodes.
 monCalibratedNodes :: [Calibration] -> [MonitorParameter I]
 monCalibratedNodes cb = [getTimeTreeNodeHeight p >$< monitorDouble (name n a b) | (n, p, a, b) <- cb]
   where
     name s l r = "Calibration " ++ s ++ " (" ++ show l ++ ", " ++ show r ++ ")"
 
--- Positive if constraint is honored.
+-- Get the difference in height of the nodes at path. Useful to have a look at
+-- constrained nodes. Positive if constraint is honored.
 getTimeTreeDeltaNodeHeight :: Path -> Path -> I -> Double
 getTimeTreeDeltaNodeHeight y o x = getTimeTreeNodeHeight o x - getTimeTreeNodeHeight y x
 
+-- Monitor the heights of constrained nodes.
 monConstrainedNodes :: [Constraint] -> [MonitorParameter I]
 monConstrainedNodes cs = [getTimeTreeDeltaNodeHeight y o >$< monitorDouble (name n) | (n, y, o) <- cs]
   where
     name s = "Constraint " ++ s
 
+-- The file monitor is more verbose.
 monFileParams :: [Calibration] -> [Constraint] -> MonitorFile I
 monFileParams cb cs =
   monitorFile
@@ -344,19 +356,23 @@ monFileParams cb cs =
     )
     1
 
+-- Monitor the time tree with absolute branch lengths, because they are more
+-- informative.
 absoluteTimeTree :: I -> Tree Length Name
 absoluteTimeTree s = first (* h) t
   where
     h = either error id $ toLength $ s ^. timeHeight
     t = fromHeightTree $ s ^. timeTree
 
+-- The time tree with absolute branch lengths is written to a separate file.
 monFileTimeTree :: MonitorFile I
 monFileTimeTree = monitorFile "-timetree" [absoluteTimeTree >$< monitorTree "TimeTree"] 1
 
+-- The rate tree with relative rates is written to a separate file.
 monFileRateTree :: MonitorFile I
 monFileRateTree = monitorFile "-ratetree" [_rateTree >$< monitorTree "RateTree"] 1
 
--- | Monitor to standard output and files, as well as batch monitors.
+-- | Monitor to standard output and files. Do not use any batch monitors for now.
 monitor :: [Calibration] -> [Constraint] -> Monitor I
 monitor cb cs = Monitor monStdOut [monFileParams cb cs, monFileTimeTree, monFileRateTree] []
 
