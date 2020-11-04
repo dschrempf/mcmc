@@ -121,7 +121,7 @@ instance FromJSON I
 -- See 'cleaner'. This function makes the tree ultrametric again, normalizes the
 -- tree and sets the height values accordingly.
 cleanTimeTree :: I -> I
-cleanTimeTree = timeTree %~ (toHeightTree . normalizeHeight . makeUltrametric . fromHeightTree)
+cleanTimeTree = timeTree %~ (recalculateHeights . normalizeHeight . makeUltrametric)
 
 -- | Clean the state periodically. Otherwise, the tree diverges from being
 -- ultrametric.
@@ -284,13 +284,18 @@ proposals t =
       ++ proposalsTimeTree t
       ++ proposalsRateTree t
 
--- Monitor the average rate. Useful, because it should not deviate from 1.0 too
--- much.
-getAverageBranchLength :: (I -> Tree Length a) -> I -> Double
-getAverageBranchLength f x = (/ n) $ fromLength $ totalLength r
-  where
-    r = f x
-    n = fromIntegral $ length r - 1
+-- -- Monitor the average rate. Useful, because it should not deviate from 1.0 too
+-- -- much.
+-- getAverageBranchLength :: (I -> Tree Length a) -> I -> Double
+-- getAverageBranchLength f x = (/ n) $ fromLength $ totalLength r
+--   where
+--     r = f x
+--     n = fromIntegral $ length r - 1
+
+-- -- 0 if the height correctly calculated?
+-- monDeltaHeight :: Path -> I -> Double
+-- monDeltaHeight pth x = fromLength (t ^. labelL . heightL - rootHeight t)
+--   where t = x ^. timeTree . subTreeAtE pth
 
 monParams :: [MonitorParameter I]
 monParams =
@@ -298,12 +303,14 @@ monParams =
     _timeDeathRate >$< monitorDouble "TimeDeathRate",
     _timeHeight >$< monitorDouble "TimeHeight",
     _rateMean >$< monitorDouble "RateMean",
-    _rateShape >$< monitorDouble "RateShape",
-    getAverageBranchLength _rateTree >$< monitorDouble "RateAverage"
+    _rateShape >$< monitorDouble "RateShape"
+    -- getAverageBranchLength _rateTree >$< monitorDouble "RateAverage",
+    -- monDeltaHeight [0,0] >$< monitorDoubleE "Delta Root"
   ]
 
 monStdOut :: MonitorStdOut I
-monStdOut = monitorStdOut monParams 1
+-- Screen width doesn't support more than four parameter monitors.
+monStdOut = monitorStdOut (take 4 monParams) 1
 
 getTimeTreeNodeHeight :: Path -> I -> Double
 getTimeTreeNodeHeight p x = (* h) $ fromLength $ t ^. subTreeAtE p . labelL . heightL

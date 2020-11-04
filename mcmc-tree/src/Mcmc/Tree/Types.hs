@@ -24,6 +24,7 @@ module Mcmc.Tree.Types
     heightL,
     toHeightTree,
     fromHeightTree,
+    recalculateHeights,
   )
 where
 
@@ -71,3 +72,7 @@ toHeightTree = extend (\t -> HeightLabel (rootHeight t, label t))
 -- | Remove information about height from label.
 fromHeightTree :: Tree e (HeightLabel a) -> Tree e a
 fromHeightTree = second (snd . fromHeightLabel)
+
+-- | Recalculate the height values.
+recalculateHeights :: Tree Length (HeightLabel a) -> Tree Length (HeightLabel a)
+recalculateHeights = extend (\t -> setHeight (rootHeight t) $ label t)
