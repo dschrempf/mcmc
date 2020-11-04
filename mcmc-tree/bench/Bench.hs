@@ -80,3 +80,78 @@ main = do
           bench "change leaf Br, optimized lens" $ nf (changeLeaf (subTreeAtE pthBr . labelL) "") tr
         ]
     ]
+
+-- Post scriptum:
+--
+-- Benchmarks with criterion indicate the following:
+--
+-- 1. Algebraic graphs are slow, but the adjacency map with 'Int' node labels
+-- and branch labels is reasonably fast.
+--
+-- 2. Lenses are fast, but don't allow accessing children, or the parent.
+--
+-- 3. Zippers are very slow.
+--
+-- @
+-- AdjacencyIntMap; postSet 150
+-- benchmarking...
+-- time                 41.25 ns   (41.09 ns .. 41.58 ns)
+--                      1.000 R²   (0.999 R² .. 1.000 R²)
+-- mean                 41.21 ns   (41.13 ns .. 41.45 ns)
+-- std dev              467.6 ps   (126.7 ps .. 873.2 ps)
+-- variance introduced by outliers: 12% (moderately inflated)
+--
+-- AdjacencyIntMap; preSet 150
+-- benchmarking...
+-- time                 5.335 μs   (5.308 μs .. 5.372 μs)
+--                      0.999 R²   (0.998 R² .. 1.000 R²)
+-- mean                 5.335 μs   (5.310 μs .. 5.450 μs)
+-- std dev              146.3 ns   (31.19 ns .. 323.8 ns)
+-- variance introduced by outliers: 33% (moderately inflated)
+--
+-- AdjacencyIntMap; replaceEdge 1 12
+-- benchmarking...
+-- time                 5.693 μs   (5.617 μs .. 5.819 μs)
+--                      0.994 R²   (0.985 R² .. 0.999 R²)
+-- mean                 5.816 μs   (5.671 μs .. 6.089 μs)
+-- std dev              620.6 ns   (261.2 ns .. 1.094 μs)
+-- variance introduced by outliers: 89% (severely inflated)
+--
+-- Control.Zipper; preview node 150
+-- benchmarking...
+-- time                 2.513 μs   (2.351 μs .. 2.678 μs)
+--                      0.978 R²   (0.972 R² .. 0.993 R²)
+-- mean                 2.432 μs   (2.345 μs .. 2.546 μs)
+-- std dev              336.4 ns   (248.6 ns .. 467.2 ns)
+-- variance introduced by outliers: 93% (severely inflated)
+--
+-- Control.Zipper; set node 150
+-- benchmarking...
+-- time                 8.838 μs   (8.768 μs .. 8.937 μs)
+--                      0.999 R²   (0.998 R² .. 1.000 R²)
+-- mean                 8.815 μs   (8.770 μs .. 8.895 μs)
+-- std dev              205.4 ns   (116.7 ns .. 306.8 ns)
+-- variance introduced by outliers: 25% (moderately inflated)
+--
+-- Specialized zipper; read a leaf node label
+-- benchmarking...
+-- time                 348.7 ns   (320.3 ns .. 386.3 ns)
+--                      0.947 R²   (0.933 R² .. 0.974 R²)
+-- mean                 351.8 ns   (330.0 ns .. 373.6 ns)
+-- std dev              75.84 ns   (58.43 ns .. 88.84 ns)
+-- variance introduced by outliers: 98% (severely inflated)
+--
+-- Specialized zipper; change a leaf node (this is not possible with
+-- Control.Zipper).
+-- benchmarking...
+-- time                 5.389 μs   (5.382 μs .. 5.401 μs)
+--                      0.999 R²   (0.999 R² .. 1.000 R²)
+-- mean                 5.466 μs   (5.386 μs .. 5.686 μs)
+-- std dev              415.0 ns   (15.48 ns .. 773.6 ns)
+-- variance introduced by outliers: 79% (severely inflated)
+--
+--
+-- Given the last benchmark, this would mean that for 500 changes per iteration
+-- and 100k iterations, we spend 300 seconds traversing and changing the tree
+-- without calculating anything else. I guess that's OK.
+-- @
