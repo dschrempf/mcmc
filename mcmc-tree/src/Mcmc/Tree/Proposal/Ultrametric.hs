@@ -10,8 +10,10 @@
 --
 -- Creation date: Wed Nov  4 11:48:56 2020.
 --
--- For reasons of computational efficiency the functions use a tree object
--- directly storing the node height.
+-- For reasons of computational efficiency the functions working with
+-- ultrametric trees use a tree object directly storing the node height. For
+-- this reason, __do not apply__ a mixed collection of __ultrametric__ and
+-- __unconstrained__ proposals on the same tree object!
 module Mcmc.Tree.Proposal.Ultrametric
   ( slideNodeUltrametric,
     scaleTreeUltrametric,
