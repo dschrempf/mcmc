@@ -220,7 +220,7 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
 -- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  (timeTree @~ pulleyUltrametric 0.01 (PName "Time tree root") (PWeight 5) Tune) :
+  (timeTree @~ pulleyUltrametric t 0.01 (PName "Time tree root") (PWeight 5) Tune) :
   [ {-# SCC slideNodeUltrametric #-}
     (timeTree . subTreeAtE pth)
       @~ slideNodeUltrametric 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
@@ -234,7 +234,7 @@ proposalsTimeTree t =
   ]
     ++ [ {-# SCC scaleSubTreeUltrametric #-}
          (timeTree . subTreeAtE pth)
-           @~ scaleSubTreeUltrametric 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
+           @~ scaleSubTreeUltrametric t 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
            -- Don't scale the sub tree of the root node, because we are not
            -- interested in changing the length of the stem.
@@ -257,7 +257,7 @@ proposalsRateTree t =
   ]
     ++ [ {-# SCC scaleTree #-}
          (rateTree . subTreeAtE pth)
-           @~ scaleTree WithoutStem 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
+           @~ scaleTree t WithoutStem 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
            -- Path does not lead to a leaf.
            not (null $ t ^. subTreeAtE pth . forestL)

@@ -23,8 +23,8 @@ import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Scale
 import Mcmc.Tree.Lens
-import Mcmc.Tree.Types
 import Mcmc.Tree.Proposal.Common
+import Mcmc.Tree.Types
 import Numeric.Log hiding (sum)
 import Statistics.Distribution.Gamma
 import System.Random.MWC
@@ -52,18 +52,29 @@ scaleTreeFunction WithStem tr u = first (lengthL %~ (* u)) tr
 scaleTreeFunction WithoutStem (Node br lb ts) u =
   Node br lb $ map (first (lengthL %~ (* u))) ts
 
--- TODO: Length calculation may be slow.
-scaleTreeJacobian :: HandleStem -> Tree e a -> Double -> Log Double
-scaleTreeJacobian WithStem tr u = Exp $ fromIntegral (length tr - 2) * log u
-scaleTreeJacobian WithoutStem tr u = Exp $ fromIntegral (length tr - 3) * log u
+scaleTreeJacobian ::
+  -- Number of branches.
+  Int ->
+  HandleStem ->
+  Tree e a ->
+  Double ->
+  Log Double
+scaleTreeJacobian n WithStem _ u = Exp $ fromIntegral (n - 2) * log u
+scaleTreeJacobian n WithoutStem _ u = Exp $ fromIntegral (n - 3) * log u
 
-scaleTreeSimple :: HandleStem -> Double -> Double -> ProposalSimple (Tree Length a)
-scaleTreeSimple s k t =
+scaleTreeSimple ::
+  -- Number of branches.
+  Int ->
+  HandleStem ->
+  Double ->
+  Double ->
+  ProposalSimple (Tree Length a)
+scaleTreeSimple n s k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
     (scaleTreeFunction s)
     (Just recip)
-    (Just $ scaleTreeJacobian s)
+    (Just $ scaleTreeJacobian n s)
 
 -- | Scale all branches with a gamma distributed kernel of given shape. The
 -- scale is set such that the mean is 1.0.
@@ -73,6 +84,9 @@ scaleTreeSimple s k t =
 -- positive values (including the stem). For example, ultrametric trees do not
 -- fulfill this criterion.
 scaleTree ::
+  -- | The tree is used to precompute the number of branches for computational
+  -- efficiency.
+  Tree e b ->
   -- | Handle the stem?
   HandleStem ->
   -- | Shape.
@@ -84,9 +98,10 @@ scaleTree ::
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Length a)
-scaleTree s k = createProposal description (scaleTreeSimple s k)
+scaleTree tr s k = createProposal description (scaleTreeSimple n s k)
   where
     description = PDescription $ "Scale tree; shape: " ++ show k
+    n = length tr
 
 -- See 'truncatedNormalSample'. U is added to the left branch. I.e., if u is
 -- positive, the left branch is elongated.
@@ -141,4 +156,3 @@ pulley ::
 pulley s = createProposal description (pulleySimple s)
   where
     description = PDescription $ "Pulley; sd: " ++ show s
-
