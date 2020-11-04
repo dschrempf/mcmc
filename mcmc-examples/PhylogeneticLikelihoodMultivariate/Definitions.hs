@@ -234,13 +234,14 @@ proposalsTimeTree t =
   ]
     ++ [ {-# SCC scaleSubTreeUltrametric #-}
          (timeTree . subTreeAtE pth)
-           @~ scaleSubTreeUltrametric t 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
+           @~ scaleSubTreeUltrametric s 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
+           let s = t ^. subTreeAtE pth,
            -- Don't scale the sub tree of the root node, because we are not
            -- interested in changing the length of the stem.
            not $ null pth,
            -- Sub trees of leaves cannot be scaled.
-           not $ null $ t ^. subTreeAtE pth . forestL
+           not $ null $ forest s
        ]
 
 -- Proposals for the rate tree.
@@ -257,10 +258,11 @@ proposalsRateTree t =
   ]
     ++ [ {-# SCC scaleTree #-}
          (rateTree . subTreeAtE pth)
-           @~ scaleTree t WithoutStem 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
+           @~ scaleTree s WithoutStem 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
+           let s = t ^. subTreeAtE pth,
            -- Path does not lead to a leaf.
-           not (null $ t ^. subTreeAtE pth . forestL)
+           not $ null $ forest s
        ]
 
 -- Create an accessor for a contrary proposal, see below.
