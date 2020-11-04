@@ -29,6 +29,7 @@ module Mcmc.Status
     force,
     quiet,
     debug,
+    noData,
   )
 where
 
@@ -211,3 +212,7 @@ quiet s = s {verbosity = Quiet}
 -- | Be verbose.
 debug :: Status a -> Status a
 debug s = s {verbosity = Debug}
+
+-- | Set the likelihood function to 1.0. Useful for debugging and testing.
+noData :: Status a -> Status a
+noData s = s {likelihoodF = const 1.0}
