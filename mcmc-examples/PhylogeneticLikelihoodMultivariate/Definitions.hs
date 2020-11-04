@@ -121,12 +121,12 @@ instance FromJSON I
 -- See 'cleaner'. This function makes the tree ultrametric again, normalizes the
 -- tree and sets the height values accordingly.
 cleanTimeTree :: I -> I
-cleanTimeTree = timeTree %~ (normalizeHeight . makeUltrametric)
+cleanTimeTree = timeTree %~ (toHeightTree . normalizeHeight . makeUltrametric . fromHeightTree)
 
 -- | Clean the state periodically. Otherwise, the tree diverges from being
 -- ultrametric.
 cleaner :: Cleaner I
-cleaner = Cleaner 100 cleanTimeTree
+cleaner = Cleaner 50 cleanTimeTree
 
 -- | Initial state.
 --

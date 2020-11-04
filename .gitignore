@@ -34,3 +34,4 @@ dist-*
 
 # Emacs
 /**/TAGS
+/.rsync-project

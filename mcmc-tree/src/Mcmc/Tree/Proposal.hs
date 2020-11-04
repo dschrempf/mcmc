@@ -413,7 +413,7 @@ pulleyUltrametricTruncatedNormalSample s t (Node _ lb [l, r])
   | brR <= 0 =
     error $
       "pulleyUltrametricTruncatedNormalSample: Right branch is zero or negative: " ++ show brR ++ "."
-  | otherwise = do truncatedNormalSample s t a b
+  | otherwise = truncatedNormalSample s t a b
   where
     -- Left and right branch length.
     brL = branch l
