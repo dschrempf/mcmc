@@ -212,7 +212,12 @@ runMetropolisHastings = do
 
   -- Construct the Markov chain.
   let s =
-        force . cleanWith cleaner . saveWith 1 . debug $
+        force
+          . cleanWith cleaner
+          . saveWith 1
+          . debug
+          -- . noData
+          $
           -- Have a look at the 'status' function to understand the
           -- different parameters.
           status
