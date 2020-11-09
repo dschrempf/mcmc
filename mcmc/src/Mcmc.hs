@@ -123,6 +123,7 @@ module Mcmc
     force,
     quiet,
     debug,
+    noData,
 
     -- * Monitor
 
