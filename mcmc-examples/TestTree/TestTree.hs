@@ -24,9 +24,21 @@ import System.Random.MWC hiding (uniform)
 
 type I = Tree Length (HeightLabel Name)
 
--- Birth death prior.
+-- See 'cleaner'. This function makes the time tree ultrametric again,
+-- normalizes the tree and sets the height values accordingly.
+cleanTimeTree :: I -> I
+cleanTimeTree = recalculateHeights . normalizeHeight . makeUltrametric
+
+-- | Clean the time tree periodically. Otherwise, it diverges from being
+-- ultrametric.
+cleaner :: Cleaner I
+cleaner = Cleaner 50 cleanTimeTree
+
+-- Birth death prior, see Yang (2006), Figure 7.12. For lambda=2, mu=2, rho=0.1,
+-- we expect a relatively linear distribution of inner node ages (a little bit
+-- biased to younger ages).
 pr :: I -> Log Double
-pr = birthDeath WithoutStem 1.0 1.0 1.0
+pr = birthDeath WithoutStem 2.0 2.0 0.1 t
 
 -- No data.
 lh :: I -> Log Double
@@ -37,7 +49,7 @@ proposals :: Show a => Tree e a -> Cycle I
 proposals t =
   fromList $
     -- -- Pulley on the root node.
-    -- pulleyUltrametric t 0.1 (PName "Tree root") (PWeight 5) Tune :
+    pulleyUltrametric t 0.1 (PName "Tree root") (PWeight 5) Tune :
     -- Scale branches excluding the stem.
     [ subTreeAtE pth
         @~ slideNodeUltrametric 0.1 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
@@ -99,9 +111,12 @@ main :: IO ()
 main = do
   let t =
         toHeightTree $
-          either error id $
-            phyloToLengthTree $
-              parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,d:3.0):0.0;"
+          normalizeHeight $
+            either error id $
+              phyloToLengthTree $
+                parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,(d:2.0,e:2.0):1.0):0.0;"
   g <- create
-  let s = force $ status "test" pr lh (proposals t) (mon t) t nBurnIn nAutoTune nIter g
+  let s =
+        cleanWith cleaner $
+          force $ status "test" pr lh (proposals t) (mon t) t nBurnIn nAutoTune nIter g
   void $ mh s
