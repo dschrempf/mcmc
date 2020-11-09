@@ -328,7 +328,10 @@ pulleyUltrametric ::
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Length a)
-pulleyUltrametric (Node _ _ [l, r]) d = createProposal description (pulleyUltrametricSimple nL nR d)
+pulleyUltrametric (Node _ _ [l, r]) d
+  | null (forest l) = error "pulleyUltrametric: Left tree is a leaf."
+  | null (forest r) = error "pulleyUltrametric: Right tree is a leaf."
+  | otherwise = createProposal description (pulleyUltrametricSimple nL nR d)
   where
     description = PDescription $ "Pulley ultrametric; sd: " ++ show d
     nL = nInnerNodes l
