@@ -164,10 +164,10 @@ priorDistribution cb cs (I l m h t mu k r) =
       --
       -- Birth and death process prior on the time tree.
       birthDeath WithoutStem l m 1.0 t,
-      -- Gamma prior on the rate mean.
-      gamma 100 1e-5 mu,
-      -- Gamma prior on the shape parameter of the rate prior.
-      gamma 10 1.0 k,
+      -- Exponential prior on the rate mean.
+      exponential 1 mu,
+      -- Exponential prior on the shape parameter of the rate prior.
+      exponential 1 k,
       -- Uncorrelated log normal prior on the branch-wise rates.
       uncorrelatedGamma WithoutStem k k1 r
     ]
@@ -220,11 +220,11 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
   -- Pulley on the root node.
-  (timeTree @~ pulleyUltrametric t 0.01 (PName "Time tree root") (PWeight 5) Tune) :
+  (timeTree @~ pulleyUltrametric t 0.1 (PName "Time tree root") (PWeight 10) Tune) :
   -- Slide nodes excluding the root and the leaves.
   [ {-# SCC slideNodeUltrametric #-}
     (timeTree . subTreeAtE pth)
-      @~ slideNodeUltrametric 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
+      @~ slideNodeUltrametric 0.1 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
     | (pth, lb) <- itoList $ identify t,
       -- Since the stem does not change the likelihood, it is set to zero, and
       -- we do not slide the root node.
@@ -236,7 +236,7 @@ proposalsTimeTree t =
     -- Scale sub trees of inner nodes excluding the root and the leaves.
     ++ [ {-# SCC scaleSubTreeUltrametric #-}
          (timeTree . subTreeAtE pth)
-           @~ scaleSubTreeUltrametric s 0.01 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
+           @~ scaleSubTreeUltrametric s 0.1 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
            let s = t ^. subTreeAtE pth,
            -- Don't scale the sub tree of the root node, because we are not
@@ -250,7 +250,7 @@ proposalsTimeTree t =
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
   -- Pulley on the root node.
-  (rateTree @~ pulley 0.1 (PName "Rate tree root") (PWeight 5) Tune) :
+  (rateTree @~ pulley 0.1 (PName "Rate tree root") (PWeight 10) Tune) :
   -- Scale branches excluding the stem.
   [ {-# SCC slideBranch #-}
     (rateTree . subTreeAtE pth)
@@ -281,12 +281,12 @@ timeHeightRateNormPair =
 proposals :: Show a => Tree e a -> Cycle I
 proposals t =
   fromList $
-    [ timeBirthRate @~ scaleUnbiased 10 (PName "Time birth rate") (PWeight 10) Tune,
-      timeDeathRate @~ scaleUnbiased 10 (PName "Time death rate") (PWeight 10) Tune,
-      timeHeight @~ scaleUnbiased 3000 (PName "Time height") (PWeight 10) Tune,
-      rateMean @~ scaleUnbiased 10 (PName "Rate mean") (PWeight 10) Tune,
-      rateShape @~ scaleUnbiased 10 (PName "Rate shape") (PWeight 10) Tune,
-      timeHeightRateNormPair @~ scaleContrarily 10 0.1 (PName "Time height, rate mean") (PWeight 10) Tune
+    [ timeBirthRate @~ scaleUnbiased 10 (PName "Time birth rate") (PWeight 20) Tune,
+      timeDeathRate @~ scaleUnbiased 10 (PName "Time death rate") (PWeight 20) Tune,
+      timeHeight @~ scaleUnbiased 3000 (PName "Time height") (PWeight 20) Tune,
+      rateMean @~ scaleUnbiased 10 (PName "Rate mean") (PWeight 20) Tune,
+      rateShape @~ scaleUnbiased 10 (PName "Rate shape") (PWeight 20) Tune,
+      timeHeightRateNormPair @~ scaleContrarily 10 0.1 (PName "Time height, rate mean") (PWeight 20) Tune
     ]
       ++ proposalsTimeTree t
       ++ proposalsRateTree t

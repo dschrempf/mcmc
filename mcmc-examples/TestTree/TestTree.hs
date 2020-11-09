@@ -38,7 +38,7 @@ cleaner = Cleaner 50 cleanTimeTree
 -- we expect a relatively linear distribution of inner node ages (a little bit
 -- biased to younger ages).
 pr :: I -> Log Double
-pr = birthDeath WithoutStem 2.0 2.0 0.1 t
+pr = birthDeath WithoutStem 2.0 2.0 0.1
 
 -- No data.
 lh :: I -> Log Double
