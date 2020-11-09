@@ -175,20 +175,30 @@ birthDeathWith f la mu rho (Node br _ []) = (Exp $ log $ dT * rho, eT)
 birthDeathWith _ _ _ _ _ = error "birthDeathWith: Tree is multifurcating."
 
 -- * Tests
-
 --
 -- >>> let testTree1 = Node 1.0 () [] :: Tree Length ()
---
 -- >>> birthDeath WithStem 1.2 3.2 1.0 testTree1
 -- 5.8669248906043234e-2
 --
 -- >>> let testTree2 = Node 0.0 () [Node 0.4 () [], Node 0.2 () [Node 0.2 () [], Node 0.2 () []]] :: Tree Length ()
---
 -- >>> birthDeath WithStem 1.2 3.2 1.0 testTree2
--- 3.978845396350806e-2
+-- 4.3357752474276125e-2
+--
+-- The following computations are checked against RevBayes:
+--
+-- >>> let t = parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,d:3.0):0.0;"
+--
+-- >>> map (\mu -> ln $ 1/3* (birthDeath WithoutStem 1.0 mu 1.0 $ either error id $ phyloToLengthTree t)) [0, 0.01, 0.05, 0.1, 0.2, 0.5]
+-- [-10.09861228866811,-10.07675364864067,-9.993307032921498,-9.898174270006024,-9.73975910235509,-9.54137886890279]
+--
+-- >>> map (\rho -> ln $ 1/3* (birthDeath WithoutStem 1.0 0.0 rho $ either error id $ phyloToLengthTree t)) [1.0, 0.9, 0.8]
+-- [-10.09861228866811,-9.809211822253452,-9.498032504556043]
+--
+-- >>> ln $ 1/3 * (birthDeath WithoutStem 0.2 0.5 0.8 $ either error id $ phyloToLengthTree t)
+-- -9.700151607658995
 
 -- * Point process
-
+--
 --
 -- There are differences in the conditions. The point process conditions on the
 -- time of origin, and on the number of leaves. The dynamic programming approach
