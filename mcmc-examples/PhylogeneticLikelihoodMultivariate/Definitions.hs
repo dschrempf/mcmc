@@ -163,7 +163,7 @@ priorDistribution cb cs (I l m h t mu k r) =
       -- are used (see below).
       --
       -- Birth and death process prior on the time tree.
-      birthDeath l m t,
+      birthDeath l m 1.0 t,
       -- Gamma prior on the rate mean.
       gamma 100 1e-5 mu,
       -- Gamma prior on the shape parameter of the rate prior.

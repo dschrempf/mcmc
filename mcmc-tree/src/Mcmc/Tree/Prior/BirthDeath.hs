@@ -21,6 +21,10 @@ import Numeric.Log
 
 -- Compute probabilities D and E at the top of the branch.
 --
+-- E and D are Eqs [1] and [2] in Stadler, T. Mammalian phylogeny reveals recent
+-- diversification rate shifts. Proceedings of the National Academy of Sciences
+-- 108, 6187–6192 (2011), respectively.
+--
 -- Correct results:
 -- >>> computeDE 1.2 3.2 1.0 0.3
 -- (7.283127121752474e-2,0.9305035687810801)
@@ -40,6 +44,10 @@ computeDE la mu dt e0 = (a / b / b, c / b)
     d = la - mu
     x = exp (- d * dt)
     y = (mu - e0 * la) * x
+    -- Negative survival probability rho.
+    --
+    -- E0 = 1 - rho
+    -- E0 - 1 = -rho
     e' = e0 - 1.0
     laE' = la * e'
     a = d * d * x
@@ -78,7 +86,15 @@ epsNearCritical = 1e-6
 
 -- | Birth and death prior for bifurcating trees.
 --
--- The sampling rate is 1.0; i.e., the extinction probability of leaves is 0.0.
+-- See Stadler, T., Mammalian phylogeny reveals recent diversification rate
+-- shifts, Proceedings of the National Academy of Sciences, 108(15), 6187–6192
+-- (2011). http://dx.doi.org/10.1073/pnas.1016876108.
+--
+-- The prior conditions on the time of origin.
+--
+-- TODO: Condition on time of origin and on survival.
+--
+-- TODO: Condition on time of origin and on the number of taxa.
 --
 -- XXX: This prior does not condition on survival.
 --
@@ -86,25 +102,34 @@ epsNearCritical = 1e-6
 -- affects: (1) the time, and (2) the split at the root, because the prior has
 -- an additional multiplicative factor.
 --
+-- XXX: The prior does calculate the multiplicative combinatorial factor
+-- relating the number of oriented labeled trees to the number of labeled trees
+-- without orientation.
+--
 -- The aforementioned points are just multiplicative factors that don't
 -- influence the stationary distribution of the MCMC run. However, they do
 -- change the absolute value of the prior function, and hence, the posterior.
 --
 -- Call 'error' if
 -- - The birth or death rate are negative.
+-- - The sampling rate is zero or negative, or above 1.0.
 -- - The tree is not bifurcating.
 birthDeath ::
   -- | Birth rate.
   Double ->
   -- | Death rate.
   Double ->
+  -- | Sampling rate.
+  Double ->
   Tree Length a ->
   Log Double
-birthDeath la mu
+birthDeath la mu rho
   | la < 0.0 = error "birthDeath: Birth rate is negative."
   | mu < 0.0 = error "birthDeath: Death rate is negative."
-  | epsNearCritical > abs (la - mu) = fst . birthDeathWith computeDENearCritical la mu (Exp $ log la)
-  | otherwise = fst . birthDeathWith computeDE la mu (Exp $ log la)
+  | rho <= 0.0 = error "birthDeath: Sampling rate is zero or negative."
+  | rho > 1.0 = error "birthDeath: Sampling rate is larger than 1.0."
+  | epsNearCritical > abs (la - mu) = fst . birthDeathWith computeDENearCritical la mu rho (Exp $ log la)
+  | otherwise = fst . birthDeathWith computeDE la mu rho (Exp $ log la)
 
 birthDeathWith ::
   -- Computation of D and E. Set to normal or near critical formula.
@@ -113,17 +138,19 @@ birthDeathWith ::
   Double ->
   -- Death rate.
   Double ->
+  -- Sampling rate.
+  Double ->
   -- Birth rate in log domain.
   Log Double ->
   Tree Length a ->
   (Log Double, Double)
-birthDeathWith f la mu _ (Node br _ []) = first (Exp . log) $ f la mu (fromLength br) 0
-birthDeathWith f la mu logLa (Node br _ [l, r]) = (Exp (log dT) * dL * dR * logLa, eT)
+birthDeathWith f la mu rho _ (Node br _ []) = first (Exp . log) $ f la mu (fromLength br) (1.0 - rho)
+birthDeathWith f la mu rho logLa (Node br _ [l, r]) = (Exp (log dT) * dL * dR * logLa, eT)
   where
-    (dL, eL) = birthDeathWith f la mu logLa l
-    (dR, eR) = birthDeathWith f la mu logLa r
+    (dL, eL) = birthDeathWith f la mu rho logLa l
+    (dR, eR) = birthDeathWith f la mu rho logLa r
     (dT, eT) = f la mu (fromLength br) (eL * eR)
-birthDeathWith _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
+birthDeathWith _ _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
 
 -- * Tests
 
