@@ -210,7 +210,7 @@ scaleSubTreeUltrametricSimple n ds t tr g = do
   --
   -- (-1) because the root height has an additive change.
   --
-  -- Scaling factor (xi, not x_i) (ht - u)/ht = (1.0 - u/ht).
+  -- Scaling factor (xi, not x_i) is (ht - u)/ht = (1.0 - u/ht).
   let xi = 1.0 - u / b
       jacobian = Exp $ fromIntegral (n - 1) * log xi
   return (slideBranchScaleSubTreeF u xi tr, q, jacobian)

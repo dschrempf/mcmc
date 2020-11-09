@@ -14,6 +14,9 @@ module Mcmc.Tree.Prior.BirthDeath
   )
 where
 
+-- I tested these functions many times, and obtained correct results! I also
+-- compared the results to RevBayes, see below.
+
 import ELynx.Tree
 import Mcmc.Tree.Types
 import Numeric.Log

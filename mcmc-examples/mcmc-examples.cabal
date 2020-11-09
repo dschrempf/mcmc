@@ -116,14 +116,14 @@ executable plh-multivariate
     , zippers
   default-language: Haskell2010
 
-executable test
-  main-is: Test.hs
+executable test-pair
+  main-is: TestPair.hs
   other-modules:
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples
   hs-source-dirs:
-      Test
+      TestPair
   ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
@@ -131,6 +131,27 @@ executable test
     , lens
     , log-domain
     , mcmc
+    , mwc-random
+    , statistics
+  default-language: Haskell2010
+
+executable test-tree
+  main-is: TestTree.hs
+  other-modules:
+      Paths_mcmc_examples
+  autogen-modules:
+      Paths_mcmc_examples
+  hs-source-dirs:
+      TestTree
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , elynx-tree
+    , lens
+    , log-domain
+    , mcmc
+    , mcmc-tree
     , mwc-random
     , statistics
   default-language: Haskell2010
