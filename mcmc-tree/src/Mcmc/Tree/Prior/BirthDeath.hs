@@ -14,16 +14,19 @@ module Mcmc.Tree.Prior.BirthDeath
   )
 where
 
-import Data.Bifunctor
--- import Debug.Trace
 import ELynx.Tree
+import Mcmc.Tree.Types
 import Numeric.Log
 
 -- Compute probabilities D and E at the top of the branch.
 --
--- E and D are Eqs [1] and [2] in Stadler, T. Mammalian phylogeny reveals recent
--- diversification rate shifts. Proceedings of the National Academy of Sciences
--- 108, 6187–6192 (2011), respectively.
+-- Stadler, T. Mammalian phylogeny reveals recent diversification rate shifts.
+-- Proceedings of the National Academy of Sciences 108, 6187–6192 (2011).
+--
+-- E is given in Eq. [1].
+--
+-- D is given in Eq. [2] without the multiplicative value coming from the
+-- boundary conditions.
 --
 -- Correct results:
 -- >>> computeDE 1.2 3.2 1.0 0.3
@@ -33,51 +36,48 @@ computeDE ::
   Double ->
   -- Mu.
   Double ->
+  -- Rho.
+  Double ->
   -- Branch length.
   Double ->
   -- E at bottom of branch. Storage in log domain not necessary.
   Double ->
   -- D, E. Storage in log domain not necessary.
   (Double, Double)
-computeDE la mu dt e0 = (a / b / b, c / b)
+computeDE la mu rho dt e0 = (nomD / denom / denom, nomE / denom)
   where
     d = la - mu
     x = exp (- d * dt)
-    y = (mu - e0 * la) * x
-    -- Negative survival probability rho.
-    --
-    -- E0 = 1 - rho
-    -- E0 - 1 = -rho
-    e' = e0 - 1.0
-    laE' = la * e'
-    a = d * d * x
-    b = laE' + y
-    c = mu * e' + y
+    c = (1.0 - rho) + rho * e0
+    y = (mu - c * la) * x
+    nomD = d * d * x
+    c' = c - 1.0
+    nomE = mu * c' + y
+    denom = la * c' + y
 {-# INLINE computeDE #-}
 
 -- Compute probabilities D and E at the top of the branch for la ~= mu.
---
--- Correct results:
--- >>> computeDENearCritical 1.2 3.2 1.0 0.3
--- (7.283127121752474e-2,0.9305035687810801)
 computeDENearCritical ::
   -- Lambda.
   Double ->
   -- Mu.
   Double ->
+  -- Rho.
+  Double ->
   -- Branch length.
   Double ->
   -- E at bottom of branch. Storage in log domain not necessary.
   Double ->
   -- D, E. Storage in log domain not necessary.
   (Double, Double)
-computeDENearCritical la mu dt e0 = (a / b / b, c / b)
+computeDENearCritical la mu rho dt e0 = (nomD / denom / denom, nomE / denom)
   where
     d = la - mu
-    y = mu - e0 * la
-    a = 1 - d * dt
-    c = e0 + y * dt
-    b = 1 + y * dt
+    c = (1.0 - rho) + rho * e0
+    y = (mu - c * la) * dt
+    nomD = 1 - d * dt
+    nomE = c + y
+    denom = 1.0 + y
 {-# INLINE computeDENearCritical #-}
 
 -- Require near critical process if birth and death rates are closer than this value.
@@ -90,19 +90,17 @@ epsNearCritical = 1e-6
 -- shifts, Proceedings of the National Academy of Sciences, 108(15), 6187–6192
 -- (2011). http://dx.doi.org/10.1073/pnas.1016876108.
 --
--- The prior conditions on the time of origin.
+-- If the stem is handled ('WithStem'), the prior conditions on the time of origin.
 --
--- TODO: Condition on time of origin and on survival.
+-- If the stem is not handled ('WithoutStem'), the prior conditions on the most
+-- recent common ancestor (MRCA).
 --
--- TODO: Condition on time of origin and on the number of taxa.
+-- TODO: Condition on time of origin and survival (or MRCA and survival).
 --
--- XXX: This prior does not condition on survival.
+-- TODO: Condition on time of origin and the number of taxa (or MRCA and the
+-- number of taxa).
 --
--- XXX: This prior conditions on the origin, and not on the root node. This
--- affects: (1) the time, and (2) the split at the root, because the prior has
--- an additional multiplicative factor.
---
--- XXX: The prior does calculate the multiplicative combinatorial factor
+-- XXX: The prior DOES NOT CALCULATE the multiplicative combinatorial factor
 -- relating the number of oriented labeled trees to the number of labeled trees
 -- without orientation.
 --
@@ -115,6 +113,8 @@ epsNearCritical = 1e-6
 -- - The sampling rate is zero or negative, or above 1.0.
 -- - The tree is not bifurcating.
 birthDeath ::
+  -- | Handle the stem?
+  HandleStem ->
   -- | Birth rate.
   Double ->
   -- | Death rate.
@@ -123,48 +123,68 @@ birthDeath ::
   Double ->
   Tree Length a ->
   Log Double
-birthDeath la mu rho
+birthDeath WithStem la mu rho t
   | la < 0.0 = error "birthDeath: Birth rate is negative."
   | mu < 0.0 = error "birthDeath: Death rate is negative."
   | rho <= 0.0 = error "birthDeath: Sampling rate is zero or negative."
   | rho > 1.0 = error "birthDeath: Sampling rate is larger than 1.0."
-  | epsNearCritical > abs (la - mu) = fst . birthDeathWith computeDENearCritical la mu rho (Exp $ log la)
-  | otherwise = fst . birthDeathWith computeDE la mu rho (Exp $ log la)
+  | epsNearCritical > abs (la - mu) = fst $ birthDeathWith computeDENearCritical la mu rho t
+  | otherwise = fst $ birthDeathWith computeDE la mu rho t
+birthDeath WithoutStem la mu rho (Node _ _ [l, r]) =
+  birthDeath WithStem la mu rho l * birthDeath WithStem la mu rho r
+birthDeath WithoutStem _ _ _ _ =
+  error "birthDeath: Tree is not bifurcating."
 
 birthDeathWith ::
   -- Computation of D and E. Set to normal or near critical formula.
-  (Double -> Double -> Double -> Double -> (Double, Double)) ->
+  (Double -> Double -> Double -> Double -> Double -> (Double, Double)) ->
   -- Birth rate.
   Double ->
   -- Death rate.
   Double ->
   -- Sampling rate.
   Double ->
-  -- Birth rate in log domain.
-  Log Double ->
   Tree Length a ->
   (Log Double, Double)
-birthDeathWith f la mu rho _ (Node br _ []) = first (Exp . log) $ f la mu (fromLength br) (1.0 - rho)
-birthDeathWith f la mu rho logLa (Node br _ [l, r]) = (Exp (log dT) * dL * dR * logLa, eT)
+-- First case of the boundary conditions given after Eq. [4].
+birthDeathWith f la mu rho (Node br _ [l, r]) = (Exp (log $ dT * la) * dL * dR, eT)
   where
-    (dL, eL) = birthDeathWith f la mu rho logLa l
-    (dR, eR) = birthDeathWith f la mu rho logLa r
-    (dT, eT) = f la mu (fromLength br) (eL * eR)
-birthDeathWith _ _ _ _ _ _ = error "birthDeath: Tree is not bifurcating."
+    (dL, eL) = birthDeathWith f la mu rho l
+    -- (dR, eR) = birthDeathWith f la mu rho r
+    --
+    -- TODO: eL and eR should be the same. Separate calculation of D and E?
+    -- Should I check that they indeed are the same, but that would slow down
+    -- the calculation.
+    (dR, _) = birthDeathWith f la mu rho r
+    -- D and E at the top of the internal branch. Since we are treating internal
+    -- nodes here, we use rho=1.0. In the future, one may also allow values
+    -- below 1.0 modeling, for example, catastrophes killing a certain
+    -- percentage of all living species.
+    (dT, eT) = f la mu 1.0 (fromLength br) eL
+-- Second case of the boundary conditions given after Eq. [4].
+birthDeathWith f la mu rho (Node br _ [c]) = (Exp (log $ dT * rho) * d, eT)
+  where
+    (d, e) = birthDeathWith f la mu rho c
+    (dT, eT) = f la mu 1.0 (fromLength br) e
+-- Third case of the boundary conditions given after Eq. [4].
+birthDeathWith f la mu rho (Node br _ []) = (Exp $ log $ dT * rho, eT)
+  where
+    -- D and E at the top of the external branch. We use the given sampling
+    -- probability here.
+    (dT, eT) = f la mu rho (fromLength br) 0
+birthDeathWith _ _ _ _ _ = error "birthDeathWith: Tree is multifurcating."
 
 -- * Tests
 
 --
--- >>> testTree1 :: Tree Double ()
--- >>> testTree1 = Node 1.0 () []
+-- >>> let testTree1 = Node 1.0 () [] :: Tree Length ()
 --
--- >>> birthDeath 1.2 3.2 testTree1
+-- >>> birthDeath WithStem 1.2 3.2 1.0 testTree1
 -- 5.8669248906043234e-2
 --
--- >>> testTree2 :: Tree Double ()
--- >>> testTree2 = Node 0.0 () [Node 0.4 () [], Node 0.2 () [Node 0.2 () [], Node 0.2 () []]]
+-- >>> let testTree2 = Node 0.0 () [Node 0.4 () [], Node 0.2 () [Node 0.2 () [], Node 0.2 () []]] :: Tree Length ()
 --
--- >>> birthDeath 1.2 3.2 testTree2
+-- >>> birthDeath WithStem 1.2 3.2 1.0 testTree2
 -- 3.978845396350806e-2
 
 -- * Point process
