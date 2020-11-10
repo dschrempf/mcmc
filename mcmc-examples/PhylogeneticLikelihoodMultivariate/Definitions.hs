@@ -57,7 +57,7 @@ import Tools
 -- The posterior means and covariances of the branch lengths are obtained from
 -- these trees and used to approximate the phylogenetic likelihood.
 fnInTrees :: FilePath
-fnInTrees = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data/alignment_201020.phy_gtr_1.treelist"
+fnInTrees = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data-landplants/alignment_201020.phy_gtr_1.treelist"
 
 -- | Base name of analysis.
 bnAnalysis :: String
