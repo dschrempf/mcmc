@@ -17,6 +17,10 @@ cradle:
       component: "mcmc-examples:exe:plh"
     - path: "mcmc-examples/PhylogeneticLikelihoodMultivariate"
       component: "mcmc-examples:exe:plh-multivariate"
+    - path: "mcmc-examples/TestPair"
+      component: "mcmc-examples:exe:test-pair"
+    - path: "mcmc-examples/TestTree"
+      component: "mcmc-examples:exe:test-tree"
 
     # mcmc-statistics
     - path: "mcmc-statistics/src"
