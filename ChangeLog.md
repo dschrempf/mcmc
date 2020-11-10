@@ -4,6 +4,14 @@
 
 ## Unreleased changes
 
+
+## 0.3.0
+
+-   New shorter example/test for dating trees.
+-   `noData` allows running a chain without likelihood function.
+-   Give proposal parameters `PName`, `PDescription`, and `PWeight` newtype
+    wrappers.
+-   Give `Tune` a data type.
 -   Allow periodical cleansing of state (`Cleaner`).
 -   Add description string to proposals, so that they can be identified in an
     easier way.

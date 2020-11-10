@@ -13,7 +13,7 @@ packages:
     hackage: dirichlet-0.1.0.0
 snapshots:
 - completed:
-    size: 541635
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2020/10/22.yaml
-    sha256: 2863d9efeb7101c5fe3dfcbe0d322abdaba5a8f772414ad9f94d38ad18a99d1e
-  original: nightly-2020-10-22
+    size: 547126
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2020/11/8.yaml
+    sha256: f30d42c35f133d998dd127ac9f50e89dec8b8538952a11c45fabeba536cc7f97
+  original: nightly-2020-11-08
