@@ -11,6 +11,27 @@ packages:
       sha256: 5b355b9272c2037d6a11bf791342ef65fc9c331494608a88dee6825c1091c636
   original:
     hackage: dirichlet-0.1.0.0
+- completed:
+    hackage: elynx-nexus-0.5.0@sha256:cef87497d88f0ddeaa98d0cb860f968dd68a9f64850dc5197dbe13ac65a8dcba,1315
+    pantry-tree:
+      size: 395
+      sha256: fdf4cde059b8658e107ba53cd0b2ee6441dbd83d9fc010d50ace06e336af03c9
+  original:
+    hackage: elynx-nexus-0.5.0
+- completed:
+    hackage: elynx-tools-0.5.0@sha256:22d7c08aa00e5eb8ab0f5f1d5160ecd3434d2042dcc9074c766c49c110ce629d,1615
+    pantry-tree:
+      size: 1090
+      sha256: 70dc4bfa0d000556a5f5aa2a6a899622dbe5070298a04653a3b28c76ae5dac76
+  original:
+    hackage: elynx-tools-0.5.0
+- completed:
+    hackage: elynx-tree-0.5.0@sha256:dc2087fb5c176c574809e235aaf7ef99169f17c9c9ae762b11276c283fea08e9,3762
+    pantry-tree:
+      size: 4453
+      sha256: 45212f20802923d07096854c0763c757f62288d481c2c9189306970b34f086ba
+  original:
+    hackage: elynx-tree-0.5.0
 snapshots:
 - completed:
     size: 547126
