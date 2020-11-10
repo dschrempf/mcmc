@@ -1,5 +1,6 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- New shorter example/test for dating trees.
 - =noData= allows running a chain without likelihood function.
 - Give proposal parameters =PName=, =PDescription=, and =PWeight= newtype
   wrappers.

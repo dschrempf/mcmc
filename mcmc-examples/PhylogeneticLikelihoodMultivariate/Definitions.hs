@@ -171,6 +171,7 @@ priorDistribution cb cs (I l m h t mu k r) =
       -- Uncorrelated log normal prior on the branch-wise rates.
       uncorrelatedGamma WithoutStem k k1 r
     ]
+      -- Add the calibrations and constraint.
       ++ calibrations cb h t
       ++ constraints cs t
   where
