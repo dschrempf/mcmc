@@ -1,0 +1,11 @@
+For the test case, see
+- the [[file:~/Evolutionary-Biology/Code/revbayes/revbayes.github.io/tutorials/relative_time_constraints/][RevBayes tutorial about relative time constraints]],
+- and the [[file:~/Shared/haskell/mcmc/mcmc-examples/PhylogeneticLikelihoodMultivariate/data-test/][test data of the MCMC sampler]].
+
+The test is very promising! The Haskell MCMC sampler seems to perform equally
+well as the RevBayes version. I don't think I can hope for more :).
+
+The screenshot shows the original time tree on the left side, the RevBayes MAP
+tree on the top right, and the MCMC MAP tree on the bottom right.
+
+[[file:2020-11-10-144630-Trees.png]]
