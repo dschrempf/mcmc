@@ -35,7 +35,7 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State.Strict
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Maybe

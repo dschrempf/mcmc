@@ -22,7 +22,7 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State.Strict
 import Data.Aeson
 import Data.Maybe
 import Mcmc.Item
@@ -69,12 +69,18 @@ mhPropose m = do
       !r = mhRatio (pX * lX) (pY * lY) q j
   -- 3. Accept or reject.
   if ln r >= 0.0
-    then put $ s {item = Item y pY lY, acceptance = pushA m True a}
+    then
+    do let !a' = pushA m True a
+       put $ s {item = Item y pY lY, acceptance = a' }
     else do
       b <- uniform g
       if b < exp (ln r)
-        then put $ s {item = Item y pY lY, acceptance = pushA m True a}
-        else put $ s {acceptance = pushA m False a}
+        then
+        do let !a' = pushA m True a
+           put $ s {item = Item y pY lY, acceptance = a'}
+        else
+        do let !a' = pushA m False a
+           put $ s {acceptance = pushA m False a'}
 
 -- TODO: Splitmix. Split the generator here. See SaveSpec -> mhContinue.
 
