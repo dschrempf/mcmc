@@ -170,4 +170,4 @@ import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Simplex
 import Mcmc.Proposal.Slide
 import Mcmc.Save
-import Mcmc.Status
+import Mcmc.Chain

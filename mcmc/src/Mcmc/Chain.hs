@@ -10,7 +10,7 @@
 -- @
 
 -- |
--- Module      :  Mcmc.Status
+-- Module      :  Mcmc.Chain
 -- Description :  What is an MCMC?
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
@@ -20,7 +20,7 @@
 -- Portability :  portable
 --
 -- Creation date: Tue May  5 18:01:15 2020.
-module Mcmc.Status
+module Mcmc.Chain
   ( Cleaner (..),
     Status (..),
     status,

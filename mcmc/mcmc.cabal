@@ -23,6 +23,7 @@ source-repository head
 library
   exposed-modules:
       Mcmc
+      Mcmc.Chain
       Mcmc.Item
       Mcmc.Mcmc
       Mcmc.Metropolis
@@ -39,7 +40,6 @@ library
       Mcmc.Proposal.Slide
       Mcmc.Proposal.Simplex
       Mcmc.Save
-      Mcmc.Status
       Mcmc.Trace
       Mcmc.Verbosity
   other-modules:

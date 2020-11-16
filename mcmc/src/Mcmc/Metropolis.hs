@@ -28,7 +28,7 @@ import Data.Maybe
 import Mcmc.Item
 import Mcmc.Mcmc
 import Mcmc.Proposal
-import Mcmc.Status
+import Mcmc.Chain
 import Mcmc.Trace
 import Numeric.Log
 import System.Random.MWC

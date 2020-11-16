@@ -37,7 +37,7 @@ import Data.Word
 import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Proposal
-import Mcmc.Status hiding (save)
+import Mcmc.Chain hiding (save)
 import Mcmc.Trace
 import Mcmc.Verbosity
 import Numeric.Log

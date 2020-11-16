@@ -46,7 +46,7 @@ import Mcmc.Monitor
 import Mcmc.Monitor.Time
 import Mcmc.Proposal
 import Mcmc.Save
-import Mcmc.Status hiding (debug)
+import Mcmc.Chain hiding (debug)
 import Mcmc.Verbosity
 import Numeric.Log
 import System.Directory

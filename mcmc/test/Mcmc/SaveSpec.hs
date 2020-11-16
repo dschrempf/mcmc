@@ -16,7 +16,7 @@ where
 
 import Mcmc
 import Mcmc.Save
-import Mcmc.Status hiding (save)
+import Mcmc.Chain hiding (save)
 import Numeric.Log
 import Statistics.Distribution hiding
   ( mean,
