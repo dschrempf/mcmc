@@ -1,14 +1,3 @@
--- Note: It is not necessary to add another type @b@ to store supplementary
--- information about the chain. The information can just be stored in @a@
--- equally well.
-
--- XXX: Status tuned exclusively to the Metropolis-Hastings algorithm. We should
--- abstract the algorithm from the chain. Maybe something like:
---
--- @
--- data Status a = Status { Chain a; Algorithm a}
--- @
-
 -- |
 -- Module      :  Mcmc.Chain
 -- Description :  What is an MCMC?
@@ -21,17 +10,24 @@
 --
 -- Creation date: Tue May  5 18:01:15 2020.
 module Mcmc.Chain
-  ( Cleaner (..),
-    Status (..),
-    status,
-    cleanWith,
-    saveWith,
-    force,
-    quiet,
-    debug,
+  ( Chain (..),
+    chain,
     noData,
+    Cleaner (..),
+    cleanWith,
   )
 where
+
+-- Note: It is not necessary to add another type @b@ to store supplementary
+-- information about the chain. The information can just be stored in @a@
+-- equally well.
+
+-- XXX: Status tuned exclusively to the Metropolis-Hastings algorithm. We should
+-- abstract the algorithm from the chain. Maybe something like:
+--
+-- @
+-- data Status a = Status { Chain a; Algorithm a}
+-- @
 
 import Data.Maybe
 import Data.Time.Clock
@@ -39,43 +35,30 @@ import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Proposal
 import Mcmc.Trace
-import Mcmc.Verbosity (Verbosity (..))
 import Numeric.Log
 import System.IO
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
 
--- | Clean the state periodically.
+-- | The 'Chain' contains all information to run a Markov chain Monte Carlo
+-- sampler. A 'Chain' is constructed using the function 'chain'.
 --
--- The prior and the likelihood will be updated after the cleaning process.
+-- The state of the chain has type @a@. If necessary, the type @a@ can also be
+-- used to store auxiliary information.
 --
--- For long chains, successive numerical errors can accumulate such that the
--- state diverges from honoring specific required constraints. In these cases, a
--- 'Cleaner' can be used to ensure that the required constraints of the state
--- are honored. For example, the branches of an ultrametric phylogeny may
--- diverge slightly after successful many proposals such that the phylogeny is
--- not anymore ultrametric.
+-- The 'Chain' stores information about current state ('Mcmc.Item.Item') and
+-- iteration, the history of the chain ('Mcmc.Trace.Trace'), the
+-- 'Acceptance' ratios, and the random number generator.
 --
--- Please be aware that the Markov chain will not converge to the true posterior
--- distribution if the state is changed substantially! Only apply subtle changes
--- that are absolutely necessary to preserve the required properties of the
--- state such as specific numerical constraints.
-data Cleaner a = Cleaner
-  { -- | Clean every given number of iterations.
-    clEvery :: Int,
-    -- | Cleaning function. Executed before monitoring the state.
-    clFunction :: a -> a
-  }
+-- Further, the 'Chain' includes auxiliary variables and functions such as
+-- the prior and likelihood functions, instructions to move around the state
+-- space (see above) and to monitor the MCMC run.
+--
+-- The 'Mcmc.Environment.Environment' of the chain is excluded.
+data Chain a = Chain
+  { -- Variables; saved.
 
--- | The 'Status' contains all information to run an MCMC chain. It is
--- constructed using the function 'status'.
---
--- The polymorphic type @a@ stores the state of the chain. It can also be used
--- to store auxiliary information.
-data Status a = Status
-  { -- MCMC related variables; saved.
-
-    -- | The name of the MCMC chain; used as file prefix.
+    -- | The name of the chain; used as file prefix.
     name :: String,
     -- | The current 'Item' of the chain combines the current state and the
     -- current likelihood.
@@ -97,16 +80,6 @@ data Status a = Status
     -- | Number of normal iterations excluding burn in. Note that auto tuning
     -- only happens during burn in.
     iterations :: Int,
-    --
-    -- Auxiliary variables; saved.
-
-    -- | Overwrite output files? Default is 'False', change with 'force'.
-    forceOverwrite :: Bool,
-    -- | Save the chain with trace of given length at the end of the run?
-    -- Default is no save ('Nothing'). Change with 'saveWith'.
-    save :: Maybe Int,
-    -- | Verbosity.
-    verbosity :: Verbosity,
     -- | The random number generator.
     generator :: GenIO,
     --
@@ -118,7 +91,7 @@ data Status a = Status
     -- | Handle to log file.
     logHandle :: Maybe Handle,
     --
-    -- Auxiliary functions; not saved.
+    -- Functions; not saved.
 
     -- | The prior function. The un-normalized posterior is the product of the
     -- prior and the likelihood.
@@ -128,17 +101,16 @@ data Status a = Status
     likelihoodF :: a -> Log Double,
     -- | Clean the state periodically.
     cleaner :: Maybe (Cleaner a),
-    --
-    -- Variables related to the algorithm; not saved.
-
     -- | A set of 'Proposal's form a 'Cycle'.
+    --
+    -- TODO: Should we move the cycle to a dedicated @Algorithm@ type?
     cycle :: Cycle a,
     -- | A 'Monitor' observing the chain.
     monitor :: Monitor a
   }
 
--- | Initialize the 'Status' of a Markov chain Monte Carlo run.
-status ::
+-- | Initialize a Markov chain.
+chain ::
   -- | Name of the Markov chain; used as file prefix.
   String ->
   -- | The prior function.
@@ -163,11 +135,11 @@ status ::
   -- | A source of randomness. For reproducible runs, make sure to use
   -- generators with the same, fixed seed.
   GenIO ->
-  Status a
-status n p l c m x mB mT nI g
+  Chain a
+chain n p l c m x mB mT nI g
   | isJust mT && isNothing mB = error "status: Auto tuning period given, but no burn in."
   | otherwise =
-    Status
+    Chain
       n
       i
       0
@@ -176,9 +148,6 @@ status n p l c m x mB mT nI g
       mB
       mT
       nI
-      False
-      Nothing
-      Info
       g
       Nothing
       Nothing
@@ -190,29 +159,33 @@ status n p l c m x mB mT nI g
   where
     i = Item x (p x) (l x)
 
+-- | Set the likelihood function to 1.0. Useful for debugging and testing.
+noData :: Chain a -> Chain a
+noData x = x {likelihoodF = const 1.0}
+
+-- | Clean the state periodically.
+--
+-- The prior and the likelihood will be updated after the cleaning process.
+--
+-- For long chains, successive numerical errors can accumulate such that the
+-- state diverges from honoring specific required constraints. In these cases, a
+-- 'Cleaner' can be used to ensure that the required constraints of the state
+-- are honored. For example, the branches of an ultrametric phylogeny may
+-- diverge slightly after successful many proposals such that the phylogeny is
+-- not anymore ultrametric.
+--
+-- Please be aware that the Markov chain will not converge to the true posterior
+-- distribution if the state is changed substantially! Only apply subtle changes
+-- that are absolutely necessary to preserve the required properties of the
+-- state such as specific numerical constraints.
+data Cleaner a = Cleaner
+  { -- | Clean every given number of iterations.
+    clEvery :: Int,
+    -- | Cleaning function. Executed before monitoring the state.
+    clFunction :: a -> a
+  }
+
 -- | Clean the state every given number of generations using the given function.
 -- See 'Cleaner'.
-cleanWith :: Cleaner a -> Status a -> Status a
-cleanWith c s = s {cleaner = Just c}
-
--- | Save the Markov chain with trace of given length.
-saveWith :: Int -> Status a -> Status a
-saveWith n s = s {save = Just n}
-
--- | Overwrite existing files; it is not necessary to use 'force', when a chain
--- is continued.
-force :: Status a -> Status a
-force s = s {forceOverwrite = True}
-
--- | Do not print anything to standard output. Do not create log file. File
--- monitors and batch monitors are executed normally.
-quiet :: Status a -> Status a
-quiet s = s {verbosity = Quiet}
-
--- | Be verbose.
-debug :: Status a -> Status a
-debug s = s {verbosity = Debug}
-
--- | Set the likelihood function to 1.0. Useful for debugging and testing.
-noData :: Status a -> Status a
-noData s = s {likelihoodF = const 1.0}
+cleanWith :: Cleaner a -> Chain a -> Chain a
+cleanWith c x = x {cleaner = Just c}

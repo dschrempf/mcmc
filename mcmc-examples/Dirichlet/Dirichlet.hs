@@ -131,9 +131,9 @@ main = do
   xs <- simulateData g
   print xs
   print initialValue
-  let s =
-        force $
-          status
+  let
+    e = forceOverwrite def
+    c = chain
             "dirichlet"
             priorDistribution
             (likelihoodFunction xs)
@@ -144,5 +144,5 @@ main = do
             nAutoTune
             nIterations
             g
-  _ <- mh s
+  _ <- mh e c
   putStrLn "Done."

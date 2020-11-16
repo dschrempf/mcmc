@@ -211,16 +211,14 @@ runMetropolisHastings = do
   g <- create
 
   -- Construct the Markov chain.
-  let s =
-        force
-          . cleanWith cleaner
-          . saveWith 1
-          . debug
+  let
+    e = Environment Force (SaveN 1) Debug
+    c = cleanWith cleaner
           -- . noData
           $
           -- Have a look at the 'status' function to understand the
           -- different parameters.
-          status
+          chain
             bnAnalysis
             pr'
             lh'
@@ -233,7 +231,7 @@ runMetropolisHastings = do
             g
 
   -- Run the Markov chain.
-  void $ mh s
+  void $ mh e c
 
 continueMetropolisHastings :: Int -> IO ()
 continueMetropolisHastings n = do
@@ -259,15 +257,15 @@ continueMetropolisHastings n = do
       mon' = monitor cb cs
 
   -- Load the MCMC status.
-  s <-
-    loadStatus
+  (e, c) <-
+    load
       pr'
       lh'
       ccl'
       mon'
       (Just cleaner)
       (bnAnalysis ++ ".mcmc")
-  void $ mhContinue n s
+  void $ mhContinue n e c
 
 main :: IO ()
 main = do

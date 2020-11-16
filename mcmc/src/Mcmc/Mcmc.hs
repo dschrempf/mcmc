@@ -35,19 +35,19 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.State.Strict
+import Control.Monad.Trans.RWS.CPS
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Maybe
 import Data.Time.Clock
 import Data.Time.Format
+import Mcmc.Chain
+import Mcmc.Environment
 import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Monitor.Time
 import Mcmc.Proposal
 import Mcmc.Save
-import Mcmc.Chain hiding (debug)
-import Mcmc.Verbosity
 import Numeric.Log
 import System.Directory
 import System.IO
@@ -55,7 +55,7 @@ import Prelude hiding (cycle)
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.
-type Mcmc a = StateT (Status a) IO
+type Mcmc a = RWST Environment () (Chain a) IO
 
 msgPrepare :: Char -> BL.ByteString -> BL.ByteString
 msgPrepare c t = BL.cons c $ ": " <> t
@@ -72,7 +72,7 @@ mcmcOutS = mcmcOutB . BL.pack
 
 -- Perform warning action.
 mcmcWarnA :: Mcmc a () -> Mcmc a ()
-mcmcWarnA a = gets verbosity >>= \v -> info v a
+mcmcWarnA a = reader verbosity >>= \v -> when (v >= Warn) a
 
 -- | Print warning message.
 mcmcWarnB :: BL.ByteString -> Mcmc a ()
@@ -84,7 +84,7 @@ mcmcWarnS = mcmcWarnB . BL.pack
 
 -- Perform info action.
 mcmcInfoA :: Mcmc a () -> Mcmc a ()
-mcmcInfoA a = gets verbosity >>= \v -> info v a
+mcmcInfoA a = reader verbosity >>= \v -> when (v >= Info) a
 
 -- | Print info message.
 mcmcInfoB :: BL.ByteString -> Mcmc a ()
@@ -96,7 +96,7 @@ mcmcInfoS = mcmcInfoB . BL.pack
 
 -- Perform debug action.
 mcmcDebugA :: Mcmc a () -> Mcmc a ()
-mcmcDebugA a = gets verbosity >>= \v -> debug v a
+mcmcDebugA a = reader verbosity >>= \v -> when (v == Debug) a
 
 -- | Print debug message.
 mcmcDebugB :: BL.ByteString -> Mcmc a ()
@@ -168,18 +168,19 @@ fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
 -- Open log file.
 mcmcOpenLog :: Mcmc a ()
 mcmcOpenLog = do
+  frc <- reader overwrite
+  vb <- reader verbosity
   s <- get
   let lfn = name s ++ ".log"
       n = iteration s
-      frc = forceOverwrite s
   fe <- liftIO $ doesFileExist lfn
-  mh <- liftIO $ case verbosity s of
+  mh <- liftIO $ case vb of
     Quiet -> return Nothing
     _ ->
       Just <$> case (fe, n, frc) of
         (False, _, _) -> openFile lfn WriteMode
-        (True, 0, True) -> openFile lfn WriteMode
-        (True, 0, False) -> error "mcmcInit: Log file exists; use 'force' to overwrite output files."
+        (True, 0, Force) -> openFile lfn WriteMode
+        (True, 0, Fail) -> error "mcmcInit: Log file exists; use 'force' to overwrite output files."
         (True, _, _) -> openFile lfn AppendMode
   put s {logHandle = mh}
   mcmcDebugS $ "Log file name: " ++ lfn ++ "."
@@ -198,7 +199,7 @@ mcmcInit = do
   let m = monitor s
       n = iteration s
       nm = name s
-      frc = forceOverwrite s
+  frc <- reader overwrite
   m' <- if n == 0 then liftIO $ mOpen nm frc m else liftIO $ mAppend nm m
   put $ s {monitor = m', start = Just (n, t)}
 
@@ -226,25 +227,26 @@ mcmcReport = do
 -- Save the status of an MCMC run. See 'saveStatus'.
 mcmcSave :: ToJSON a => Mcmc a ()
 mcmcSave = do
-  s <- get
-  case save s of
-    Just n -> do
+  env <- ask
+  st <- get
+  case saveChain env of
+    SaveN n -> do
       mcmcInfoB $ "Save Markov chain with trace of length " <> BL.pack (show n) <> "."
       mcmcInfoB "For long traces, or complex objects, this may take a while."
-      liftIO $ saveStatus (name s <> ".mcmc") s
+      liftIO $ save env st
       mcmcInfoB "Done saving Markov chain."
-    Nothing -> mcmcInfoB "Do not save the Markov chain."
+    NoSave -> mcmcInfoB "Do not save the Markov chain."
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()
 mcmcMonitorExec = do
+  vb <- reader verbosity
   s <- get
   let i = iteration s
       j = iterations s + fromMaybe 0 (burnInIterations s)
       m = monitor s
       (ss, st) = fromMaybe (error "mcmcMonitorExec: Starting state and time not set.") (start s)
       tr = trace s
-      vb = verbosity s
   mt <- liftIO $ mExec vb i ss st tr j m
   forM_ mt mcmcOutB
 
@@ -269,8 +271,8 @@ mcmcClose = do
     Nothing -> return ()
 
 -- | Run an MCMC algorithm.
-mcmcRun :: ToJSON a => Mcmc a () -> Status a -> IO (Status a)
-mcmcRun algorithm = execStateT $ do
+mcmcRun :: ToJSON a => Mcmc a () -> Environment -> Chain a -> IO (Chain a, ())
+mcmcRun algorithm = execRWST $ do
   mcmcInit
   algorithm
   mcmcClose

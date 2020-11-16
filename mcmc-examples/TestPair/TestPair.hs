@@ -72,5 +72,6 @@ nIter = 100000
 main :: IO ()
 main = do
   g <- create
-  let s = force $ status "test" pr lh proposals mon (1.0, 1.0) nBurnIn nAutoTune nIter g
-  void $ mh s
+  let e = forceOverwrite def
+      c = chain "test" pr lh proposals mon (1.0, 1.0) nBurnIn nAutoTune nIter g
+  void $ mh e c

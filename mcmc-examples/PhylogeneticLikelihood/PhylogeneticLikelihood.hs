@@ -202,9 +202,11 @@ main = do
     [] -> do
       g <- create
       -- Combine all the objects defined above.
-      let s = force $ saveWith 1000 $ status nm pr (lh meanTree stdDevTree) proposals mon startingTree nBurnIn nAutoTune nIterations g
+      let
+        e = saveN 1000 $ forceOverwrite def
+        c = chain nm pr (lh meanTree stdDevTree) proposals mon startingTree nBurnIn nAutoTune nIterations g
       -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
-      void $ mh s
+      void $ mh e c
     ["continue", nStr] -> do
       -- Load a previously finished, and saved chain. We have to give the prior
       -- and likelihood functions, as well as the proposals and the monitors,
@@ -214,9 +216,9 @@ main = do
       -- sets the tuning parameters of the proposals in the cycle. Using different
       -- proposals in the cycle, or using different monitors may lead to undefined
       -- behavior and is not supported.
-      s <- loadStatus pr (lh meanTree stdDevTree) proposals mon Nothing (nm ++ ".mcmc")
+      (e, c) <- load pr (lh meanTree stdDevTree) proposals mon Nothing nm
       -- Continue the chain for the given number of iterations.
-      void $ mhContinue (read nStr) s
+      void $ mhContinue (read nStr) e c
     xs -> do
       p <- getProgName
       putStrLn $ "usage: " ++ p

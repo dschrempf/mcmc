@@ -15,15 +15,14 @@ module Mcmc.SaveSpec
 where
 
 import Mcmc
-import Mcmc.Save
-import Mcmc.Chain hiding (save)
+import Mcmc.Chain
 import Numeric.Log
 import Statistics.Distribution hiding
   ( mean,
     stdDev,
   )
 import Statistics.Distribution.Normal
-import System.Random.MWC
+import qualified System.Random.MWC as R
 import Test.Hspec
 
 trueMean :: Double
@@ -61,27 +60,25 @@ nIter = 200
 
 spec :: Spec
 spec =
-  describe "saveStatus and loadStatus" $
+  describe "save and load" $
     it "doesn't change the MCMC chain" $
       do
-        gen <- create
-        let s =
-              force $
-                quiet $
-                  saveWith 100 $
-                    status "SaveSpec" (const 1) lh proposals mon 0 nBurn nAutoTune nIter gen
-        saveStatus "SaveSpec.json" s
-        s' <- loadStatus (const 1) lh proposals mon Nothing "SaveSpec.json"
-        r <- mh s
-        r' <- mh s'
+        gen <- R.create
+        let env = Environment Force (SaveN 100) Quiet
+            ch = chain "SaveSpec" (const 1) lh proposals mon 0 nBurn nAutoTune nIter gen
+        save env ch
+        (env', ch') <- load (const 1) lh proposals mon Nothing "SaveSpec"
+        r <- mh env ch
+        r' <- mh env' ch'
         -- Done during 'loadStatus'.
         -- removeFile "SaveSpec.json"
         item r `shouldBe` item r'
         iteration r `shouldBe` iteration r'
         trace r `shouldBe` trace r'
-        g <- save $ generator r
-        g' <- save $ generator r'
+        g <- R.save $ generator r
+        g' <- R.save $ generator r'
         g `shouldBe` g'
+        env `shouldBe` env'
 
 -- -- TODO: Splitmix. This will only work with a splittable generator
 -- -- because getNIterations changes the generator.

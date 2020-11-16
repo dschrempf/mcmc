@@ -105,6 +105,8 @@ main = do
   -- Simulate a list of observed arrow distances.
   xs <- distances g
   -- Combine all the objects defined above.
-  let s = force $ status "Archery" pr (lh xs) proposals mon 0.01 nBurnIn nAutoTune nIter g
+  let
+    e = forceOverwrite def
+    c = chain "Archery" pr (lh xs) proposals mon 0.01 nBurnIn nAutoTune nIter g
   -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
-  void $ mh s
+  void $ mh e c

@@ -102,28 +102,22 @@ module Mcmc
     Order (..),
     setOrder,
 
-    -- * Initialization
-
-    -- | The 'Status' contains all information to run an MCMC chain. It is
-    -- constructed using the function 'status'.
-    --
-    -- The 'Status' of a Markov chain includes information about current state
-    -- ('Mcmc.Item.Item') and iteration, the history of the chain
-    -- ('Mcmc.Trace.Trace'), the 'Acceptance' ratios, and the random number
-    -- generator.
-    --
-    -- Further, the 'Status' includes auxiliary variables and functions such as
-    -- the prior and likelihood functions, instructions to move around the state
-    -- space (see above) and to monitor the MCMC run, as well as some auxiliary
-    -- information.
-    status,
-    Cleaner (..),
-    cleanWith,
-    saveWith,
-    force,
+    -- * Environment
+    Overwrite (..),
+    SaveChain (..),
+    Verbosity (..),
+    Environment (..),
+    def,
+    forceOverwrite,
+    saveN,
     quiet,
     debug,
+
+    -- * Initialization
+    chain,
     noData,
+    Cleaner (..),
+    cleanWith,
 
     -- * Monitor
 
@@ -155,10 +149,15 @@ module Mcmc
     mhContinue,
 
     -- * Misc
-    loadStatus,
+    load,
+    save,
   )
 where
 
+import Data.Default
+
+import Mcmc.Chain
+import Mcmc.Environment
 import Mcmc.Metropolis
 import Mcmc.Monitor
 import Mcmc.Monitor.Parameter
@@ -170,4 +169,3 @@ import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Simplex
 import Mcmc.Proposal.Slide
 import Mcmc.Save
-import Mcmc.Chain

@@ -116,7 +116,8 @@ main = do
               phyloToLengthTree $
                 parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,(d:2.0,e:2.0):1.0):0.0;"
   g <- create
-  let s =
-        cleanWith cleaner $
-          force $ status "test" pr lh (proposals t) (mon t) t nBurnIn nAutoTune nIter g
-  void $ mh s
+  let
+    e = forceOverwrite def
+    c = cleanWith cleaner $
+          chain "test" pr lh (proposals t) (mon t) t nBurnIn nAutoTune nIter g
+  void $ mh e c

@@ -24,6 +24,7 @@ library
   exposed-modules:
       Mcmc
       Mcmc.Chain
+      Mcmc.Environment
       Mcmc.Item
       Mcmc.Mcmc
       Mcmc.Metropolis
@@ -41,7 +42,6 @@ library
       Mcmc.Proposal.Simplex
       Mcmc.Save
       Mcmc.Trace
-      Mcmc.Verbosity
   other-modules:
       Mcmc.Internal.ByteString
       Mcmc.Internal.Shuffle

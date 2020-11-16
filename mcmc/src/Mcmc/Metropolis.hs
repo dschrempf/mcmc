@@ -22,13 +22,14 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.State.Strict
+import Control.Monad.Trans.RWS.CPS
 import Data.Aeson
 import Data.Maybe
+import Mcmc.Chain
+import Mcmc.Environment
 import Mcmc.Item
 import Mcmc.Mcmc
 import Mcmc.Proposal
-import Mcmc.Chain
 import Mcmc.Trace
 import Numeric.Log
 import System.Random.MWC
@@ -55,12 +56,12 @@ mhRatio fX fY q j = fY / fX * q * j
 mhPropose :: Proposal a -> Mcmc a ()
 mhPropose m = do
   let p = pSimple m
-  s <- get
-  let (Item x pX lX) = item s
-      pF = priorF s
-      lF = likelihoodF s
-      a = acceptance s
-      g = generator s
+  c <- get
+  let (Item x pX lX) = item c
+      pF = priorF c
+      lF = likelihoodF c
+      a = acceptance c
+      g = generator c
   -- 1. Sample new state.
   (!y, !q, !j) <- liftIO $ p x g
   -- 2. Calculate Metropolis-Hastings ratio.
@@ -69,18 +70,18 @@ mhPropose m = do
       !r = mhRatio (pX * lX) (pY * lY) q j
   -- 3. Accept or reject.
   if ln r >= 0.0
-    then
-    do let !a' = pushA m True a
-       put $ s {item = Item y pY lY, acceptance = a' }
+    then do
+      let !a' = pushA m True a
+      put $ c {item = Item y pY lY, acceptance = a'}
     else do
       b <- uniform g
       if b < exp (ln r)
-        then
-        do let !a' = pushA m True a
-           put $ s {item = Item y pY lY, acceptance = a'}
-        else
-        do let !a' = pushA m False a
-           put $ s {acceptance = pushA m False a'}
+        then do
+          let !a' = pushA m True a
+          put $ c {item = Item y pY lY, acceptance = a'}
+        else do
+          let !a' = pushA m False a
+          put $ c {acceptance = pushA m False a'}
 
 -- TODO: Splitmix. Split the generator here. See SaveSpec -> mhContinue.
 
@@ -178,25 +179,29 @@ mhContinue ::
   ToJSON a =>
   -- | Additional number of Metropolis-Hastings steps.
   Int ->
+  -- | Environment of the Markov chain.
+  Environment ->
   -- | Loaded status of the Markov chain.
-  Status a ->
-  IO (Status a)
-mhContinue dn s
+  Chain a ->
+  IO (Chain a)
+mhContinue dn env ch
   | dn <= 0 = error "mhContinue: The number of iterations is zero or negative."
-  | otherwise = mcmcRun (mhContinueT dn) s'
+  | otherwise = fst <$> mcmcRun (mhContinueT dn) env ch'
   where
-    n' = iterations s + dn
-    s' = s {iterations = n'}
+    n' = iterations ch + dn
+    ch' = ch {iterations = n'}
 
 -- | Run a Markov chain for a given number of Metropolis-Hastings steps.
 mh ::
   ToJSON a =>
+  -- | Environment of the Markov chain.
+  Environment ->
   -- | Initial (or last) status of the Markov chain.
-  Status a ->
-  IO (Status a)
-mh s =
-  if iteration s == 0
-    then mcmcRun mhT s
+  Chain a ->
+  IO (Chain a)
+mh env ch =
+  if iteration ch == 0
+    then fst <$> mcmcRun mhT env ch
     else do
       putStrLn "To continue a Markov chain run, please use 'mhContinue'."
-      error $ "mh: Current iteration " ++ show (iteration s) ++ " is non-zero."
+      error $ "mh: Current iteration " ++ show (iteration ch) ++ " is non-zero."
