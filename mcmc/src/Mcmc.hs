@@ -107,7 +107,6 @@ module Mcmc
     SaveChain (..),
     Verbosity (..),
     Environment (..),
-    def,
     forceOverwrite,
     saveN,
     quiet,
@@ -153,8 +152,6 @@ module Mcmc
     save,
   )
 where
-
-import Data.Default
 
 import Mcmc.Chain
 import Mcmc.Environment

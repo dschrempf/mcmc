@@ -41,21 +41,20 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Maybe
 import Data.Time.Clock
 import Data.Time.Format
+import Mcmc.Algorithm
 import Mcmc.Chain
 import Mcmc.Environment
-import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Monitor.Time
 import Mcmc.Proposal
 import Mcmc.Save
 import Numeric.Log
-import System.Directory
 import System.IO
 import Prelude hiding (cycle)
 
 -- | An Mcmc state transformer; usually fiddling around with this type is not
 -- required, but it is used by the different inference algorithms.
-type Mcmc a = RWST Environment () (Chain a) IO
+type Mcmc a = RWST Environment () a IO
 
 msgPrepare :: Char -> BL.ByteString -> BL.ByteString
 msgPrepare c t = BL.cons c $ ": " <> t
@@ -63,7 +62,7 @@ msgPrepare c t = BL.cons c $ ": " <> t
 -- | Write to standard output and log file.
 mcmcOutB :: BL.ByteString -> Mcmc a ()
 mcmcOutB msg = do
-  h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> gets logHandle
+  h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> reader envLogHandle
   liftIO $ BL.putStrLn msg >> BL.hPutStrLn h msg
 
 -- | Write to standard output and log file.
@@ -72,7 +71,7 @@ mcmcOutS = mcmcOutB . BL.pack
 
 -- Perform warning action.
 mcmcWarnA :: Mcmc a () -> Mcmc a ()
-mcmcWarnA a = reader verbosity >>= \v -> when (v >= Warn) a
+mcmcWarnA a = reader envVerbosity >>= \v -> when (v >= Warn) a
 
 -- | Print warning message.
 mcmcWarnB :: BL.ByteString -> Mcmc a ()
@@ -84,7 +83,7 @@ mcmcWarnS = mcmcWarnB . BL.pack
 
 -- Perform info action.
 mcmcInfoA :: Mcmc a () -> Mcmc a ()
-mcmcInfoA a = reader verbosity >>= \v -> when (v >= Info) a
+mcmcInfoA a = reader envVerbosity >>= \v -> when (v >= Info) a
 
 -- | Print info message.
 mcmcInfoB :: BL.ByteString -> Mcmc a ()
@@ -96,7 +95,7 @@ mcmcInfoS = mcmcInfoB . BL.pack
 
 -- Perform debug action.
 mcmcDebugA :: Mcmc a () -> Mcmc a ()
-mcmcDebugA a = reader verbosity >>= \v -> when (v == Debug) a
+mcmcDebugA a = reader envVerbosity >>= \v -> when (v == Debug) a
 
 -- | Print debug message.
 mcmcDebugB :: BL.ByteString -> Mcmc a ()
@@ -108,44 +107,30 @@ mcmcDebugS = mcmcDebugB . BL.pack
 
 -- | Auto tune the 'Proposal's in the 'Cycle' of the chain. Reset acceptance counts.
 -- See 'autotuneCycle'.
-mcmcAutotune :: Mcmc a ()
+mcmcAutotune :: Algorithm a => Mcmc a ()
 mcmcAutotune = do
   mcmcDebugB "Auto tune."
-  s <- get
-  let a = acceptance s
-      c = cycle s
-      c' = autotuneCycle a c
-  put $ s {cycle = c'}
+  modify autotune
 
 -- | Clean the state.
 mcmcClean :: Mcmc a ()
 mcmcClean = do
-  s <- get
-  let cl = cleaner s
-      i = iteration s
-  case cl of
-    Just (Cleaner n f) | i `mod` n == 0 -> do
-      mcmcDebugB "Clean state."
-      let (Item st pr lh) = item s
-      mcmcDebugS $
-        "Old log prior and log likelihood: " ++ show (ln pr) ++ ", " ++ show (ln lh) ++ "."
-      let prF = priorF s
-          lhF = likelihoodF s
-          st' = f st
-          pr' = prF st'
-          lh' = lhF st'
-      mcmcDebugS $
-        "New log prior and log likelihood: " ++ show (ln pr') ++ ", " ++ show (ln lh') ++ "."
-      let dLogPr = abs $ ln pr - ln pr'
-          dLogLh = abs $ ln lh - ln lh'
-      when
-        (dLogPr > 0.01)
-        (mcmcWarnS $ "Log of old and new prior differ by " ++ show dLogPr ++ ".")
-      when
-        (dLogPr > 0.01)
-        (mcmcWarnS $ "Log of old and new likelihood differ by " ++ show dLogLh ++ ".")
-      put $ s {item = Item st' pr' lh'}
-    _ -> return ()
+  mcmcDebugB "Clean state."
+  (pr, lh) <- report <$> get
+  mcmcDebugS $
+    "Current log prior and log likelihood: " ++ show (ln pr) ++ ", " ++ show (ln lh) ++ "."
+  modify clean
+  (pr', lh') <- report <$> get
+  mcmcDebugS $
+    "New log prior and log likelihood: " ++ show (ln pr') ++ ", " ++ show (ln lh') ++ "."
+  let dLogPr = abs $ ln pr - ln pr'
+      dLogLh = abs $ ln lh - ln lh'
+  when
+    (dLogPr > 1e-4)
+    (mcmcWarnS $ "The logarithms of old and new log prior differ by " ++ show dLogPr ++ ".")
+  when
+    (dLogPr > 1e-4)
+    (mcmcWarnS $ "The logarithms of old and new likelihood differ by " ++ show dLogLh ++ ".")
 
 -- | Reset acceptance counts.
 mcmcResetA :: Mcmc a ()
@@ -164,27 +149,6 @@ mcmcSummarizeCycle = do
 
 fTime :: FormatTime t => t -> String
 fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
-
--- Open log file.
-mcmcOpenLog :: Mcmc a ()
-mcmcOpenLog = do
-  frc <- reader overwrite
-  vb <- reader verbosity
-  s <- get
-  let lfn = name s ++ ".log"
-      n = iteration s
-  fe <- liftIO $ doesFileExist lfn
-  mh <- liftIO $ case vb of
-    Quiet -> return Nothing
-    _ ->
-      Just <$> case (fe, n, frc) of
-        (False, _, _) -> openFile lfn WriteMode
-        (True, 0, Force) -> openFile lfn WriteMode
-        (True, 0, Fail) -> error "mcmcInit: Log file exists; use 'force' to overwrite output files."
-        (True, _, _) -> openFile lfn AppendMode
-  put s {logHandle = mh}
-  mcmcDebugS $ "Log file name: " ++ lfn ++ "."
-  mcmcDebugB "Log file opened."
 
 -- Set the total number of iterations, the current time and open the 'Monitor's
 -- of the chain. See 'mOpen'.
@@ -229,13 +193,13 @@ mcmcSave :: ToJSON a => Mcmc a ()
 mcmcSave = do
   env <- ask
   st <- get
-  case saveChain env of
-    SaveN n -> do
+  case saveMode env of
+    NoSave -> mcmcInfoB "Do not save the Markov chain."
+    SaveWithTrace n -> do
       mcmcInfoB $ "Save Markov chain with trace of length " <> BL.pack (show n) <> "."
       mcmcInfoB "For long traces, or complex objects, this may take a while."
       liftIO $ save env st
       mcmcInfoB "Done saving Markov chain."
-    NoSave -> mcmcInfoB "Do not save the Markov chain."
 
 -- | Execute the 'Monitor's of the chain. See 'mExec'.
 mcmcMonitorExec :: ToJSON a => Mcmc a ()

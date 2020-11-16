@@ -23,6 +23,7 @@ source-repository head
 library
   exposed-modules:
       Mcmc
+      Mcmc.Algorithm
       Mcmc.Chain
       Mcmc.Environment
       Mcmc.Item

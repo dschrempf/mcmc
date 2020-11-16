@@ -29,6 +29,8 @@ where
 -- data Status a = Status { Chain a; Algorithm a}
 -- @
 
+-- TODO: REFACTOR. Check documentation.
+
 import Data.Maybe
 import Data.Time.Clock
 import Mcmc.Item
@@ -36,7 +38,6 @@ import Mcmc.Monitor
 import Mcmc.Proposal
 import Mcmc.Trace
 import Numeric.Log
-import System.IO
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
 
@@ -59,7 +60,7 @@ data Chain a = Chain
   { -- Variables; saved.
 
     -- | The name of the chain; used as file prefix.
-    name :: String,
+    chainName :: String,
     -- | The current 'Item' of the chain combines the current state and the
     -- current likelihood.
     item :: Item a,
@@ -72,27 +73,14 @@ data Chain a = Chain
     -- proposals; for reasons of efficiency, the list is also stored in reverse
     -- order.
     acceptance :: Acceptance (Proposal a),
-    -- | Number of burn in iterations; deactivate burn in with 'Nothing'.
-    burnInIterations :: Maybe Int,
-    -- | Auto tuning period (only during burn in); deactivate auto tuning with
-    -- 'Nothing'.
-    autoTuningPeriod :: Maybe Int,
-    -- | Number of normal iterations excluding burn in. Note that auto tuning
-    -- only happens during burn in.
-    iterations :: Int,
     -- | The random number generator.
     generator :: GenIO,
     --
-    -- Auxiliary variables; not saved.
+    -- Variables and functions; not saved.
 
     -- | Starting time and starting iteration of chain; used to calculate
     -- run time and ETA.
     start :: Maybe (Int, UTCTime),
-    -- | Handle to log file.
-    logHandle :: Maybe Handle,
-    --
-    -- Functions; not saved.
-
     -- | The prior function. The un-normalized posterior is the product of the
     -- prior and the likelihood.
     priorF :: a -> Log Double,
@@ -124,38 +112,24 @@ chain ::
   Monitor a ->
   -- | The initial state in the state space @a@.
   a ->
-  -- | Number of burn in iterations; deactivate burn in with 'Nothing'.
-  Maybe Int ->
-  -- | Auto tuning period (only during burn in); deactivate auto tuning with
-  -- 'Nothing'.
-  Maybe Int ->
-  -- | Number of normal iterations excluding burn in. Note that auto tuning only
-  -- happens during burn in.
-  Int ->
   -- | A source of randomness. For reproducible runs, make sure to use
   -- generators with the same, fixed seed.
   GenIO ->
   Chain a
-chain n p l c m x mB mT nI g
-  | isJust mT && isNothing mB = error "status: Auto tuning period given, but no burn in."
-  | otherwise =
-    Chain
-      n
-      i
-      0
-      (singletonT i)
-      (emptyA $ ccProposals c)
-      mB
-      mT
-      nI
-      g
-      Nothing
-      Nothing
-      p
-      l
-      Nothing
-      c
-      m
+chain n p l c m x g =
+  Chain
+    n
+    i
+    0
+    (singletonT i)
+    (emptyA $ ccProposals c)
+    g
+    Nothing
+    p
+    l
+    Nothing
+    c
+    m
   where
     i = Item x (p x) (l x)
 

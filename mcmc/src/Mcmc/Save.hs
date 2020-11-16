@@ -46,44 +46,33 @@ import System.IO.Unsafe (unsafePerformIO)
 import qualified System.Random.MWC as MWC
 import Prelude hiding (cycle)
 
-data Save a
-  = Save
-      Environment
-      String -- Name.
-      (Item a)
-      Int -- Iteration.
-      (Trace a)
-      (Acceptance Int)
-      (Maybe Int) -- Burn in.
-      (Maybe Int) -- Auto tune.
-      Int -- Iterations.
-      (Vector Word32) -- Current seed.
-      [Maybe Double] -- Tuning parameters.
+data SavedChain a = SavedChain
+  { savedChainName :: String,
+    savedItem :: Item a,
+    savedIteration :: Int,
+    savedTrace :: Trace a,
+    savedAcceptance :: Acceptance Int,
+    savedSeed :: Vector Word32,
+    savedTuningParameters :: [Maybe Double]
+  }
+  deriving (Eq, Read, Show)
 
-$(deriveJSON defaultOptions ''Save)
+$(deriveJSON defaultOptions ''SavedChain)
 
-toSave :: Environment -> Chain a -> Save a
-toSave env (Chain nm it i tr ac br at is g _ _ _ _ _ cc _) =
-  Save
-    env
-    nm
-    it
-    i
-    tr'
-    ac'
-    br
-    at
-    is
-    g'
-    ts
+data Saved a = Saved
+  { savedEnvironment :: Environment,
+    savedChains :: [SavedChain a]
+  }
+  deriving (Eq, Show)
+
+$(deriveJSON defaultOptions ''Saved)
+
+-- Save chain with trace of given maximum length.
+saveChainWith :: Int -> Chain a -> SavedChain a
+saveChainWith n (Chain nm it i tr ac g _ _ _ _ cc _) =
+  SavedChain nm it i tr' ac' g' ts
   where
-    tr' =
-      takeT
-        ( case saveChain env of
-            NoSave -> 0
-            SaveN n -> n
-        )
-        tr
+    tr' = takeT n tr
     ps = ccProposals cc
     ac' = transformKeysA ps [0 ..] ac
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
@@ -91,44 +80,37 @@ toSave env (Chain nm it i tr ac br at is g _ _ _ _ _ cc _) =
     g' = MWC.fromSeed $ unsafePerformIO $ MWC.save g
     ts = [fmap tParam mt | mt <- map pTuner ps]
 
--- | Save a chain with environment to file.
+-- | Save an MCMC run to file.
 --
--- Some important values have to be provided upon restoring the status. See
--- 'load'.
-save :: ToJSON a => Environment -> Chain a -> IO ()
-save e c = BL.writeFile fn $ compress $ encode (toSave e c)
+-- Some important values have to be provided upon 'load'.
+save :: ToJSON a => Environment -> [Chain a] -> IO ()
+save e cs = BL.writeFile fn $ compress $ encode $ Saved e $ map (saveChainWith nTr) cs
   where
-    fn = name c ++ ".mcmc"
+    fn = name e ++ ".mcmc"
+    nTr = case saveMode e of
+          NoSave -> 0
+          SaveWithTrace n -> n
 
--- fromSav prior lh cycle monitor save
-fromSave ::
+-- loadChain prior lh cycle monitor save
+--
+-- Recompute and check the prior and likelihood for the last state because the
+-- functions may have changed. Of course, we cannot test for the same
+-- function, but having the same prior and likelihood at the last state is
+-- already a good indicator.
+loadChain ::
   (a -> Log Double) ->
   (a -> Log Double) ->
   Cycle a ->
   Monitor a ->
   Maybe (Cleaner a) ->
-  Save a ->
-  (Environment, Chain a)
-fromSave pr lh cc m cl (Save env nm it i tr ac' br at is g' ts) =
-  ( env,
-    Chain
-      nm
-      it
-      i
-      tr
-      ac
-      br
-      at
-      is
-      g
-      Nothing
-      Nothing
-      pr
-      lh
-      cl
-      cc'
-      m
-  )
+  SavedChain a ->
+  Chain a
+loadChain pr lh cc m cl (SavedChain nm it i tr ac' g' ts)
+  | pr (state it) /= prior it =
+    error "fromSave: Provided prior function does not match the saved prior."
+  | lh (state it) /= likelihood it =
+    error "fromSave: Provided likelihood function does not match the saved likelihood."
+  | otherwise = Chain nm it i tr ac g Nothing pr lh cl cc' m
   where
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
@@ -136,7 +118,10 @@ fromSave pr lh cc m cl (Save env nm it i tr ac' br at is g' ts) =
     g = unsafePerformIO $ MWC.restore $ MWC.toSeed g'
     cc' = tuneCycle (M.mapMaybe id $ M.fromList $ zip (ccProposals cc) ts) cc
 
--- | Load a chain with environment from file.
+-- TODO: REFACTOR. Different prior functions need to be given for different
+-- chains in the list. Better define save and load with the 'Algorithm'.
+
+-- | Load an MCMC run from file.
 --
 -- Important information that cannot be saved and has to be provided again when
 -- a chain is restored:
@@ -147,7 +132,7 @@ fromSave pr lh cc m cl (Save env nm it i tr ac' br at is g' ts) =
 -- - monitor
 --
 -- To avoid incomplete continued runs, the @.mcmc@ file is removed after load.
-load ::
+loadWith ::
   FromJSON a =>
   -- | Prior function.
   (a -> Log Double) ->
@@ -159,24 +144,13 @@ load ::
   Maybe (Cleaner a) ->
   -- | Name of chain to load.
   FilePath ->
-  IO (Environment, Chain a)
-load pr lh cc mn cl nm = do
+  IO (Environment, [Chain a])
+loadWith pr lh cc mn cl nm = do
   res <- eitherDecode . decompress <$> BL.readFile fn
-  let (e, c) = case res of
+  let (e, cs) = case res of
         Left err -> error err
-        Right sv -> fromSave pr lh cc mn cl sv
-  -- Check if prior and likelihood matches.
-  let Item x svp svl = item c
-  -- Recompute and check the prior and likelihood for the last state because the
-  -- functions may have changed. Of course, we cannot test for the same
-  -- function, but having the same prior and likelihood at the last state is
-  -- already a good indicator.
-  when
-    (pr x /= svp)
-    (error "loadStatus: Provided prior function does not match the saved prior.")
-  when
-    (lh x /= svl)
-    (error "loadStatus: Provided likelihood function does not match the saved likelihood.")
+        Right (Saved env cs') -> (env, map (loadChain pr lh cc mn cl) cs')
   removeFile fn
-  return (e, c)
-  where fn = nm ++ ".mcmc"
+  return (e, cs)
+  where
+    fn = nm ++ ".mcmc"

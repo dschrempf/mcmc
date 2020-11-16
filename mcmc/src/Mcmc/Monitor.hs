@@ -165,15 +165,16 @@ monitorFile n ps p
 mfRenderRow :: [BL.ByteString] -> BL.ByteString
 mfRenderRow = BL.intercalate "\t"
 
-open' :: String -> Overwrite -> IO Handle
+open' :: String -> OutputMode -> IO Handle
 open' n frc = do
   fe <- doesFileExist n
   case (fe, frc) of
     (False, _) -> openFile n WriteMode
-    (True, Force) -> openFile n WriteMode
+    (True, Overwrite) -> openFile n WriteMode
     (True, Fail) -> error $ "open': File \"" <> n <> "\" exists; probably use 'force'?"
+    (True, Append) -> openFile n AppendMode
 
-mfOpen :: String -> Overwrite -> MonitorFile a -> IO (MonitorFile a)
+mfOpen :: String -> OutputMode -> MonitorFile a -> IO (MonitorFile a)
 mfOpen n frc m = do
   let mfn = n <> mfName m <> ".monitor"
   h <- open' mfn frc
@@ -257,7 +258,7 @@ monitorBatch n ps p
   | p < 2 = error "monitorBatch: Batch size has to be 2 or larger."
   | otherwise = MonitorBatch n Nothing ps p
 
-mbOpen :: String -> Overwrite -> MonitorBatch a -> IO (MonitorBatch a)
+mbOpen :: String -> OutputMode -> MonitorBatch a -> IO (MonitorBatch a)
 mbOpen n frc m = do
   let mfn = n <> mbName m <> ".batch"
   h <- open' mfn frc
@@ -327,7 +328,7 @@ mbClose m = case mbHandle m of
   Nothing -> error $ "mfClose: File was not opened for batch monitor: " <> mbName m <> "."
 
 -- | Open the files associated with the 'Monitor'.
-mOpen :: String -> Overwrite -> Monitor a -> IO (Monitor a)
+mOpen :: String -> OutputMode -> Monitor a -> IO (Monitor a)
 mOpen n frc (Monitor s fs bs) = do
   fs' <- mapM (mfOpen n frc) fs
   mapM_ mfHeader fs'

@@ -120,6 +120,7 @@ mhBurnInN b (Just t)
     mcmcResetA
     mhNIter b
     mcmcSummarizeCycle >>= mcmcInfoB
+    -- TODO: Move the info message into summarize cycle.
     mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
 mhBurnInN b Nothing = mhNIter b
 

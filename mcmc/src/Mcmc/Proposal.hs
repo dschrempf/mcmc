@@ -366,6 +366,7 @@ summarizeCycle a c =
 
 -- | For each key @k@, store the number of accepted and rejected proposals.
 newtype Acceptance k = Acceptance {fromAcceptance :: Map k (Int, Int)}
+  deriving (Eq, Read, Show)
 
 instance ToJSONKey k => ToJSON (Acceptance k) where
   toJSON (Acceptance m) = toJSON m

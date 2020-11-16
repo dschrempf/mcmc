@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- |
@@ -12,31 +13,48 @@
 --
 -- Creation date: Mon Nov 16 11:13:01 2020.
 module Mcmc.Environment
-  ( Overwrite (..),
-    SaveChain (..),
+  ( BurnIn (..),
+    OutputMode (..),
+    SaveMode (..),
     Verbosity (..),
     Environment (..),
-    forceOverwrite,
-    saveN,
-    quiet,
-    debug,
+    openLogFile,
   )
 where
 
+-- TODO: REFACTOR. Check documentation.
+
+import Data.Aeson
 import Data.Aeson.TH
-import Data.Default
+import Data.Maybe
+import System.Directory
+import System.IO
 
--- | Force overwrite of output files, or fail with an error message?
-data Overwrite = Fail | Force
+-- | Burn in specification.
+data BurnIn
+  = -- | No burn in.
+    NoBurnIn
+  | -- | Burn in for a given number of iterations.
+    BurnInNoAutoTuning Int
+  | -- | Burn in for a given number of iterations. Auto tuning with a given auto
+    -- tuning period is enabled.
+    BurnInWithAutoTuning Int Int
   deriving (Eq, Read, Show)
 
-$(deriveJSON defaultOptions ''Overwrite)
+$(deriveJSON defaultOptions ''BurnIn)
 
--- | Save the chain with trace of given maximum length at the end of the run?
-data SaveChain = NoSave | SaveN Int
+-- | Overwrite output files, fail with an error message, or append?
+data OutputMode = Overwrite | Fail | Append
   deriving (Eq, Read, Show)
 
-$(deriveJSON defaultOptions ''SaveChain)
+$(deriveJSON defaultOptions ''OutputMode)
+
+-- | Should the MCMC run with trace of given maximum length be saved at the end
+-- of the run?
+data SaveMode = NoSave | SaveWithTrace Int
+  deriving (Eq, Read, Show)
+
+$(deriveJSON defaultOptions ''SaveMode)
 
 -- | Not much to say here.
 data Verbosity = Quiet | Warn | Info | Debug
@@ -44,30 +62,77 @@ data Verbosity = Quiet | Warn | Info | Debug
 
 $(deriveJSON defaultOptions ''Verbosity)
 
--- | Environment of the Markov chain Monte Carlo sampler.
+-- | Environment of the Markov chain Monte Carlo sampler; created with
+-- 'environment'.
 data Environment = Environment
-  { overwrite :: Overwrite,
-    saveChain :: SaveChain,
-    verbosity :: Verbosity
+  { -- | Name of the Markov chain Monte Carlo sampler.
+    name :: String,
+    burnIn :: BurnIn,
+    -- | Number of normal iterations excluding burn in. Note that auto tuning
+    -- only happens during burn in.
+    iterations :: Int,
+    outputMode :: OutputMode,
+    saveMode :: SaveMode,
+    verbosity :: Verbosity,
+    -- | The log handle is set internally with 'openLogFile'.
+    logHandle :: Maybe Handle
   }
-  deriving (Eq, Read, Show)
+  deriving (Eq, Show)
 
-$(deriveJSON defaultOptions ''Environment)
+-- | The 'Handle' is not stored.
+instance ToJSON Environment where
+  toJSON (Environment nm bi is om sm vb _) =
+    object
+      [ "name" .= nm,
+        "burnIn" .= bi,
+        "iterations" .= is,
+        "outputMode" .= om,
+        "saveMode" .= sm,
+        "verbosity" .= vb
+      ]
+  toEncoding (Environment nm bi is om sm vb _) =
+    pairs $
+        "name" .= nm
+        <> "burnIn" .= bi
+        <> "iterations" .= is
+        <> "outputMode" .= om
+        <> "saveMode" .= sm
+        <> "verbosity" .= vb
 
-instance Default Environment where def = Environment Fail NoSave Info
+-- | The 'Handle' is not restored.
+instance FromJSON Environment where
+  parseJSON = withObject "Environment" $ \v ->
+    Environment
+      <$> v .: "name"
+      <*> v .: "burnIn"
+      <*> v .: "iterations"
+      <*> v .: "outputMode"
+      <*> v .: "saveMode"
+      <*> v .: "verbosity"
+      <*> pure Nothing
 
--- | Force overwrite of output files.
-forceOverwrite :: Environment -> Environment
-forceOverwrite e = e {overwrite = Force}
+-- | Open log file.
+--
+-- Call 'error' if:
+--
+-- - The log file has already been opened.
+-- - The log file exists and output mode is 'Fail'.
+openLogFile :: Environment -> IO Environment
+openLogFile env
+  | isJust $ logHandle env = error "openLogFile: Log file has already been opened"
+  | otherwise = do
+    fe <- doesFileExist fn
+    h <- case (fe, om) of
+      (False, _) -> openFile fn WriteMode
+      (True, Overwrite) -> openFile fn WriteMode
+      (True, Fail) -> error "openLogFile: Log file exists."
+      (True, Append) -> openFile fn AppendMode
+    return $ env {logHandle = Just h}
+  where
+    nm = name env
+    fn = nm ++ ".log"
+    om = outputMode env
 
--- | Save the chain with trace of given maximum length at the end of the run.
-saveN :: Int -> Environment -> Environment
-saveN n e = e {saveChain = SaveN n}
-
--- | Be quiet.
-quiet :: Environment -> Environment
-quiet e = e {verbosity = Quiet}
-
--- | Show debug output.
-debug :: Environment -> Environment
-debug e = e {verbosity = Debug}
+-- TODO.
+-- mcmcDebugS $ "Log file name: " ++ lfn ++ "."
+-- mcmcDebugB "Log file opened."
