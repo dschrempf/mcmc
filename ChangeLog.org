@@ -1,5 +1,6 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- Rename =Status= to =Chain= and separate =Environment= from the =Chain=.
 
 ** 0.3.0
 - New shorter example/test for dating trees.
