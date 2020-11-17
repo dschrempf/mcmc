@@ -18,7 +18,7 @@
 -- and so on, so they have to be provided again when continuing a run.
 module Mcmc.Save
   ( save,
-    load,
+    loadWith,
   )
 where
 
@@ -35,12 +35,11 @@ import Data.Vector.Unboxed (Vector)
 -- statistics package.
 import Data.Word
 import Mcmc.Chain
-import Mcmc.Environment
 import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Proposal
+import Mcmc.Settings
 import Mcmc.Trace
-import Numeric.Log
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified System.Random.MWC as MWC
@@ -60,7 +59,7 @@ data SavedChain a = SavedChain
 $(deriveJSON defaultOptions ''SavedChain)
 
 data Saved a = Saved
-  { savedEnvironment :: Environment,
+  { savedSettings :: Settings,
     savedChains :: [SavedChain a]
   }
   deriving (Eq, Show)
@@ -69,7 +68,7 @@ $(deriveJSON defaultOptions ''Saved)
 
 -- Save chain with trace of given maximum length.
 saveChainWith :: Int -> Chain a -> SavedChain a
-saveChainWith n (Chain nm it i tr ac g _ _ _ _ cc _) =
+saveChainWith n (Chain nm it i tr ac g _ _ _ cc _) =
   SavedChain nm it i tr' ac' g' ts
   where
     tr' = takeT n tr
@@ -83,13 +82,13 @@ saveChainWith n (Chain nm it i tr ac g _ _ _ _ cc _) =
 -- | Save an MCMC run to file.
 --
 -- Some important values have to be provided upon 'load'.
-save :: ToJSON a => Environment -> [Chain a] -> IO ()
+save :: ToJSON a => Settings -> [Chain a] -> IO ()
 save e cs = BL.writeFile fn $ compress $ encode $ Saved e $ map (saveChainWith nTr) cs
   where
     fn = name e ++ ".mcmc"
     nTr = case saveMode e of
-          NoSave -> 0
-          SaveWithTrace n -> n
+      NoSave -> 0
+      SaveWithTrace n -> n
 
 -- loadChain prior lh cycle monitor save
 --
@@ -98,19 +97,19 @@ save e cs = BL.writeFile fn $ compress $ encode $ Saved e $ map (saveChainWith n
 -- function, but having the same prior and likelihood at the last state is
 -- already a good indicator.
 loadChain ::
-  (a -> Log Double) ->
-  (a -> Log Double) ->
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  -- CleaningFunction a ->
   Cycle a ->
   Monitor a ->
-  Maybe (Cleaner a) ->
   SavedChain a ->
   Chain a
-loadChain pr lh cc m cl (SavedChain nm it i tr ac' g' ts)
-  | pr (state it) /= prior it =
+loadChain pr lh cc mn (SavedChain nm it i tr ac' g' ts)
+  | fromPriorFunction pr (state it) /= prior it =
     error "fromSave: Provided prior function does not match the saved prior."
-  | lh (state it) /= likelihood it =
+  | fromLikelihoodFunction lh (state it) /= likelihood it =
     error "fromSave: Provided likelihood function does not match the saved likelihood."
-  | otherwise = Chain nm it i tr ac g Nothing pr lh cl cc' m
+  | otherwise = Chain nm it i tr ac g i pr lh cc' mn
   where
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
@@ -123,33 +122,22 @@ loadChain pr lh cc m cl (SavedChain nm it i tr ac' g' ts)
 
 -- | Load an MCMC run from file.
 --
--- Important information that cannot be saved and has to be provided again when
--- a chain is restored:
--- - prior function
--- - likelihood function
--- - cleaning function
--- - cycle
--- - monitor
---
 -- To avoid incomplete continued runs, the @.mcmc@ file is removed after load.
 loadWith ::
   FromJSON a =>
-  -- | Prior function.
-  (a -> Log Double) ->
-  -- | Likelihood function.
-  (a -> Log Double) ->
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  -- CleaningFunction a ->
   Cycle a ->
   Monitor a ->
-  -- | Cleaner, if needed.
-  Maybe (Cleaner a) ->
   -- | Name of chain to load.
   FilePath ->
-  IO (Environment, [Chain a])
-loadWith pr lh cc mn cl nm = do
+  IO (Settings, [Chain a])
+loadWith pr lh cc mn nm = do
   res <- eitherDecode . decompress <$> BL.readFile fn
   let (e, cs) = case res of
         Left err -> error err
-        Right (Saved env cs') -> (env, map (loadChain pr lh cc mn cl) cs')
+        Right (Saved env cs') -> (env, map (loadChain pr lh cc mn) cs')
   removeFile fn
   return (e, cs)
   where

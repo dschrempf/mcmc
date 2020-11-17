@@ -10,11 +10,11 @@
 --
 -- Creation date: Tue May  5 18:01:15 2020.
 module Mcmc.Chain
-  ( Chain (..),
+  ( PriorFunction (..),
+    LikelihoodFunction (..),
+    Chain (..),
     chain,
     noData,
-    Cleaner (..),
-    cleanWith,
   )
 where
 
@@ -31,8 +31,6 @@ where
 
 -- TODO: REFACTOR. Check documentation.
 
-import Data.Maybe
-import Data.Time.Clock
 import Mcmc.Item
 import Mcmc.Monitor
 import Mcmc.Proposal
@@ -40,6 +38,36 @@ import Mcmc.Trace
 import Numeric.Log
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
+
+-- | Prior function.
+newtype PriorFunction a = PriorFunction {fromPriorFunction :: a -> Log Double}
+
+-- | Likelihood function.
+newtype LikelihoodFunction a = LikelihoodFunction {fromLikelihoodFunction :: a -> Log Double}
+
+-- TODO: Can I remove the cleaning function? This is a serious drawback, also
+-- the synchronization between chains and the environment. See
+-- 'Mcmc.Settings.CleanEvery'.
+
+-- -- | Cleaning function.
+-- --
+-- -- The prior and the likelihood will be updated after the cleaning process. The
+-- -- cleaning function is executed before the state is monitored. See
+-- -- 'Mcmc.Settings.CleanEvery'.
+-- --
+-- -- For long chains, successive numerical errors can accumulate such that the
+-- -- state diverges from honoring required constraints. In these cases, a cleaning
+-- -- function can be used to ensure that the required constraints of the state are
+-- -- honored. For example, the branches of an ultrametric phylogeny may diverge
+-- -- slightly after many successful proposals such that the phylogeny is not
+-- -- anymore ultrametric.
+-- --
+-- -- Please be aware that the Markov chain will not converge to a distribution
+-- -- close to the true posterior distribution if cleaning changes the state
+-- -- substantially! Only apply subtle changes that are absolutely necessary to
+-- -- preserve the required properties of the state such as specific numerical
+-- -- constraints.
+-- newtype CleaningFunction a = CleaningFunction { fromCleaningFunction :: a -> a }
 
 -- | The 'Chain' contains all information to run a Markov chain Monte Carlo
 -- sampler. A 'Chain' is constructed using the function 'chain'.
@@ -64,7 +92,7 @@ data Chain a = Chain
     -- | The current 'Item' of the chain combines the current state and the
     -- current likelihood.
     item :: Item a,
-    -- | The iteration is the number of completed cycles.
+    -- | The current iteration or completed number of cycles.
     iteration :: Int,
     -- | The 'Trace' of the Markov chain in reverse order, the most recent
     -- 'Item' is at the head of the list.
@@ -78,17 +106,17 @@ data Chain a = Chain
     --
     -- Variables and functions; not saved.
 
-    -- | Starting time and starting iteration of chain; used to calculate
-    -- run time and ETA.
-    start :: Maybe (Int, UTCTime),
+    -- | Starting iteration of the chain; used to calculate run time and ETA.
+    start :: Int,
     -- | The prior function. The un-normalized posterior is the product of the
     -- prior and the likelihood.
-    priorF :: a -> Log Double,
+    priorFunction :: PriorFunction a,
     -- | The likelihood function. The un-normalized posterior is the product of
     -- the prior and the likelihood.
-    likelihoodF :: a -> Log Double,
-    -- | Clean the state periodically.
-    cleaner :: Maybe (Cleaner a),
+    likelihoodFunction :: LikelihoodFunction a,
+    -- -- | Clean the state periodically.
+    -- cleaningFunction :: CleaningFunction a,
+
     -- | A set of 'Proposal's form a 'Cycle'.
     --
     -- TODO: Should we move the cycle to a dedicated @Algorithm@ type?
@@ -101,14 +129,10 @@ data Chain a = Chain
 chain ::
   -- | Name of the Markov chain; used as file prefix.
   String ->
-  -- | The prior function.
-  (a -> Log Double) ->
-  -- | The likelihood function.
-  (a -> Log Double) ->
-  -- | A list of 'Proposal's executed in forward order. The chain will be logged
-  -- after each cycle.
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  -- CleaningFunction a ->
   Cycle a ->
-  -- | A 'Monitor' observing the chain.
   Monitor a ->
   -- | The initial state in the state space @a@.
   a ->
@@ -116,50 +140,22 @@ chain ::
   -- generators with the same, fixed seed.
   GenIO ->
   Chain a
-chain n p l c m x g =
+chain nm pr lh cc mn x g =
   Chain
-    n
+    nm
     i
     0
     (singletonT i)
-    (emptyA $ ccProposals c)
+    (emptyA $ ccProposals cc)
     g
-    Nothing
-    p
-    l
-    Nothing
-    c
-    m
+    0
+    pr
+    lh
+    cc
+    mn
   where
-    i = Item x (p x) (l x)
+    i = Item x (fromPriorFunction pr x) (fromLikelihoodFunction lh x)
 
--- | Set the likelihood function to 1.0. Useful for debugging and testing.
+-- | Set the likelihood function to 1.0. Useful for testing and debugging.
 noData :: Chain a -> Chain a
-noData x = x {likelihoodF = const 1.0}
-
--- | Clean the state periodically.
---
--- The prior and the likelihood will be updated after the cleaning process.
---
--- For long chains, successive numerical errors can accumulate such that the
--- state diverges from honoring specific required constraints. In these cases, a
--- 'Cleaner' can be used to ensure that the required constraints of the state
--- are honored. For example, the branches of an ultrametric phylogeny may
--- diverge slightly after successful many proposals such that the phylogeny is
--- not anymore ultrametric.
---
--- Please be aware that the Markov chain will not converge to the true posterior
--- distribution if the state is changed substantially! Only apply subtle changes
--- that are absolutely necessary to preserve the required properties of the
--- state such as specific numerical constraints.
-data Cleaner a = Cleaner
-  { -- | Clean every given number of iterations.
-    clEvery :: Int,
-    -- | Cleaning function. Executed before monitoring the state.
-    clFunction :: a -> a
-  }
-
--- | Clean the state every given number of generations using the given function.
--- See 'Cleaner'.
-cleanWith :: Cleaner a -> Chain a -> Chain a
-cleanWith c x = x {cleaner = Just c}
+noData x = x {likelihoodFunction = LikelihoodFunction $ const 1.0}

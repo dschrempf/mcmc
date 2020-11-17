@@ -102,15 +102,12 @@ module Mcmc
     Order (..),
     setOrder,
 
-    -- * Environment
-    Overwrite (..),
-    SaveChain (..),
+    -- * Settings
+    BurnIn (..),
+    OutputMode (..),
+    SaveMode (..),
     Verbosity (..),
-    Environment (..),
-    forceOverwrite,
-    saveN,
-    quiet,
-    debug,
+    Settings (..),
 
     -- * Initialization
     chain,
@@ -154,7 +151,6 @@ module Mcmc
 where
 
 import Mcmc.Chain
-import Mcmc.Environment
 import Mcmc.Metropolis
 import Mcmc.Monitor
 import Mcmc.Monitor.Parameter
@@ -166,3 +162,4 @@ import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Simplex
 import Mcmc.Proposal.Slide
 import Mcmc.Save
+import Mcmc.Settings

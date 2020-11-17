@@ -42,6 +42,7 @@ library
       Mcmc.Proposal.Slide
       Mcmc.Proposal.Simplex
       Mcmc.Save
+      Mcmc.Settings
       Mcmc.Trace
   other-modules:
       Mcmc.Internal.ByteString

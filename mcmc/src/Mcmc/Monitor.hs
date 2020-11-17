@@ -34,20 +34,22 @@ import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Int
 import Data.Time.Clock
-import Mcmc.Environment
 import Mcmc.Internal.ByteString
 import Mcmc.Item
 import Mcmc.Monitor.Log
 import Mcmc.Monitor.Parameter
 import Mcmc.Monitor.ParameterBatch
 import Mcmc.Monitor.Time
+import Mcmc.Settings
 import Mcmc.Trace
 import Numeric.Log
 import System.Directory
 import System.IO
 import Prelude hiding (sum)
 
--- | A 'Monitor' describes which part of the Markov chain should be logged and
+-- | A 'Monitor' observing the chain.
+--
+-- A 'Monitor' describes which part of the Markov chain should be logged and
 -- where. Further, they allow output of summary statistics per iteration in a
 -- flexible way.
 data Monitor a = Monitor

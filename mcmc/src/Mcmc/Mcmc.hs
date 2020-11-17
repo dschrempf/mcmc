@@ -42,12 +42,11 @@ import Data.Maybe
 import Data.Time.Clock
 import Data.Time.Format
 import Mcmc.Algorithm
-import Mcmc.Chain
 import Mcmc.Environment
 import Mcmc.Monitor
 import Mcmc.Monitor.Time
-import Mcmc.Proposal
 import Mcmc.Save
+import Mcmc.Settings
 import Numeric.Log
 import System.IO
 import Prelude hiding (cycle)
@@ -62,7 +61,7 @@ msgPrepare c t = BL.cons c $ ": " <> t
 -- | Write to standard output and log file.
 mcmcOutB :: BL.ByteString -> Mcmc a ()
 mcmcOutB msg = do
-  h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> reader envLogHandle
+  h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> reader logHandle
   liftIO $ BL.putStrLn msg >> BL.hPutStrLn h msg
 
 -- | Write to standard output and log file.
@@ -71,7 +70,7 @@ mcmcOutS = mcmcOutB . BL.pack
 
 -- Perform warning action.
 mcmcWarnA :: Mcmc a () -> Mcmc a ()
-mcmcWarnA a = reader envVerbosity >>= \v -> when (v >= Warn) a
+mcmcWarnA a = reader verbosity >>= \v -> when (v >= Warn) a
 
 -- | Print warning message.
 mcmcWarnB :: BL.ByteString -> Mcmc a ()
@@ -83,7 +82,7 @@ mcmcWarnS = mcmcWarnB . BL.pack
 
 -- Perform info action.
 mcmcInfoA :: Mcmc a () -> Mcmc a ()
-mcmcInfoA a = reader envVerbosity >>= \v -> when (v >= Info) a
+mcmcInfoA a = reader verbosity >>= \v -> when (v >= Info) a
 
 -- | Print info message.
 mcmcInfoB :: BL.ByteString -> Mcmc a ()
@@ -95,7 +94,7 @@ mcmcInfoS = mcmcInfoB . BL.pack
 
 -- Perform debug action.
 mcmcDebugA :: Mcmc a () -> Mcmc a ()
-mcmcDebugA a = reader envVerbosity >>= \v -> when (v == Debug) a
+mcmcDebugA a = reader verbosity >>= \v -> when (v == Debug) a
 
 -- | Print debug message.
 mcmcDebugB :: BL.ByteString -> Mcmc a ()
@@ -105,12 +104,47 @@ mcmcDebugB = mcmcDebugA . mcmcOutB . msgPrepare 'D'
 mcmcDebugS :: String -> Mcmc a ()
 mcmcDebugS = mcmcDebugB . BL.pack
 
+fTime :: FormatTime t => t -> String
+fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
+
+-- Set the total number of iterations, the current time and open the 'Monitor's
+-- of the chain. See 'mOpen'.
+mcmcInit :: Algorithm a => Mcmc a ()
+mcmcInit = do
+  t <- reader startingTime
+  mcmcInfoS $ "Starting time: " <> fTime t
+
+-- Report what is going to be done.
+mcmcStartingReport :: ToJSON a => Mcmc a ()
+mcmcStartingReport = do
+  s <- settings <$> ask
+  let b = burnIn s
+      i = iterations s
+      c = cleaner s
+  case b of
+    NoBurnIn ->
+      mcmcInfoS "No burn in."
+    BurnInNoAutoTuning n ->
+      mcmcInfoS $ "Burn in for " <> show n <> " iterations without auto tuning."
+    BurnInWithAutoTuning n t ->
+      mcmcInfoS $
+        "Burn in for "
+          <> show n
+          <> " iterations with auto tuning every "
+          <> show t " iterations."
+  mcmcInfoS $ "Run chain for " <> show i <> " iterations."
+  case c of
+    NoClean -> return ()
+    CleanEvery n -> mcmcInfoS $ "Clean state every " <> show n <> " iterations."
+  mcmcInfoB "Initial state."
+  mcmcMonitorExec
+
 -- | Auto tune the 'Proposal's in the 'Cycle' of the chain. Reset acceptance counts.
--- See 'autotuneCycle'.
+-- See 'autoTuneCycle'.
 mcmcAutotune :: Algorithm a => Mcmc a ()
 mcmcAutotune = do
   mcmcDebugB "Auto tune."
-  modify autotune
+  modify autoTune
 
 -- | Clean the state.
 mcmcClean :: Mcmc a ()
@@ -133,60 +167,14 @@ mcmcClean = do
     (mcmcWarnS $ "The logarithms of old and new likelihood differ by " ++ show dLogLh ++ ".")
 
 -- | Reset acceptance counts.
-mcmcResetA :: Mcmc a ()
+mcmcResetA :: Algorithm a => Mcmc a ()
 mcmcResetA = do
   mcmcDebugB "Reset acceptance ratios."
-  s <- get
-  let a = acceptance s
-  put $ s {acceptance = resetA a}
+  modify resetAcceptance
 
 -- | Print short summary of 'Proposal's in 'Cycle'. See 'summarizeCycle'.
-mcmcSummarizeCycle :: Mcmc a BL.ByteString
-mcmcSummarizeCycle = do
-  a <- gets acceptance
-  c <- gets cycle
-  return $ summarizeCycle a c
-
-fTime :: FormatTime t => t -> String
-fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
-
--- Set the total number of iterations, the current time and open the 'Monitor's
--- of the chain. See 'mOpen'.
-mcmcInit :: Mcmc a ()
-mcmcInit = do
-  mcmcOpenLog
-  s <- get
-  -- Start time.
-  t <- liftIO getCurrentTime
-  mcmcInfoS $ "Start time: " <> fTime t
-  -- Monitor.
-  let m = monitor s
-      n = iteration s
-      nm = name s
-  frc <- reader overwrite
-  m' <- if n == 0 then liftIO $ mOpen nm frc m else liftIO $ mAppend nm m
-  put $ s {monitor = m', start = Just (n, t)}
-
--- | Report what is going to be done.
-mcmcReport :: ToJSON a => Mcmc a ()
-mcmcReport = do
-  s <- get
-  let b = burnInIterations s
-      t = autoTuningPeriod s
-      n = iterations s
-      c = cleaner s
-  case b of
-    Just b' -> mcmcInfoS $ "Burn in for " <> show b' <> " iterations."
-    Nothing -> return ()
-  case t of
-    Just t' -> mcmcInfoS $ "Auto tune every " <> show t' <> " iterations (during burn in only)."
-    Nothing -> return ()
-  case c of
-    Just (Cleaner c' _) -> mcmcInfoS $ "Clean state every " <> show c' <> " iterations."
-    Nothing -> return ()
-  mcmcInfoS $ "Run chain for " <> show n <> " iterations."
-  mcmcInfoB "Initial state."
-  mcmcMonitorExec
+mcmcSummarizeCycle :: Algorithm a => Mcmc a BL.ByteString
+mcmcSummarizeCycle = gets summarizeCycle
 
 -- Save the status of an MCMC run. See 'saveStatus'.
 mcmcSave :: ToJSON a => Mcmc a ()
@@ -234,9 +222,19 @@ mcmcClose = do
     Just h -> liftIO $ hClose h
     Nothing -> return ()
 
--- | Run an MCMC algorithm.
-mcmcRun :: ToJSON a => Mcmc a () -> Environment -> Chain a -> IO (Chain a, ())
-mcmcRun algorithm = execRWST $ do
+mcmcRun :: Algorithm a => Mcmc a ()
+mcmcRun = do
   mcmcInit
-  algorithm
+  mcmcStartingReport
+  -- TODO!
+  undefined
   mcmcClose
+
+-- | Run an MCMC algorithm.
+mcmcExec :: Algorithm a => Environment -> a -> IO (a, ())
+mcmcExec env' alg = do
+  env <- openLogFile
+  -- TODO.
+  -- mcmcDebugS $ "Log file name: " ++ lfn ++ "."
+  -- mcmcDebugB "Log file opened."
+  execRWST mcmcRun env alg

@@ -33,7 +33,7 @@ module Mcmc.Proposal
     setOrder,
     getNIterations,
     tuneCycle,
-    autotuneCycle,
+    autoTuneCycle,
     summarizeCycle,
 
     -- * Acceptance
@@ -147,7 +147,7 @@ convertS l s = s'
       (x', r, j) <- s (v ^. l) g
       return (set l x' v, r, j)
 
--- | Tune the acceptance ratio of a 'Proposal'; see 'tune', or 'autotuneCycle'.
+-- | Tune the acceptance ratio of a 'Proposal'; see 'tune', or 'autoTuneCycle'.
 data Tuner a = Tuner
   { tParam :: Double,
     tFunc :: Double -> ProposalSimple a
@@ -295,8 +295,8 @@ tuneCycle m c =
 -- | Calculate acceptance ratios and auto tune the 'Proposal's in the 'Cycle'. For
 -- now, a 'Proposal' is enlarged when the acceptance ratio is above 0.44, and
 -- shrunk otherwise. Do not change 'Proposal's that are not tuneable.
-autotuneCycle :: Acceptance (Proposal a) -> Cycle a -> Cycle a
-autotuneCycle a = tuneCycle (M.map (\x -> exp $ x - ratioOpt) $ acceptanceRatios a)
+autoTuneCycle :: Acceptance (Proposal a) -> Cycle a -> Cycle a
+autoTuneCycle a = tuneCycle (M.map (\x -> exp $ x - ratioOpt) $ acceptanceRatios a)
 
 renderRow ::
   BL.ByteString ->
