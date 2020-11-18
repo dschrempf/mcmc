@@ -46,11 +46,11 @@ module Mcmc.Proposal
   )
 where
 
+import Control.DeepSeq
 import Data.Aeson
 import Data.Bifunctor
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Control.DeepSeq
 import Data.Default
 import qualified Data.Double.Conversion.ByteString as BC
 import Data.Function

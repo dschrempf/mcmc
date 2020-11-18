@@ -52,7 +52,7 @@ library
       Paths_mcmc
   hs-source-dirs:
       src
-  ghc-options: -Wall
+  ghc-options: -Werror
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -84,7 +84,7 @@ test-suite mcmc-test
       Paths_mcmc
   hs-source-dirs:
       test
-  ghc-options: -Wall
+  ghc-options: -Wall -Werror
   build-depends:
       QuickCheck
     , base >=4.7 && <5
@@ -107,7 +107,7 @@ benchmark mcmc-bench
       Paths_mcmc
   hs-source-dirs:
       bench
-  ghc-options: -Wall
+  ghc-options: -Wall -Werror
   build-depends:
       base >=4.7 && <5
     , criterion

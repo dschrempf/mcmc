@@ -16,12 +16,11 @@ where
 
 import Mcmc
 import Mcmc.Chain.Chain
+import Mcmc.Chain.Save
 import Numeric.Log
-import Statistics.Distribution hiding
-  ( mean,
-    stdDev,
-  )
+import Statistics.Distribution
 import Statistics.Distribution.Normal
+import System.Directory
 import qualified System.Random.MWC as R
 import Test.Hspec
 
@@ -31,7 +30,7 @@ trueMean = 5
 trueStdDev :: Double
 trueStdDev = 4
 
-lh :: Double -> Log Double
+lh :: LikelihoodFunction Double
 lh = Exp . logDensity (normalDistr trueMean trueStdDev)
 
 proposals :: Cycle Double
@@ -49,36 +48,32 @@ monStd = monitorStdOut [monitorDouble "mu"] 10
 mon :: Monitor Double
 mon = Monitor monStd [] []
 
-nBurn :: Maybe Int
-nBurn = Just 20
-
-nAutoTune :: Maybe Int
-nAutoTune = Just 10
-
-nIter :: Int
-nIter = 200
-
 spec :: Spec
 spec =
   describe "save and load" $
     it "doesn't change the MCMC chain" $
       do
         gen <- R.create
-        let env = Environment Force (SaveN 100) Quiet
-            ch = chain "SaveSpec" (const 1) lh proposals mon 0 nBurn nAutoTune nIter gen
-        save env ch
-        (env', ch') <- load (const 1) lh proposals mon Nothing "SaveSpec"
-        r <- mh env ch
-        r' <- mh env' ch'
-        -- Done during 'loadStatus'.
-        -- removeFile "SaveSpec.json"
+        let s =
+              Settings
+                "SaveSpec"
+                (BurnInWithAutoTuning 20 10)
+                200
+                Overwrite
+                (SaveWithTrace 100)
+                Quiet
+            c = chain noPrior lh proposals mon 0 gen
+        saveChainWith 100 "SaveSpec.chain" c
+        c' <- loadChainWith noPrior lh proposals mon "SaveSpec.chain"
+        removeFile "SaveSpec.chain"
+        r <- fromMHG <$> mcmcWith s (MHG c)
+        r' <- fromMHG <$> mcmcWith s (MHG c')
         item r `shouldBe` item r'
         iteration r `shouldBe` iteration r'
         trace r `shouldBe` trace r'
         g <- R.save $ generator r
         g' <- R.save $ generator r'
         g `shouldBe` g'
-        env `shouldBe` env'
 
 -- -- TODO: Splitmix. This will only work with a splittable generator
 -- -- because getNIterations changes the generator.

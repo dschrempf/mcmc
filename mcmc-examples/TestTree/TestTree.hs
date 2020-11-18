@@ -19,30 +19,15 @@ import Control.Monad
 import ELynx.Tree
 import Mcmc
 import Mcmc.Tree
-import Numeric.Log
 import System.Random.MWC hiding (uniform)
 
 type I = Tree Length (HeightLabel Name)
 
--- See 'cleaner'. This function makes the time tree ultrametric again,
--- normalizes the tree and sets the height values accordingly.
-cleanTimeTree :: I -> I
-cleanTimeTree = recalculateHeights . normalizeHeight . makeUltrametric
-
--- | Clean the time tree periodically. Otherwise, it diverges from being
--- ultrametric.
-cleaner :: Cleaner I
-cleaner = Cleaner 50 cleanTimeTree
-
 -- Birth death prior, see Yang (2006), Figure 7.12. For lambda=2, mu=2, rho=0.1,
 -- we expect a relatively linear distribution of inner node ages (a little bit
 -- biased to younger ages).
-pr :: I -> Log Double
+pr :: PriorFunction I
 pr = birthDeath WithoutStem 2.0 2.0 0.1
-
--- No data.
-lh :: I -> Log Double
-lh _ = 1.0
 
 -- Proposals on the tree.
 proposals :: Show a => Tree e a -> Cycle I
@@ -95,18 +80,6 @@ monTree = monitorFile "-tree" [fromHeightTree >$< monitorTree "Tree"] 1
 mon :: Tree e a -> Monitor I
 mon t = Monitor (monStd t) [monFile t, monTree] []
 
--- Number of burn in iterations.
-nBurnIn :: Maybe Int
-nBurnIn = Just 2000
-
--- Auto tuning period.
-nAutoTune :: Maybe Int
-nAutoTune = Just 100
-
--- Number of Metropolis-Hastings iterations after burn in.
-nIter :: Int
-nIter = 6000
-
 main :: IO ()
 main = do
   let t =
@@ -116,8 +89,6 @@ main = do
               phyloToLengthTree $
                 parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,(d:2.0,e:2.0):1.0):0.0;"
   g <- create
-  let
-    e = forceOverwrite def
-    c = cleanWith cleaner $
-          chain "test" pr lh (proposals t) (mon t) t nBurnIn nAutoTune nIter g
-  void $ mh e c
+  let s = Settings "test" (BurnInWithAutoTuning 2000 100) 6000 Overwrite NoSave Info
+      c = chain pr noData (proposals t) (mon t) t g
+  void $ mcmcWith s (MHG c)

@@ -21,25 +21,36 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.RWS.CPS
 import Data.Aeson
-import Data.Maybe
+import qualified Data.ByteString.Lazy.Char8 as BL
 import Mcmc.Algorithm
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Item
+import Mcmc.Chain.Save
+import Mcmc.Chain.Trace
 import Mcmc.Environment
-import Mcmc.Mcmc
+import Mcmc.Monitor
 import Mcmc.Proposal
+import Mcmc.Settings
 import Numeric.Log
 import System.Random.MWC
 import Prelude hiding (cycle)
 
+-- | Metropolis-Hastings-Green algorithm.
 newtype MHG a = MHG {fromMHG :: Chain a}
 
-instance Algorithm (MHG a) where
+instance ToJSON a => Algorithm (MHG a) where
   algorithmName = const "Metropolis-Hastings-Green algorithm."
   algorithmIteration = iteration . fromMHG
-  algorithmIterate = undefined
+  algorithmIterate = mhgIterate
+  algorithmAutoTune = mhgAutoTune
+  algorithmResetAcceptance = mhgResetAcceptance
+  algorithmSummarizeCycle = mhgSummarizeCycle
+  algorithmOpenMonitors = mhgOpenMonitors
+  algorithmExecuteMonitors = mhgExecuteMonitors
+  algorithmCloseMonitors = mhgCloseMonitors
+  algorithmSaveWith = mhgSaveWith
+  algorithmReport = mhgReport
 
 -- The Metropolis-Hastings ratio.
 --
@@ -61,47 +72,106 @@ mhgRatio fX fY q j = fY / fX * q * j
 
 -- TODO.
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
-mhgPropose a p = do
-  let p = pSimple m
-  c <- get
-  let (Item x pX lX) = item c
-      pF = priorF c
-      lF = likelihoodF c
-      a = acceptance c
-      g = generator c
+mhgPropose (MHG c) p = do
   -- 1. Sample new state.
-  (!y, !q, !j) <- liftIO $ p x g
+  (!y, !q, !j) <- liftIO $ s x g
   -- 2. Calculate Metropolis-Hastings ratio.
   let !pY = pF y
       !lY = lF y
-      !r = mhRatio (pX * lX) (pY * lY) q j
+      !r = mhgRatio (pX * lX) (pY * lY) q j
   -- 3. Accept or reject.
   if ln r >= 0.0
     then do
-      let !a' = pushA m True a
-      put $ c {item = Item y pY lY, acceptance = a'}
+      let !ac' = pushA p True ac
+      return $ MHG $ c {item = Item y pY lY, acceptance = ac'}
     else do
       b <- uniform g
       if b < exp (ln r)
         then do
-          let !a' = pushA m True a
-          put $ c {item = Item y pY lY, acceptance = a'}
+          let !ac' = pushA p True ac
+          return $ MHG $ c {item = Item y pY lY, acceptance = ac'}
         else do
-          let !a' = pushA m False a
-          put $ c {acceptance = pushA m False a'}
+          let !ac' = pushA p False ac
+          return $ MHG $ c {acceptance = pushA p False ac'}
+  where
+    s = pSimple p
+    (Item x pX lX) = item c
+    pF = priorFunction c
+    lF = likelihoodFunction c
+    ac = acceptance c
+    g = generator c
 
--- Run one iterations; perform all proposals in a Cycle.
+mhgPush :: MHG a -> MHG a
+mhgPush (MHG c) = MHG c {trace = pushT i t, iteration = succ n}
+  where
+    i = item c
+    t = trace c
+    n = iteration c
+
 mhgIterate :: ToJSON a => MHG a -> IO (MHG a)
 mhgIterate a = do
-  ps <- orderProposals c g
+  ps <- orderProposals cc g
   a' <- foldM mhgPropose a ps
-  -- TODO: Set trace and iteration.
-  s <- get
-  let i = item s
-      t = trace s
-      n = iteration s
-  put $ s {trace = pushT i t, iteration = succ n}
+  return $ mhgPush a'
   where
-    ch = fromMHG a
-    c = cycle ch
-    g = generator ch
+    c = fromMHG a
+    cc = cycle c
+    g = generator c
+
+mhgAutoTune :: MHG a -> MHG a
+mhgAutoTune (MHG c) = MHG $ c {cycle = autoTuneCycle ac cc}
+  where
+    ac = acceptance c
+    cc = cycle c
+
+mhgResetAcceptance :: MHG a -> MHG a
+mhgResetAcceptance (MHG c) = MHG $ c {acceptance = resetA ac}
+  where
+    ac = acceptance c
+
+mhgSummarizeCycle :: MHG a -> BL.ByteString
+mhgSummarizeCycle (MHG c) = summarizeCycle ac cc
+  where
+    cc = cycle c
+    ac = acceptance c
+
+mhgOpenMonitors :: Environment -> MHG a -> IO (MHG a)
+mhgOpenMonitors e (MHG c) = do
+  m' <- mOpen nm em m
+  return $ MHG c {monitor = m'}
+  where
+    m = monitor c
+    s = settings e
+    nm = name s
+    em = executionMode s
+
+mhgExecuteMonitors :: Environment -> MHG a -> IO (Maybe BL.ByteString)
+mhgExecuteMonitors e (MHG c) = mExec vb i i0 t0 tr j m
+  where
+    s = settings e
+    vb = verbosity s
+    i = iteration c
+    i0 = start c
+    t0 = startingTime e
+    tr = trace c
+    b = case burnIn s of
+      NoBurnIn -> 0
+      BurnInNoAutoTuning n -> n
+      BurnInWithAutoTuning n _ -> n
+    j = iterations s + b
+    m = monitor c
+
+mhgCloseMonitors :: MHG a -> IO (MHG a)
+mhgCloseMonitors (MHG c) = do
+  m' <- mClose m
+  return $ MHG $ c {monitor = m'}
+  where
+    m = monitor c
+
+mhgSaveWith :: ToJSON a => Int -> FilePath -> MHG a -> IO ()
+mhgSaveWith n fn (MHG c) = saveChainWith n fn c
+
+mhgReport :: MHG a -> (Log Double, Log Double)
+mhgReport (MHG c) = (prior i, likelihood i)
+  where
+    i = item c

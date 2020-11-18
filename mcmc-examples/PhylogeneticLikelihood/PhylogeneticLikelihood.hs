@@ -176,13 +176,9 @@ monBatch = monitorBatch "Branches" branchBatchMons 100
 mon :: Monitor (Tree Length)
 mon = Monitor monStdOut [monFile] [monBatch]
 
--- Number of burn in iterations.
-nBurnIn :: Maybe Int
-nBurnIn = Just 4000
-
--- Auto tuning period.
-nAutoTune :: Maybe Int
-nAutoTune = Just 200
+-- Burn in specification.
+burnInSpec :: BurnIn
+burnInSpec = BurnInWithAutoTuning 4000 200
 
 -- Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
@@ -202,11 +198,10 @@ main = do
     [] -> do
       g <- create
       -- Combine all the objects defined above.
-      let
-        e = saveN 1000 $ forceOverwrite def
-        c = chain nm pr (lh meanTree stdDevTree) proposals mon startingTree nBurnIn nAutoTune nIterations g
+      let s = Settings nm burnInSpec nIterations Overwrite (SaveWithTrace 1000) Info
+          c = chain pr (lh meanTree stdDevTree) proposals mon startingTree g
       -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
-      void $ mh e c
+      void $ mcmcWith s (MHG c)
     ["continue", nStr] -> do
       -- Load a previously finished, and saved chain. We have to give the prior
       -- and likelihood functions, as well as the proposals and the monitors,
@@ -216,9 +211,13 @@ main = do
       -- sets the tuning parameters of the proposals in the cycle. Using different
       -- proposals in the cycle, or using different monitors may lead to undefined
       -- behavior and is not supported.
-      (e, c) <- load pr (lh meanTree stdDevTree) proposals mon Nothing nm
+      s <- loadSettings $ nm ++ ".settings"
+      c <- loadChainWith pr (lh meanTree stdDevTree) proposals mon $ nm ++ ".chain"
+      let n = read nStr
+          i = iterations s
+          s' = s {iterations = i + n, executionMode = Continue}
       -- Continue the chain for the given number of iterations.
-      void $ mhContinue (read nStr) e c
+      void $ mcmcWith s' (MHG c)
     xs -> do
       p <- getProgName
       putStrLn $ "usage: " ++ p

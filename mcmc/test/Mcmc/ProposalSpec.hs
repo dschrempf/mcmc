@@ -34,10 +34,10 @@ spec =
     it "returns the correct number of proposals in a cycle" $
       do
         g <- create
-        l1 <- length . head <$> getNIterations c 1 g
+        l1 <- length <$> orderProposals c g
         l1 `shouldBe` 4
-        l2 <- length . head <$> getNIterations (setOrder RandomReversibleO c) 1 g
+        l2 <- length <$> orderProposals (setOrder RandomReversibleO c) g
         l2 `shouldBe` 8
-        o3 <- head <$> getNIterations (setOrder SequentialReversibleO c) 1 g
+        o3 <- orderProposals (setOrder SequentialReversibleO c) g
         length o3 `shouldBe` 8
         o3 `shouldBe` [p1, p2, p2, p2, p2, p2, p2, p1]

@@ -45,11 +45,11 @@ distances :: GenIO -> IO [Distance]
 distances = replicateM nArrows . S.genContVar (S.exponential muTrue)
 
 -- Uninformative, improper prior for positive precision values.
-pr :: Precision -> Log Double
+pr :: PriorFunction Precision
 pr = positive
 
 -- Likelihood function.
-lh :: [Distance] -> Precision -> Log Double
+lh :: [Distance] -> LikelihoodFunction Precision
 lh xs p
   | p <= 0 = 0
   | otherwise = product [exponential p x | x <- xs]
@@ -73,7 +73,7 @@ monStd = monitorStdOut [monMu] 5000
 
 -- Monitor to file.
 monFile :: MonitorFile Precision
-monFile = monitorFile "Mu" [monMu] 500
+monFile = monitorFile "-mu" [monMu] 500
 
 -- Monitor the batch mean of the precision of the archer.
 monMuBatch :: MonitorParameterBatch Precision
@@ -81,19 +81,15 @@ monMuBatch = monitorBatchMean "Mean mu"
 
 -- Monitor the batch mean to file.
 monBatch :: MonitorBatch Precision
-monBatch = monitorBatch "Mu" [monMuBatch] 1000
+monBatch = monitorBatch "-mu" [monMuBatch] 1000
 
 -- Combine the monitors.
 mon :: Monitor Precision
 mon = Monitor monStd [monFile] [monBatch]
 
 -- Number of burn in iterations.
-nBurnIn :: Maybe Int
-nBurnIn = Just 200000
-
--- Auto tuning period.
-nAutoTune :: Maybe Int
-nAutoTune = Just 10000
+burnInSpec :: BurnIn
+burnInSpec = BurnInWithAutoTuning 200000 10000
 
 -- Number of Metropolis-Hastings iterations after burn in.
 nIter :: Int
@@ -105,8 +101,7 @@ main = do
   -- Simulate a list of observed arrow distances.
   xs <- distances g
   -- Combine all the objects defined above.
-  let
-    e = forceOverwrite def
-    c = chain "Archery" pr (lh xs) proposals mon 0.01 nBurnIn nAutoTune nIter g
+  let s = Settings "archery" burnInSpec nIter Overwrite NoSave Info
+      c = chain pr (lh xs) proposals mon 0.01 g
   -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
-  void $ mh e c
+  void $ mcmcWith s (MHG c)

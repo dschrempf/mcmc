@@ -16,14 +16,12 @@ module Definitions
   ( fnInTrees,
     bnAnalysis,
     I (..),
-    cleaner,
     initWith,
     priorDistribution,
     likelihoodFunction,
     proposals,
     monitor,
-    nBurnIn,
-    nAutoTune,
+    burnInSpec,
     nIterations,
   )
 where
@@ -117,16 +115,6 @@ makeLenses ''I
 instance ToJSON I
 
 instance FromJSON I
-
--- See 'cleaner'. This function makes the time tree ultrametric again,
--- normalizes the tree and sets the height values accordingly.
-cleanTimeTree :: I -> I
-cleanTimeTree = timeTree %~ (recalculateHeights . normalizeHeight . makeUltrametric)
-
--- | Clean the time tree periodically. Otherwise, it diverges from being
--- ultrametric.
-cleaner :: Cleaner I
-cleaner = Cleaner 50 cleanTimeTree
 
 -- | Initial state.
 --
@@ -331,9 +319,9 @@ getTimeTreeNodeHeight p x = (* h) $ fromLength $ t ^. subTreeAtE p . labelL . he
 
 -- Monitor the height of calibrated nodes.
 monCalibratedNodes :: [Calibration] -> [MonitorParameter I]
-monCalibratedNodes cb = [getTimeTreeNodeHeight p >$< monitorDouble (name n a b) | (n, p, a, b) <- cb]
+monCalibratedNodes cb = [getTimeTreeNodeHeight p >$< monitorDouble (nm n a b) | (n, p, a, b) <- cb]
   where
-    name s l r = "Calibration " ++ s ++ " (" ++ show l ++ ", " ++ show r ++ ")"
+    nm s l r = "Calibration " ++ s ++ " (" ++ show l ++ ", " ++ show r ++ ")"
 
 -- Get the difference in height of the nodes at path. Useful to have a look at
 -- constrained nodes. Positive if constraint is honored.
@@ -342,9 +330,9 @@ getTimeTreeDeltaNodeHeight y o x = getTimeTreeNodeHeight o x - getTimeTreeNodeHe
 
 -- Monitor the heights of constrained nodes.
 monConstrainedNodes :: [Constraint] -> [MonitorParameter I]
-monConstrainedNodes cs = [getTimeTreeDeltaNodeHeight y o >$< monitorDouble (name n) | (n, y, o) <- cs]
+monConstrainedNodes cs = [getTimeTreeDeltaNodeHeight y o >$< monitorDouble (nm n) | (n, y, o) <- cs]
   where
-    name s = "Constraint " ++ s
+    nm s = "Constraint " ++ s
 
 -- The file monitor is more verbose.
 monFileParams :: [Calibration] -> [Constraint] -> MonitorFile I
@@ -377,17 +365,10 @@ monFileRateTree = monitorFile "-ratetree" [_rateTree >$< monitorTree "RateTree"]
 monitor :: [Calibration] -> [Constraint] -> Monitor I
 monitor cb cs = Monitor monStdOut [monFileParams cb cs, monFileTimeTree, monFileRateTree] []
 
--- | Number of burn in iterations.
-nBurnIn :: Maybe Int
--- nBurnIn = Just 30
-nBurnIn = Just 3000
-
--- | Auto tuning period.
-nAutoTune :: Maybe Int
--- nAutoTune = Just 10
-nAutoTune = Just 100
+-- | Number of burn in iterations and auto tuning period.
+burnInSpec :: BurnIn
+burnInSpec = BurnInWithAutoTuning 3000 100
 
 -- | Number of Metropolis-Hasting iterations after burn in.
 nIterations :: Int
--- nIterations = 10
 nIterations = 40000

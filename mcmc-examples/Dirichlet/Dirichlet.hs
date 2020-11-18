@@ -94,9 +94,9 @@ monNorm :: MonitorParameter I
 monNorm = _norm >$< monitorDouble "Norm"
 
 monN :: Int -> MonitorParameter I
-monN n = (\x -> toVector (_alphas x) V.! n * _norm x) >$< monitorDouble name
+monN n = (\x -> toVector (_alphas x) V.! n * _norm x) >$< monitorDouble nm
   where
-    name = "Alpha " <> show n
+    nm = "Alpha " <> show n
 
 monAlphas :: [MonitorParameter I]
 monAlphas = [monN i | i <- [0 .. (V.length alphasTrue - 1)]]
@@ -115,15 +115,6 @@ initialValue = I as 1.0
   where
     as = simplexUniform (V.length alphasTrue)
 
-nBurnIn :: Maybe Int
-nBurnIn = Just 3000
-
-nAutoTune :: Maybe Int
-nAutoTune = Just 100
-
-nIterations :: Int
-nIterations = 30000
-
 main :: IO ()
 main = do
   g <- create
@@ -131,18 +122,14 @@ main = do
   xs <- simulateData g
   print xs
   print initialValue
-  let
-    e = forceOverwrite def
-    c = chain
-            "dirichlet"
-            priorDistribution
-            (likelihoodFunction xs)
-            proposals
-            monitors
-            initialValue
-            nBurnIn
-            nAutoTune
-            nIterations
-            g
-  _ <- mh e c
+  let s = Settings "dirichlet" (BurnInWithAutoTuning 3000 100) 30000 Overwrite NoSave Info
+      c =
+        chain
+          priorDistribution
+          (likelihoodFunction xs)
+          proposals
+          monitors
+          initialValue
+          g
+  _ <- mcmcWith s (MHG c)
   putStrLn "Done."

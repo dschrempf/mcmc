@@ -57,21 +57,17 @@ monFile = monitorFile "" monPs 50
 mon :: Monitor I
 mon = Monitor monStd [monFile] []
 
--- Number of burn in iterations.
-nBurnIn :: Maybe Int
-nBurnIn = Just 20000
-
--- Auto tuning period.
-nAutoTune :: Maybe Int
-nAutoTune = Just 1000
+-- Number of burn in iterations and auto tuning period.
+burnInSpec :: BurnIn
+burnInSpec = BurnInWithAutoTuning 20000 1000
 
 -- Number of Metropolis-Hastings iterations after burn in.
-nIter :: Int
-nIter = 100000
+nIterations :: Int
+nIterations = 100000
 
 main :: IO ()
 main = do
   g <- create
-  let e = forceOverwrite def
-      c = chain "test" pr lh proposals mon (1.0, 1.0) nBurnIn nAutoTune nIter g
-  void $ mh e c
+  let s = Settings "test" burnInSpec nIterations Overwrite NoSave Info
+      c = chain pr lh proposals mon (1.0, 1.0) g
+  void $ mcmcWith s (MHG c)

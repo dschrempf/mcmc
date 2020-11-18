@@ -178,6 +178,7 @@ birthDeathWith f la mu rho (Node br _ []) = (Exp $ log $ dT * rho, eT)
 birthDeathWith _ _ _ _ _ = error "birthDeathWith: Tree is multifurcating."
 
 -- * Tests
+
 --
 -- >>> let testTree1 = Node 1.0 () [] :: Tree Length ()
 -- >>> birthDeath WithStem 1.2 3.2 1.0 testTree1
@@ -201,6 +202,7 @@ birthDeathWith _ _ _ _ _ = error "birthDeathWith: Tree is multifurcating."
 -- -9.700151607658995
 
 -- * Point process
+
 --
 --
 -- There are differences in the conditions. The point process conditions on the

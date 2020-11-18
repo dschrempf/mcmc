@@ -19,6 +19,8 @@ import Data.Time.Clock
 import Mcmc.Settings
 import System.IO
 
+
+-- | The environment of an MCMC run.
 data Environment = Environment
   { settings :: Settings,
     logHandle :: Handle,

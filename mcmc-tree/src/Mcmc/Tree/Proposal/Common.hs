@@ -17,11 +17,11 @@ where
 
 import Control.Lens
 import ELynx.Tree
-import Numeric.Log
 import Mcmc.Tree.Lens
-import System.Random.MWC
+import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.TruncatedNormal
+import System.Random.MWC
 
 -- | Which lens to use?
 --

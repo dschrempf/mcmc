@@ -26,3 +26,21 @@ main = do
       bench "NormalBactrian" $ nfIO (normalBactrianBench g),
       bench "Poisson" $ nfIO (poissonBench g)
     ]
+
+-- benchmarking Normal
+-- time                 43.83 ms   (43.57 ms .. 44.06 ms)
+--                      1.000 R²   (1.000 R² .. 1.000 R²)
+-- mean                 44.18 ms   (43.94 ms .. 44.55 ms)
+-- std dev              615.6 μs   (311.7 μs .. 999.9 μs)
+
+-- benchmarking NormalBactrian
+-- time                 47.91 ms   (47.43 ms .. 48.58 ms)
+--                      1.000 R²   (0.999 R² .. 1.000 R²)
+-- mean                 48.14 ms   (47.91 ms .. 48.52 ms)
+-- std dev              560.3 μs   (325.5 μs .. 734.8 μs)
+
+-- benchmarking Poisson
+-- time                 63.49 ms   (63.14 ms .. 64.09 ms)
+--                      1.000 R²   (0.999 R² .. 1.000 R²)
+-- mean                 63.50 ms   (63.37 ms .. 63.83 ms)
+-- std dev              376.6 μs   (147.8 μs .. 702.4 μs)

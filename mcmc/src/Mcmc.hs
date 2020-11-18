@@ -104,16 +104,17 @@ module Mcmc
 
     -- * Settings
     BurnIn (..),
-    OutputMode (..),
+    ExecutionMode (..),
     SaveMode (..),
     Verbosity (..),
     Settings (..),
 
     -- * Initialization
-    chain,
+    PriorFunction (..),
+    noPrior,
+    LikelihoodFunction (..),
     noData,
-    Cleaner (..),
-    cleanWith,
+    chain,
 
     -- * Monitor
 
@@ -137,18 +138,18 @@ module Mcmc
     module Mcmc.Prior,
 
     -- * Algorithms
-    mcmcExec,
-    MHG,
+    mcmcWith,
+    MHG (..),
 
     -- * Load and continue
     loadSettings,
-    loadWith,
+    loadChainWith,
   )
 where
 
-import Mcmc.Chain.Chain
-import Mcmc.Algorithm
 import Mcmc.Algorithm.Metropolis
+import Mcmc.Chain.Chain
+import Mcmc.Chain.Save
 import Mcmc.Mcmc
 import Mcmc.Monitor
 import Mcmc.Monitor.Parameter
@@ -159,5 +160,4 @@ import Mcmc.Proposal.Bactrian
 import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Simplex
 import Mcmc.Proposal.Slide
-import Mcmc.Save
 import Mcmc.Settings

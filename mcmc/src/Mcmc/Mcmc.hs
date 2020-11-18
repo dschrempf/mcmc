@@ -12,13 +12,12 @@
 --
 -- Creation date: Fri May 29 10:19:45 2020.
 --
--- Functions to work with the 'Mcmc' state transformer.
+-- Run an MCMC algorithm.
 module Mcmc.Mcmc
-  ( mcmc,
+  ( mcmcWith,
   )
 where
 
-import Codec.Compression.GZip
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.RWS.CPS
@@ -146,7 +145,7 @@ mcmcBurnIn = do
     BurnInWithAutoTuning n t -> do
       mcmcInfoS $ "Burn in for " ++ show n ++ " iterations."
       when (n < 0) $ error "mcmcBurnIn: Number of burn in iterations is negative."
-      mcmcInfoS $ "Auto tuning is enabled with a period of "++ show t ++ "."
+      mcmcInfoS $ "Auto tuning is enabled with a period of " ++ show t ++ "."
       when (t <= 0) $ error "mcmcBurnIn: Auto tuning period is zero or negative."
       mcmcBurnInWithAutoTuning n t
       mcmcInfoB "Burn in finished."
@@ -166,14 +165,24 @@ mcmcBurnInWithAutoTuning b t
     mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
 
 mcmcIterate :: Algorithm a => Int -> Mcmc a ()
-mcmcIterate n | n < 0 = error "mcmcIterate: Number of iterations is negative."
-              | n == 0 = return ()
-              | otherwise = do
-                  -- TODO: Splitmix. Remove IO monad as soon as possible.
-                  a' <- get >>= liftIO . algorithmIterate
-                  put a'
-                  mcmcExecuteMonitors
-                  mcmcIterate (n-1)
+mcmcIterate n
+  | n < 0 = error "mcmcIterate: Number of iterations is negative."
+  | n == 0 = return ()
+  | otherwise = do
+    -- TODO: Splitmix. Remove IO monad as soon as possible.
+    get >>= liftIO . algorithmIterate >>= put
+    mcmcExecuteMonitors
+    mcmcIterate (n -1)
+
+-- Execute the monitors of the chain.
+mcmcExecuteMonitors :: Algorithm a => Mcmc a ()
+mcmcExecuteMonitors = do
+  e <- ask
+  a <- get
+  mStdLog <- liftIO (algorithmExecuteMonitors e a)
+  case mStdLog of
+    Nothing -> return ()
+    Just x -> mcmcOutB x
 
 -- Auto tune the proposals.
 mcmcAutotune :: Algorithm a => Mcmc a ()
@@ -187,12 +196,19 @@ mcmcResetAcceptance = do
   mcmcDebugB "Reset acceptance ratios."
   modify algorithmResetAcceptance
 
--- Execute the monitors of the chain.
-mcmcExecuteMonitors :: Algorithm a => Mcmc a ()
-mcmcExecuteMonitors = do
-  e <- ask
-  a <- get
-  liftIO $ algorithmExecuteMonitors e a
+-- Report and finish up.
+mcmcClose :: Algorithm a => Mcmc a ()
+mcmcClose = do
+  get >>= mcmcInfoB . algorithmSummarizeCycle
+  mcmcInfoB "Metropolis-Hastings sampler finished."
+  mcmcSave
+  ti <- reader startingTime
+  te <- liftIO getCurrentTime
+  let dt = te `diffUTCTime` ti
+  mcmcInfoB $ "Wall clock run time: " <> renderDuration dt <> "."
+  mcmcInfoS $ "End time: " <> fTime te
+  h <- reader logHandle
+  liftIO $ hClose h
 
 -- Save the MCMC run.
 mcmcSave :: Algorithm a => Mcmc a ()
@@ -213,22 +229,8 @@ mcmcSave = do
           ++ fnc
           ++ "."
       mcmcInfoB "For long traces, or complex objects, this may take a while."
-      liftIO $ BL.writeFile fnc $ compress $ algorithmSaveWith n a
+      liftIO $ algorithmSaveWith n fnc a
       mcmcInfoB "Markov chain saved."
-
--- Report and finish up.
-mcmcClose :: Algorithm a => Mcmc a ()
-mcmcClose = do
-  get >>= mcmcInfoB . algorithmSummarizeCycle
-  mcmcInfoB "Metropolis-Hastings sampler finished."
-  mcmcSave
-  ti <- reader startingTime
-  te <- liftIO getCurrentTime
-  let dt = te `diffUTCTime` ti
-  mcmcInfoB $ "Wall clock run time: " <> renderDuration dt <> "."
-  mcmcInfoS $ "End time: " <> fTime te
-  h <- reader logHandle
-  liftIO $ hClose h
 
 -- Initialize the run, execute the run, and close the run.
 mcmcRun :: Algorithm a => Mcmc a ()
@@ -238,7 +240,8 @@ mcmcRun = do
 
   -- Initialize.
   get >>= mcmcInfoS . algorithmName
-  get >>= liftIO . algorithmOpenMonitors
+  e <- ask
+  get >>= liftIO . algorithmOpenMonitors e >>= put
   mcmcReportTime
 
   -- Execute.
@@ -246,10 +249,10 @@ mcmcRun = do
 
   -- Close.
   mcmcClose
-  get >>= liftIO . algorithmCloseMonitors
+  get >>= liftIO . algorithmCloseMonitors >>= put
 
--- | Run an MCMC algorithm.
-mcmc :: Algorithm a => Settings -> a -> IO a
-mcmc s a = do
+-- | Run an MCMC algorithm with given settings.
+mcmcWith :: Algorithm a => Settings -> a -> IO a
+mcmcWith s a = do
   e <- initializeEnvironment s
   fst <$> execRWST mcmcRun e a

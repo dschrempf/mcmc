@@ -10,11 +10,12 @@
 --
 -- Creation date: Tue May  5 18:01:15 2020.
 module Mcmc.Chain.Chain
-  ( PriorFunction (..),
-    LikelihoodFunction (..),
+  ( PriorFunction,
+    noPrior,
+    LikelihoodFunction,
+    noData,
     Chain (..),
     chain,
-    noData,
   )
 where
 
@@ -40,10 +41,18 @@ import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
 
 -- | Prior function.
-newtype PriorFunction a = PriorFunction {fromPriorFunction :: a -> Log Double}
+type PriorFunction a = a -> Log Double
+
+-- | Flat prior function. Useful for testing and debugging.
+noPrior :: PriorFunction a
+noPrior = const 1.0
 
 -- | Likelihood function.
-newtype LikelihoodFunction a = LikelihoodFunction {fromLikelihoodFunction :: a -> Log Double}
+type LikelihoodFunction a = a -> Log Double
+
+-- | Flat likelihood function. Useful for testing and debugging.
+noData :: LikelihoodFunction a
+noData = const 1.0
 
 -- | The 'Chain' contains all information to run a Markov chain Monte Carlo
 -- sampler. A 'Chain' is constructed using the function 'chain'.
@@ -108,10 +117,6 @@ chain ::
   Chain a
 chain pr lh cc mn x g = Chain i 0 tr ac g 0 pr lh cc mn
   where
-    i = Item x (fromPriorFunction pr x) (fromLikelihoodFunction lh x)
+    i = Item x (pr x) (lh x)
     tr = singletonT i
     ac = emptyA $ ccProposals cc
-
--- | Set the likelihood function to 1.0. Useful for testing and debugging.
-noData :: Chain a -> Chain a
-noData x = x {likelihoodFunction = LikelihoodFunction $ const 1.0}

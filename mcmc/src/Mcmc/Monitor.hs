@@ -297,7 +297,12 @@ mbClose m = case mbHandle m of
   Nothing -> error $ "mfClose: File was not opened for batch monitor: " <> mbName m <> "."
 
 -- | Open the files associated with the 'Monitor'.
-mOpen :: String -> ExecutionMode -> Monitor a -> IO (Monitor a)
+mOpen ::
+  -- | Analysis name.
+  String ->
+  ExecutionMode ->
+  Monitor a ->
+  IO (Monitor a)
 mOpen n em (Monitor s fs bs) = do
   fs' <- mapM (mfOpen n em) fs
   unless (em == Continue) $ mapM_ mfHeader fs'

@@ -43,9 +43,8 @@ f ft yr (a, b) = Exp $ logProbability (poisson l) (fromIntegral ft)
   where
     l = exp $ a + b * yr
 
-lh :: I -> Log Double
-lh x =
-  product [f ft yr x | (ft, yr) <- zip fatalities normalizedYears]
+lh :: LikelihoodFunction I
+lh x = product [f ft yr x | (ft, yr) <- zip fatalities normalizedYears]
 
 proposalAlpha :: Proposal I
 proposalAlpha = _1 @~ slideSymmetric 0.2 (PName "Alpha") (PWeight 1) NoTune
@@ -71,18 +70,8 @@ monStd = monitorStdOut [monAlpha, monBeta] 150
 mon :: Monitor I
 mon = Monitor monStd [] []
 
-nBurn :: Maybe Int
-nBurn = Just 2000
-
-nAutoTune :: Maybe Int
-nAutoTune = Just 200
-
-nIter :: Int
-nIter = 10000
-
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
-  let
-    e = quiet def
-    s = chain "Poisson" (const 1) lh proposals mon initial nBurn nAutoTune nIter g
-  void $ mh e s
+  let s = Settings "Poisson" (BurnInWithAutoTuning 2000 200) 10000 Overwrite NoSave Quiet
+      c = chain noPrior lh proposals mon initial g
+  void $ mcmcWith s (MHG c)

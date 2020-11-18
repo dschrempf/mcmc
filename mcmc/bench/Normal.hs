@@ -31,7 +31,7 @@ trueMean = 5
 trueStdDev :: Double
 trueStdDev = 4
 
-lh :: Double -> Log Double
+lh :: LikelihoodFunction Double
 lh = Exp . logDensity (normalDistr trueMean trueStdDev)
 
 proposals :: Cycle Double
@@ -48,21 +48,11 @@ monStd = monitorStdOut mons 200
 mon :: Monitor Double
 mon = Monitor monStd [] []
 
-nBurn :: Maybe Int
-nBurn = Just 2000
-
-nAutoTune :: Maybe Int
-nAutoTune = Just 200
-
-nIter :: Int
-nIter = 20000
-
 normalBench :: GenIO -> IO ()
 normalBench g = do
-  let
-    e = quiet def
-    c = chain "Normal" (const 1) lh proposals mon 0 nBurn nAutoTune nIter g
-  void $ mh e c
+  let s = Settings "Normal" (BurnInWithAutoTuning 2000 200) 20000 Overwrite NoSave Quiet
+      c = chain noPrior lh proposals mon 0 g
+  void $ mcmcWith s (MHG c)
 
 proposalsBactrian :: Cycle Double
 proposalsBactrian =
@@ -71,6 +61,6 @@ proposalsBactrian =
 
 normalBactrianBench :: GenIO -> IO ()
 normalBactrianBench g = do
-  let e = quiet def
-      c = chain "NormalBactrian" (const 1) lh proposalsBactrian mon 0 nBurn nAutoTune nIter g
-  void $ mh e c
+  let s = Settings "NormalBactrian" (BurnInWithAutoTuning 2000 200) 20000 Overwrite NoSave Quiet
+      c = chain noPrior lh proposalsBactrian mon 0 g
+  void $ mcmcWith s (MHG c)
