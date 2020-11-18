@@ -25,13 +25,13 @@ import Numeric.Log
 class Algorithm a where
   algorithmName :: a -> String
 
-  currentIteration :: a -> Int
+  algorithmIteration :: a -> Int
 
   -- TODO: Splitmix. Remove IO monad as soon as possible.
 
-  jump :: a -> IO a
+  algorithmIterate :: a -> IO a
 
-  autoTune :: a -> a
+  algorithmAutoTune :: a -> a
 
   -- -- | Auto tune the 'Proposal's in the 'Cycle' of the chain. Reset acceptance counts.
   -- -- See 'autoTuneCycle'.
@@ -44,7 +44,7 @@ class Algorithm a where
   --       c' = autoTuneCycle a c
   --   put $ s {cycle = c'}
 
-  resetAcceptance :: a -> a
+  algorithmResetAcceptance :: a -> a
 
   -- -- | Reset acceptance counts.
   -- mcmcResetA :: Mcmc a ()
@@ -54,7 +54,7 @@ class Algorithm a where
   --   let a = acceptance s
   --   put $ s {acceptance = resetA a}
 
-  summarizeCycle :: a -> BL.ByteString
+  algorithmSummarizeCycle :: a -> BL.ByteString
 
   -- -- | Print short summary of 'Proposal's in 'Cycle'. See 'summarizeCycle'.
   -- mcmcSummarizeCycle :: Mcmc a BL.ByteString
@@ -63,7 +63,7 @@ class Algorithm a where
   --   c <- gets cycle
   --   return $ summarizeCycle a c
 
-  openMonitors :: a -> IO ()
+  algorithmOpenMonitors :: a -> IO ()
 
   -- -- Monitor.
   -- let m = monitor s
@@ -73,7 +73,7 @@ class Algorithm a where
   -- m' <- if n == 0 then liftIO $ mOpen nm frc m else liftIO $ mAppend nm m
   -- put $ s {monitor = m', start = Just (n, t)}
 
-  execMonitors :: Environment -> a -> IO ()
+  algorithmExecuteMonitors :: Environment -> a -> IO ()
 
   -- -- | Execute the 'Monitor's of the chain. See 'mExec'.
   -- mcmcMonitorExec :: ToJSON a => Mcmc a ()
@@ -88,7 +88,7 @@ class Algorithm a where
   --   mt <- liftIO $ mExec vb i ss st tr j m
   --   forM_ mt mcmcOutB
 
-  closeMonitors :: a -> IO ()
+  algorithmCloseMonitors :: a -> IO ()
 
   -- -- Close the 'Monitor's of the chain. See 'mClose'.
   -- mcmcClose :: ToJSON a => Mcmc a ()
@@ -111,10 +111,10 @@ class Algorithm a where
   -- Nothing -> return ()
 
   -- | Save chain(s) with trace of given maximum length.
-  saveWith :: Int -> a -> BL.ByteString
+  algorithmSaveWith :: Int -> a -> BL.ByteString
 
   -- | Load chain(s).
-  loadWith ::
+  algorithmLoadWith ::
     PriorFunction a ->
     LikelihoodFunction a ->
     Cycle a ->
@@ -123,4 +123,4 @@ class Algorithm a where
     a
 
   -- | Report prior and likelihood; useful for debugging.
-  report :: a -> (Log Double, Log Double)
+  algorithmReport :: a -> (Log Double, Log Double)

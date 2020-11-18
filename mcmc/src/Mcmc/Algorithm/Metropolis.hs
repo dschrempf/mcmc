@@ -26,6 +26,7 @@ import Data.Aeson
 import Data.Maybe
 import Mcmc.Algorithm
 import Mcmc.Chain.Chain
+import Mcmc.Chain.Item
 import Mcmc.Environment
 import Mcmc.Mcmc
 import Mcmc.Proposal
@@ -35,7 +36,10 @@ import Prelude hiding (cycle)
 
 newtype MHG a = MHG {fromMHG :: Chain a}
 
-instance Algorithm MHG
+instance Algorithm (MHG a) where
+  algorithmName = const "Metropolis-Hastings-Green algorithm."
+  algorithmIteration = iteration . fromMHG
+  algorithmIterate = undefined
 
 -- The Metropolis-Hastings ratio.
 --
@@ -55,8 +59,9 @@ mhgRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 mhgRatio fX fY q j = fY / fX * q * j
 {-# INLINE mhgRatio #-}
 
-mhgPropose :: Proposal a -> Mcmc a ()
-mhgPropose m = do
+-- TODO.
+mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
+mhgPropose a p = do
   let p = pSimple m
   c <- get
   let (Item x pX lX) = item c
@@ -85,22 +90,18 @@ mhgPropose m = do
           let !a' = pushA m False a
           put $ c {acceptance = pushA m False a'}
 
--- TODO: Splitmix. Split the generator here. See SaveSpec -> mhContinue.
-
 -- Run one iterations; perform all proposals in a Cycle.
-mhgIter :: ToJSON a => [Proposal a] -> Mcmc a ()
-mhgIter ps = do
-  mapM_ mhPropose ps
+mhgIterate :: ToJSON a => MHG a -> IO (MHG a)
+mhgIterate a = do
+  ps <- orderProposals c g
+  a' <- foldM mhgPropose a ps
+  -- TODO: Set trace and iteration.
   s <- get
   let i = item s
       t = trace s
       n = iteration s
   put $ s {trace = pushT i t, iteration = succ n}
-
--- Run N iterations.
-mhgNIter :: ToJSON a => Int -> Mcmc a ()
-mhgNIter n = do
-  c <- gets cycle
-  g <- gets generator
-  cycles <- liftIO $ getNIterations c n g
-  forM_ cycles mhIter
+  where
+    ch = fromMHG a
+    c = cycle ch
+    g = generator ch

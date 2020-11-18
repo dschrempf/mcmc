@@ -106,8 +106,8 @@ mcmcNewRun = do
   s <- reader settings
   mcmcInfoB "Start new MCMC sampler."
   mcmcInfoB "Initial state."
-  mcmcExecMonitors
-  get >>= mcmcInfoB . summarizeCycle
+  mcmcExecuteMonitors
+  get >>= mcmcInfoB . algorithmSummarizeCycle
   mcmcBurnIn
   mcmcResetAcceptance
   let i = iterations s
@@ -120,13 +120,13 @@ mcmcContinue = do
   let iTotal = iterations s
   mcmcInfoB "Continuation of MCMC sampler."
   a <- get
-  let iCurrent = currentIteration a
+  let iCurrent = algorithmIteration a
   mcmcInfoS $ "Current iteration: " ++ show iCurrent ++ "."
   mcmcInfoS $ "Total iterations: " ++ show iTotal ++ "."
   let di = iTotal - iCurrent
   when (di <= 0) $
     error "mcmcContinue: Current iteration is equal or larger to the total number of iterations."
-  get >>= mcmcInfoB . summarizeCycle
+  get >>= mcmcInfoB . algorithmSummarizeCycle
   mcmcInfoS $ "Run chain for " ++ show di ++ " iterations."
   mcmcIterate di
 
@@ -141,7 +141,7 @@ mcmcBurnIn = do
       when (n < 0) $ error "mcmcBurnIn: Number of burn in iterations is negative."
       mcmcInfoS "Auto tuning is disabled."
       mcmcIterate n
-      get >>= mcmcInfoB . summarizeCycle
+      get >>= mcmcInfoB . algorithmSummarizeCycle
       mcmcInfoB "Burn in finished."
     BurnInWithAutoTuning n t -> do
       mcmcInfoS $ "Burn in for " ++ show n ++ " iterations."
@@ -156,13 +156,13 @@ mcmcBurnInWithAutoTuning b t
   | b > t = do
     mcmcResetAcceptance
     mcmcIterate t
-    get >>= mcmcDebugB . summarizeCycle
+    get >>= mcmcDebugB . algorithmSummarizeCycle
     mcmcAutotune
     mcmcBurnInWithAutoTuning (b - t) t
   | otherwise = do
     mcmcResetAcceptance
     mcmcIterate b
-    get >>= mcmcInfoB . summarizeCycle
+    get >>= mcmcInfoB . algorithmSummarizeCycle
     mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
 
 mcmcIterate :: Algorithm a => Int -> Mcmc a ()
@@ -170,29 +170,29 @@ mcmcIterate n | n < 0 = error "mcmcIterate: Number of iterations is negative."
               | n == 0 = return ()
               | otherwise = do
                   -- TODO: Splitmix. Remove IO monad as soon as possible.
-                  a' <- get >>= liftIO . jump
+                  a' <- get >>= liftIO . algorithmIterate
                   put a'
-                  mcmcExecMonitors
+                  mcmcExecuteMonitors
                   mcmcIterate (n-1)
 
 -- Auto tune the proposals.
 mcmcAutotune :: Algorithm a => Mcmc a ()
 mcmcAutotune = do
   mcmcDebugB "Auto tune."
-  modify autoTune
+  modify algorithmAutoTune
 
 -- Reset acceptance counts.
 mcmcResetAcceptance :: Algorithm a => Mcmc a ()
 mcmcResetAcceptance = do
   mcmcDebugB "Reset acceptance ratios."
-  modify resetAcceptance
+  modify algorithmResetAcceptance
 
 -- Execute the monitors of the chain.
-mcmcExecMonitors :: Algorithm a => Mcmc a ()
-mcmcExecMonitors = do
+mcmcExecuteMonitors :: Algorithm a => Mcmc a ()
+mcmcExecuteMonitors = do
   e <- ask
   a <- get
-  liftIO $ execMonitors e a
+  liftIO $ algorithmExecuteMonitors e a
 
 -- Save the MCMC run.
 mcmcSave :: Algorithm a => Mcmc a ()
@@ -213,13 +213,13 @@ mcmcSave = do
           ++ fnc
           ++ "."
       mcmcInfoB "For long traces, or complex objects, this may take a while."
-      liftIO $ BL.writeFile fnc $ compress $ saveWith n a
+      liftIO $ BL.writeFile fnc $ compress $ algorithmSaveWith n a
       mcmcInfoB "Markov chain saved."
 
 -- Report and finish up.
 mcmcClose :: Algorithm a => Mcmc a ()
 mcmcClose = do
-  mcmcSummarizeCycle >>= mcmcInfoB
+  get >>= mcmcInfoB . algorithmSummarizeCycle
   mcmcInfoB "Metropolis-Hastings sampler finished."
   mcmcSave
   ti <- reader startingTime
@@ -238,7 +238,7 @@ mcmcRun = do
 
   -- Initialize.
   get >>= mcmcInfoS . algorithmName
-  get >>= liftIO . openMonitors
+  get >>= liftIO . algorithmOpenMonitors
   mcmcReportTime
 
   -- Execute.
@@ -246,7 +246,7 @@ mcmcRun = do
 
   -- Close.
   mcmcClose
-  get >>= liftIO . closeMonitors
+  get >>= liftIO . algorithmCloseMonitors
 
 -- | Run an MCMC algorithm.
 mcmc :: Algorithm a => Settings -> a -> IO a
