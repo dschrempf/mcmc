@@ -1,5 +1,5 @@
 -- |
--- Module      :  Mcmc.Trace
+-- Module      :  Mcmc.Chain.Trace
 -- Description :  Trace of a Markov chain
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
@@ -9,7 +9,7 @@
 -- Portability :  portable
 --
 -- Creation date: Wed May 20 09:11:25 2020.
-module Mcmc.Trace
+module Mcmc.Chain.Trace
   ( Trace,
     singletonT,
     pushT,
@@ -20,7 +20,7 @@ module Mcmc.Trace
 where
 
 import Data.Aeson
-import Mcmc.Item
+import Mcmc.Chain.Item
 
 -- | A 'Trace' passes through a list of states with associated likelihoods which
 -- are called 'Item's. New 'Item's are prepended, and the path of the Markov

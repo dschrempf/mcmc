@@ -17,14 +17,12 @@ where
 
 import Data.Time.Clock
 import Mcmc.Settings
-import System.Directory
 import System.IO
 
 data Environment = Environment
   { settings :: Settings,
-    -- | The log handle is set internally with 'openLogFile'.
     logHandle :: Handle,
-    -- | Starting time. Used to calculate the ETA.
+    -- | Used to calculate the ETA.
     startingTime :: UTCTime
   }
   deriving (Eq, Show)
@@ -32,19 +30,11 @@ data Environment = Environment
 -- | Initialize the environment.
 --
 -- Open log file, get current time.
---
--- Call 'error' if the log file exists and output mode is 'Fail'.
 initializeEnvironment :: Settings -> IO Environment
 initializeEnvironment s = do
-  fe <- doesFileExist fn
-  h <- case (fe, om) of
-    (False, _) -> openFile fn WriteMode
-    (True, Overwrite) -> openFile fn WriteMode
-    (True, Fail) -> error "openLogFile: Log file exists."
-    (True, Append) -> openFile fn AppendMode
+  h <- openWithExecutionMode em fn
   t <- getCurrentTime
   return $ Environment s h t
   where
-    nm = name s
-    fn = nm ++ ".log"
-    om = outputMode s
+    fn = name s ++ ".log"
+    em = executionMode s

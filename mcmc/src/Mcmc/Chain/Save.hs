@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 -- |
--- Module      :  Mcmc.Save
+-- Module      :  Mcmc.Chain.Save
 -- Description :  Save the state of a Markov chain
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -16,7 +16,7 @@
 -- Save and load chains. It is easy to save and restore the current state and
 -- likelihood (or the trace), but it is not feasible to store all the proposals
 -- and so on, so they have to be provided again when continuing a run.
-module Mcmc.Save
+module Mcmc.Chain.Save
   ( save,
     loadWith,
   )
@@ -34,12 +34,12 @@ import Data.Vector.Unboxed (Vector)
 -- TODO: Splitmix. Remove as soon as split mix is used and is available with the
 -- statistics package.
 import Data.Word
-import Mcmc.Chain
-import Mcmc.Item
+import Mcmc.Chain.Chain
+import Mcmc.Chain.Item
+import Mcmc.Chain.Trace
 import Mcmc.Monitor
 import Mcmc.Proposal
 import Mcmc.Settings
-import Mcmc.Trace
 import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified System.Random.MWC as MWC

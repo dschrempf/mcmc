@@ -137,21 +137,19 @@ module Mcmc
     module Mcmc.Prior,
 
     -- * Algorithms
+    mcmcExec,
+    MHG,
 
-    -- | At the moment, the library is tailored to the Metropolis-Hastings
-    -- algorithm ('mh') since it covers most use cases. However, implementation
-    -- of more algorithms is planned in the future.
-    mh,
-    mhContinue,
-
-    -- * Misc
-    load,
-    save,
+    -- * Load and continue
+    loadSettings,
+    loadWith,
   )
 where
 
-import Mcmc.Chain
-import Mcmc.Metropolis
+import Mcmc.Chain.Chain
+import Mcmc.Algorithm
+import Mcmc.Algorithm.Metropolis
+import Mcmc.Mcmc
 import Mcmc.Monitor
 import Mcmc.Monitor.Parameter
 import Mcmc.Monitor.ParameterBatch

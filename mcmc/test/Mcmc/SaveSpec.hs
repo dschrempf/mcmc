@@ -15,7 +15,7 @@ module Mcmc.SaveSpec
 where
 
 import Mcmc
-import Mcmc.Chain
+import Mcmc.Chain.Chain
 import Numeric.Log
 import Statistics.Distribution hiding
   ( mean,

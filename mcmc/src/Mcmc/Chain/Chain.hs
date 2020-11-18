@@ -1,5 +1,5 @@
 -- |
--- Module      :  Mcmc.Chain
+-- Module      :  Mcmc.Chain.Chain
 -- Description :  What is an MCMC?
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
@@ -9,7 +9,7 @@
 -- Portability :  portable
 --
 -- Creation date: Tue May  5 18:01:15 2020.
-module Mcmc.Chain
+module Mcmc.Chain.Chain
   ( PriorFunction (..),
     LikelihoodFunction (..),
     Chain (..),
@@ -31,10 +31,10 @@ where
 
 -- TODO: REFACTOR. Check documentation.
 
-import Mcmc.Item
+import Mcmc.Chain.Item
+import Mcmc.Chain.Trace
 import Mcmc.Monitor
 import Mcmc.Proposal
-import Mcmc.Trace
 import Numeric.Log
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
@@ -44,30 +44,6 @@ newtype PriorFunction a = PriorFunction {fromPriorFunction :: a -> Log Double}
 
 -- | Likelihood function.
 newtype LikelihoodFunction a = LikelihoodFunction {fromLikelihoodFunction :: a -> Log Double}
-
--- TODO: Can I remove the cleaning function? This is a serious drawback, also
--- the synchronization between chains and the environment. See
--- 'Mcmc.Settings.CleanEvery'.
-
--- -- | Cleaning function.
--- --
--- -- The prior and the likelihood will be updated after the cleaning process. The
--- -- cleaning function is executed before the state is monitored. See
--- -- 'Mcmc.Settings.CleanEvery'.
--- --
--- -- For long chains, successive numerical errors can accumulate such that the
--- -- state diverges from honoring required constraints. In these cases, a cleaning
--- -- function can be used to ensure that the required constraints of the state are
--- -- honored. For example, the branches of an ultrametric phylogeny may diverge
--- -- slightly after many successful proposals such that the phylogeny is not
--- -- anymore ultrametric.
--- --
--- -- Please be aware that the Markov chain will not converge to a distribution
--- -- close to the true posterior distribution if cleaning changes the state
--- -- substantially! Only apply subtle changes that are absolutely necessary to
--- -- preserve the required properties of the state such as specific numerical
--- -- constraints.
--- newtype CleaningFunction a = CleaningFunction { fromCleaningFunction :: a -> a }
 
 -- | The 'Chain' contains all information to run a Markov chain Monte Carlo
 -- sampler. A 'Chain' is constructed using the function 'chain'.
@@ -87,8 +63,6 @@ newtype LikelihoodFunction a = LikelihoodFunction {fromLikelihoodFunction :: a -
 data Chain a = Chain
   { -- Variables; saved.
 
-    -- | The name of the chain; used as file prefix.
-    chainName :: String,
     -- | The current 'Item' of the chain combines the current state and the
     -- current likelihood.
     item :: Item a,
@@ -114,12 +88,7 @@ data Chain a = Chain
     -- | The likelihood function. The un-normalized posterior is the product of
     -- the prior and the likelihood.
     likelihoodFunction :: LikelihoodFunction a,
-    -- -- | Clean the state periodically.
-    -- cleaningFunction :: CleaningFunction a,
-
     -- | A set of 'Proposal's form a 'Cycle'.
-    --
-    -- TODO: Should we move the cycle to a dedicated @Algorithm@ type?
     cycle :: Cycle a,
     -- | A 'Monitor' observing the chain.
     monitor :: Monitor a
@@ -127,11 +96,8 @@ data Chain a = Chain
 
 -- | Initialize a Markov chain.
 chain ::
-  -- | Name of the Markov chain; used as file prefix.
-  String ->
   PriorFunction a ->
   LikelihoodFunction a ->
-  -- CleaningFunction a ->
   Cycle a ->
   Monitor a ->
   -- | The initial state in the state space @a@.
@@ -140,21 +106,11 @@ chain ::
   -- generators with the same, fixed seed.
   GenIO ->
   Chain a
-chain nm pr lh cc mn x g =
-  Chain
-    nm
-    i
-    0
-    (singletonT i)
-    (emptyA $ ccProposals cc)
-    g
-    0
-    pr
-    lh
-    cc
-    mn
+chain pr lh cc mn x g = Chain i 0 tr ac g 0 pr lh cc mn
   where
     i = Item x (fromPriorFunction pr x) (fromLikelihoodFunction lh x)
+    tr = singletonT i
+    ac = emptyA $ ccProposals cc
 
 -- | Set the likelihood function to 1.0. Useful for testing and debugging.
 noData :: Chain a -> Chain a

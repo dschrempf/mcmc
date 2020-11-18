@@ -14,227 +14,242 @@
 --
 -- Functions to work with the 'Mcmc' state transformer.
 module Mcmc.Mcmc
-  ( Mcmc,
-    mcmcOutB,
-    mcmcOutS,
-    mcmcWarnB,
-    mcmcWarnS,
-    mcmcInfoB,
-    mcmcInfoS,
-    mcmcDebugB,
-    mcmcDebugS,
-    mcmcAutotune,
-    mcmcClean,
-    mcmcResetA,
-    mcmcSummarizeCycle,
-    mcmcReport,
-    mcmcMonitorExec,
-    mcmcRun,
+  ( mcmc,
   )
 where
 
+import Codec.Compression.GZip
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.RWS.CPS
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Maybe
 import Data.Time.Clock
 import Data.Time.Format
 import Mcmc.Algorithm
 import Mcmc.Environment
-import Mcmc.Monitor
 import Mcmc.Monitor.Time
-import Mcmc.Save
 import Mcmc.Settings
-import Numeric.Log
 import System.IO
 import Prelude hiding (cycle)
 
--- | An Mcmc state transformer; usually fiddling around with this type is not
--- required, but it is used by the different inference algorithms.
+-- The MCMC algorithm has read access to an environment and uses an algorithm
+-- transforming the state @a@.
 type Mcmc a = RWST Environment () a IO
 
 msgPrepare :: Char -> BL.ByteString -> BL.ByteString
 msgPrepare c t = BL.cons c $ ": " <> t
 
--- | Write to standard output and log file.
+-- Write to standard output and log file.
 mcmcOutB :: BL.ByteString -> Mcmc a ()
 mcmcOutB msg = do
-  h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> reader logHandle
+  h <- reader logHandle
   liftIO $ BL.putStrLn msg >> BL.hPutStrLn h msg
 
--- | Write to standard output and log file.
-mcmcOutS :: String -> Mcmc a ()
-mcmcOutS = mcmcOutB . BL.pack
+-- -- Perform warning action.
+-- mcmcWarnA :: Mcmc a () -> Mcmc a ()
+-- mcmcWarnA a = reader (verbosity . settings) >>= \v -> when (v >= Warn) a
 
--- Perform warning action.
-mcmcWarnA :: Mcmc a () -> Mcmc a ()
-mcmcWarnA a = reader verbosity >>= \v -> when (v >= Warn) a
+-- -- Print warning message.
+-- mcmcWarnB :: BL.ByteString -> Mcmc a ()
+-- mcmcWarnB = mcmcWarnA . mcmcOutB . msgPrepare 'W'
 
--- | Print warning message.
-mcmcWarnB :: BL.ByteString -> Mcmc a ()
-mcmcWarnB = mcmcWarnA . mcmcOutB . msgPrepare 'W'
-
--- | Print warning message.
-mcmcWarnS :: String -> Mcmc a ()
-mcmcWarnS = mcmcWarnB . BL.pack
+-- -- Print warning message.
+-- mcmcWarnS :: String -> Mcmc a ()
+-- mcmcWarnS = mcmcWarnB . BL.pack
 
 -- Perform info action.
 mcmcInfoA :: Mcmc a () -> Mcmc a ()
-mcmcInfoA a = reader verbosity >>= \v -> when (v >= Info) a
+mcmcInfoA a = reader (verbosity . settings) >>= \v -> when (v >= Info) a
 
--- | Print info message.
+-- Print info message.
 mcmcInfoB :: BL.ByteString -> Mcmc a ()
 mcmcInfoB = mcmcInfoA . mcmcOutB . msgPrepare 'I'
 
--- | Print info message.
+-- Print info message.
 mcmcInfoS :: String -> Mcmc a ()
 mcmcInfoS = mcmcInfoB . BL.pack
 
 -- Perform debug action.
 mcmcDebugA :: Mcmc a () -> Mcmc a ()
-mcmcDebugA a = reader verbosity >>= \v -> when (v == Debug) a
+mcmcDebugA a = reader (verbosity . settings) >>= \v -> when (v == Debug) a
 
--- | Print debug message.
+-- Print debug message.
 mcmcDebugB :: BL.ByteString -> Mcmc a ()
 mcmcDebugB = mcmcDebugA . mcmcOutB . msgPrepare 'D'
 
--- | Print debug message.
+-- Print debug message.
 mcmcDebugS :: String -> Mcmc a ()
 mcmcDebugS = mcmcDebugB . BL.pack
 
 fTime :: FormatTime t => t -> String
 fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
 
--- Set the total number of iterations, the current time and open the 'Monitor's
--- of the chain. See 'mOpen'.
-mcmcInit :: Algorithm a => Mcmc a ()
-mcmcInit = do
-  t <- reader startingTime
-  mcmcInfoS $ "Starting time: " <> fTime t
+mcmcReportTime :: Mcmc a ()
+mcmcReportTime = do
+  ti <- reader startingTime
+  mcmcInfoS $ "Starting time: " <> fTime ti
 
--- Report what is going to be done.
-mcmcStartingReport :: ToJSON a => Mcmc a ()
-mcmcStartingReport = do
-  s <- settings <$> ask
-  let b = burnIn s
-      i = iterations s
-      c = cleaner s
-  case b of
+mcmcExecute :: Algorithm a => Mcmc a ()
+mcmcExecute = do
+  s <- reader settings
+  let iTotal = iterations s
+  when (iTotal <= 0) $
+    error "mcmcExecute: Total number of iterations is zero or negative."
+  case executionMode s of
+    Fail -> mcmcNewRun
+    Overwrite -> mcmcNewRun
+    Continue -> mcmcContinue
+
+mcmcNewRun :: Algorithm a => Mcmc a ()
+mcmcNewRun = do
+  s <- reader settings
+  mcmcInfoB "Start new MCMC sampler."
+  mcmcInfoB "Initial state."
+  mcmcExecMonitors
+  get >>= mcmcInfoB . summarizeCycle
+  mcmcBurnIn
+  mcmcResetAcceptance
+  let i = iterations s
+  mcmcInfoS $ "Run chain for " ++ show i ++ " iterations."
+  mcmcIterate i
+
+mcmcContinue :: Algorithm a => Mcmc a ()
+mcmcContinue = do
+  s <- reader settings
+  let iTotal = iterations s
+  mcmcInfoB "Continuation of MCMC sampler."
+  a <- get
+  let iCurrent = currentIteration a
+  mcmcInfoS $ "Current iteration: " ++ show iCurrent ++ "."
+  mcmcInfoS $ "Total iterations: " ++ show iTotal ++ "."
+  let di = iTotal - iCurrent
+  when (di <= 0) $
+    error "mcmcContinue: Current iteration is equal or larger to the total number of iterations."
+  get >>= mcmcInfoB . summarizeCycle
+  mcmcInfoS $ "Run chain for " ++ show di ++ " iterations."
+  mcmcIterate di
+
+mcmcBurnIn :: Algorithm a => Mcmc a ()
+mcmcBurnIn = do
+  s <- reader settings
+  case burnIn s of
     NoBurnIn ->
       mcmcInfoS "No burn in."
-    BurnInNoAutoTuning n ->
-      mcmcInfoS $ "Burn in for " <> show n <> " iterations without auto tuning."
-    BurnInWithAutoTuning n t ->
-      mcmcInfoS $
-        "Burn in for "
-          <> show n
-          <> " iterations with auto tuning every "
-          <> show t " iterations."
-  mcmcInfoS $ "Run chain for " <> show i <> " iterations."
-  case c of
-    NoClean -> return ()
-    CleanEvery n -> mcmcInfoS $ "Clean state every " <> show n <> " iterations."
-  mcmcInfoB "Initial state."
-  mcmcMonitorExec
+    BurnInNoAutoTuning n -> do
+      mcmcInfoS $ "Burn in for " <> show n <> " iterations."
+      when (n < 0) $ error "mcmcBurnIn: Number of burn in iterations is negative."
+      mcmcInfoS "Auto tuning is disabled."
+      mcmcIterate n
+      get >>= mcmcInfoB . summarizeCycle
+      mcmcInfoB "Burn in finished."
+    BurnInWithAutoTuning n t -> do
+      mcmcInfoS $ "Burn in for " ++ show n ++ " iterations."
+      when (n < 0) $ error "mcmcBurnIn: Number of burn in iterations is negative."
+      mcmcInfoS $ "Auto tuning is enabled with a period of "++ show t ++ "."
+      when (t <= 0) $ error "mcmcBurnIn: Auto tuning period is zero or negative."
+      mcmcBurnInWithAutoTuning n t
+      mcmcInfoB "Burn in finished."
 
--- | Auto tune the 'Proposal's in the 'Cycle' of the chain. Reset acceptance counts.
--- See 'autoTuneCycle'.
+mcmcBurnInWithAutoTuning :: Algorithm a => Int -> Int -> Mcmc a ()
+mcmcBurnInWithAutoTuning b t
+  | b > t = do
+    mcmcResetAcceptance
+    mcmcIterate t
+    get >>= mcmcDebugB . summarizeCycle
+    mcmcAutotune
+    mcmcBurnInWithAutoTuning (b - t) t
+  | otherwise = do
+    mcmcResetAcceptance
+    mcmcIterate b
+    get >>= mcmcInfoB . summarizeCycle
+    mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
+
+mcmcIterate :: Algorithm a => Int -> Mcmc a ()
+mcmcIterate n | n < 0 = error "mcmcIterate: Number of iterations is negative."
+              | n == 0 = return ()
+              | otherwise = do
+                  -- TODO: Splitmix. Remove IO monad as soon as possible.
+                  a' <- get >>= liftIO . jump
+                  put a'
+                  mcmcExecMonitors
+                  mcmcIterate (n-1)
+
+-- Auto tune the proposals.
 mcmcAutotune :: Algorithm a => Mcmc a ()
 mcmcAutotune = do
   mcmcDebugB "Auto tune."
   modify autoTune
 
--- | Clean the state.
-mcmcClean :: Mcmc a ()
-mcmcClean = do
-  mcmcDebugB "Clean state."
-  (pr, lh) <- report <$> get
-  mcmcDebugS $
-    "Current log prior and log likelihood: " ++ show (ln pr) ++ ", " ++ show (ln lh) ++ "."
-  modify clean
-  (pr', lh') <- report <$> get
-  mcmcDebugS $
-    "New log prior and log likelihood: " ++ show (ln pr') ++ ", " ++ show (ln lh') ++ "."
-  let dLogPr = abs $ ln pr - ln pr'
-      dLogLh = abs $ ln lh - ln lh'
-  when
-    (dLogPr > 1e-4)
-    (mcmcWarnS $ "The logarithms of old and new log prior differ by " ++ show dLogPr ++ ".")
-  when
-    (dLogPr > 1e-4)
-    (mcmcWarnS $ "The logarithms of old and new likelihood differ by " ++ show dLogLh ++ ".")
-
--- | Reset acceptance counts.
-mcmcResetA :: Algorithm a => Mcmc a ()
-mcmcResetA = do
+-- Reset acceptance counts.
+mcmcResetAcceptance :: Algorithm a => Mcmc a ()
+mcmcResetAcceptance = do
   mcmcDebugB "Reset acceptance ratios."
   modify resetAcceptance
 
--- | Print short summary of 'Proposal's in 'Cycle'. See 'summarizeCycle'.
-mcmcSummarizeCycle :: Algorithm a => Mcmc a BL.ByteString
-mcmcSummarizeCycle = gets summarizeCycle
+-- Execute the monitors of the chain.
+mcmcExecMonitors :: Algorithm a => Mcmc a ()
+mcmcExecMonitors = do
+  e <- ask
+  a <- get
+  liftIO $ execMonitors e a
 
--- Save the status of an MCMC run. See 'saveStatus'.
-mcmcSave :: ToJSON a => Mcmc a ()
+-- Save the MCMC run.
+mcmcSave :: Algorithm a => Mcmc a ()
 mcmcSave = do
-  env <- ask
-  st <- get
-  case saveMode env of
+  ss <- reader settings
+  a <- get
+  case saveMode ss of
     NoSave -> mcmcInfoB "Do not save the Markov chain."
     SaveWithTrace n -> do
-      mcmcInfoB $ "Save Markov chain with trace of length " <> BL.pack (show n) <> "."
+      let fns = name ss ++ ".settings"
+      mcmcInfoS $ "Save settings to " ++ fns ++ "."
+      liftIO $ BL.writeFile fns $ encode ss
+      let fnc = name ss ++ ".chain"
+      mcmcInfoS $
+        "Save compressed Markov chain with trace of length "
+          ++ show n
+          ++ " to "
+          ++ fnc
+          ++ "."
       mcmcInfoB "For long traces, or complex objects, this may take a while."
-      liftIO $ save env st
-      mcmcInfoB "Done saving Markov chain."
+      liftIO $ BL.writeFile fnc $ compress $ saveWith n a
+      mcmcInfoB "Markov chain saved."
 
--- | Execute the 'Monitor's of the chain. See 'mExec'.
-mcmcMonitorExec :: ToJSON a => Mcmc a ()
-mcmcMonitorExec = do
-  vb <- reader verbosity
-  s <- get
-  let i = iteration s
-      j = iterations s + fromMaybe 0 (burnInIterations s)
-      m = monitor s
-      (ss, st) = fromMaybe (error "mcmcMonitorExec: Starting state and time not set.") (start s)
-      tr = trace s
-  mt <- liftIO $ mExec vb i ss st tr j m
-  forM_ mt mcmcOutB
-
--- Close the 'Monitor's of the chain. See 'mClose'.
-mcmcClose :: ToJSON a => Mcmc a ()
+-- Report and finish up.
+mcmcClose :: Algorithm a => Mcmc a ()
 mcmcClose = do
-  s <- get
   mcmcSummarizeCycle >>= mcmcInfoB
   mcmcInfoB "Metropolis-Hastings sampler finished."
-  let m = monitor s
-  m' <- liftIO $ mClose m
-  put $ s {monitor = m'}
   mcmcSave
-  t <- liftIO getCurrentTime
-  let rt = case start s of
-        Nothing -> error "mcmcClose: Start time not set."
-        Just (_, st) -> t `diffUTCTime` st
-  mcmcInfoB $ "Wall clock run time: " <> renderDuration rt <> "."
-  mcmcInfoS $ "End time: " <> fTime t
-  case logHandle s of
-    Just h -> liftIO $ hClose h
-    Nothing -> return ()
+  ti <- reader startingTime
+  te <- liftIO getCurrentTime
+  let dt = te `diffUTCTime` ti
+  mcmcInfoB $ "Wall clock run time: " <> renderDuration dt <> "."
+  mcmcInfoS $ "End time: " <> fTime te
+  h <- reader logHandle
+  liftIO $ hClose h
 
+-- Initialize the run, execute the run, and close the run.
 mcmcRun :: Algorithm a => Mcmc a ()
 mcmcRun = do
-  mcmcInit
-  mcmcStartingReport
-  -- TODO!
-  undefined
+  mcmcDebugB "The settings are:"
+  reader settings >>= mcmcDebugS . show
+
+  -- Initialize.
+  get >>= mcmcInfoS . algorithmName
+  get >>= liftIO . openMonitors
+  mcmcReportTime
+
+  -- Execute.
+  mcmcExecute
+
+  -- Close.
   mcmcClose
+  get >>= liftIO . closeMonitors
 
 -- | Run an MCMC algorithm.
-mcmcExec :: Algorithm a => Environment -> a -> IO (a, ())
-mcmcExec env' alg = do
-  env <- openLogFile
-  -- TODO.
-  -- mcmcDebugS $ "Log file name: " ++ lfn ++ "."
-  -- mcmcDebugB "Log file opened."
-  execRWST mcmcRun env alg
+mcmc :: Algorithm a => Settings -> a -> IO a
+mcmc s a = do
+  e <- initializeEnvironment s
+  fst <$> execRWST mcmcRun e a

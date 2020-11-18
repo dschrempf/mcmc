@@ -15,7 +15,7 @@ module Mcmc.Algorithm
 where
 
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Mcmc.Chain
+import Mcmc.Chain.Chain
 import Mcmc.Environment
 import Mcmc.Monitor
 import Mcmc.Proposal
@@ -23,15 +23,14 @@ import Numeric.Log
 
 -- | TODO: REFACTOR. Documentation.
 class Algorithm a where
-  -- | Get current iteration.
-  getIteration :: a -> Int
+  algorithmName :: a -> String
+
+  currentIteration :: a -> Int
 
   -- TODO: Splitmix. Remove IO monad as soon as possible.
 
-  -- | Perform one iteration.
   jump :: a -> IO a
 
-  -- | Auto tune the proposals.
   autoTune :: a -> a
 
   -- -- | Auto tune the 'Proposal's in the 'Cycle' of the chain. Reset acceptance counts.
@@ -45,13 +44,25 @@ class Algorithm a where
   --       c' = autoTuneCycle a c
   --   put $ s {cycle = c'}
 
-  -- | Reset acceptance ratios.
   resetAcceptance :: a -> a
 
-  -- | Summarize cycle.
+  -- -- | Reset acceptance counts.
+  -- mcmcResetA :: Mcmc a ()
+  -- mcmcResetA = do
+  --   mcmcDebugB "Reset acceptance ratios."
+  --   s <- get
+  --   let a = acceptance s
+  --   put $ s {acceptance = resetA a}
+
   summarizeCycle :: a -> BL.ByteString
 
-  -- | Open the monitor files.
+  -- -- | Print short summary of 'Proposal's in 'Cycle'. See 'summarizeCycle'.
+  -- mcmcSummarizeCycle :: Mcmc a BL.ByteString
+  -- mcmcSummarizeCycle = do
+  --   a <- gets acceptance
+  --   c <- gets cycle
+  --   return $ summarizeCycle a c
+
   openMonitors :: a -> IO ()
 
   -- -- Monitor.
@@ -62,56 +73,42 @@ class Algorithm a where
   -- m' <- if n == 0 then liftIO $ mOpen nm frc m else liftIO $ mAppend nm m
   -- put $ s {monitor = m', start = Just (n, t)}
 
-  -- | Execute the monitors.
   execMonitors :: Environment -> a -> IO ()
 
-  -- -- | Print short summary of 'Proposal's in 'Cycle'. See 'summarizeCycle'.
-  -- mcmcSummarizeCycle :: Mcmc a BL.ByteString
-  -- mcmcSummarizeCycle = do
-  --   a <- gets acceptance
-  --   c <- gets cycle
-  --   return $ summarizeCycle a c
-
-  -- -- | Reset acceptance counts.
-  -- mcmcResetA :: Mcmc a ()
-  -- mcmcResetA = do
-  --   mcmcDebugB "Reset acceptance ratios."
+  -- -- | Execute the 'Monitor's of the chain. See 'mExec'.
+  -- mcmcMonitorExec :: ToJSON a => Mcmc a ()
+  -- mcmcMonitorExec = do
+  --   vb <- reader (verbosity . settings)
   --   s <- get
-  --   let a = acceptance s
-  --   put $ s {acceptance = resetA a}
+  --   let i = iteration s
+  --       j = iterations s + fromMaybe 0 (burnInIterations s)
+  --       m = monitor s
+  --       (ss, st) = fromMaybe (error "mcmcMonitorExec: Starting state and time not set.") (start s)
+  --       tr = trace s
+  --   mt <- liftIO $ mExec vb i ss st tr j m
+  --   forM_ mt mcmcOutB
 
-  -- | Clean the state.
-  clean :: a -> a
+  closeMonitors :: a -> IO ()
 
-  -- -- | Clean the state.
-  -- mcmcClean :: Mcmc a ()
-  -- mcmcClean = do
+  -- -- Close the 'Monitor's of the chain. See 'mClose'.
+  -- mcmcClose :: ToJSON a => Mcmc a ()
+  -- mcmcClose = do
   --   s <- get
-  --   let cl = cleaner s
-  --       i = iteration s
-  --   case cl of
-  --     Just (Cleaner n f) | i `mod` n == 0 -> do
-  --       mcmcDebugB "Clean state."
-  --       let (Item st pr lh) = item s
-  --       mcmcDebugS $
-  --         "Old log prior and log likelihood: " ++ show (ln pr) ++ ", " ++ show (ln lh) ++ "."
-  --       let prF = priorF s
-  --           lhF = likelihoodF s
-  --           st' = f st
-  --           pr' = prF st'
-  --           lh' = lhF st'
-  --       mcmcDebugS $
-  --         "New log prior and log likelihood: " ++ show (ln pr') ++ ", " ++ show (ln lh') ++ "."
-  --       let dLogPr = abs $ ln pr - ln pr'
-  --           dLogLh = abs $ ln lh - ln lh'
-  --       when
-  --         (dLogPr > 0.01)
-  --         (mcmcWarnS $ "Log of old and new prior differ by " ++ show dLogPr ++ ".")
-  --       when
-  --         (dLogPr > 0.01)
-  --         (mcmcWarnS $ "Log of old and new likelihood differ by " ++ show dLogLh ++ ".")
-  --       put $ s {item = Item st' pr' lh'}
-  --     _ -> return ()
+  --   mcmcSummarizeCycle >>= mcmcInfoB
+  --   mcmcInfoB "Metropolis-Hastings sampler finished."
+  --   let m = monitor s
+  --   m' <- liftIO $ mClose m
+  --   put $ s {monitor = m'}
+  --   mcmcSave
+  --   t <- liftIO getCurrentTime
+  --   let rt = case start s of
+  --         Nothing -> error "mcmcClose: Start time not set."
+  --         Just (_, st) -> t `diffUTCTime` st
+  --   mcmcInfoB $ "Wall clock run time: " <> renderDuration rt <> "."
+  --   mcmcInfoS $ "End time: " <> fTime t
+  --   case logHandle s of
+  --     Just h -> liftIO $ hClose h
+  -- Nothing -> return ()
 
   -- | Save chain(s) with trace of given maximum length.
   saveWith :: Int -> a -> BL.ByteString
@@ -120,7 +117,6 @@ class Algorithm a where
   loadWith ::
     PriorFunction a ->
     LikelihoodFunction a ->
-    -- CleaningFunction a ->
     Cycle a ->
     Monitor a ->
     BL.ByteString ->

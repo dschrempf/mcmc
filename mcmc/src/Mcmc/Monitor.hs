@@ -23,7 +23,6 @@ module Mcmc.Monitor
 
     -- * Use monitors
     mOpen,
-    mAppend,
     mExec,
     mClose,
   )
@@ -34,16 +33,15 @@ import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Int
 import Data.Time.Clock
+import Mcmc.Chain.Item
+import Mcmc.Chain.Trace
 import Mcmc.Internal.ByteString
-import Mcmc.Item
 import Mcmc.Monitor.Log
 import Mcmc.Monitor.Parameter
 import Mcmc.Monitor.ParameterBatch
 import Mcmc.Monitor.Time
 import Mcmc.Settings
-import Mcmc.Trace
 import Numeric.Log
-import System.Directory
 import System.IO
 import Prelude hiding (sum)
 
@@ -167,32 +165,12 @@ monitorFile n ps p
 mfRenderRow :: [BL.ByteString] -> BL.ByteString
 mfRenderRow = BL.intercalate "\t"
 
-open' :: String -> OutputMode -> IO Handle
-open' n frc = do
-  fe <- doesFileExist n
-  case (fe, frc) of
-    (False, _) -> openFile n WriteMode
-    (True, Overwrite) -> openFile n WriteMode
-    (True, Fail) -> error $ "open': File \"" <> n <> "\" exists; probably use 'force'?"
-    (True, Append) -> openFile n AppendMode
-
-mfOpen :: String -> OutputMode -> MonitorFile a -> IO (MonitorFile a)
-mfOpen n frc m = do
-  let mfn = n <> mfName m <> ".monitor"
-  h <- open' mfn frc
+mfOpen :: String -> ExecutionMode -> MonitorFile a -> IO (MonitorFile a)
+mfOpen n em m = do
+  let fn = n <> mfName m <> ".monitor"
+  h <- openWithExecutionMode em fn
   hSetBuffering h LineBuffering
   return $ m {mfHandle = Just h}
-
-mfAppend :: String -> MonitorFile a -> IO (MonitorFile a)
-mfAppend n m = do
-  let fn = n <> mfName m <> ".monitor"
-  fe <- doesFileExist fn
-  if fe
-    then do
-      h <- openFile fn AppendMode
-      hSetBuffering h LineBuffering
-      return $ m {mfHandle = Just h}
-    else error $ "mfAppend: Monitor file does not exist: " ++ fn ++ "."
 
 mfHeader :: MonitorFile a -> IO ()
 mfHeader m = case mfHandle m of
@@ -260,23 +238,12 @@ monitorBatch n ps p
   | p < 2 = error "monitorBatch: Batch size has to be 2 or larger."
   | otherwise = MonitorBatch n Nothing ps p
 
-mbOpen :: String -> OutputMode -> MonitorBatch a -> IO (MonitorBatch a)
-mbOpen n frc m = do
-  let mfn = n <> mbName m <> ".batch"
-  h <- open' mfn frc
+mbOpen :: String -> ExecutionMode -> MonitorBatch a -> IO (MonitorBatch a)
+mbOpen n em m = do
+  let fn = n <> mbName m <> ".batch"
+  h <- openWithExecutionMode em fn
   hSetBuffering h LineBuffering
   return $ m {mbHandle = Just h}
-
-mbAppend :: String -> MonitorBatch a -> IO (MonitorBatch a)
-mbAppend n m = do
-  let fn = n <> mbName m <> ".batch"
-  fe <- doesFileExist fn
-  if fe
-    then do
-      h <- openFile fn AppendMode
-      hSetBuffering h LineBuffering
-      return $ m {mbHandle = Just h}
-    else error $ "mbAppend: Monitor file does not exist: " ++ fn ++ "."
 
 mbHeader :: MonitorBatch a -> IO ()
 mbHeader m = case mbHandle m of
@@ -330,20 +297,13 @@ mbClose m = case mbHandle m of
   Nothing -> error $ "mfClose: File was not opened for batch monitor: " <> mbName m <> "."
 
 -- | Open the files associated with the 'Monitor'.
-mOpen :: String -> OutputMode -> Monitor a -> IO (Monitor a)
-mOpen n frc (Monitor s fs bs) = do
-  fs' <- mapM (mfOpen n frc) fs
-  mapM_ mfHeader fs'
-  bs' <- mapM (mbOpen n frc) bs
-  mapM_ mbHeader bs'
+mOpen :: String -> ExecutionMode -> Monitor a -> IO (Monitor a)
+mOpen n em (Monitor s fs bs) = do
+  fs' <- mapM (mfOpen n em) fs
+  unless (em == Continue) $ mapM_ mfHeader fs'
+  bs' <- mapM (mbOpen n em) bs
+  unless (em == Continue) $ mapM_ mbHeader bs'
   hSetBuffering stdout LineBuffering
-  return $ Monitor s fs' bs'
-
--- | Open the files associated with the 'Monitor' in append mode.
-mAppend :: String -> Monitor a -> IO (Monitor a)
-mAppend n (Monitor s fs bs) = do
-  fs' <- mapM (mfAppend n) fs
-  bs' <- mapM (mbAppend n) bs
   return $ Monitor s fs' bs'
 
 -- | Execute monitors; print status information to files and return text to be

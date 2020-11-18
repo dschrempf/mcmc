@@ -24,11 +24,13 @@ library
   exposed-modules:
       Mcmc
       Mcmc.Algorithm
-      Mcmc.Chain
+      Mcmc.Algorithm.Metropolis
+      Mcmc.Chain.Chain
+      Mcmc.Chain.Item
+      Mcmc.Chain.Save
+      Mcmc.Chain.Trace
       Mcmc.Environment
-      Mcmc.Item
       Mcmc.Mcmc
-      Mcmc.Metropolis
       Mcmc.Monitor
       Mcmc.Monitor.Log
       Mcmc.Monitor.Parameter
@@ -41,9 +43,7 @@ library
       Mcmc.Proposal.Scale
       Mcmc.Proposal.Slide
       Mcmc.Proposal.Simplex
-      Mcmc.Save
       Mcmc.Settings
-      Mcmc.Trace
   other-modules:
       Mcmc.Internal.ByteString
       Mcmc.Internal.Shuffle

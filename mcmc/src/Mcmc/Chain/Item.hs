@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
--- Module      :  Mcmc.Item
+-- Module      :  Mcmc.Chain.Item
 -- Description :  Links of Markov chains
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
@@ -11,7 +11,7 @@
 -- Portability :  portable
 --
 -- Creation date: Wed May 20 09:10:27 2020.
-module Mcmc.Item
+module Mcmc.Chain.Item
   ( Item (..),
   )
 where
