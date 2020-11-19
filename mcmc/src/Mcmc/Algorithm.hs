@@ -20,8 +20,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Mcmc.Environment
 import Numeric.Log
 
--- | TODO: REFACTOR. Documentation.
--- @t@ is the algorithm, @a@ is the state space.
+-- | @t@ is the algorithm, @a@ is the state space.
 class Algorithm t a where
   aName :: t a -> String
 

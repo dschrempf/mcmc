@@ -240,7 +240,7 @@ continueMetropolisHastingsGreen n = do
       -- Monitor.
       mon' = monitor cb cs
 
-  -- Load the MCMC status.
+  -- Load the MCMC settings and the algorithm.
   s <- settingsLoad bnAnalysis
   a <- mhgLoad pr' lh' cc' mon' bnAnalysis
   void $ mcmcContinue n s a

@@ -69,16 +69,15 @@ spec =
         g' <- R.save $ generator r'
         g `shouldBe` g'
 
--- -- TODO: Splitmix. This will only work with a splittable generator
--- -- because getNIterations changes the generator.
+-- -- TODO.
 -- describe "mhContinue"
 --   $ it "mh 200 + mhContinue 200 == mh 400"
 --   $ do
 --     gen1 <- create
---     let s1 = status "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 400 gen1
+--     let s1 = chain "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 400 gen1
 --     r1 <- mh s1
 --     gen2 <- create
---     let s2 = status "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 200 gen2
+--     let s2 = chain "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 200 gen2
 --     r2' <- mh s2
 --     r2 <- mhContinue 200 r2'
 --     item r1 `shouldBe` item r2

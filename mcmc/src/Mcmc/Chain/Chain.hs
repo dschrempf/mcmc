@@ -23,15 +23,6 @@ where
 -- information about the chain. The information can just be stored in @a@
 -- equally well.
 
--- XXX: Status tuned exclusively to the Metropolis-Hastings-Green algorithm. We
--- should abstract the algorithm from the chain. Maybe something like:
---
--- @
--- data Status a = Status { Chain a; Algorithm a}
--- @
-
--- TODO: REFACTOR. Check documentation.
-
 import Mcmc.Chain.Item
 import Mcmc.Chain.Trace
 import Mcmc.Monitor
