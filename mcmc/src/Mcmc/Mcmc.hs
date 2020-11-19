@@ -191,8 +191,9 @@ mcmcResetAcceptance = do
 -- Report and finish up.
 mcmcClose :: Algorithm t a => MCMC (t a) ()
 mcmcClose = do
-  get >>= mcmcInfoB . aSummarizeCycle
-  mcmcInfoB "Metropolis-Hastings sampler finished."
+  a <- get
+  mcmcInfoB $ aSummarizeCycle a
+  mcmcInfoS $ aName a ++ " algorithm finished."
   mcmcSave
   ti <- reader startingTime
   te <- liftIO getCurrentTime
@@ -226,7 +227,8 @@ mcmcRun = do
   reader settings >>= mcmcDebugS . show
 
   -- Initialize.
-  get >>= mcmcInfoS . aName
+  a <- get
+  mcmcInfoS $ aName a ++ " algorithm."
   e <- ask
   get >>= liftIO . aOpenMonitors e >>= put
   mcmcReportTime

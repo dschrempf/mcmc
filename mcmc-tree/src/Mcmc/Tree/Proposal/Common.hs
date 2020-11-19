@@ -32,7 +32,7 @@ lengthL = lengthU
 
 -- | A very specific function that samples a delta value from the truncated
 -- normal distribution with given bounds [a,b] and also computes the required
--- factor of the Metropolis-Hastings proposal ratio.
+-- factor of the Metropolis-Hastings-Green proposal ratio.
 --
 -- NO JACOBIAN IS COMPUTED, because we do not know how the proposal will be used.
 truncatedNormalSample ::
@@ -50,7 +50,7 @@ truncatedNormalSample s t a b g = do
   let s' = t * s
       d = either error id $ truncatedNormalDistr 0 s' a b
   u <- genContinuous d g
-  -- Compute Metropolis-Hastings factor.
+  -- Compute Metropolis-Hastings-Green factor.
   let a' = a - u
       b' = b - u
       d' = either error id $ truncatedNormalDistr 0 s' a' b'

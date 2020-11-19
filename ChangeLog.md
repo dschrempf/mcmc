@@ -1,5 +1,5 @@
 
-# Markov chain Monte Carlo sampling - ChangeLog
+# Markov chain Monte Carlo sampler - ChangeLog
 
 
 ## Unreleased changes

@@ -3,10 +3,11 @@
 
 <p align="center"><img src="https://travis-ci.org/dschrempf/mcmc.svg?branch=master"/></p>
 
-Sample from a posterior using Markov chain Monte Carlo methods.
+Sample from a posterior using Markov chain Monte Carlo (MCMC) methods.
 
-At the moment, the library is tailored to the Metropolis-Hastings algorithm
-since it covers most use cases. More algorithms will be implemented soon.
+At the moment, the library is tailored to the Metropolis-Hastings-Green
+algorithm since it covers most use cases. More algorithms will be implemented
+soon.
 
 
 ## Documentation

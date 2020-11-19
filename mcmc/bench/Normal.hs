@@ -1,6 +1,6 @@
 -- |
 -- Module      :  Normal
--- Description :  Benchmark Metropolis-Hastings algorithm
+-- Description :  Benchmark Metropolis-Hastings-Green algorithm
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --

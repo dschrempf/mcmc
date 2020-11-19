@@ -2,7 +2,7 @@
 
 -- |
 -- Module      :  Mcmc
--- Description :  Markov chain Monte Carlo algorithms, batteries included
+-- Description :  Markov chain Monte Carlo sampler, batteries included
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -12,9 +12,10 @@
 --
 -- Creation date: Tue May  5 18:01:15 2020.
 --
--- A short introduction to update mechanisms using the Metropolis-Hastings
--- algorithm (see Geyer, C. J., 2011; Introduction to Markov Chain Monte Carlo. In
--- Handbook of Markov Chain Monte Carlo (pp. 45), Chapman \& Hall/CRC).
+-- For an introduction to Markov chain Monte Carlo (MCMC) samplers and update
+-- mechanisms using the Metropolis-Hastings-Green algorithm, please see Geyer,
+-- C. J., 2011; Introduction to Markov Chain Monte Carlo. In Handbook of Markov
+-- Chain Monte Carlo (pp. 45), Chapman \& Hall/CRC.
 --
 -- For examples, please see
 -- [mcmc-examples](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples).

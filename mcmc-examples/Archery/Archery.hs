@@ -90,7 +90,7 @@ mon = Monitor monStd [monFile] [monBatch]
 burnIn :: BurnIn
 burnIn = BurnInWithAutoTuning 200000 10000
 
--- Number of Metropolis-Hastings iterations after burn in.
+-- Number of iterations after burn in.
 iterations :: Int
 iterations = 1000000
 
@@ -103,5 +103,5 @@ main = do
   let s = Settings "archery" burnIn iterations Overwrite NoSave Info
       -- Use the Metropolis-Hastings-Green (MHG) algorithm.
       a = mhg pr (lh xs) cc mon 0.01 g
-  -- Run the Markov chain Monte Carlo algorithm.
+  -- Run the MCMC sampler.
   void $ mcmc s a

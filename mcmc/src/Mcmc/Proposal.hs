@@ -124,8 +124,8 @@ instance Ord (Proposal a) where
 -- Instruction about randomly moving from the current state to a new state,
 -- given some source of randomness.
 --
--- In order to calculate the Metropolis-Hastings ratio, we need to know the
--- ratio of the backward to forward kernels (i.e., the probability masses or
+-- In order to calculate the Metropolis-Hastings-Green ratio, we need to know
+-- the ratio of the backward to forward kernels (i.e., the probability masses or
 -- probability densities) and the absolute value of the determinant of the
 -- Jacobian matrix.
 --

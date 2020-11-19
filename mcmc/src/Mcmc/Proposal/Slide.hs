@@ -52,8 +52,8 @@ slideSymmetricSimple s t =
   genericContinuous (normalDistr 0.0 (s * t)) (+) Nothing Nothing
 
 -- | Additive proposal with normally distributed kernel with mean zero. This
--- proposal is very fast, because the Metropolis-Hastings ratio does not include
--- calculation of the forwards and backwards kernels.
+-- proposal is very fast, because the Metropolis-Hastings-Green ratio does not
+-- include calculation of the forwards and backwards kernels.
 slideSymmetric ::
   -- | Standard deviation.
   Double ->
@@ -74,8 +74,8 @@ slideUniformSimple d t =
   genericContinuous (uniformDistr (- t * d) (t * d)) (+) Nothing Nothing
 
 -- | Additive proposal with uniformly distributed kernel with mean zero. This
--- proposal is very fast, because the Metropolis-Hastings ratio does not include
--- calculation of the forwards and backwards kernels.
+-- proposal is very fast, because the Metropolis-Hastings-Green ratio does not
+-- include calculation of the forwards and backwards kernels.
 slideUniformSymmetric ::
   -- | Delta.
   Double ->

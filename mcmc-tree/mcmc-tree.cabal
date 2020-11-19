@@ -1,7 +1,7 @@
 cabal-version:       2.2
 name:                mcmc-tree
 version:             0.3.0
-synopsis:            Markov chain Monte Carlo sampling with trees
+synopsis:            Markov chain Monte Carlo sampler on trees
 description:         Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
 category:            Math, Statistics
 homepage:            https://github.com/dschrempf/mcmc#readme

@@ -23,8 +23,8 @@ where
 -- information about the chain. The information can just be stored in @a@
 -- equally well.
 
--- XXX: Status tuned exclusively to the Metropolis-Hastings algorithm. We should
--- abstract the algorithm from the chain. Maybe something like:
+-- XXX: Status tuned exclusively to the Metropolis-Hastings-Green algorithm. We
+-- should abstract the algorithm from the chain. Maybe something like:
 --
 -- @
 -- data Status a = Status { Chain a; Algorithm a}
@@ -54,8 +54,8 @@ type LikelihoodFunction a = a -> Log Double
 noLikelihood :: LikelihoodFunction a
 noLikelihood = const 1.0
 
--- | The 'Chain' contains all information to run a Markov chain Monte Carlo
--- sampler. A 'Chain' is constructed using the function 'chain'.
+-- | The 'Chain' contains all information to run an MCMC sampler. A 'Chain' is
+-- constructed using the function 'chain'.
 --
 -- The state of the chain has type @a@. If necessary, the type @a@ can also be
 -- used to store auxiliary information.

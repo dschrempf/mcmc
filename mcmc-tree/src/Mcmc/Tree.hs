@@ -1,6 +1,6 @@
 -- |
 -- Module      :  Mcmc.Tree
--- Description :  Markov chain Monte Carlo sampling with trees
+-- Description :  Markov chain Monte Carlo sampler on trees
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --

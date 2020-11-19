@@ -43,7 +43,7 @@ import Prelude hiding (cycle)
 newtype MHG a = MHG {fromMHG :: Chain a}
 
 instance (ToJSON a, FromJSON a) => Algorithm MHG a where
-  aName = const "Metropolis-Hastings-Green algorithm."
+  aName = const "Metropolis-Hastings-Green"
   aIteration = iteration . fromMHG
   aIterate = mhgIterate
   aAutoTune = mhgAutoTune
@@ -91,7 +91,7 @@ mhgLoad pr lh cc mn nm = MHG <$> loadChainWith pr lh cc mn (mhgFn nm)
 mhgFn :: String -> FilePath
 mhgFn nm = nm ++ ".chain"
 
--- The Metropolis-Hastings ratio.
+-- The MHG ratio.
 --
 -- 'Infinity' if fX is zero. In this case, the proposal is always accepted.
 --
@@ -113,7 +113,7 @@ mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
 mhgPropose (MHG c) p = do
   -- 1. Sample new state.
   (!y, !q, !j) <- liftIO $ s x g
-  -- 2. Calculate Metropolis-Hastings ratio.
+  -- 2. Calculate Metropolis-Hastings-Green ratio.
   let !pY = pF y
       !lY = lF y
       !r = mhgRatio (pX * lX) (pY * lY) q j

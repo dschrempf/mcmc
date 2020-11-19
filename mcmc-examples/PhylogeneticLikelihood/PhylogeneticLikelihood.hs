@@ -180,7 +180,7 @@ mon = Monitor monStdOut [monFile] [monBatch]
 burnIn :: BurnIn
 burnIn = BurnInWithAutoTuning 4000 200
 
--- Number of Metropolis-Hasting iterations after burn in.
+-- Number of Metropolis-Hasting-Green iterations after burn in.
 iterations :: Int
 iterations = 20000
 
@@ -200,7 +200,7 @@ main = do
       -- Combine all the objects defined above.
       let s = Settings name burnIn iterations Overwrite (SaveWithTrace 1000) Info
           a = mhg pr (lh meanTree stdDevTree) cc mon startingTree g
-      -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
+      -- Run the MCMC sampler using the Metropolis-Hastings-Green algorithm.
       void $ mcmc s a
     ["continue", nStr] -> do
       -- Load a previously finished, and saved chain. We have to give the prior

@@ -3,7 +3,7 @@
 
 -- |
 -- Module      :  Mcmc.Settings
--- Description :  Settings of the Markov chain Monte Carlo Sampler
+-- Description :  Settings of the MCMC sampler
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -102,9 +102,9 @@ data Verbosity = Quiet | Warn | Info | Debug
 
 $(deriveJSON defaultOptions ''Verbosity)
 
--- | Settings of the Markov chain Monte Carlo sampler.
+-- | Settings of the MCMC sampler.
 data Settings = Settings
-  { -- | Name of the Markov chain Monte Carlo sampler.
+  { -- | Name of the MCMC sampler.
     sAnalysisName :: String,
     sBurnIn :: BurnIn,
     -- | Number of normal iterations excluding burn in. Note that auto tuning

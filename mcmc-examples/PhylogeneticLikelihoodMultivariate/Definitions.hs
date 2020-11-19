@@ -41,7 +41,7 @@ import Numeric.Log
 -- The ELynx library includes functions to work on trees.
 import ELynx.Tree
 
--- The Mcmc library includes the Metropolis-Hastings sampler.
+-- The Mcmc library includes the Metropolis-Hastings-Green algorithm.
 import Mcmc
 import Mcmc.Tree
 
@@ -367,6 +367,6 @@ monitor cb cs = Monitor monStdOut [monFileParams cb cs, monFileTimeTree, monFile
 burnIn :: BurnIn
 burnIn = BurnInWithAutoTuning 3000 100
 
--- | Number of Metropolis-Hasting iterations after burn in.
+-- | Number of iterations after burn in.
 iterations :: Int
 iterations = 40000

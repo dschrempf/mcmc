@@ -22,10 +22,10 @@
 -- The module hierarchy is organized as follows:
 --
 -- - Main: Functions to prepare the data, run and continue the
---   Metropolis-Hasting sampler, and to inspect the application.
+--   Metropolis-Hasting-Green algorithm, and to inspect the application.
 --
 -- - Definitions: The state space, prior distribution, and the likelihood
---   function of the sampler. Also includes the proposals and the monitor.
+--   function of the MCMC sampler. Also includes the proposals and the monitor.
 --
 -- - Calibration and Constrain: Calibrations on node ages and node order
 --   constraints.
@@ -57,7 +57,7 @@ import System.Random.MWC hiding (uniform)
 import qualified ELynx.Topology as T
 import ELynx.Tree
 
--- The Mcmc library includes the Metropolis-Hastings sampler.
+-- The Mcmc library includes the Metropolis-Hastings-Green algorithm.
 import Mcmc
 import Mcmc.Tree
 
@@ -179,9 +179,9 @@ prepare = do
   putStrLn $ "Save the posterior means and covariances to " <> fnData <> "."
   encodeFile fnData (mu, L.toRows sigmaInv, logSigmaDet)
 
--- Run the Metropolis-Hastings sampler.
-runMetropolisHastings :: IO ()
-runMetropolisHastings = do
+-- Run the Metropolis-Hastings-Green algorithm.
+runMetropolisHastingsGreen :: IO ()
+runMetropolisHastingsGreen = do
   -- Read the mean tree and the posterior means and covariances.
   meanTree <- getMeanTree
   (mu, sigmaInv, logSigmaDet) <- getData
@@ -217,8 +217,8 @@ runMetropolisHastings = do
   -- Run the Markov chain.
   void $ mcmc s a
 
-continueMetropolisHastings :: Int -> IO ()
-continueMetropolisHastings n = do
+continueMetropolisHastingsGreen :: Int -> IO ()
+continueMetropolisHastingsGreen n = do
   -- Read the mean tree and the posterior means and covariances.
   meanTree <- getMeanTree
   (mu, sigmaInv, logSigmaDet) <- getData
@@ -254,11 +254,11 @@ main = do
     -- branch lengths, and find the midpoint root of the mean tree.
     ["prepare"] -> do
       prepare
-    -- Run the Metropolis-Hastings sampler.
+    -- Run the Metropolis-Hastings-Green algorithm.
     ["run"] -> do
-      runMetropolisHastings
+      runMetropolisHastingsGreen
     -- Continue sampling.
     ["continue", n] -> do
-      continueMetropolisHastings (read n)
+      continueMetropolisHastingsGreen (read n)
     -- Print usage instructions if none of the previous commands was entered.
     _ -> putStrLn "Use one command of: [prepare|run|continue N]."

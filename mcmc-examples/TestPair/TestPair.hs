@@ -61,7 +61,7 @@ mon = Monitor monStd [monFile] []
 burnIn :: BurnIn
 burnIn = BurnInWithAutoTuning 20000 1000
 
--- Number of Metropolis-Hastings iterations after burn in.
+-- Number of iterations after burn in.
 iterations :: Int
 iterations = 100000
 
