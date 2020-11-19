@@ -13,7 +13,7 @@ module Mcmc.Chain.Chain
   ( PriorFunction,
     noPrior,
     LikelihoodFunction,
-    noData,
+    noLikelihood,
     Chain (..),
     chain,
   )
@@ -51,8 +51,8 @@ noPrior = const 1.0
 type LikelihoodFunction a = a -> Log Double
 
 -- | Flat likelihood function. Useful for testing and debugging.
-noData :: LikelihoodFunction a
-noData = const 1.0
+noLikelihood :: LikelihoodFunction a
+noLikelihood = const 1.0
 
 -- | The 'Chain' contains all information to run a Markov chain Monte Carlo
 -- sampler. A 'Chain' is constructed using the function 'chain'.

@@ -83,8 +83,8 @@ alphaProposals =
 --     ]
 
 -- Cycle with beta proposals.
-proposals :: Cycle I
-proposals =
+cc :: Cycle I
+cc =
   fromList $
     norm @~ scaleUnbiased 8.0 (PName "Norm") (PWeight 1) Tune :
     alphaProposals
@@ -93,9 +93,9 @@ monNorm :: MonitorParameter I
 monNorm = _norm >$< monitorDouble "Norm"
 
 monN :: Int -> MonitorParameter I
-monN n = (\x -> toVector (_alphas x) V.! n * _norm x) >$< monitorDouble nm
+monN n = (\x -> toVector (_alphas x) V.! n * _norm x) >$< monitorDouble name
   where
-    nm = "Alpha " <> show n
+    name = "Alpha " <> show n
 
 monAlphas :: [MonitorParameter I]
 monAlphas = [monN i | i <- [0 .. (V.length alphasTrue - 1)]]
@@ -106,13 +106,20 @@ monStdOut = monitorStdOut [monNorm, monN 0, monN 1, monN 2] 100
 monFile :: MonitorFile I
 monFile = monitorFile "" (monNorm : monAlphas) 50
 
-monitors :: Monitor I
-monitors = Monitor monStdOut [monFile] []
+mon :: Monitor I
+mon = Monitor monStdOut [monFile] []
 
-initialValue :: I
-initialValue = I as 1.0
+-- Starting state.
+start :: I
+start = I as 1.0
   where
     as = simplexUniform (V.length alphasTrue)
+
+burnIn :: BurnIn
+burnIn = BurnInWithAutoTuning 3000 100
+
+iterations :: Int
+iterations = 30000
 
 main :: IO ()
 main = do
@@ -120,10 +127,10 @@ main = do
   putStrLn "-- Simulate Data."
   xs <- simulateData g
   print xs
-  print initialValue
+  print start
   let
     lh = lhf xs
-    s = Settings "dirichlet" (BurnInWithAutoTuning 3000 100) 30000 Overwrite NoSave Info
-    a = mhg pr lh proposals monitors initialValue g
+    s = Settings "dirichlet" burnIn iterations Overwrite NoSave Info
+    a = mhg pr lh cc mon start g
   _ <- mcmc s a
   putStrLn "Done."

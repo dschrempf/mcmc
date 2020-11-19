@@ -41,7 +41,7 @@ import Mcmc.Tree
 --   benchmark $ nf bf2 tr
 --   putStrLn "Benchmark calculation of prior."
 --   let i = initWith tr
---       pr' = priorDistribution (getCalibrations tr) (getConstraints tr)
+--       pr' = priorFunction (getCalibrations tr) (getConstraints tr)
 --   benchmark $ nf pr' i
 --   (Just (mu, sigmaInvRows, logSigmaDet)) <- decodeFileStrict' fnData
 --   let sigmaInv = L.fromRows sigmaInvRows

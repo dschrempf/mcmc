@@ -113,7 +113,7 @@ module Mcmc
     PriorFunction (..),
     noPrior,
     LikelihoodFunction (..),
-    noData,
+    noLikelihood,
     chain,
 
     -- * Monitor

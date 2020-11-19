@@ -55,8 +55,8 @@ lh xs p
 
 -- The proposal cycle consists of one proposal only. A uniform distribution is used to
 -- slide the precision of the archer.
-ps :: Cycle Precision
-ps = fromList [slideUniformSymmetric 1.0 (PName "Mu") (PWeight 1) Tune]
+cc :: Cycle Precision
+cc = fromList [slideUniformSymmetric 1.0 (PName "Mu") (PWeight 1) Tune]
 
 -- proposals = fromList [scaleUnbiased 1.6 (PName "Mu") (PWeight 1) Tune]
 -- proposals = fromList [slide 0.06 0.8 (PName "Mu") (PWeight 1) Tune]
@@ -87,12 +87,12 @@ mon :: Monitor Precision
 mon = Monitor monStd [monFile] [monBatch]
 
 -- Number of burn in iterations.
-burnInSpec :: BurnIn
-burnInSpec = BurnInWithAutoTuning 200000 10000
+burnIn :: BurnIn
+burnIn = BurnInWithAutoTuning 200000 10000
 
 -- Number of Metropolis-Hastings iterations after burn in.
-nIter :: Int
-nIter = 1000000
+iterations :: Int
+iterations = 1000000
 
 main :: IO ()
 main = do
@@ -100,8 +100,8 @@ main = do
   -- Simulate a list of observed arrow distances.
   xs <- distances g
   -- MCMC settings and algorithm.
-  let s = Settings "archery" burnInSpec nIter Overwrite NoSave Info
+  let s = Settings "archery" burnIn iterations Overwrite NoSave Info
       -- Use the Metropolis-Hastings-Green (MHG) algorithm.
-      a = mhg pr (lh xs) ps mon 0.01 g
+      a = mhg pr (lh xs) cc mon 0.01 g
   -- Run the Markov chain Monte Carlo algorithm.
   void $ mcmc s a

@@ -199,7 +199,7 @@ runMetropolisHastings = do
       -- Likelihood function.
       lh' = likelihoodFunction mu sigmaInv logSigmaDet
       -- Proposal cycle.
-      ccl' = proposals meanTree
+      cc' = proposals meanTree
       -- Monitor.
       mon' = monitor cb cs
       -- Starting state.
@@ -211,8 +211,8 @@ runMetropolisHastings = do
   g <- create
 
   -- Construct the Markov chain.
-  let s = Settings bnAnalysis burnInSpec nIterations Overwrite (SaveWithTrace 1) Debug
-      a = mhg pr' lh' ccl' mon' start' g
+  let s = Settings bnAnalysis burnIn iterations Overwrite (SaveWithTrace 1) Debug
+      a = mhg pr' lh' cc' mon' start' g
 
   -- Run the Markov chain.
   void $ mcmc s a
@@ -236,13 +236,13 @@ continueMetropolisHastings n = do
       -- Likelihood function.
       lh' = likelihoodFunction mu sigmaInv logSigmaDet
       -- Proposal cycle.
-      ccl' = proposals meanTree
+      cc' = proposals meanTree
       -- Monitor.
       mon' = monitor cb cs
 
   -- Load the MCMC status.
   s <- settingsLoad bnAnalysis
-  a <- mhgLoad pr' lh' ccl' mon' bnAnalysis
+  a <- mhgLoad pr' lh' cc' mon' bnAnalysis
   void $ mcmcContinue n s a
 
 main :: IO ()

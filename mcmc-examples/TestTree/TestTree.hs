@@ -30,8 +30,8 @@ pr :: PriorFunction I
 pr = birthDeath WithoutStem 2.0 2.0 0.1
 
 -- Proposals on the tree.
-proposals :: Show a => Tree e a -> Cycle I
-proposals t =
+cc :: Show a => Tree e a -> Cycle I
+cc t =
   fromList $
     -- -- Pulley on the root node.
     pulleyUltrametric t 0.1 (PName "Tree root") (PWeight 5) Tune :
@@ -80,11 +80,11 @@ monTree = monitorFile "-tree" [fromHeightTree >$< monitorTree "Tree"] 1
 mon :: Tree e a -> Monitor I
 mon t = Monitor (monStd t) [monFile t, monTree] []
 
-burnInSpec :: BurnIn
-burnInSpec = BurnInWithAutoTuning 2000 1000
+burnIn :: BurnIn
+burnIn = BurnInWithAutoTuning 2000 1000
 
-nIterations :: Int
-nIterations = 6000
+iterations :: Int
+iterations = 6000
 
 main :: IO ()
 main = do
@@ -94,7 +94,8 @@ main = do
             either error id $
               phyloToLengthTree $
                 parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,(d:2.0,e:2.0):1.0):0.0;"
+      cc' = cc t
   g <- create
-  let s = Settings "test" burnInSpec nIterations Overwrite NoSave Info
-      a = mhg pr noData (proposals t) (mon t) t g
+  let s = Settings "test" burnIn iterations Overwrite NoSave Info
+      a = mhg pr noLikelihood cc' (mon t) t g
   void $ mcmc s a

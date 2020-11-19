@@ -55,7 +55,6 @@ burnInAutoTuningPeriodValid :: BurnIn -> Bool
 burnInAutoTuningPeriodValid (BurnInWithAutoTuning _ t) = t > 0
 burnInAutoTuningPeriodValid _ = True
 
-
 -- | Execution mode.
 data ExecutionMode
   = -- | Call 'error' if an output files exists.
@@ -106,30 +105,33 @@ $(deriveJSON defaultOptions ''Verbosity)
 -- | Settings of the Markov chain Monte Carlo sampler.
 data Settings = Settings
   { -- | Name of the Markov chain Monte Carlo sampler.
-    analysisName :: String,
-    burnIn :: BurnIn,
+    sAnalysisName :: String,
+    sBurnIn :: BurnIn,
     -- | Number of normal iterations excluding burn in. Note that auto tuning
     -- only happens during burn in.
-    iterations :: Int,
-    executionMode :: ExecutionMode,
-    saveMode :: SaveMode,
-    verbosity :: Verbosity
+    sIterations :: Int,
+    sExecutionMode :: ExecutionMode,
+    sSaveMode :: SaveMode,
+    sVerbosity :: Verbosity
   }
   deriving (Eq, Show)
 
 $(deriveJSON defaultOptions ''Settings)
 
+settingsFn :: String -> FilePath
+settingsFn n = n ++ ".settings"
+
 -- | Save settings to a file.
 settingsSave :: Settings -> IO ()
 settingsSave s = BL.writeFile fn $ encode s
   where
-    fn = analysisName s ++ ".settings"
+    fn = settingsFn $ sAnalysisName s
 
 -- | Load settings from analysis name.
 settingsLoad :: String -> IO Settings
 settingsLoad n = either error id . eitherDecode <$> BL.readFile fn
   where
-    fn = n ++ ".settings"
+    fn = settingsFn n
 
 -- Show settings and call 'error'.
 settingsError :: Settings -> Int -> String -> a
@@ -168,4 +170,5 @@ settingsCheck s@(Settings nm bi i em _ _) iCurrent
   | iCurrent /= 0 && em /= Continue = serr "Current iteration is non-zero but execution mode is not 'Continue'."
   | iCurrent == 0 && em == Continue = serr "Current iteration is zero but execution mode is 'Continue'."
   | otherwise = return ()
-  where serr = settingsError s iCurrent
+  where
+    serr = settingsError s iCurrent

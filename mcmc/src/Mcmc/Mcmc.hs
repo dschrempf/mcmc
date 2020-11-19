@@ -59,7 +59,7 @@ mcmcOutB msg = do
 
 -- Perform info action.
 mcmcInfoA :: MCMC a () -> MCMC a ()
-mcmcInfoA a = reader (verbosity . settings) >>= \v -> when (v >= Info) a
+mcmcInfoA a = reader (sVerbosity . settings) >>= \v -> when (v >= Info) a
 
 -- Print info message.
 mcmcInfoB :: BL.ByteString -> MCMC a ()
@@ -71,7 +71,7 @@ mcmcInfoS = mcmcInfoB . BL.pack
 
 -- Perform debug action.
 mcmcDebugA :: MCMC a () -> MCMC a ()
-mcmcDebugA a = reader (verbosity . settings) >>= \v -> when (v == Debug) a
+mcmcDebugA a = reader (sVerbosity . settings) >>= \v -> when (v == Debug) a
 
 -- Print debug message.
 mcmcDebugB :: BL.ByteString -> MCMC a ()
@@ -92,7 +92,7 @@ mcmcReportTime = do
 mcmcExecute :: Algorithm t a => MCMC (t a) ()
 mcmcExecute = do
   s <- reader settings
-  case executionMode s of
+  case sExecutionMode s of
     Fail -> mcmcNewRun
     Overwrite -> mcmcNewRun
     Continue -> mcmcContinueRun
@@ -106,14 +106,14 @@ mcmcNewRun = do
   get >>= mcmcInfoB . aSummarizeCycle
   mcmcBurnIn
   mcmcResetAcceptance
-  let i = iterations s
+  let i = sIterations s
   mcmcInfoS $ "Run chain for " ++ show i ++ " iterations."
   mcmcIterate i
 
 mcmcContinueRun :: Algorithm t a => MCMC (t a) ()
 mcmcContinueRun = do
   s <- reader settings
-  let iTotal = iterations s + burnInIterations (burnIn s)
+  let iTotal = sIterations s + burnInIterations (sBurnIn s)
   mcmcInfoB "Continuation of MCMC sampler."
   a <- get
   let iCurrent = aIteration a
@@ -127,7 +127,7 @@ mcmcContinueRun = do
 mcmcBurnIn :: Algorithm t a => MCMC (t a) ()
 mcmcBurnIn = do
   s <- reader settings
-  case burnIn s of
+  case sBurnIn s of
     NoBurnIn ->
       mcmcInfoS "No burn in."
     BurnInNoAutoTuning n -> do
@@ -207,12 +207,12 @@ mcmcSave :: Algorithm t a => MCMC (t a) ()
 mcmcSave = do
   ss <- reader settings
   a <- get
-  case saveMode ss of
+  case sSaveMode ss of
     NoSave -> mcmcInfoB "Do not save the Markov chain."
     SaveWithTrace n -> do
       mcmcInfoB "Save settings."
       liftIO $ settingsSave ss
-      let nm = analysisName ss
+      let nm = sAnalysisName ss
       mcmcInfoS $
         "Save compressed Markov chain with trace of length " ++ show n ++ "."
       mcmcInfoB "For long traces, or complex objects, this may take a while."
@@ -249,5 +249,5 @@ mcmc s a = do
 mcmcContinue :: Algorithm t a => Int -> Settings -> t a -> IO (t a)
 mcmcContinue dn s = mcmc s'
   where
-    n = iterations s
-    s' = s {iterations = n + dn, executionMode = Continue}
+    n = sIterations s
+    s' = s {sIterations = n + dn, sExecutionMode = Continue}

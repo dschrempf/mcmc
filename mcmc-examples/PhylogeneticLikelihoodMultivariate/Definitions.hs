@@ -21,8 +21,8 @@ module Definitions
     likelihoodFunction,
     proposals,
     monitor,
-    burnInSpec,
-    nIterations,
+    burnIn,
+    iterations,
   )
 where
 
@@ -317,9 +317,9 @@ getTimeTreeNodeHeight p x = (* h) $ fromLength $ t ^. subTreeAtE p . labelL . he
 
 -- Monitor the height of calibrated nodes.
 monCalibratedNodes :: [Calibration] -> [MonitorParameter I]
-monCalibratedNodes cb = [getTimeTreeNodeHeight p >$< monitorDouble (nm n a b) | (n, p, a, b) <- cb]
+monCalibratedNodes cb = [getTimeTreeNodeHeight p >$< monitorDouble (name n a b) | (n, p, a, b) <- cb]
   where
-    nm s l r = "Calibration " ++ s ++ " (" ++ show l ++ ", " ++ show r ++ ")"
+    name s l r = "Calibration " ++ s ++ " (" ++ show l ++ ", " ++ show r ++ ")"
 
 -- Get the difference in height of the nodes at path. Useful to have a look at
 -- constrained nodes. Positive if constraint is honored.
@@ -328,9 +328,9 @@ getTimeTreeDeltaNodeHeight y o x = getTimeTreeNodeHeight o x - getTimeTreeNodeHe
 
 -- Monitor the heights of constrained nodes.
 monConstrainedNodes :: [Constraint] -> [MonitorParameter I]
-monConstrainedNodes cs = [getTimeTreeDeltaNodeHeight y o >$< monitorDouble (nm n) | (n, y, o) <- cs]
+monConstrainedNodes cs = [getTimeTreeDeltaNodeHeight y o >$< monitorDouble (name n) | (n, y, o) <- cs]
   where
-    nm s = "Constraint " ++ s
+    name s = "Constraint " ++ s
 
 -- The file monitor is more verbose.
 monFileParams :: [Calibration] -> [Constraint] -> MonitorFile I
@@ -364,9 +364,9 @@ monitor :: [Calibration] -> [Constraint] -> Monitor I
 monitor cb cs = Monitor monStdOut [monFileParams cb cs, monFileTimeTree, monFileRateTree] []
 
 -- | Number of burn in iterations and auto tuning period.
-burnInSpec :: BurnIn
-burnInSpec = BurnInWithAutoTuning 3000 100
+burnIn :: BurnIn
+burnIn = BurnInWithAutoTuning 3000 100
 
 -- | Number of Metropolis-Hasting iterations after burn in.
-nIterations :: Int
-nIterations = 40000
+iterations :: Int
+iterations = 40000

@@ -117,8 +117,8 @@ bactrianBranch x y = getLens x y @~ slideBactrian 0.9 1.0 n (PWeight 1) Tune
     n = PName $ "Edge " <> show (x, y)
 
 -- Collect all sliding proposals into a cycle.
-proposals :: Cycle (Tree Length)
-proposals =
+cc :: Cycle (Tree Length)
+cc =
   fromList $
     map (uncurry slideBranch) (getEdges startingTree)
       ++ map (uncurry bactrianBranch) (getEdges startingTree)
@@ -177,16 +177,16 @@ mon :: Monitor (Tree Length)
 mon = Monitor monStdOut [monFile] [monBatch]
 
 -- Burn in specification.
-burnInSpec :: BurnIn
-burnInSpec = BurnInWithAutoTuning 4000 200
+burnIn :: BurnIn
+burnIn = BurnInWithAutoTuning 4000 200
 
 -- Number of Metropolis-Hasting iterations after burn in.
-nIterations :: Int
-nIterations = 20000
+iterations :: Int
+iterations = 20000
 
--- Name of the chain; used as prefix of the output file names.
-nm :: String
-nm = "ApproximatePhylogeneticLikelihood"
+-- Name of the analysis; used as prefix of the output file names.
+name :: String
+name = "ApproximatePhylogeneticLikelihood"
 
 -- The main program.
 main :: IO ()
@@ -198,8 +198,8 @@ main = do
     [] -> do
       g <- create
       -- Combine all the objects defined above.
-      let s = Settings nm burnInSpec nIterations Overwrite (SaveWithTrace 1000) Info
-          a = mhg pr (lh meanTree stdDevTree) proposals mon startingTree g
+      let s = Settings name burnIn iterations Overwrite (SaveWithTrace 1000) Info
+          a = mhg pr (lh meanTree stdDevTree) cc mon startingTree g
       -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
       void $ mcmc s a
     ["continue", nStr] -> do
@@ -211,8 +211,8 @@ main = do
       -- sets the tuning parameters of the proposals in the cycle. Using different
       -- proposals in the cycle, or using different monitors may lead to undefined
       -- behavior and is not supported.
-      s <- settingsLoad $ nm ++ ".settings"
-      a <- mhgLoad pr (lh meanTree stdDevTree) proposals mon nm
+      s <- settingsLoad name
+      a <- mhgLoad pr (lh meanTree stdDevTree) cc mon name
       -- Continue the chain for the given number of iterations.
       void $ mcmcContinue (read nStr) s a
     xs -> do

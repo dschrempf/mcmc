@@ -38,5 +38,5 @@ initializeEnvironment s = do
   t <- getCurrentTime
   return $ Environment s h t
   where
-    fn = analysisName s ++ ".log"
-    em = executionMode s
+    fn = sAnalysisName s ++ ".log"
+    em = sExecutionMode s

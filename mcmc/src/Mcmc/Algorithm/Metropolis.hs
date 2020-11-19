@@ -74,7 +74,7 @@ mhgSave ::
   String ->
   MHG a ->
   IO ()
-mhgSave n nm (MHG c) = saveChainWith n (mhgGetFn nm) c
+mhgSave n nm (MHG c) = saveChainWith n (mhgFn nm) c
 
 -- | Load an MHG algorithm.
 mhgLoad ::
@@ -86,10 +86,10 @@ mhgLoad ::
   -- | Analysis name.
   String ->
   IO (MHG a)
-mhgLoad pr lh cc mn nm = MHG <$> loadChainWith pr lh cc mn (mhgGetFn nm)
+mhgLoad pr lh cc mn nm = MHG <$> loadChainWith pr lh cc mn (mhgFn nm)
 
-mhgGetFn :: String -> FilePath
-mhgGetFn nm = nm ++ ".chain"
+mhgFn :: String -> FilePath
+mhgFn nm = nm ++ ".chain"
 
 -- The Metropolis-Hastings ratio.
 --
@@ -109,7 +109,6 @@ mhgRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 mhgRatio fX fY q j = fY / fX * q * j
 {-# INLINE mhgRatio #-}
 
--- TODO.
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
 mhgPropose (MHG c) p = do
   -- 1. Sample new state.
@@ -181,20 +180,20 @@ mhgOpenMonitors e (MHG c) = do
   where
     m = monitor c
     s = settings e
-    nm = analysisName s
-    em = executionMode s
+    nm = sAnalysisName s
+    em = sExecutionMode s
 
 mhgExecuteMonitors :: Environment -> MHG a -> IO (Maybe BL.ByteString)
 mhgExecuteMonitors e (MHG c) = mExec vb i i0 t0 tr j m
   where
     s = settings e
-    vb = verbosity s
+    vb = sVerbosity s
     i = iteration c
     i0 = start c
     t0 = startingTime e
     tr = trace c
-    b = burnInIterations $ burnIn s
-    j = iterations s + b
+    b = burnInIterations $ sBurnIn s
+    j = sIterations s + b
     m = monitor c
 
 mhgCloseMonitors :: MHG a -> IO (MHG a)
