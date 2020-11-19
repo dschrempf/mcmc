@@ -1,4 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
@@ -12,10 +14,11 @@
 -- Portability :  portable
 --
 -- Creation date: Tue May  5 20:11:30 2020.
---
--- Metropolis-Hastings algorithm.
 module Mcmc.Algorithm.Metropolis
   ( MHG (..),
+    mhg,
+    mhgSave,
+    mhgLoad,
   )
 where
 
@@ -36,21 +39,57 @@ import Numeric.Log
 import System.Random.MWC
 import Prelude hiding (cycle)
 
--- | Metropolis-Hastings-Green algorithm.
+-- | The Metropolis-Hastings-Green (MHG) algorithm.
 newtype MHG a = MHG {fromMHG :: Chain a}
 
-instance ToJSON a => Algorithm (MHG a) where
-  algorithmName = const "Metropolis-Hastings-Green algorithm."
-  algorithmIteration = iteration . fromMHG
-  algorithmIterate = mhgIterate
-  algorithmAutoTune = mhgAutoTune
-  algorithmResetAcceptance = mhgResetAcceptance
-  algorithmSummarizeCycle = mhgSummarizeCycle
-  algorithmOpenMonitors = mhgOpenMonitors
-  algorithmExecuteMonitors = mhgExecuteMonitors
-  algorithmCloseMonitors = mhgCloseMonitors
-  algorithmSaveWith = mhgSaveWith
-  algorithmReport = mhgReport
+instance (ToJSON a, FromJSON a) => Algorithm MHG a where
+  aName = const "Metropolis-Hastings-Green algorithm."
+  aIteration = iteration . fromMHG
+  aIterate = mhgIterate
+  aAutoTune = mhgAutoTune
+  aResetAcceptance = mhgResetAcceptance
+  aSummarizeCycle = mhgSummarizeCycle
+  aOpenMonitors = mhgOpenMonitors
+  aExecuteMonitors = mhgExecuteMonitors
+  aCloseMonitors = mhgCloseMonitors
+  aSave = mhgSave
+  aReport = mhgReport
+
+-- | Initialize an MHG algorithm.
+mhg ::
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  Cycle a ->
+  Monitor a ->
+  a ->
+  GenIO ->
+  MHG a
+mhg pr lh cc mn i0 g = MHG $ chain pr lh cc mn i0 g
+
+-- | Save an MHG algorithm.
+mhgSave ::
+  ToJSON a =>
+  Int ->
+  -- | Analysis name.
+  String ->
+  MHG a ->
+  IO ()
+mhgSave n nm (MHG c) = saveChainWith n (mhgGetFn nm) c
+
+-- | Load an MHG algorithm.
+mhgLoad ::
+  FromJSON a =>
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  Cycle a ->
+  Monitor a ->
+  -- | Analysis name.
+  String ->
+  IO (MHG a)
+mhgLoad pr lh cc mn nm = MHG <$> loadChainWith pr lh cc mn (mhgGetFn nm)
+
+mhgGetFn :: String -> FilePath
+mhgGetFn nm = nm ++ ".chain"
 
 -- The Metropolis-Hastings ratio.
 --
@@ -142,7 +181,7 @@ mhgOpenMonitors e (MHG c) = do
   where
     m = monitor c
     s = settings e
-    nm = name s
+    nm = analysisName s
     em = executionMode s
 
 mhgExecuteMonitors :: Environment -> MHG a -> IO (Maybe BL.ByteString)
@@ -154,10 +193,7 @@ mhgExecuteMonitors e (MHG c) = mExec vb i i0 t0 tr j m
     i0 = start c
     t0 = startingTime e
     tr = trace c
-    b = case burnIn s of
-      NoBurnIn -> 0
-      BurnInNoAutoTuning n -> n
-      BurnInWithAutoTuning n _ -> n
+    b = burnInIterations $ burnIn s
     j = iterations s + b
     m = monitor c
 
@@ -167,9 +203,6 @@ mhgCloseMonitors (MHG c) = do
   return $ MHG $ c {monitor = m'}
   where
     m = monitor c
-
-mhgSaveWith :: ToJSON a => Int -> FilePath -> MHG a -> IO ()
-mhgSaveWith n fn (MHG c) = saveChainWith n fn c
 
 mhgReport :: MHG a -> (Log Double, Log Double)
 mhgReport (MHG c) = (prior i, likelihood i)

@@ -20,7 +20,6 @@ where
 
 import Control.Monad
 import Mcmc
-import Numeric.Log
 import qualified Statistics.Distribution as S
 import qualified Statistics.Distribution.Exponential as S
 import System.Random.MWC
@@ -56,8 +55,8 @@ lh xs p
 
 -- The proposal cycle consists of one proposal only. A uniform distribution is used to
 -- slide the precision of the archer.
-proposals :: Cycle Precision
-proposals = fromList [slideUniformSymmetric 1.0 (PName "Mu") (PWeight 1) Tune]
+ps :: Cycle Precision
+ps = fromList [slideUniformSymmetric 1.0 (PName "Mu") (PWeight 1) Tune]
 
 -- proposals = fromList [scaleUnbiased 1.6 (PName "Mu") (PWeight 1) Tune]
 -- proposals = fromList [slide 0.06 0.8 (PName "Mu") (PWeight 1) Tune]
@@ -100,8 +99,9 @@ main = do
   g <- create
   -- Simulate a list of observed arrow distances.
   xs <- distances g
-  -- Combine all the objects defined above.
+  -- MCMC settings and algorithm.
   let s = Settings "archery" burnInSpec nIter Overwrite NoSave Info
-      c = chain pr (lh xs) proposals mon 0.01 g
-  -- Run the Markov chain Monte Carlo sampler using the Metropolis-Hastings algorithm.
-  void $ mcmcWith s (MHG c)
+      -- Use the Metropolis-Hastings-Green (MHG) algorithm.
+      a = mhg pr (lh xs) ps mon 0.01 g
+  -- Run the Markov chain Monte Carlo algorithm.
+  void $ mcmc s a

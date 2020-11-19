@@ -73,5 +73,5 @@ mon = Monitor monStd [] []
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
   let s = Settings "Poisson" (BurnInWithAutoTuning 2000 200) 10000 Overwrite NoSave Quiet
-      c = chain noPrior lh proposals mon initial g
-  void $ mcmcWith s (MHG c)
+      a = mhg noPrior lh proposals mon initial g
+  void $ mcmc s a

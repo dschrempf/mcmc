@@ -80,6 +80,12 @@ monTree = monitorFile "-tree" [fromHeightTree >$< monitorTree "Tree"] 1
 mon :: Tree e a -> Monitor I
 mon t = Monitor (monStd t) [monFile t, monTree] []
 
+burnInSpec :: BurnIn
+burnInSpec = BurnInWithAutoTuning 2000 1000
+
+nIterations :: Int
+nIterations = 6000
+
 main :: IO ()
 main = do
   let t =
@@ -89,6 +95,6 @@ main = do
               phyloToLengthTree $
                 parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,(d:2.0,e:2.0):1.0):0.0;"
   g <- create
-  let s = Settings "test" (BurnInWithAutoTuning 2000 100) 6000 Overwrite NoSave Info
-      c = chain pr noData (proposals t) (mon t) t g
-  void $ mcmcWith s (MHG c)
+  let s = Settings "test" burnInSpec nIterations Overwrite NoSave Info
+      a = mhg pr noData (proposals t) (mon t) t g
+  void $ mcmc s a

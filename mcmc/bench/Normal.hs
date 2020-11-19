@@ -51,8 +51,8 @@ mon = Monitor monStd [] []
 normalBench :: GenIO -> IO ()
 normalBench g = do
   let s = Settings "Normal" (BurnInWithAutoTuning 2000 200) 20000 Overwrite NoSave Quiet
-      c = chain noPrior lh proposals mon 0 g
-  void $ mcmcWith s (MHG c)
+      a = mhg noPrior lh proposals mon 0 g
+  void $ mcmc s a
 
 proposalsBactrian :: Cycle Double
 proposalsBactrian =
@@ -62,5 +62,5 @@ proposalsBactrian =
 normalBactrianBench :: GenIO -> IO ()
 normalBactrianBench g = do
   let s = Settings "NormalBactrian" (BurnInWithAutoTuning 2000 200) 20000 Overwrite NoSave Quiet
-      c = chain noPrior lh proposalsBactrian mon 0 g
-  void $ mcmcWith s (MHG c)
+      a = mhg noPrior lh proposalsBactrian mon 0 g
+  void $ mcmc s a

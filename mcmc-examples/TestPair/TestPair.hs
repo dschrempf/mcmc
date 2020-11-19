@@ -69,5 +69,5 @@ main :: IO ()
 main = do
   g <- create
   let s = Settings "test" burnInSpec nIterations Overwrite NoSave Info
-      c = chain pr lh proposals mon (1.0, 1.0) g
-  void $ mcmcWith s (MHG c)
+      a = mhg pr lh proposals mon (1.0, 1.0) g
+  void $ mcmc s a

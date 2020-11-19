@@ -23,7 +23,6 @@ import Data.Aeson
 import qualified Data.Vector.Unboxed as V
 import GHC.Generics
 import Mcmc
-import Numeric.Log
 import Statistics.Distribution.Dirichlet
 import System.Random.MWC
 
@@ -53,17 +52,17 @@ simulateData g = replicateM nObservations (dirichletSample dd g)
   where
     dd = either error id $ dirichletDistribution alphasTrue
 
--- Do not accept negative parameters.
-priorDistribution :: I -> Log Double
-priorDistribution (I as n)
+-- Prior function.
+pr :: PriorFunction I
+pr (I as n)
   | V.any (< 0) (toVector as) = 0.0
   | n < 0 = 0.0
   | otherwise = 1.0
 
 -- The likelihood function is just the product of the Dirichlet densities of all
 -- observations.
-likelihoodFunction :: [V.Vector Double] -> I -> Log Double
-likelihoodFunction xs (I as n) = case eitherDds of
+lhf :: [V.Vector Double] -> LikelihoodFunction I
+lhf xs (I as n) = case eitherDds of
   Left _ -> 0
   Right dd -> product $ map (dirichletDensity dd) xs
   where
@@ -122,14 +121,9 @@ main = do
   xs <- simulateData g
   print xs
   print initialValue
-  let s = Settings "dirichlet" (BurnInWithAutoTuning 3000 100) 30000 Overwrite NoSave Info
-      c =
-        chain
-          priorDistribution
-          (likelihoodFunction xs)
-          proposals
-          monitors
-          initialValue
-          g
-  _ <- mcmcWith s (MHG c)
+  let
+    lh = lhf xs
+    s = Settings "dirichlet" (BurnInWithAutoTuning 3000 100) 30000 Overwrite NoSave Info
+    a = mhg pr lh proposals monitors initialValue g
+  _ <- mcmc s a
   putStrLn "Done."

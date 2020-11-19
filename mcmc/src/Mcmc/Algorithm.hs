@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 -- |
 -- Module      :  Mcmc.Algorithm
 -- Description :  MCMC algorithms
@@ -19,33 +21,39 @@ import Mcmc.Environment
 import Numeric.Log
 
 -- | TODO: REFACTOR. Documentation.
-class Algorithm a where
-  algorithmName :: a -> String
+-- @t@ is the algorithm, @a@ is the state space.
+class Algorithm t a where
+  aName :: t a -> String
 
-  algorithmIteration :: a -> Int
+  aIteration :: t a -> Int
 
   -- TODO: Splitmix. Remove IO monad as soon as possible.
 
-  algorithmIterate :: a -> IO a
+  aIterate :: t a -> IO (t a)
 
-  algorithmAutoTune :: a -> a
+  aAutoTune :: t a -> t a
 
-  algorithmResetAcceptance :: a -> a
+  aResetAcceptance :: t a -> t a
 
-  algorithmSummarizeCycle :: a -> BL.ByteString
+  aSummarizeCycle :: t a -> BL.ByteString
 
   -- | Open all monitor files and provide the file handles.
-  algorithmOpenMonitors :: Environment -> a -> IO a
+  aOpenMonitors :: Environment -> t a -> IO (t a)
 
   -- | Execute file monitors and possible return a string to be written to the
   -- standard output and the log file.
-  algorithmExecuteMonitors :: Environment -> a -> IO (Maybe BL.ByteString)
+  aExecuteMonitors :: Environment -> t a -> IO (Maybe BL.ByteString)
 
   -- | Close all files and remove the file handles.
-  algorithmCloseMonitors :: a -> IO a
+  aCloseMonitors :: t a -> IO (t a)
 
   -- | Save chain(s) with trace of given maximum length.
-  algorithmSaveWith :: Int -> FilePath -> a -> IO ()
+  aSave ::
+    Int ->
+    -- | Analysis name.
+    String ->
+    t a ->
+    IO ()
 
   -- | Report prior and likelihood; useful for debugging.
-  algorithmReport :: a -> (Log Double, Log Double)
+  aReport :: t a -> (Log Double, Log Double)

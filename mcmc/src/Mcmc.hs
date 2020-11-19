@@ -137,19 +137,23 @@ module Mcmc
     -- * Prior distributions
     module Mcmc.Prior,
 
-    -- * Algorithms
-    mcmcWith,
-    MHG (..),
+    -- * MCMC sampler
+    mcmc,
+    mcmcContinue,
 
-    -- * Load and continue
-    loadSettings,
-    loadChainWith,
+    -- * Algorithms
+    MHG,
+    mhg,
+
+    -- * Save and load
+    settingsLoad,
+    mhgSave,
+    mhgLoad,
   )
 where
 
 import Mcmc.Algorithm.Metropolis
 import Mcmc.Chain.Chain
-import Mcmc.Chain.Save
 import Mcmc.Mcmc
 import Mcmc.Monitor
 import Mcmc.Monitor.Parameter

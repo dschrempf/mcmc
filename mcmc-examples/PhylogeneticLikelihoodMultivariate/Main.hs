@@ -195,7 +195,7 @@ runMetropolisHastings = do
       -- Constraints.
       cs = getConstraints meanTree
       -- Prior function.
-      pr' = priorDistribution cb cs
+      pr' = priorFunction cb cs
       -- Likelihood function.
       lh' = likelihoodFunction mu sigmaInv logSigmaDet
       -- Proposal cycle.
@@ -212,19 +212,10 @@ runMetropolisHastings = do
 
   -- Construct the Markov chain.
   let s = Settings bnAnalysis burnInSpec nIterations Overwrite (SaveWithTrace 1) Debug
-      c =
-        -- Have a look at the 'status' function to understand the
-        -- different parameters.
-        chain
-          pr'
-          lh'
-          ccl'
-          mon'
-          start'
-          g
+      a = mhg pr' lh' ccl' mon' start' g
 
   -- Run the Markov chain.
-  void $ mcmcWith s (MHG c)
+  void $ mcmc s a
 
 continueMetropolisHastings :: Int -> IO ()
 continueMetropolisHastings n = do
@@ -241,7 +232,7 @@ continueMetropolisHastings n = do
       -- Constraints.
       cs = getConstraints meanTree
       -- Prior function.
-      pr' = priorDistribution cb cs
+      pr' = priorFunction cb cs
       -- Likelihood function.
       lh' = likelihoodFunction mu sigmaInv logSigmaDet
       -- Proposal cycle.
@@ -250,17 +241,9 @@ continueMetropolisHastings n = do
       mon' = monitor cb cs
 
   -- Load the MCMC status.
-  s <- loadSettings (bnAnalysis ++ ".settings")
-  let i = iterations s
-      s' = s {iterations = i + n, executionMode = Continue}
-  c <-
-    loadChainWith
-      pr'
-      lh'
-      ccl'
-      mon'
-      (bnAnalysis ++ ".chain")
-  void $ mcmcWith s' (MHG c)
+  s <- settingsLoad bnAnalysis
+  a <- mhgLoad pr' lh' ccl' mon' bnAnalysis
+  void $ mcmcContinue n s a
 
 main :: IO ()
 main = do

@@ -17,7 +17,7 @@ module Definitions
     bnAnalysis,
     I (..),
     initWith,
-    priorDistribution,
+    priorFunction,
     likelihoodFunction,
     proposals,
     monitor,
@@ -140,9 +140,9 @@ initWith t =
 
 -- The constraints are defined in the module 'Constraint'.
 
--- | Prior distribution.
-priorDistribution :: [Calibration] -> [Constraint] -> I -> Log Double
-priorDistribution cb cs (I l m h t mu k r) =
+-- | Prior function.
+priorFunction :: [Calibration] -> [Constraint] -> PriorFunction I
+priorFunction cb cs (I l m h t mu k r) =
   product' $
     [ -- Exponential prior on the birth and death rates of the time tree.
       exponential 1 l,
@@ -193,9 +193,7 @@ likelihoodFunction ::
   L.Matrix Double ->
   -- | Log of determinant of covariance matrix.
   Double ->
-  -- | Current state.
-  I ->
-  Log Double
+  LikelihoodFunction I
 likelihoodFunction mu sigmaInv logSigmaDet x =
   logDensityMultivariateNormal mu sigmaInv logSigmaDet distances
   where

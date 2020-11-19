@@ -17,6 +17,7 @@ where
 import Mcmc
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Save
+import Mcmc.Algorithm.Metropolis
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
@@ -54,20 +55,13 @@ spec =
     it "doesn't change the MCMC chain" $
       do
         gen <- R.create
-        let s =
-              Settings
-                "SaveSpec"
-                (BurnInWithAutoTuning 20 10)
-                200
-                Overwrite
-                (SaveWithTrace 100)
-                Quiet
+        let s = Settings "SaveSpec" (BurnInWithAutoTuning 20 10) 200 Overwrite (SaveWithTrace 100) Quiet
             c = chain noPrior lh proposals mon 0 gen
         saveChainWith 100 "SaveSpec.chain" c
         c' <- loadChainWith noPrior lh proposals mon "SaveSpec.chain"
         removeFile "SaveSpec.chain"
-        r <- fromMHG <$> mcmcWith s (MHG c)
-        r' <- fromMHG <$> mcmcWith s (MHG c')
+        r <- fromMHG <$> mcmc s (MHG c)
+        r' <- fromMHG <$> mcmc s (MHG c')
         item r `shouldBe` item r'
         iteration r `shouldBe` iteration r'
         trace r `shouldBe` trace r'
