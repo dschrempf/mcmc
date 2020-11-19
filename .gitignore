@@ -25,12 +25,14 @@ dist-*
 
 # Mcmc
 *.batch
+*.chain
+*.data
 *.json
 *.log
 *.mcmc
-*.monitor
-*.data
 *.meantree
+*.monitor
+*.settings
 
 # Emacs
 /**/TAGS

@@ -159,7 +159,7 @@ monStdOut = monitorStdOut branchMons 100
 
 -- Monitor branch lengths to a file.
 monFile :: MonitorFile (Tree Length)
-monFile = monitorFile "Branches" branchMons 10
+monFile = monitorFile "-branches" branchMons 10
 
 -- Monitor batch means of branch lengths.
 branchBatchMons :: [MonitorParameterBatch (Tree Length)]
@@ -170,7 +170,7 @@ branchBatchMons =
 
 -- Monitor batch means of branch lengths to a file.
 monBatch :: MonitorBatch (Tree Length)
-monBatch = monitorBatch "Branches" branchBatchMons 100
+monBatch = monitorBatch "-branches" branchBatchMons 100
 
 -- Combine the monitors.
 mon :: Monitor (Tree Length)
@@ -186,7 +186,7 @@ iterations = 20000
 
 -- Name of the analysis; used as prefix of the output file names.
 name :: String
-name = "ApproximatePhylogeneticLikelihood"
+name = "plh"
 
 -- The main program.
 main :: IO ()
@@ -198,7 +198,7 @@ main = do
     [] -> do
       g <- create
       -- Combine all the objects defined above.
-      let s = Settings name burnIn iterations Overwrite (SaveWithTrace 1000) Info
+      let s = Settings name burnIn iterations Overwrite (SaveWithTrace 1000) Debug
           a = mhg pr (lh meanTree stdDevTree) cc mon startingTree g
       -- Run the MCMC sampler using the Metropolis-Hastings-Green algorithm.
       void $ mcmc s a

@@ -308,7 +308,7 @@ renderRow ::
   BL.ByteString ->
   BL.ByteString ->
   BL.ByteString
-renderRow name ptype weight nAccept nReject acceptRatio tuneParam manualAdjustment = "   " <> nm <> pt <> wt <> na <> nr <> ra <> tp <> mt
+renderRow name ptype weight nAccept nReject acceptRatio tuneParam manualAdjustment = nm <> pt <> wt <> na <> nr <> ra <> tp <> mt
   where
     nm = alignLeft 30 name
     pt = alignLeft 50 ptype
@@ -347,13 +347,13 @@ summarizeProposal m r =
     manualAdjustmentStr = BL.fromStrict $ maybe "" (check . (^. _3)) r
 
 hLine :: BL.ByteString -> BL.ByteString
-hLine s = "   " <> BL.replicate (BL.length s - 3) '-'
+hLine s = BL.replicate (BL.length s - 3) '-'
 
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance ratios.
 summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> BL.ByteString
 summarizeCycle a c =
   BL.intercalate "\n" $
-    [ "Summary of proposal(s) in cycle. " <> mpi <> " proposal(s) per iteration.",
+    [ "Summary of proposal(s) in cycle. " <> mpi <> " proposal(s) are performed per iteration.",
       proposalHeader,
       hLine proposalHeader
     ]

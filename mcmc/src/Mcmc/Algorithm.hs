@@ -43,6 +43,9 @@ class Algorithm t a where
   -- standard output and the log file.
   aExecuteMonitors :: Environment -> t a -> IO (Maybe BL.ByteString)
 
+  -- | Header of monitor to standard output.
+  aStdMonitorHeader :: t a -> BL.ByteString
+
   -- | Close all files and remove the file handles.
   aCloseMonitors :: t a -> IO (t a)
 

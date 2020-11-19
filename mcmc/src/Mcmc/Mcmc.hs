@@ -37,14 +37,15 @@ import Prelude hiding (cycle)
 -- transforming the state @a@.
 type MCMC a = RWST Environment () a IO
 
-msgPrepare :: Char -> BL.ByteString -> BL.ByteString
-msgPrepare c t = BL.cons c $ ": " <> t
+msgPrepare :: BL.ByteString -> BL.ByteString -> BL.ByteString
+msgPrepare pref msg = BL.intercalate "\n" $ map (BL.append pref) $ BL.lines msg
 
 -- Write to standard output and log file.
-mcmcOutB :: BL.ByteString -> MCMC a ()
-mcmcOutB msg = do
+mcmcOutB :: BL.ByteString -> BL.ByteString -> MCMC a ()
+mcmcOutB pref msg = do
   h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> reader logHandle
-  liftIO $ BL.putStrLn msg >> BL.hPutStrLn h msg
+  liftIO $ BL.putStrLn msg' >> BL.hPutStrLn h msg'
+  where msg' = msgPrepare pref msg
 
 -- -- Perform warning action.
 -- mcmcWarnA :: MCMC a () -> MCMC a ()
@@ -64,7 +65,7 @@ mcmcInfoA a = reader (sVerbosity . settings) >>= \v -> when (v >= Info) a
 
 -- Print info message.
 mcmcInfoB :: BL.ByteString -> MCMC a ()
-mcmcInfoB = mcmcInfoA . mcmcOutB . msgPrepare 'I'
+mcmcInfoB = mcmcInfoA . mcmcOutB "I: "
 
 -- Print info message.
 mcmcInfoS :: String -> MCMC a ()
@@ -76,7 +77,7 @@ mcmcDebugA a = reader (sVerbosity . settings) >>= \v -> when (v == Debug) a
 
 -- Print debug message.
 mcmcDebugB :: BL.ByteString -> MCMC a ()
-mcmcDebugB = mcmcDebugA . mcmcOutB . msgPrepare 'D'
+mcmcDebugB = mcmcDebugA . mcmcOutB "D: "
 
 -- Print debug message.
 mcmcDebugS :: String -> MCMC a ()
@@ -103,12 +104,14 @@ mcmcNewRun = do
   s <- reader settings
   mcmcInfoB "Start new MCMC sampler."
   mcmcInfoB "Initial state."
+  mcmcPrintStdMonitorHeader
   mcmcExecuteMonitors
   get >>= mcmcInfoB . aSummarizeCycle
   mcmcBurnIn
   mcmcResetAcceptance
   let i = sIterations s
   mcmcInfoS $ "Run chain for " ++ show i ++ " iterations."
+  mcmcPrintStdMonitorHeader
   mcmcIterate i
 
 mcmcContinueRun :: Algorithm t a => MCMC (t a) ()
@@ -123,6 +126,7 @@ mcmcContinueRun = do
   let di = iTotal - iCurrent
   get >>= mcmcInfoB . aSummarizeCycle
   mcmcInfoS $ "Run chain for " ++ show di ++ " iterations."
+  mcmcPrintStdMonitorHeader
   mcmcIterate di
 
 mcmcBurnIn :: Algorithm t a => MCMC (t a) ()
@@ -134,12 +138,14 @@ mcmcBurnIn = do
     BurnInNoAutoTuning n -> do
       mcmcInfoS $ "Burn in for " <> show n <> " iterations."
       mcmcInfoS "Auto tuning is disabled."
+      mcmcPrintStdMonitorHeader
       mcmcIterate n
       get >>= mcmcInfoB . aSummarizeCycle
       mcmcInfoB "Burn in finished."
     BurnInWithAutoTuning n t -> do
       mcmcInfoS $ "Burn in for " ++ show n ++ " iterations."
       mcmcInfoS $ "Auto tuning is enabled with a period of " ++ show t ++ "."
+      mcmcPrintStdMonitorHeader
       mcmcBurnInWithAutoTuning n t
       mcmcInfoB "Burn in finished."
 
@@ -173,7 +179,10 @@ mcmcExecuteMonitors = do
   e <- ask
   a <- get
   mStdLog <- liftIO (aExecuteMonitors e a)
-  forM_ mStdLog mcmcOutB
+  forM_ mStdLog (mcmcOutB "   ")
+
+mcmcPrintStdMonitorHeader :: Algorithm t a => MCMC (t a) ()
+mcmcPrintStdMonitorHeader = get >>= mcmcInfoB . aStdMonitorHeader
 
 -- Auto tune the proposals.
 mcmcAutotune :: Algorithm t a => MCMC (t a) ()

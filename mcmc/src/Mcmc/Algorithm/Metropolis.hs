@@ -51,6 +51,7 @@ instance (ToJSON a, FromJSON a) => Algorithm MHG a where
   aSummarizeCycle = mhgSummarizeCycle
   aOpenMonitors = mhgOpenMonitors
   aExecuteMonitors = mhgExecuteMonitors
+  aStdMonitorHeader = mhgStdMonitorHeader
   aCloseMonitors = mhgCloseMonitors
   aSave = mhgSave
   aReport = mhgReport
@@ -195,6 +196,9 @@ mhgExecuteMonitors e (MHG c) = mExec vb i i0 t0 tr j m
     b = burnInIterations $ sBurnIn s
     j = sIterations s + b
     m = monitor c
+
+mhgStdMonitorHeader :: MHG a -> BL.ByteString
+mhgStdMonitorHeader (MHG c) = msHeader (mStdOut $ monitor c)
 
 mhgCloseMonitors :: MHG a -> IO (MHG a)
 mhgCloseMonitors (MHG c) = do

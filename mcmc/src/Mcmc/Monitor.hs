@@ -16,6 +16,7 @@ module Mcmc.Monitor
     Monitor (..),
     MonitorStdOut,
     monitorStdOut,
+    msHeader,
     MonitorFile,
     monitorFile,
     MonitorBatch,
@@ -78,7 +79,7 @@ monitorStdOut ps p
   | otherwise = MonitorStdOut ps p
 
 msIWidth :: Int
-msIWidth = 12
+msIWidth = 9
 
 msWidth :: Int
 msWidth = 22
@@ -88,6 +89,7 @@ msRenderRow xs = alignRight msIWidth (head xs) <> BL.concat vals
   where
     vals = map (alignRight msWidth) (tail xs)
 
+-- | Header of monitor to standard output.
 msHeader :: MonitorStdOut a -> BL.ByteString
 msHeader m = BL.intercalate "\n" [row, sep]
   where
@@ -136,9 +138,9 @@ msExec ::
   IO (Maybe BL.ByteString)
 msExec i it ss st j m
   | i `mod` msPeriod m /= 0 = return Nothing
-  | i `mod` (msPeriod m * 100) == 0 = do
-    l <- msDataLine i it ss st j m
-    return $ Just $ msHeader m <> "\n" <> l
+  -- -- | i `mod` (msPeriod m * 100) == 0 = do
+  -- --   l <- msDataLine i it ss st j m
+  -- --   return $ Just $ msHeader m <> "\n" <> l
   | otherwise = Just <$> msDataLine i it ss st j m
 
 -- | Monitor to a file; constructed with 'monitorFile'.

@@ -109,5 +109,4 @@ loadChainWith pr lh cc mn fn = do
   let c = case res of
         Left err -> error err
         Right c' -> loadSavedChain pr lh cc mn c'
-  removeFile fn
   return c
