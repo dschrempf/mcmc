@@ -23,6 +23,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.RWS.CPS
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Maybe
 import Data.Time.Clock
 import Data.Time.Format
 import Mcmc.Algorithm
@@ -42,7 +43,7 @@ msgPrepare c t = BL.cons c $ ": " <> t
 -- Write to standard output and log file.
 mcmcOutB :: BL.ByteString -> MCMC a ()
 mcmcOutB msg = do
-  h <- reader logHandle
+  h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> reader logHandle
   liftIO $ BL.putStrLn msg >> BL.hPutStrLn h msg
 
 -- -- Perform warning action.
@@ -172,9 +173,7 @@ mcmcExecuteMonitors = do
   e <- ask
   a <- get
   mStdLog <- liftIO (aExecuteMonitors e a)
-  case mStdLog of
-    Nothing -> return ()
-    Just x -> mcmcOutB x
+  forM_ mStdLog mcmcOutB
 
 -- Auto tune the proposals.
 mcmcAutotune :: Algorithm t a => MCMC (t a) ()
@@ -201,7 +200,7 @@ mcmcClose = do
   mcmcInfoB $ "Wall clock run time: " <> renderDuration dt <> "."
   mcmcInfoS $ "End time: " <> fTime te
   h <- reader logHandle
-  liftIO $ hClose h
+  liftIO $ forM_ h hClose
 
 -- Save the MCMC run.
 mcmcSave :: Algorithm t a => MCMC (t a) ()

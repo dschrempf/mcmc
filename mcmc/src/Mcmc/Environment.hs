@@ -23,7 +23,7 @@ import System.IO
 -- | The environment of an MCMC run.
 data Environment = Environment
   { settings :: Settings,
-    logHandle :: Handle,
+    logHandle :: Maybe Handle,
     -- | Used to calculate the ETA.
     startingTime :: UTCTime
   }
@@ -34,9 +34,12 @@ data Environment = Environment
 -- Open log file, get current time.
 initializeEnvironment :: Settings -> IO Environment
 initializeEnvironment s = do
-  h <- openWithExecutionMode em fn
   t <- getCurrentTime
-  return $ Environment s h t
+  case sVerbosity s of
+    Quiet -> return $ Environment s Nothing t
+    _ -> do
+      h <- openWithExecutionMode em fn
+      return $ Environment s (Just h) t
   where
     fn = sAnalysisName s ++ ".log"
     em = sExecutionMode s
