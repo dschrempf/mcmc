@@ -22,8 +22,8 @@
 -- An MCMC sampler can be run with 'mcmc', for example using the
 -- Metropolis-Hastings-Green algorithm 'mhg'.
 --
--- The following example infers the mean and standard deviation of a normally
--- distributed variable. For more involved inferences, please see
+-- The following example infers the mean deviation of a normally distributed
+-- variable. For more involved inferences, please see
 -- [mcmc-examples](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples).
 --
 --
