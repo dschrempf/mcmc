@@ -22,11 +22,11 @@ import System.Random.MWC
 trueMean :: Double
 trueMean = 5
 
-trueStdDev :: Double
-trueStdDev = 4
+stdDev :: Double
+stdDev = 4
 
 lh :: LikelihoodFunction Double
-lh = normal trueMean trueStdDev
+lh = normal trueMean stdDev
 
 proposals :: Cycle Double
 proposals =

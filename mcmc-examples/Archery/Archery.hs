@@ -58,6 +58,7 @@ lh xs p
 cc :: Cycle Precision
 cc = cycleFromList [slideUniformSymmetric 1.0 (PName "Mu") (PWeight 1) Tune]
 
+-- -- Other possibilities for proposals.
 -- proposals = cycleFromList [scaleUnbiased 1.6 (PName "Mu") (PWeight 1) Tune]
 -- proposals = cycleFromList [slide 0.06 0.8 (PName "Mu") (PWeight 1) Tune]
 -- proposals = cycleFromList [scaleBactrian 0.3 0.3 (PName "Mu") (PWeight 1) Tune]

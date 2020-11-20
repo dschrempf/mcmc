@@ -199,8 +199,9 @@ main = do
       g <- create
       -- Combine all the objects defined above.
       let s = Settings name burnIn iterations Overwrite (SaveWithTrace 1000) Debug
+          -- Initialize the Metropolis-Hastings-Green algorithm.
           a = mhg pr (lh meanTree stdDevTree) cc mon startingTree g
-      -- Run the MCMC sampler using the Metropolis-Hastings-Green algorithm.
+      -- Run the MCMC sampler.
       void $ mcmc s a
     ["continue", nStr] -> do
       -- Load a previously finished, and saved chain. We have to give the prior
@@ -213,7 +214,7 @@ main = do
       -- behavior and is not supported.
       s <- settingsLoad name
       a <- mhgLoad pr (lh meanTree stdDevTree) cc mon name
-      -- Continue the chain for the given number of iterations.
+      -- Continue the MCMC sampler for the given number of iterations.
       void $ mcmcContinue (read nStr) s a
     xs -> do
       p <- getProgName

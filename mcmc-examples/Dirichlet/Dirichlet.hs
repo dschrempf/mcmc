@@ -26,22 +26,25 @@ import Mcmc
 import Statistics.Distribution.Dirichlet
 import System.Random.MWC
 
+-- The Dirichlet distribution is parametrized by a set of alpha values.
+alphasTrue :: V.Vector Double
+alphasTrue = V.fromList [0.1, 10, 8.0, 4.2, 4.5, 0.3]
+
+-- The state space includes the scaled alpha parameters with sum 1.0, and their
+-- normalization constant.
 data I = I
   { _alphas :: Simplex,
     _norm :: Double
   }
   deriving (Eq, Show, Generic)
 
--- Create accessors (lenses) to the parameters in the state space.Nothing
+-- Create accessors (lenses) to the parameters in the state space.
 makeLenses ''I
 
+-- Make sure that we can store and restore the Markov chain.
 instance ToJSON I
 
 instance FromJSON I
-
--- The true parameter values.
-alphasTrue :: V.Vector Double
-alphasTrue = V.fromList [0.1, 10, 8.0, 4.2, 4.5, 0.3]
 
 nObservations :: Int
 nObservations = 100
@@ -52,7 +55,7 @@ simulateData g = replicateM nObservations (dirichletSample dd g)
   where
     dd = either error id $ dirichletDistribution alphasTrue
 
--- Prior function.
+-- Improper, uninformative prior function. We don't allow negative values.
 pr :: PriorFunction I
 pr (I as n)
   | V.any (< 0) (toVector as) = 0.0
@@ -68,6 +71,7 @@ lhf xs (I as n) = case eitherDds of
   where
     eitherDds = dirichletDistribution $ V.map (* n) $ toVector as
 
+-- Beta proposals on the simplex storing the alpha parameters.
 alphaProposals :: [Proposal I]
 alphaProposals =
   [ alphas @~ beta i (PName "Alpha") (PWeight 1) Tune
@@ -82,7 +86,8 @@ alphaProposals =
 --       norm @~ scaleUnbiased 8.0 "scale norm" 1 True
 --     ]
 
--- Cycle with beta proposals.
+-- Cycle with the beta proposals and a proposal changing the normalization
+-- constant.
 cc :: Cycle I
 cc =
   cycleFromList $
@@ -130,7 +135,10 @@ main = do
   print start
   let
     lh = lhf xs
+    -- Settings.
     s = Settings "dirichlet" burnIn iterations Overwrite NoSave Info
+    -- Initialize the Metropolis-Hastings-Green algorithm.
     a = mhg pr lh cc mon start g
+  -- Run the MCMC sampler.
   _ <- mcmc s a
   putStrLn "Done."
