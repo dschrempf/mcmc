@@ -77,7 +77,7 @@ alphaProposals =
 -- -- Cycle with Dirichlet proposal.
 -- proposals :: Cycle I
 -- proposals =
---   fromList
+--   cycleFromList
 --     [ alphas @~ dirichlet "dirichlet" 1 True,
 --       norm @~ scaleUnbiased 8.0 "scale norm" 1 True
 --     ]
@@ -85,7 +85,7 @@ alphaProposals =
 -- Cycle with beta proposals.
 cc :: Cycle I
 cc =
-  fromList $
+  cycleFromList $
     norm @~ scaleUnbiased 8.0 (PName "Norm") (PWeight 1) Tune :
     alphaProposals
 

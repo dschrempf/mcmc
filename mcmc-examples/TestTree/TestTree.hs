@@ -32,7 +32,7 @@ pr = birthDeath WithoutStem 2.0 2.0 0.1
 -- Proposals on the tree.
 cc :: Show a => Tree e a -> Cycle I
 cc t =
-  fromList $
+  cycleFromList $
     -- -- Pulley on the root node.
     pulleyUltrametric t 0.1 (PName "Tree root") (PWeight 5) Tune :
     -- Scale branches excluding the stem.

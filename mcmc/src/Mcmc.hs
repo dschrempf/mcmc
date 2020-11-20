@@ -2,7 +2,7 @@
 
 -- |
 -- Module      :  Mcmc
--- Description :  Markov chain Monte Carlo sampler, batteries included
+-- Description :  Markov chain Monte Carlo samplers, batteries included
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -17,28 +17,66 @@
 -- C. J., 2011; Introduction to Markov Chain Monte Carlo. In Handbook of Markov
 -- Chain Monte Carlo (pp. 45), Chapman \& Hall/CRC.
 --
--- For examples, please see
+-- __The import of this module alone should cover most use cases.__
+--
+-- An MCMC sampler can be run with 'mcmc', for example using the
+-- Metropolis-Hastings-Green algorithm 'mhg'.
+--
+-- The following example infers the mean and standard deviation of a normally
+-- distributed variable. For more involved inferences, please see
 -- [mcmc-examples](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples).
 --
--- __The import of this module alone should cover most use cases.__
+--
+-- @
+-- import Control.Monad
+-- import Mcmc
+-- import System.Random.MWC
+--
+-- trueMean, trueStdDev :: Double
+-- trueMean = 5
+-- trueStdDev = 4
+--
+-- lh :: LikelihoodFunction Double
+-- lh = normal trueMean trueStdDev
+--
+-- cc :: Cycle Double
+-- cc = cycleFromList [slideSymmetric 1.0 (PName "Medium") (PWeight 1) Tune]
+--
+-- mons :: [MonitorParameter Double]
+-- mons = [monitorDouble "mu"]
+--
+-- monStd :: MonitorStdOut Double
+-- monStd = monitorStdOut mons 200
+--
+-- mon :: Monitor Double
+-- mon = Monitor monStd [] []
+--
+-- runMcmc :: GenIO -> IO (MHG Double)
+-- runMcmc g = do
+--   let s = Settings \"Normal\" (BurnInWithAutoTuning 2000 200) 20000 Overwrite NoSave Quiet
+--       a = mhg noPrior lh cc mon 0 g
+--   mcmc s a
+-- @
 module Mcmc
   ( -- * Proposals
 
-    -- | A 'Proposal' is an instruction about how to advance a given Markov chain so
-    -- that it possibly reaches a new state. That is, 'Proposal's specify how the
-    -- chain traverses the state space. As far as this MCMC library is
-    -- concerned, 'Proposal's are /elementary updates/ in that they cannot be
-    -- decomposed into smaller updates.
+    -- | A 'Proposal' is an instruction about how to advance a given Markov
+    -- chain so that it possibly reaches a new state. That is, 'Proposal's
+    -- specify how the chain traverses the state space. As far as this MCMC
+    -- library is concerned, 'Proposal's are considered to be /elementary
+    -- updates/ in that they cannot be decomposed into smaller updates.
     --
     -- 'Proposal's can be combined to form composite updates, a technique often
     -- referred to as /composition/. On the other hand, /mixing/ (used in the
     -- sense of mixture models) is the random choice of a 'Proposal' (or a
     -- composition of 'Proposal's) from a given set.
     --
-    -- The __composition__ and __mixture__ of 'Proposal's allows specification of
-    -- nearly all MCMC algorithms involving a single chain (i.e., population
+    -- The __composition__ and __mixture__ of 'Proposal's allows specification
+    -- of nearly all MCMC algorithms involving a single chain (i.e., population
     -- methods such as particle filters are excluded). In particular, Gibbs
-    -- samplers of all sorts can be specified using this procedure.
+    -- samplers of all sorts can be specified using this procedure. For
+    -- reference, please see the short [encyclopedia of MCMC
+    -- methods](https://dschrempf.github.io/coding/2020-11-12-encyclopedia-of-markov-chain-monte-carlo-methods/).
     --
     -- This library enables composition and mixture of 'Proposal's via the 'Cycle'
     -- data type. Essentially, a 'Cycle' is a set of 'Proposal's. The chain advances
@@ -65,19 +103,21 @@ module Mcmc
     --
     -- The other method, which is used intrinsically, is more systematic, but
     -- also a little bit more complicated: we separate between the proposal
-    -- distribution and how the state is affected. And here, I am not only
-    -- referring to the accessor (i.e., the lens), but also to the operator
-    -- (addition, multiplication, any other binary operator). For example, the
-    -- sliding proposal (without tuning information) is implemented as
+    -- distribution and how the state is affected. And here, I am referring to
+    -- the operator (addition, multiplication, any other binary operator). For
+    -- example, the sliding proposal with mean @m@, standard deviation @s@, and
+    -- tuning parameter @t@ is implemented as
     --
     -- @
-    -- slideSimple :: Lens' a Double -> Double -> Double -> Double -> ProposalSimple a
-    -- slideSimple l m s t = genericContinuous l (normalDistr m (s * t)) (+) (-)
+    -- slideSimple :: Double -> Double -> Double -> ProposalSimple Double
+    -- slideSimple m s t =
+    --   genericContinuous (normalDistr m (s * t)) (+) (Just negate) Nothing
     -- @
     --
     -- This specification is more involved. Especially since we need to know the
-    -- probability of jumping back, and so we need to know the inverse operator.
-    -- However, it also allows specification of new proposals with great ease.
+    -- probability of jumping back, and so we need to know the inverse operator
+    -- 'negate'. However, it also allows specification of new proposals with
+    -- great ease.
     --
     -- [1] Höhna, S., Landis, M. J., Heath, T. A., Boussau, B., Lartillot, N., Moore,
     -- B. R., Huelsenbeck, J. P., …, Revbayes: bayesian phylogenetic inference using
@@ -99,7 +139,7 @@ module Mcmc
     slideBactrian,
     module Mcmc.Proposal.Simplex,
     Cycle,
-    fromList,
+    cycleFromList,
     Order (..),
     setOrder,
 
@@ -110,21 +150,17 @@ module Mcmc
     Verbosity (..),
     Settings (..),
 
-    -- * Initialization
-    PriorFunction (..),
-    noPrior,
-    LikelihoodFunction (..),
-    noLikelihood,
-    chain,
-
     -- * Monitor
 
     -- | A 'Monitor' describes which part of the Markov chain should be logged
     -- and where. There are three different types:
-    -- - 'MonitorStdOut': Log to standard output.
-    -- - 'MonitorFile': Log to a file.
-    -- - 'MonitorBatch': Log summary statistics such as the mean of the last
-    -- - states to a file.
+    --
+    -- ['MonitorStdOut'] Log to standard output.
+    --
+    -- ['MonitorFile'] Log to a file.
+    --
+    -- ['MonitorBatch'] Log summary statistics such as the mean of the last
+    -- states to a file.
     Monitor (Monitor),
     MonitorStdOut,
     monitorStdOut,
@@ -136,9 +172,11 @@ module Mcmc
     module Mcmc.Monitor.ParameterBatch,
 
     -- * Prior distributions
+
+    -- | Convenience functions for computing priors.
     module Mcmc.Prior,
 
-    -- * MCMC sampler
+    -- * Run and continue MCMC samplers
     mcmc,
     mcmcContinue,
 
@@ -150,6 +188,12 @@ module Mcmc
     settingsLoad,
     mhgSave,
     mhgLoad,
+
+    -- * Useful type synonyms
+    PriorFunction (..),
+    noPrior,
+    LikelihoodFunction (..),
+    noLikelihood,
   )
 where
 

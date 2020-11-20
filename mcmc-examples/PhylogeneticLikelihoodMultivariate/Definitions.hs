@@ -267,7 +267,7 @@ timeHeightRateNormPair =
 -- | The proposal cycle includes proposals for the other parameters.
 proposals :: Show a => Tree e a -> Cycle I
 proposals t =
-  fromList $
+  cycleFromList $
     [ timeBirthRate @~ scaleUnbiased 10 (PName "Time birth rate") (PWeight 20) Tune,
       timeDeathRate @~ scaleUnbiased 10 (PName "Time death rate") (PWeight 20) Tune,
       timeHeight @~ scaleUnbiased 3000 (PName "Time height") (PWeight 20) Tune,

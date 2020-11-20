@@ -26,7 +26,7 @@ p2 :: Proposal Double
 p2 = slideSymmetric 1.0 (PName "Test 2") (PWeight 3) Tune
 
 c :: Cycle Double
-c = fromList [p1, p2]
+c = cycleFromList [p1, p2]
 
 spec :: Spec
 spec =

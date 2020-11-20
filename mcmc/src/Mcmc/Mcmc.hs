@@ -2,7 +2,7 @@
 
 -- |
 -- Module      :  Mcmc.Mcmc
--- Description :  Mcmc helpers
+-- Description :  Framework for running Markov chain Monte Carlo samplers
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -12,7 +12,9 @@
 --
 -- Creation date: Fri May 29 10:19:45 2020.
 --
--- Run an MCMC algorithm.
+-- This module provides the general framework for running MCMC samplers. By
+-- design choice this module is agnostic about the details of the used
+-- 'Algorithm'.
 module Mcmc.Mcmc
   ( mcmc,
     mcmcContinue,

@@ -53,7 +53,7 @@ proposalBeta :: Proposal I
 proposalBeta = _2 @~ slideSymmetric 0.2 (PName "Beta") (PWeight 1) NoTune
 
 proposals :: Cycle I
-proposals = fromList [proposalAlpha, proposalBeta]
+proposals = cycleFromList [proposalAlpha, proposalBeta]
 
 initial :: I
 initial = (0, 0)

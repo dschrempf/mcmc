@@ -3,7 +3,7 @@
 
 -- |
 -- Module      :  Mcmc.Chain.Save
--- Description :  Save the state of a Markov chain
+-- Description :  Save and load a Markov chain
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -33,7 +33,7 @@ import Data.Maybe
 import Data.Vector.Unboxed (Vector)
 import Data.Word
 import Mcmc.Chain.Chain
-import Mcmc.Chain.Item
+import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
 import Mcmc.Monitor
 import Mcmc.Proposal
@@ -43,7 +43,7 @@ import qualified System.Random.MWC as MWC
 import Prelude hiding (cycle)
 
 data SavedChain a = SavedChain
-  { savedItem :: Item a,
+  { savedLink :: Link a,
     savedIteration :: Int,
     savedTrace :: Trace a,
     savedAcceptance :: Acceptance Int,

@@ -32,7 +32,7 @@ lh _ = 1.0
 -- slide the precision of the archer.
 cc :: Cycle I
 cc =
-  fromList
+  cycleFromList
     [ _1 @~ slideSymmetric 1 (PName "x") (PWeight 5) Tune,
       _2 @~ slideSymmetric 1 (PName "y") (PWeight 5) Tune,
       scaleContrarily 1.0 1.0 (PName "x y") (PWeight 5) Tune

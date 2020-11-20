@@ -34,7 +34,7 @@ import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Int
 import Data.Time.Clock
-import Mcmc.Chain.Item
+import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
 import Mcmc.Internal.ByteString
 import Mcmc.Monitor.Log
@@ -103,13 +103,13 @@ msHeader m = BL.intercalate "\n" [row, sep]
 
 msDataLine ::
   Int ->
-  Item a ->
+  Link a ->
   Int ->
   UTCTime ->
   Int ->
   MonitorStdOut a ->
   IO BL.ByteString
-msDataLine i (Item x p l) ss st j m = do
+msDataLine i (Link x p l) ss st j m = do
   ct <- getCurrentTime
   let dt = ct `diffUTCTime` st
       -- Careful, don't evaluate this when i == ss.
@@ -130,7 +130,7 @@ msDataLine i (Item x p l) ss st j m = do
 
 msExec ::
   Int ->
-  Item a ->
+  Link a ->
   Int ->
   UTCTime ->
   Int ->
@@ -189,10 +189,10 @@ mfHeader m = case mfHandle m of
 
 mfExec ::
   Int ->
-  Item a ->
+  Link a ->
   MonitorFile a ->
   IO ()
-mfExec i (Item x p l) m
+mfExec i (Link x p l) m
   | i `mod` mfPeriod m /= 0 = return ()
   | otherwise = case mfHandle m of
     Nothing ->
@@ -285,7 +285,7 @@ mbExec i t' m
           renderLog mlos :
             [BB.toLazyByteString $ mbpFunc mbp (map state t) | mbp <- mbParams m]
   where
-    t = takeItems (mbSize m) t'
+    t = takeLinks (mbSize m) t'
     lps = map prior t
     lls = map likelihood t
     los = zipWith (*) lps lls

@@ -36,7 +36,7 @@ lh = Exp . logDensity (normalDistr trueMean trueStdDev)
 
 proposals :: Cycle Double
 proposals =
-  fromList
+  cycleFromList
     [ slideSymmetric 0.1 (PName "Small") (PWeight 5) Tune,
       slideSymmetric 1.0 (PName "Medium") (PWeight 2) Tune,
       slideSymmetric 5.0 (PName "Large") (PWeight 2) Tune,
@@ -62,7 +62,7 @@ spec =
         removeFile "SaveSpec.chain"
         r <- fromMHG <$> mcmc s (MHG c)
         r' <- fromMHG <$> mcmc s (MHG c')
-        item r `shouldBe` item r'
+        link r `shouldBe` link r'
         iteration r `shouldBe` iteration r'
         trace r `shouldBe` trace r'
         g <- R.save $ generator r
@@ -80,7 +80,7 @@ spec =
 --     let s2 = chain "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 200 gen2
 --     r2' <- mh s2
 --     r2 <- mhContinue 200 r2'
---     item r1 `shouldBe` item r2
+--     link r1 `shouldBe` link r2
 --     iteration r1 `shouldBe` iteration r2
 --     trace r1 `shouldBe` trace r2
 --     g <- save $ generator r1

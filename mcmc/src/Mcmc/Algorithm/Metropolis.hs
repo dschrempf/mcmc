@@ -28,7 +28,7 @@ import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Mcmc.Algorithm
 import Mcmc.Chain.Chain
-import Mcmc.Chain.Item
+import Mcmc.Chain.Link
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
 import Mcmc.Environment
@@ -122,19 +122,19 @@ mhgPropose (MHG c) p = do
   if ln r >= 0.0
     then do
       let !ac' = pushA p True ac
-      return $ MHG $ c {item = Item y pY lY, acceptance = ac'}
+      return $ MHG $ c {link = Link y pY lY, acceptance = ac'}
     else do
       b <- uniform g
       if b < exp (ln r)
         then do
           let !ac' = pushA p True ac
-          return $ MHG $ c {item = Item y pY lY, acceptance = ac'}
+          return $ MHG $ c {link = Link y pY lY, acceptance = ac'}
         else do
           let !ac' = pushA p False ac
           return $ MHG $ c {acceptance = pushA p False ac'}
   where
     s = pSimple p
-    (Item x pX lX) = item c
+    (Link x pX lX) = link c
     pF = priorFunction c
     lF = likelihoodFunction c
     ac = acceptance c
@@ -143,7 +143,7 @@ mhgPropose (MHG c) p = do
 mhgPush :: MHG a -> MHG a
 mhgPush (MHG c) = MHG c {trace = pushT i t, iteration = succ n}
   where
-    i = item c
+    i = link c
     t = trace c
     n = iteration c
 
@@ -210,4 +210,4 @@ mhgCloseMonitors (MHG c) = do
 mhgReport :: MHG a -> (Log Double, Log Double)
 mhgReport (MHG c) = (prior i, likelihood i)
   where
-    i = item c
+    i = link c

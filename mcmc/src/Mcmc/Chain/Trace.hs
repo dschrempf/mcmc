@@ -1,6 +1,6 @@
 -- |
 -- Module      :  Mcmc.Chain.Trace
--- Description :  Trace of a Markov chain
+-- Description :  History of a Markov chain
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -14,18 +14,18 @@ module Mcmc.Chain.Trace
     singletonT,
     pushT,
     headT,
-    takeItems,
+    takeLinks,
     takeT,
   )
 where
 
 import Data.Aeson
-import Mcmc.Chain.Item
+import Mcmc.Chain.Link
 
 -- | A 'Trace' passes through a list of states with associated likelihoods which
--- are called 'Item's. New 'Item's are prepended, and the path of the Markov
+-- are called 'Link's. New 'Link's are prepended, and the path of the Markov
 -- chain is stored in reversed order.
-newtype Trace a = Trace {fromTrace :: [Item a]}
+newtype Trace a = Trace {fromTrace :: [Link a]}
   deriving (Show, Read, Eq)
 
 instance Semigroup (Trace a) where
@@ -42,21 +42,21 @@ instance FromJSON a => FromJSON (Trace a) where
   parseJSON v = Trace <$> parseJSONList v
 
 -- | The empty trace.
-singletonT :: Item a -> Trace a
+singletonT :: Link a -> Trace a
 singletonT i = Trace [i]
 
--- | Prepend an 'Item' to a 'Trace'.
-pushT :: Item a -> Trace a -> Trace a
+-- | Prepend an 'Link' to a 'Trace'.
+pushT :: Link a -> Trace a -> Trace a
 pushT x = Trace . (:) x . fromTrace
 {-# INLINEABLE pushT #-}
 
 -- | Get the most recent item of the trace.
-headT :: Trace a -> Item a
+headT :: Trace a -> Link a
 headT = head . fromTrace
 
 -- | Get the N most recent items of the trace.
-takeItems :: Int -> Trace a -> [Item a]
-takeItems n = take n . fromTrace
+takeLinks :: Int -> Trace a -> [Link a]
+takeLinks n = take n . fromTrace
 
 -- | Shorten the trace to given length.
 takeT :: Int -> Trace a -> Trace a

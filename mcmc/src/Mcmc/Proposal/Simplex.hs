@@ -88,7 +88,7 @@ getTuningFunction t = (/ t'')
     t' = t / 10000
     -- Extremely small tuning parameters lead to numeric overflow. The square
     -- root pulls the tuning parameter closer to 1.0. However, overflow may
-    -- still occur (the involved Gamma functions grow faster than the
+    -- still occur (the involved gamma functions grow faster than the
     -- exponential). I did not observe numeric underflow in my tests.
     t'' = sqrt t'
 

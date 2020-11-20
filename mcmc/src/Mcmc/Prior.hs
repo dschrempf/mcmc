@@ -2,7 +2,7 @@
 
 -- |
 -- Module      :  Prior
--- Description :  Convenience functions to compute priors
+-- Description :  Convenience functions for computing priors
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --

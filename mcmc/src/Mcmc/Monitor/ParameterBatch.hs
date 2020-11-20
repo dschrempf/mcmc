@@ -2,7 +2,7 @@
 
 -- |
 -- Module      :  Mcmc.Monitor.ParameterBatch
--- Description :  Monitor parameters
+-- Description :  Batch monitor parameters
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -12,7 +12,10 @@
 --
 -- Creation date: Fri May 29 11:11:49 2020.
 --
--- Batch mean monitors.
+-- A batch monitor prints summary statistics of a parameter collected over a
+-- specific number of last iterations. The functions provided in this module
+-- calculate the mean of the monitored parameter. However, custom batch monitors
+-- can use more complex functions.
 module Mcmc.Monitor.ParameterBatch
   ( -- * Batch parameter monitors
     MonitorParameterBatch (..),
@@ -30,7 +33,7 @@ import qualified Data.Double.Conversion.ByteString as BC
 import Data.Functor.Contravariant
 
 -- | Instruction about a parameter to monitor via batch means. Usually, the
--- monitored parameter is average over the batch size. However, arbitrary
+-- monitored parameter is averaged over the batch size. However, arbitrary
 -- functions performing more complicated analyses on the states in the batch can
 -- be provided.
 --
@@ -42,8 +45,8 @@ import Data.Functor.Contravariant
 -- mon = fst >$< monitorBatchMean
 -- @
 --
--- XXX: Batch monitors are slow at the moment because the monitored parameter
--- has to be extracted from the state for each iteration.
+-- XXX: Batch monitors may be slow because the monitored parameter has to be
+-- extracted from the state for each iteration.
 data MonitorParameterBatch a = MonitorParameterBatch
   { -- | Name of batch monitored parameter.
     mbpName :: String,
@@ -51,7 +54,7 @@ data MonitorParameterBatch a = MonitorParameterBatch
     mbpFunc :: [a] -> BB.Builder
   }
 
-instance Contravariant (MonitorParameterBatch) where
+instance Contravariant MonitorParameterBatch where
   contramap f (MonitorParameterBatch n m) = MonitorParameterBatch n (m . map f)
 
 -- | Convert a batch parameter monitor from one data type to another.

@@ -1,6 +1,6 @@
 -- |
 -- Module      :  Mcmc.Proposal.Generic
--- Description :  Generic interface to create proposals
+-- Description :  Generic interface for creating proposals
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --

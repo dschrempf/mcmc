@@ -4,7 +4,7 @@
 
 -- |
 -- Module      :  Mcmc.Proposal
--- Description :  Proposals and cycles
+-- Description :  Proposals are instruction to move around the state space
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -29,7 +29,7 @@ module Mcmc.Proposal
     -- * Cycle
     Order (..),
     Cycle (ccProposals),
-    fromList,
+    cycleFromList,
     setOrder,
     orderProposals,
     tuneCycle,
@@ -79,12 +79,10 @@ newtype PWeight = PWeight {fromPWeight :: Int}
 
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability mass or probability density
--- conditioned on the current state (i.e., a kernel).
+-- conditioned on the current state (i.e., a Markov kernel).
 --
 -- A 'Proposal' may be tuneable in that it contains information about how to enlarge
 -- or shrink the step size to tune the acceptance ratio.
---
--- No proposals with the same name and description are allowed in a 'Cycle'.
 data Proposal a = Proposal
   { -- | Name of the affected variable.
     pName :: PName,
@@ -249,20 +247,21 @@ instance Default Order where def = RandomO
 -- by one. The order in which the 'Proposal's are executed is specified by
 -- 'Order'. The default is 'RandomO'.
 --
--- __Proposals must have unique names__, so that they can be identified.
+-- No proposals with the same name and description are allowed in a 'Cycle', so
+-- that they can be uniquely identified.
 data Cycle a = Cycle
   { ccProposals :: [Proposal a],
     ccOrder :: Order
   }
 
 -- | Create a 'Cycle' from a list of 'Proposal's.
-fromList :: [Proposal a] -> Cycle a
-fromList [] =
-  error "fromList: Received an empty list but cannot create an empty Cycle."
-fromList xs =
+cycleFromList :: [Proposal a] -> Cycle a
+cycleFromList [] =
+  error "cycleFromList: Received an empty list but cannot create an empty Cycle."
+cycleFromList xs =
   if length (nub xs) == length xs
     then Cycle xs def
-    else error "fromList: Proposals are not unique."
+    else error "cycleFromList: Proposals are not unique."
 
 -- | Set the order of 'Proposal's in a 'Cycle'.
 setOrder :: Order -> Cycle a -> Cycle a

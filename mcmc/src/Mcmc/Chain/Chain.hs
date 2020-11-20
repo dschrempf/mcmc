@@ -1,6 +1,6 @@
 -- |
 -- Module      :  Mcmc.Chain.Chain
--- Description :  What is an MCMC?
+-- Description :  Simple representation of a Markov chain
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -23,7 +23,7 @@ where
 -- information about the chain. The information can just be stored in @a@
 -- equally well.
 
-import Mcmc.Chain.Item
+import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
 import Mcmc.Monitor
 import Mcmc.Proposal
@@ -45,31 +45,31 @@ type LikelihoodFunction a = a -> Log Double
 noLikelihood :: LikelihoodFunction a
 noLikelihood = const 1.0
 
--- | The 'Chain' contains all information to run an MCMC sampler. A 'Chain' is
--- constructed using the function 'chain'.
+-- | The chain contains all information to run an MCMC sampler. A chain is
+-- constructed using 'chain'.
 --
--- The state of the chain has type @a@. If necessary, the type @a@ can also be
+-- The state of a chain has type @a@. If necessary, the type @a@ can also be
 -- used to store auxiliary information.
 --
--- The 'Chain' stores information about current state ('Mcmc.Item.Item') and
--- iteration, the history of the chain ('Mcmc.Trace.Trace'), the
--- 'Acceptance' ratios, and the random number generator.
+-- For example, the chain stores information about the current 'Link' and
+-- 'iteration', the 'Trace', the 'Acceptance' ratios, and the random number
+-- generator.
 --
--- Further, the 'Chain' includes auxiliary variables and functions such as
--- the prior and likelihood functions, instructions to move around the state
--- space (see above) and to monitor the MCMC run.
+-- Further, the chain includes auxiliary variables and functions such as the
+-- prior and likelihood functions, or 'Proposal's to move around the state space
+-- and to 'Monitor' an MCMC run.
 --
--- The 'Mcmc.Environment.Environment' of the chain is excluded.
+-- The 'Mcmc.Environment.Environment' of the chain is not stored externally.
 data Chain a = Chain
   { -- Variables; saved.
 
-    -- | The current 'Item' of the chain combines the current state and the
+    -- | The current 'Link' of the chain combines the current state and the
     -- current likelihood.
-    item :: Item a,
+    link :: Link a,
     -- | The current iteration or completed number of cycles.
     iteration :: Int,
     -- | The 'Trace' of the Markov chain in reverse order, the most recent
-    -- 'Item' is at the head of the list.
+    -- 'Link' is at the head of the list.
     trace :: Trace a,
     -- | For each 'Proposal', store the list of accepted (True) and rejected (False)
     -- proposals; for reasons of efficiency, the list is also stored in reverse
@@ -108,6 +108,6 @@ chain ::
   Chain a
 chain pr lh cc mn x g = Chain i 0 tr ac g 0 pr lh cc mn
   where
-    i = Item x (pr x) (lh x)
+    i = Link x (pr x) (lh x)
     tr = singletonT i
     ac = emptyA $ ccProposals cc

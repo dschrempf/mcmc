@@ -3,7 +3,7 @@
 
 -- |
 -- Module      :  Mcmc.Settings
--- Description :  Settings of the MCMC sampler
+-- Description :  Settings of Markov chain Monte Carlo samplers
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -38,8 +38,8 @@ data BurnIn
     NoBurnIn
   | -- | Burn in for a given number of iterations.
     BurnInNoAutoTuning Int
-  | -- | Burn in for a given number of iterations. Auto tuning with a given auto
-    -- tuning period is enabled.
+  | -- | Burn in for a given number of iterations. Enable auto tuning with a
+    -- given period.
     BurnInWithAutoTuning Int Int
   deriving (Eq, Read, Show)
 
@@ -102,9 +102,9 @@ data Verbosity = Quiet | Warn | Info | Debug
 
 $(deriveJSON defaultOptions ''Verbosity)
 
--- | Settings of the MCMC sampler.
+-- | Settings of an MCMC sampler.
 data Settings = Settings
-  { -- | Name of the MCMC sampler.
+  { -- | Analysis name of the MCMC sampler.
     sAnalysisName :: String,
     sBurnIn :: BurnIn,
     -- | Number of normal iterations excluding burn in. Note that auto tuning
@@ -121,13 +121,13 @@ $(deriveJSON defaultOptions ''Settings)
 settingsFn :: String -> FilePath
 settingsFn n = n ++ ".settings"
 
--- | Save settings to a file.
+-- | Save settings to a file determined by the analysis name.
 settingsSave :: Settings -> IO ()
 settingsSave s = BL.writeFile fn $ encode s
   where
     fn = settingsFn $ sAnalysisName s
 
--- | Load settings from analysis name.
+-- | Load settings from a given analysis name.
 settingsLoad :: String -> IO Settings
 settingsLoad n = either error id . eitherDecode <$> BL.readFile fn
   where

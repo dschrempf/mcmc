@@ -119,7 +119,7 @@ bactrianBranch x y = getLens x y @~ slideBactrian 0.9 1.0 n (PWeight 1) Tune
 -- Collect all sliding proposals into a cycle.
 cc :: Cycle (Tree Length)
 cc =
-  fromList $
+  cycleFromList $
     map (uncurry slideBranch) (getEdges startingTree)
       ++ map (uncurry bactrianBranch) (getEdges startingTree)
 

@@ -2,7 +2,7 @@
 
 -- |
 -- Module      :  Mcmc.Algorithm
--- Description :  MCMC algorithms
+-- Description :  Algortihms for Markov chain Monte Carlo samplers
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --

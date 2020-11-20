@@ -26,7 +26,7 @@ library
       Mcmc.Algorithm
       Mcmc.Algorithm.Metropolis
       Mcmc.Chain.Chain
-      Mcmc.Chain.Item
+      Mcmc.Chain.Link
       Mcmc.Chain.Save
       Mcmc.Chain.Trace
       Mcmc.Environment

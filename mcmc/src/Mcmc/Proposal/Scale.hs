@@ -2,7 +2,7 @@
 
 -- |
 -- Module      :  Mcmc.Proposal.Scale
--- Description :  Scaling proposal with Gamma distribution
+-- Description :  Multiplicative proposals
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -35,7 +35,7 @@ scaleSimple k th t =
   where
     jac _ = Exp . log . recip
 
--- | Multiplicative proposal with Gamma distributed kernel.
+-- | Multiplicative proposal with gamma distributed kernel.
 scale ::
   -- | Shape.
   Double ->
@@ -52,10 +52,10 @@ scale k th = createProposal description (scaleSimple k th)
   where
     description = PDescription $ "Scale; shape: " ++ show k ++ ", scale: " ++ show th
 
--- | Multiplicative proposal with Gamma distributed kernel.
+-- | Multiplicative proposal with gamma distributed kernel.
 --
--- The scale of the Gamma distributions is set to (shape)^{-1}, so that the mean
--- of the Gamma distribution is 1.0.
+-- The scale of the gamma distribution is set to (shape)^{-1}, so that the mean
+-- of the gamma distribution is 1.0.
 scaleUnbiased ::
   -- | Shape.
   Double ->
@@ -85,7 +85,7 @@ scaleContrarilySimple k th t =
 -- contraJac :: (Double, Double) -> Double
 -- contraJac (x, y) = x * y
 
--- | Multiplicative proposal with Gamma distributed kernel.
+-- | Multiplicative proposal with gamma distributed kernel.
 --
 -- The two values are scaled contrarily so that their product stays constant.
 -- Contrary proposals are useful when parameters are confounded.

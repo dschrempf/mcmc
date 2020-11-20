@@ -2,8 +2,10 @@
 ** Unreleased changes
 
 ** Unreleased changes; 0.4.0
+- Greatly improve documentation.
 - Major design change: Introduction of the =Algorithm= type class; algorithms
   are data types. See =MHG=.
+- Rename =Item= to =Link=.
 - Rename =Status= to =Chain= and separate =Settings= and =Environment= from the
   =Chain=.
 

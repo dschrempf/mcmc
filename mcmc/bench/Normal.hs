@@ -17,12 +17,6 @@ where
 
 import Control.Monad
 import Mcmc
-import Numeric.Log as L
-import Statistics.Distribution hiding
-  ( mean,
-    stdDev,
-  )
-import Statistics.Distribution.Normal
 import System.Random.MWC
 
 trueMean :: Double
@@ -32,11 +26,11 @@ trueStdDev :: Double
 trueStdDev = 4
 
 lh :: LikelihoodFunction Double
-lh = Exp . logDensity (normalDistr trueMean trueStdDev)
+lh = normal trueMean trueStdDev
 
 proposals :: Cycle Double
 proposals =
-  fromList
+  cycleFromList
     [slideSymmetric 1.0 (PName "Medium") (PWeight 1) Tune]
 
 mons :: [MonitorParameter Double]
@@ -56,7 +50,7 @@ normalBench g = do
 
 proposalsBactrian :: Cycle Double
 proposalsBactrian =
-  fromList
+  cycleFromList
     [slideBactrian 0.5 1.0 (PName "Bactrian") (PWeight 1) Tune]
 
 normalBactrianBench :: GenIO -> IO ()

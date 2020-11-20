@@ -2,7 +2,7 @@
 
 -- |
 -- Module      :  Mcmc.Proposal.Slide
--- Description :  Normally distributed proposal
+-- Description :  Additive proposals
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
 --
