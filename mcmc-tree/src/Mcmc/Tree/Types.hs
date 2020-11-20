@@ -18,61 +18,111 @@ module Mcmc.Tree.Types
   ( -- * Miscellaneous
     HandleStem (..),
 
-    -- * Height labels
-    HasHeight (..),
+    -- * Length trees
+    LengthTree,
+
+    -- * Height trees
     HeightLabel (..),
-    heightL,
-    toHeightTree,
+    nodeHeight,
+    nodeName,
+    HeightTree,
+    toHeightTreeUltrametric,
     fromHeightTree,
-    recalculateHeights,
   )
 where
 
-import Control.Comonad
 import Control.Lens
 import Data.Aeson
 import Data.Aeson.TH
-import Data.Bifunctor
 import ELynx.Tree
 
--- | Should the stem be handled.
+-- | Should the stem be handled?
 --
 -- For example, should the stem be considered when calculating the Jacobian
 -- during execution of a proposal, or the branch-wise prior?
 data HandleStem = WithStem | WithoutStem
 
--- | Class of types with information about height.
-class HasHeight a where
-  getHeight :: a -> Length
-  setHeight :: Length -> a -> a
-  modHeight :: (Length -> Length) -> a -> a
-
--- | A node label with a height.
+-- | Length tree.
 --
--- The node height is often used, but height calculation is costly. Direct storage
--- of the node height together with the node label saves time.
-newtype HeightLabel a = HeightLabel {fromHeightLabel :: (Length, a)}
-  deriving (Show, Eq)
+-- A 'Tree' with unconstrained branch lengths and node names.
+type LengthTree = Tree Length Name
+
+-- | A node label storing node height and node name.
+data HeightLabel = HeightLabel
+  { _nodeHeight :: Length,
+    _nodeName :: Name
+  }
+  deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''HeightLabel)
 
-instance HasHeight (HeightLabel a) where
-  getHeight = fst . fromHeightLabel
-  setHeight x (HeightLabel (_, lb)) = HeightLabel (x, lb)
-  modHeight f (HeightLabel (x, lb)) = HeightLabel (f x, lb)
+makeLenses ''HeightLabel
 
--- | Height of label.
-heightL :: HasHeight a => Lens' a Length
-heightL = lens getHeight (flip setHeight)
+-- | Height tree.
+--
+-- A 'Tree' with constrained branch lengths, and node labels storing node height
+-- and node name.
+--
+-- For example, the height tree representation is required when working with
+-- ultrametric trees.
+type HeightTree = Tree () HeightLabel
 
--- | (Re)calculate node heights for a given tree.
-toHeightTree :: Tree Length a -> Tree Length (HeightLabel a)
-toHeightTree = extend (\t -> HeightLabel (rootHeight t, label t))
+-- | Calculate node heights for a given tree.
+--
+-- __Assumes the tree is ultrametric__ because the height of leaves is set to
+-- zero. If the tree is not ultrametric, the node heights cannot be obtained and
+-- the height tree has to be instantiated manually.
+--
+-- The length of the stem is lost.
+--
+-- This operation is slow, O(n^2), where n is the number of inner nodes.
+toHeightTreeUltrametric :: Tree Length Name -> HeightTree
+toHeightTreeUltrametric t@(Node _ lb ts) =
+  Node
+    ()
+    (HeightLabel (rootHeight t) lb)
+    (map toHeightTreeUltrametric ts)
 
--- | Remove information about height from label.
-fromHeightTree :: Tree e (HeightLabel a) -> Tree e a
-fromHeightTree = second (snd . fromHeightLabel)
+-- | Remove information about node height from node label.
+fromHeightTree :: HeightTree -> Tree Length Name
+fromHeightTree t = go (_nodeHeight $ label t) t
+  where go hParent (Node () lb ts) =
+          let hNode = _nodeHeight lb
+              nNode = _nodeName lb
+          in
+          Node (hParent - hNode) nNode $ map (go hNode) ts
 
--- | Recalculate the height values.
-recalculateHeights :: Tree Length (HeightLabel a) -> Tree Length (HeightLabel a)
-recalculateHeights = extend (\t -> setHeight (rootHeight t) $ label t)
+-- -- Use the height of the parent node to set the stem length of the tree.
+-- setStemLength :: Length -> HeightTree -> HeightTree
+-- setStemLength hParent t = t & branchL .~ dh
+--   where
+--     hChild = t ^. labelL . measurableL
+--     dh = hParent - hChild
+
+-- -- | Recalculate the branch lengths.
+-- --
+-- -- The stem length is unchanged.
+-- --
+-- -- This operation is slow.
+-- recalculateBranchLengths :: HeightTree -> HeightTree
+-- recalculateBranchLengths t =
+--   over (forestL . mapped) (setStemLength l . recalculateBranchLengths) t
+--   where
+--     l = t ^. labelL . measurableL
+
+-- -- | Recalculate the branch lengths up to a given depth.
+-- --
+-- -- We have:
+-- -- @
+-- -- recalculateBranchLengthsNLevels 0 t = t
+-- -- @
+-- --
+-- -- The stem length is unchanged.
+-- --
+-- -- This operation is slow.
+-- recalculateBranchLengthsNLevels :: Int -> HeightTree -> HeightTree
+-- recalculateBranchLengthsNLevels 0 t = t
+-- recalculateBranchLengthsNLevels n t =
+--   over (forestL . mapped) (setStemLength l . recalculateBranchLengthsNLevels (n -1)) t
+--   where
+--     l = t ^. labelL . measurableL

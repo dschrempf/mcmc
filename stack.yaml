@@ -45,12 +45,12 @@ packages:
 #
 extra-deps:
   - dirichlet-0.1.0.0
-  - elynx-nexus-0.5.0
-  - elynx-tools-0.5.0
-  - elynx-tree-0.5.0
-  # - ../elynx/elynx-nexus
-  # - ../elynx/elynx-tools
-  # - ../elynx/elynx-tree
+  # - elynx-nexus-0.5.0
+  # - elynx-tools-0.5.0
+  # - elynx-tree-0.5.0
+  - ../elynx/elynx-nexus
+  - ../elynx/elynx-tools
+  - ../elynx/elynx-tree
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

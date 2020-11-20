@@ -219,7 +219,7 @@ birthDeathWith _ _ _ _ _ = error "birthDeathWith: Tree is multifurcating."
 
 -- -- Assume that node labels denote node heights.
 -- birthDeathPointProcess ::
---   HasHeight a =>
+--   Measurable a =>
 --   -- | Birth rate.
 --   Double ->
 --   -- | Death rate.

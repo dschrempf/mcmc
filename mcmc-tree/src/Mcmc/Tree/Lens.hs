@@ -17,6 +17,7 @@ module Mcmc.Tree.Lens
     branchL,
     labelL,
     forestL,
+    measurableL,
     lengthE,
     lengthU,
   )
@@ -77,6 +78,10 @@ labelL f (Node br lb ts) = assemble br ts <$> f lb
 -- | Forest of the root node.
 forestL :: Lens' (Tree e a) (Forest e a)
 forestL f (Node br lb ts) = Node br lb <$> f ts
+
+-- | Length of measurable types.
+measurableL :: Measurable a => Lens' a Length
+measurableL = lens getLen (flip setLen)
 
 -- | Length, error.
 --

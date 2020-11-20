@@ -18,7 +18,7 @@ where
 
 import Control.Lens
 import Data.Bifunctor
-import ELynx.Tree hiding (description)
+import ELynx.Tree
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Scale

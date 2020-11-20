@@ -115,7 +115,7 @@ instance Ord (Proposal a) where
 -- scaleFirstEntryOfTuple = _1 @~ scale
 -- @
 (@~) :: Lens' b a -> Proposal a -> Proposal b
-(@~) l (Proposal n d w s t) = Proposal n d w (convertS l s) (convertT l <$> t)
+(@~) l (Proposal n d w s t) = Proposal n d w (convertProposalSimple l s) (convertTuner l <$> t)
 
 -- | Simple proposal without tuning information.
 --
@@ -138,8 +138,8 @@ instance Ord (Proposal a) where
 -- determinant of the Jacobian matrix differs from 1.0.
 type ProposalSimple a = a -> GenIO -> IO (a, Log Double, Log Double)
 
-convertS :: Lens' b a -> ProposalSimple a -> ProposalSimple b
-convertS l s = s'
+convertProposalSimple :: Lens' b a -> ProposalSimple a -> ProposalSimple b
+convertProposalSimple l s = s'
   where
     s' v g = do
       (x', r, j) <- s (v ^. l) g
@@ -151,10 +151,10 @@ data Tuner a = Tuner
     tFunc :: Double -> ProposalSimple a
   }
 
-convertT :: Lens' b a -> Tuner a -> Tuner b
-convertT l (Tuner p f) = Tuner p f'
+convertTuner :: Lens' b a -> Tuner a -> Tuner b
+convertTuner l (Tuner p f) = Tuner p f'
   where
-    f' x = convertS l $ f x
+    f' x = convertProposalSimple l $ f x
 
 -- | Tune the proposal?
 data Tune = Tune | NoTune

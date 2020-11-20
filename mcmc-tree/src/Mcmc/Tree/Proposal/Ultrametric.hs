@@ -11,12 +11,22 @@
 -- Creation date: Wed Nov  4 11:48:56 2020.
 --
 -- For reasons of computational efficiency the functions working with
--- ultrametric trees use a tree object directly storing the node height. For
--- this reason, __do not apply__ a mixed collection of __ultrametric__ and
--- __unconstrained__ proposals on the same tree object!
+-- ultrametric trees use node labels directly storing node heights.
+--
+-- There is a distinction between proposals on unconstrained trees and
+-- ultrametric trees, because the Jacobian matrices differ. For ultrametric
+-- trees, some branch lengths are constrained, whereas for unconstrained trees,
+-- all branch lengths can vary freely.
+--
+-- For the calculation of the Jacobian matrices of ultrametric trees, the
+-- heights of the inner nodes are used as parameters.
+--
+-- Moreover, usage of proposals from "Mcmc.Tree.Proposal.Unconstrained" on
+-- ultrametric trees will produce bogus trees with mismatching branch lengths
+-- and node heights.
 module Mcmc.Tree.Proposal.Ultrametric
-  ( slideNodeUltrametric,
-    scaleTreeUltrametric,
+  ( slideNodeAtUltrametric,
+    -- scaleTreeUltrametric,
     scaleSubTreeUltrametric,
     pulleyUltrametric,
   )
@@ -24,49 +34,48 @@ where
 
 import Control.Lens
 import Control.Monad
-import ELynx.Tree hiding (description)
+import ELynx.Tree
 import Mcmc.Proposal
-import Mcmc.Proposal.Generic
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Proposal.Common
 import Mcmc.Tree.Types
 import Numeric.Log hiding (sum)
-import Statistics.Distribution.Gamma
 import System.Random.MWC
 
--- The branch is elongated by u. So if u is positive, the node height is
--- reduced.
-slideNodeUltrametricF :: HasHeight a => Double -> Tree Length a -> Tree Length a
-slideNodeUltrametricF u (Node br lb ts) =
-  Node
-    (br & lengthL %~ (+ u))
-    (lb & heightL . lengthL %~ subtract u)
-    (map (branchL . lengthL %~ subtract u) ts)
+-- setNodeHeight :: Length -> HeightTree -> HeightTree
+-- setNodeHeight h (Node () lb ts) = Node () (lb & nodeHeight .~ h) ts
 
-slideNodeUltrametricSimple ::
-  HasHeight a =>
+slideNodeAtUltrametricSimple ::
+  Path ->
   -- Standard deviation.
   Double ->
   -- Tuning parameter.
   Double ->
-  ProposalSimple (Tree Length a)
-slideNodeUltrametricSimple _ _ (Node _ _ []) _ =
-  error "slideNodeUltrametricSample: Cannot slide leaf node."
-slideNodeUltrametricSimple s t tr@(Node br _ ts) g
-  | br <= 0 =
+  ProposalSimple HeightTree
+slideNodeAtUltrametricSimple _ _ _ (Node _ _ []) _ =
+  error "slideNodeAtUltrametricSample: Cannot slide leaf node."
+slideNodeAtUltrametricSimple [] _ _ (Node _ _ []) _ =
+  error "slideNodeAtUltrametricSample: Cannot slide root node."
+slideNodeAtUltrametricSimple pth s t tr g
+  | a >= b =
     error $
-      "slideNodeUltrametricSimple: Parent branch length is zero or negative: " ++ show br ++ "."
-  | br' <= 0 =
-    error $
-      "slideNodeUltrametricSimple: Minimum branch length is zero or negative: " ++ show br' ++ "."
+      "slideNodeAtUltrametricSimple: Maximum height of daughters "
+        ++ show a
+        ++ " is larger equal parent height "
+        ++ show b
+        ++ "."
   | otherwise = do
     -- The determinant of the Jacobian is -1.0.
-    (u, q) <- truncatedNormalSample s t a b g
-    return (slideNodeUltrametricF u tr, q, 1.0)
+    (h', q) <- truncatedNormalSample s t a b g
+    -- Use unsafe conversion.
+    let setNodeHeight x = x & labelL . nodeHeight .~ toLengthUnsafe h'
+    return (toTree $ modifyTree setNodeHeight trPos, q, 1.0)
   where
-    br' = minimum $ map branch ts
-    a = fromLength $ negate br
-    b = fromLength br'
+    trPos = goPathUnsafe pth $ fromTree tr
+    -- The maximum of the node heights of the daughter nodes.
+    a = fromLength $ maximum $ map (_nodeHeight . label) $ forest $ current trPos
+    -- The parent node height.
+    b = fromLength $ _nodeHeight $ label $ current $ goParentUnsafe trPos
 
 -- | Slide node (for ultrametric trees).
 --
@@ -79,8 +88,9 @@ slideNodeUltrametricSimple s t tr@(Node br _ ts) g
 --
 -- A normal distribution truncated at the origin and the closest daughter node
 -- is used.
-slideNodeUltrametric ::
-  HasHeight a =>
+slideNodeAtUltrametric ::
+  -- | Path to node.
+  Path ->
   -- | Standard deviation.
   Double ->
   -- | Name.
@@ -89,107 +99,97 @@ slideNodeUltrametric ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal (Tree Length a)
-slideNodeUltrametric ds = createProposal description (slideNodeUltrametricSimple ds)
+  Proposal HeightTree
+slideNodeAtUltrametric pth ds = createProposal description (slideNodeAtUltrametricSimple pth ds)
   where
     description = PDescription $ "Slide node ultrametric; sd: " ++ show ds
 
--- There is a distinction between tree types storing the node height only, and
--- ultrametric trees, because the Jacobian matrices differ. For ultrametric
--- trees, some branch lengths are constrained, whereas for normal trees, all
--- branch lengths can vary freely.
---
--- For the calculation of the Jacobian matrices of ultrametric trees, the height
--- of the inner nodes (and possibly the stem length) have to be used as
--- parameters.
-
--- TODO: Calculation of number of inner nodes may be slow.
+-- Calculate the number of inner nodes.
 nInnerNodes :: Tree e a -> Int
 nInnerNodes (Node _ _ []) = 0
 nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 
-scaleTreeUltrametricFunction :: HasHeight a => HandleStem -> Tree Length a -> Double -> Tree Length a
-scaleTreeUltrametricFunction WithStem tr u =
-  bimap
-    (lengthL %~ (* u))
-    (heightL . lengthL %~ (* u))
-    tr
-scaleTreeUltrametricFunction WithoutStem (Node br lb ts) u =
-  Node
-    br
-    (lb & heightL . lengthL %~ (* u))
-    $ map
-      ( bimap
-          (lengthL %~ (* u))
-          (heightL . lengthL %~ (* u))
-      )
-      ts
+-- scaleTreeUltrametricFunction :: Measurable a => HandleStem -> Tree Length a -> Double -> Tree Length a
+-- scaleTreeUltrametricFunction WithStem tr u =
+--   bimap
+--     (lengthL %~ (* u))
+--     (measurableL . lengthL %~ (* u))
+--     tr
+-- scaleTreeUltrametricFunction WithoutStem (Node br lb ts) u =
+--   Node
+--     br
+--     (lb & measurableL . lengthL %~ (* u))
+--     $ map
+--       ( bimap
+--           (lengthL %~ (* u))
+--           (measurableL . lengthL %~ (* u))
+--       )
+--       ts
 
--- (-2) for the entry corresponding to f(u)=1/u, (+1) for the stem makes
--- (-1) in total.
-scaleTreeUltrametricJacobian :: Int -> HandleStem -> Tree e a -> Double -> Log Double
-scaleTreeUltrametricJacobian n WithStem _ u = Exp $ fromIntegral (n - 1) * log u
-scaleTreeUltrametricJacobian n WithoutStem _ u = Exp $ fromIntegral (n - 2) * log u
+-- -- (-2) for the entry corresponding to f(u)=1/u, (+1) for the stem makes
+-- -- (-1) in total.
+-- scaleTreeUltrametricJacobian :: Int -> HandleStem -> Tree e a -> Double -> Log Double
+-- scaleTreeUltrametricJacobian n WithStem _ u = Exp $ fromIntegral (n - 1) * log u
+-- scaleTreeUltrametricJacobian n WithoutStem _ u = Exp $ fromIntegral (n - 2) * log u
 
-scaleTreeUltrametricSimple ::
-  HasHeight a =>
-  -- Number of inner nodes.
-  Int ->
-  HandleStem ->
-  Double ->
-  Double ->
-  ProposalSimple (Tree Length a)
-scaleTreeUltrametricSimple n s k t =
-  genericContinuous
-    (gammaDistr (k / t) (t / k))
-    (scaleTreeUltrametricFunction s)
-    (Just recip)
-    (Just $ scaleTreeUltrametricJacobian n s)
+-- scaleTreeUltrametricSimple ::
+--   Measurable a =>
+--   -- Number of inner nodes.
+--   Int ->
+--   HandleStem ->
+--   Double ->
+--   Double ->
+--   ProposalSimple (Tree Length a)
+-- scaleTreeUltrametricSimple n s k t =
+--   genericContinuous
+--     (gammaDistr (k / t) (t / k))
+--     (scaleTreeUltrametricFunction s)
+--     (Just recip)
+--     (Just $ scaleTreeUltrametricJacobian n s)
 
--- | Scale all branches with a gamma distributed kernel of given shape. The
--- scale is set such that the mean is 1.0.
---
--- __The height is changed.__ Do not use this proposal on a sub tree of an
--- ultrametric tree. Instead, use 'scaleSubTreeUltrametric'.
-scaleTreeUltrametric ::
-  HasHeight a =>
-  -- | The tree is used to precompute the number of inner nodes for
-  -- computational efficiency.
-  Tree e b ->
-  -- | Handle the stem?
-  HandleStem ->
-  -- | Shape.
-  Double ->
-  -- | Name.
-  PName ->
-  -- | PWeight.
-  PWeight ->
-  -- | Enable tuning.
-  Tune ->
-  Proposal (Tree Length a)
-scaleTreeUltrametric tr s k = createProposal description (scaleTreeUltrametricSimple n s k)
-  where
-    description = PDescription $ "Scale tree ultrametric; shape: " ++ show k
-    n = nInnerNodes tr
+-- -- | Scale all branches with a gamma distributed kernel of given shape. The
+-- -- scale is set such that the mean is 1.0.
+-- --
+-- -- __The height is changed.__ Do not use this proposal on a sub tree of an
+-- -- ultrametric tree. Instead, use 'scaleSubTreeUltrametric'.
+-- scaleTreeUltrametric ::
+--   Measurable a =>
+--   -- | The tree is used to precompute the number of inner nodes for
+--   -- computational efficiency.
+--   Tree e b ->
+--   -- | Handle the stem?
+--   HandleStem ->
+--   -- | Shape.
+--   Double ->
+--   -- | Name.
+--   PName ->
+--   -- | PWeight.
+--   PWeight ->
+--   -- | Enable tuning.
+--   Tune ->
+--   Proposal (Tree Length a)
+-- scaleTreeUltrametric tr s k = createProposal description (scaleTreeUltrametricSimple n s k)
+--   where
+--     description = PDescription $ "Scale tree ultrametric; shape: " ++ show k
+--     n = nInnerNodes tr
 
 -- The stem is elongated by u. So if u is positive, the node height is reduced.
 --
 -- The scaling factor for inner node heights is also given, since it is
 -- calculated below.
-slideBranchScaleSubTreeF :: HasHeight a => Double -> Double -> Tree Length a -> Tree Length a
+slideBranchScaleSubTreeF :: Double -> Double -> HeightTree -> HeightTree
 slideBranchScaleSubTreeF u xi (Node br lb ts) =
   Node
     (br & lengthL %~ (+ u))
-    (lb & heightL . lengthL %~ subtract u)
-    $ map (bimap (lengthL %~ (* xi)) (heightL . lengthL %~ (* xi))) ts
+    (lb & measurableL . lengthL %~ subtract u)
+    $ map (bimap (lengthL %~ (* xi)) (measurableL . lengthL %~ (* xi))) ts
 
 scaleSubTreeUltrametricSimple ::
-  (HasHeight a, Show a) =>
   -- Number of inner nodes.
   Int ->
   Double ->
   Double ->
-  ProposalSimple (Tree Length a)
+  ProposalSimple HeightTree
 scaleSubTreeUltrametricSimple _ _ _ (Node _ _ []) _ =
   error "scaleSubTreeUltrametricSample: Cannot scale sub tree of leaf node."
 scaleSubTreeUltrametricSimple n ds t tr g = do
@@ -216,19 +216,16 @@ scaleSubTreeUltrametricSimple n ds t tr g = do
   return (slideBranchScaleSubTreeF u xi tr, q, jacobian)
   where
     br = branch tr
-    ht = getHeight $ label tr
+    ht = getLen $ label tr
     a = fromLength $ negate br
     b = fromLength ht
 
 -- | Scale the branches of the sub tree and slide the stem so that the tree
 -- height is conserved.
 --
--- See also 'scaleTreeUltrametric'.
---
 -- A normal distribution truncated at the parent node (or the origin) and the
 -- leaves is used to slide the given node.
 scaleSubTreeUltrametric ::
-  (HasHeight a, Show a) =>
   -- | The tree is used to precompute the number of inner nodes for
   -- computational efficiency.
   Tree e b ->
@@ -240,7 +237,7 @@ scaleSubTreeUltrametric ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal (Tree Length a)
+  Proposal HeightTree
 scaleSubTreeUltrametric tr sd = createProposal description (scaleSubTreeUltrametricSimple n sd)
   where
     description = PDescription $ "Scale subtree ultrametrc; sd: " ++ show sd
@@ -249,7 +246,7 @@ scaleSubTreeUltrametric tr sd = createProposal description (scaleSubTreeUltramet
 -- See 'pulleyTruncatedNormalSample'. However, we have to honor more constraints
 -- in the ultrametric case.
 pulleyUltrametricTruncatedNormalSample ::
-  HasHeight a =>
+  Measurable a =>
   Double ->
   Double ->
   Tree Length a ->
@@ -268,7 +265,7 @@ pulleyUltrametricTruncatedNormalSample s t (Node _ lb [l, r])
     brL = branch l
     brR = branch r
     -- The new branch lengths are not allowed to exceed the height of the node.
-    ht = getHeight lb
+    ht = getLen lb
     -- The constraints are larger than 0.
     constraintRightBoundary = ht - brL
     constraintLeftBoundary = ht - brR
@@ -278,7 +275,7 @@ pulleyUltrametricTruncatedNormalSample _ _ _ =
   error "pulleyUltrametricTruncatedNormalSample: Node is not bifurcating."
 
 pulleyUltrametricSimple ::
-  HasHeight a =>
+  Measurable a =>
   -- Number of inner nodes of left tree.
   Int ->
   -- Number of inner nodes of right tree.
@@ -289,11 +286,11 @@ pulleyUltrametricSimple ::
 pulleyUltrametricSimple nL nR s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyUltrametricTruncatedNormalSample s t tr g
   -- Left.
-  let hL = getHeight $ label l
+  let hL = getLen $ label l
       -- Scaling factor left. (hL - u)/hL = (1.0 - u/hL).
       xiL = 1.0 - u / fromLength hL
   -- Right.
-  let hR = getHeight $ label r
+  let hR = getLen $ label r
       -- Scaling factor right. (hR + u)/hR = (1.0 + u/hR).
       xiR = 1.0 + u / fromLength hR
   let tr' = Node br lb [slideBranchScaleSubTreeF u xiL l, slideBranchScaleSubTreeF (negate u) xiR r]
@@ -315,7 +312,7 @@ pulleyUltrametricSimple _ _ _ _ _ _ = error "pulleyUltrametricSimple: Node is no
 -- sub trees are scaled such that the tree heights are conserved and the tree
 -- remains ultrametric.
 pulleyUltrametric ::
-  HasHeight a =>
+  Measurable a =>
   -- | The tree is used to precompute the number of inner nodes for
   -- computational efficiency.
   Tree e b ->

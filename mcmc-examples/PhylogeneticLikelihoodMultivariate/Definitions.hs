@@ -96,8 +96,8 @@ data I = I
     -- million years; see the calibrations.
     _timeHeight :: Double,
     -- | Normalized time tree of height 1.0. Branch labels denote relative
-    -- times; node labels store relative node height and names.
-    _timeTree :: Tree Length (HeightLabel Name),
+    -- times; node labels store relative node heights and names.
+    _timeTree :: HeightTree Length Name,
     -- | The mean of the absolute rates.
     _rateMean :: Double,
     -- | The shape of the relative rates.

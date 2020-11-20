@@ -22,7 +22,6 @@ import Control.Lens
 import Data.List
 import ELynx.Tree
 import Mcmc.Tree.Lens
-import Mcmc.Tree.Types
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
@@ -30,13 +29,13 @@ import Statistics.Distribution.Normal
 -- Get the height of the node at path on the tree.
 --
 -- __Assume the node labels denote node height__.
-getHeightFromNode :: HasHeight a => Path -> Tree e a -> Length
-getHeightFromNode p t = t ^. subTreeAtE p . labelL . heightL
+getHeightFromNode :: Measurable a => Path -> Tree e a -> Length
+getHeightFromNode p t = t ^. subTreeAtE p . labelL . measurableL
 
 -- | Hard constrain order of nodes with given paths using a truncated uniform
 -- distribution.
 constrainHard ::
-  HasHeight a =>
+  Measurable a =>
   -- | Path to younger node (closer to the leaves).
   Path ->
   -- | Path to older node (closer to the root).
@@ -59,7 +58,7 @@ constrainHard y o t
 --   of the normal distribution also ensures that the first derivative is
 --   continuous.
 constrainSoft ::
-  HasHeight a =>
+  Measurable a =>
   -- | Standard deviation of one sided normal distribution.
   Double ->
   -- | Path to younger node (closer to the leaves).
@@ -80,7 +79,7 @@ constrainSoft s y o t
 
 -- | Calibrate height of a node with given path using the normal distribution.
 calibrate ::
-  HasHeight a =>
+  Measurable a =>
   -- | Mean.
   Double ->
   -- | Standard deviation.
@@ -92,7 +91,7 @@ calibrate m s p = Exp . logDensity (normalDistr m s) . fromLength . getHeightFro
 
 -- | Calibrate height of a node with given path using the uniform distribution.
 calibrateUniform ::
-  HasHeight a =>
+  Measurable a =>
   -- | Lower bound.
   Double ->
   -- | Upper bound.
@@ -116,7 +115,7 @@ calibrateUniform a b p t
 --   the complete distribution of the constrained is continuous. Use of the
 --   normal distribution also ensures that the first derivative is continuous.
 calibrateUniformSoft ::
-  HasHeight a =>
+  Measurable a =>
   -- | Standard deviation of one sided normal distributions.
   Double ->
   -- | Lower bound.
