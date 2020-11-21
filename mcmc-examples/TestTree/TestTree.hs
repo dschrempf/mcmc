@@ -21,13 +21,13 @@ import Mcmc
 import Mcmc.Tree
 import System.Random.MWC hiding (uniform)
 
-type I = Tree Length (HeightLabel Name)
+type I = HeightTree
 
 -- Birth death prior, see Yang (2006), Figure 7.12. For lambda=2, mu=2, rho=0.1,
 -- we expect a relatively linear distribution of inner node ages (a little bit
 -- biased to younger ages).
 pr :: PriorFunction I
-pr = birthDeath WithoutStem 2.0 2.0 0.1
+pr = birthDeath WithoutStem 2.0 2.0 0.1 . fromHeightTree
 
 -- Proposals on the tree.
 cc :: Show a => Tree e a -> Cycle I
@@ -36,32 +36,30 @@ cc t =
     -- -- Pulley on the root node.
     pulleyUltrametric t 0.1 (PName "Tree root") (PWeight 5) Tune :
     -- Scale branches excluding the stem.
-    [ subTreeAtE pth
-        @~ slideNodeUltrametric 0.1 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
+    [ slideNodeAtUltrametric pth 0.1 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
       | (pth, lb) <- itoList $ identify t,
         not (null pth),
-        let s = t ^. subTreeAtE pth,
+        let s = t ^. subTreeAtUnsafeL pth,
         not $ null $ forest s
     ]
       -- Scale trees of inner nodes excluding the root and the leaves.
-      ++ [ subTreeAtE pth
-             @~ scaleSubTreeUltrametric s 100 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
+      ++ [ scaleSubTreeAtUltrametric t pth 100 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
            | (pth, lb) <- itoList $ identify t,
-             let s = t ^. subTreeAtE pth,
+             let s = t ^. subTreeAtUnsafeL pth,
              not $ null pth,
              not $ null $ forest s
          ]
 
 -- Get the height of the node at path. Useful to have a look at calibrated nodes.
 getTreeNodeHeight :: Path -> I -> Double
-getTreeNodeHeight p t = fromLength $ rootHeight $ t ^. subTreeAtE p
+getTreeNodeHeight p t = fromLength $ nodeHeight $ label $ t ^. subTreeAtUnsafeL p
 
 -- Monitor the height of all nodes.
 monPs :: Tree e a -> [MonitorParameter I]
 monPs t =
   [ getTreeNodeHeight pth >$< monitorDouble ("Node " ++ show lb)
     | (pth, lb) <- itoList $ identify t,
-      let s = t ^. subTreeAtE pth,
+      let s = t ^. subTreeAtUnsafeL pth,
       -- Path does not lead to a leaf.
       not $ null $ forest s
   ]
@@ -89,7 +87,7 @@ iterations = 6000
 main :: IO ()
 main = do
   let t =
-        toHeightTree $
+        toHeightTreeUltrametric $
           normalizeHeight $
             either error id $
               phyloToLengthTree $

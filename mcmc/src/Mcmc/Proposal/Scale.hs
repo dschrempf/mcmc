@@ -43,7 +43,7 @@ scale ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
@@ -61,7 +61,7 @@ scaleUnbiased ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
@@ -96,7 +96,7 @@ scaleContrarily ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->

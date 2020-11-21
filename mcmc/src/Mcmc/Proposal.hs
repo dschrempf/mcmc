@@ -170,7 +170,7 @@ createProposal ::
   (Double -> ProposalSimple a) ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Activate tuning?
   Tune ->

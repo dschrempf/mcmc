@@ -33,24 +33,24 @@ import System.Random.MWC
 --
 -- See 'scaleUnbiased'.
 --
--- This proposal scales the stem. To slide other branches, see 'subTreeAtE'. For
--- example, @subTreeAtE path @~ slideNodeUltrametric ...@.
+-- This proposal scales the stem. To slide other branches, see 'subTreeAtUnsafeL'. For
+-- example, @subTreeAtUnsafeL path @~ slideNodeUltrametric ...@.
 scaleBranch ::
   -- | Standard deviation.
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal (Tree Length a)
-scaleBranch s n w t = (branchL . lengthL) @~ scaleUnbiased s n w t
+scaleBranch s n w t = (branchL . lengthUnsafeL) @~ scaleUnbiased s n w t
 
 scaleTreeFunction :: HandleStem -> Tree Length a -> Double -> Tree Length a
-scaleTreeFunction WithStem tr u = first (lengthL %~ (* u)) tr
+scaleTreeFunction WithStem tr u = first (lengthUnsafeL *~ u) tr
 scaleTreeFunction WithoutStem (Node br lb ts) u =
-  Node br lb $ map (first (lengthL %~ (* u))) ts
+  Node br lb $ map (first (lengthUnsafeL *~ u)) ts
 
 scaleTreeJacobian ::
   -- Number of branches.
@@ -93,7 +93,7 @@ scaleTree ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
@@ -114,7 +114,7 @@ pulleyTruncatedNormalSample s t (Node _ _ [l, r])
   | brR <= 0 =
     error $
       "pulleyTruncatedNormalSample: Right branch is zero or negative: " ++ show brR ++ "."
-  | otherwise = truncatedNormalSample s t a b
+  | otherwise = truncatedNormalSample 0 s t a b
   where
     brL = branch l
     brR = branch r
@@ -129,8 +129,8 @@ pulleySimple s t tr@(Node br lb [l, r]) g = do
         Node
           br
           lb
-          [ l & branchL . lengthL %~ (+ u),
-            r & branchL . lengthL %~ subtract u
+          [ l & branchL . lengthUnsafeL +~ u,
+            r & branchL . lengthUnsafeL -~ u
           ]
   -- The determinant of the Jacobian matrix is (-1).
   return (tr', q, 1.0)
@@ -148,7 +148,7 @@ pulley ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->

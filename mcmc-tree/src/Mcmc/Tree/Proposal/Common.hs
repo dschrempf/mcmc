@@ -10,25 +10,43 @@
 --
 -- Creation date: Wed Nov  4 11:53:16 2020.
 module Mcmc.Tree.Proposal.Common
-  ( lengthL,
-    truncatedNormalSample,
+  ( truncatedNormalSample,
   )
 where
 
-import Control.Lens
-import ELynx.Tree
-import Mcmc.Tree.Lens
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.TruncatedNormal
 import System.Random.MWC
 
--- | Which lens to use?
---
--- Used for debugging, `lengthE` is around ten percent slower than `lengthU`.
-lengthL :: Lens' Length Double
--- lengthL = lengthE
-lengthL = lengthU
+-- -- | A very specific function that samples a delta value from the truncated
+-- -- normal distribution with given bounds [a,b] and also computes the required
+-- -- factor of the Metropolis-Hastings-Green proposal ratio.
+-- --
+-- -- NO JACOBIAN IS COMPUTED, because we do not know how the proposal will be used.
+-- truncatedNormalSample ::
+--   -- Standard deviation.
+--   Double ->
+--   -- Tuning parameter.
+--   Double ->
+--   -- Left bound.
+--   Double ->
+--   -- Right bound.
+--   Double ->
+--   GenIO ->
+--   IO (Double, Log Double)
+-- truncatedNormalSample s t a b g = do
+--   let s' = t * s
+--       d = either error id $ truncatedNormalDistr 0 s' a b
+--   u <- genContinuous d g
+--   -- Compute Metropolis-Hastings-Green factor.
+--   let a' = a - u
+--       b' = b - u
+--       d' = either error id $ truncatedNormalDistr 0 s' a' b'
+--       qXY = Exp $ logDensity d u
+--       qYX = Exp $ logDensity d' (- u)
+--   -- NO JACOBIAN IS COMPUTED.
+--   return (u, qYX / qXY)
 
 -- | A very specific function that samples a delta value from the truncated
 -- normal distribution with given bounds [a,b] and also computes the required
@@ -36,25 +54,25 @@ lengthL = lengthU
 --
 -- NO JACOBIAN IS COMPUTED, because we do not know how the proposal will be used.
 truncatedNormalSample ::
-  -- Standard deviation.
+  -- | Mean.
   Double ->
-  -- Tuning parameter.
+  -- | Standard deviation.
   Double ->
-  -- Left bound.
+  -- | Tuning parameter.
   Double ->
-  -- Right bound.
+  -- | Left bound.
+  Double ->
+  -- | Right bound.
   Double ->
   GenIO ->
   IO (Double, Log Double)
-truncatedNormalSample s t a b g = do
+truncatedNormalSample m s t a b g = do
   let s' = t * s
-      d = either error id $ truncatedNormalDistr 0 s' a b
+      d = either error id $ truncatedNormalDistr m s' a b
   u <- genContinuous d g
   -- Compute Metropolis-Hastings-Green factor.
-  let a' = a - u
-      b' = b - u
-      d' = either error id $ truncatedNormalDistr 0 s' a' b'
+  let d' = either error id $ truncatedNormalDistr u s' a b
       qXY = Exp $ logDensity d u
-      qYX = Exp $ logDensity d' (- u)
+      qYX = Exp $ logDensity d' m
   -- NO JACOBIAN IS COMPUTED.
   return (u, qYX / qXY)

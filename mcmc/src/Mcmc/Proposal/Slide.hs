@@ -37,7 +37,7 @@ slide ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
@@ -59,7 +59,7 @@ slideSymmetric ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
@@ -81,7 +81,7 @@ slideUniformSymmetric ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
@@ -108,7 +108,7 @@ slideContrarily ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->

@@ -23,8 +23,8 @@ module Mcmc.Tree.Types
 
     -- * Height trees
     HeightLabel (..),
-    nodeHeight,
-    nodeName,
+    nodeHeightL,
+    nodeNameL,
     HeightTree,
     toHeightTreeUltrametric,
     fromHeightTree,
@@ -49,14 +49,20 @@ type LengthTree = Tree Length Name
 
 -- | A node label storing node height and node name.
 data HeightLabel = HeightLabel
-  { _nodeHeight :: Length,
-    _nodeName :: Name
+  { nodeHeight :: Length,
+    nodeName :: Name
   }
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''HeightLabel)
 
-makeLenses ''HeightLabel
+-- | Node height.
+nodeHeightL :: Lens' HeightLabel Length
+nodeHeightL = lens nodeHeight (\x h -> x {nodeHeight = h})
+
+-- | Node name.
+nodeNameL :: Lens' HeightLabel Name
+nodeNameL = lens nodeName (\x n -> x {nodeName = n})
 
 -- | Height tree.
 --
@@ -76,7 +82,7 @@ type HeightTree = Tree () HeightLabel
 -- The length of the stem is lost.
 --
 -- This operation is slow, O(n^2), where n is the number of inner nodes.
-toHeightTreeUltrametric :: Tree Length Name -> HeightTree
+toHeightTreeUltrametric :: LengthTree -> HeightTree
 toHeightTreeUltrametric t@(Node _ lb ts) =
   Node
     ()
@@ -84,13 +90,13 @@ toHeightTreeUltrametric t@(Node _ lb ts) =
     (map toHeightTreeUltrametric ts)
 
 -- | Remove information about node height from node label.
-fromHeightTree :: HeightTree -> Tree Length Name
-fromHeightTree t = go (_nodeHeight $ label t) t
-  where go hParent (Node () lb ts) =
-          let hNode = _nodeHeight lb
-              nNode = _nodeName lb
-          in
-          Node (hParent - hNode) nNode $ map (go hNode) ts
+fromHeightTree :: HeightTree -> LengthTree
+fromHeightTree t = go (nodeHeight $ label t) t
+  where
+    go hParent (Node () lb ts) =
+      let hNode = nodeHeight lb
+          nNode = nodeName lb
+       in Node (hParent - hNode) nNode $ map (go hNode) ts
 
 -- -- Use the height of the parent node to set the stem length of the tree.
 -- setStemLength :: Length -> HeightTree -> HeightTree

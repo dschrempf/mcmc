@@ -87,7 +87,7 @@ slideBactrian ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
@@ -135,7 +135,7 @@ scaleBactrian ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->

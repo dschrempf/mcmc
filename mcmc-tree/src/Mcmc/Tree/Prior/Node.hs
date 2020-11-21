@@ -30,7 +30,7 @@ import Statistics.Distribution.Normal
 --
 -- __Assume the node labels denote node height__.
 getHeightFromNode :: Measurable a => Path -> Tree e a -> Length
-getHeightFromNode p t = t ^. subTreeAtE p . labelL . measurableL
+getHeightFromNode p t = t ^. subTreeAtUnsafeL p . labelL . measurableL
 
 -- | Hard constrain order of nodes with given paths using a truncated uniform
 -- distribution.

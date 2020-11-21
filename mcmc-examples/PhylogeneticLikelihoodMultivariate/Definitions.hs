@@ -97,14 +97,14 @@ data I = I
     _timeHeight :: Double,
     -- | Normalized time tree of height 1.0. Branch labels denote relative
     -- times; node labels store relative node heights and names.
-    _timeTree :: HeightTree Length Name,
+    _timeTree :: HeightTree,
     -- | The mean of the absolute rates.
     _rateMean :: Double,
     -- | The shape of the relative rates.
     _rateShape :: Double,
     -- | Relative rate tree. Branch labels denote relative rates with mean 1.0;
     -- node labels store names.
-    _rateTree :: Tree Length Name
+    _rateTree :: LengthTree
   }
   deriving (Generic)
 
@@ -122,7 +122,7 @@ instance FromJSON I
 -- tree, the terminal branches are elongated such that the tree becomes
 -- ultrametric ('makeUltrametric'). For the rate tree, we just use the topology
 -- and set all rates to 1.0.
-initWith :: Tree Length Name -> I
+initWith :: LengthTree -> I
 initWith t =
   I
     { _timeBirthRate = 1.0,
@@ -134,7 +134,7 @@ initWith t =
       _rateTree = setStem 0 $ first (const 1.0) t
     }
   where
-    t' = toHeightTree $ normalizeHeight $ makeUltrametric t
+    t' = toHeightTreeUltrametric $ normalizeHeight $ makeUltrametric t
 
 -- The calibrations are defined in the module 'Calibration'.
 
@@ -151,7 +151,7 @@ priorFunction cb cs (I l m h t mu k r) =
       -- are used (see below).
       --
       -- Birth and death process prior on the time tree.
-      birthDeath WithoutStem l m 1.0 t,
+      birthDeath WithoutStem l m 1.0 (fromHeightTree t),
       -- Exponential prior on the rate mean.
       exponential 1 mu,
       -- Exponential prior on the shape parameter of the rate prior.
@@ -210,7 +210,7 @@ proposalsTimeTree t =
   (timeTree @~ pulleyUltrametric t 0.1 (PName "Time tree root") (PWeight 10) Tune) :
   -- Slide nodes excluding the root and the leaves.
   [ {-# SCC slideNodeUltrametric #-}
-    (timeTree . subTreeAtE pth)
+    (timeTree . subTreeAtUnsafeL pth)
       @~ slideNodeUltrametric 0.1 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
     | (pth, lb) <- itoList $ identify t,
       -- Since the stem does not change the likelihood, it is set to zero, and
@@ -218,14 +218,14 @@ proposalsTimeTree t =
       not (null pth),
       -- Also, we do not slide leaf nodes, since this would break
       -- ultrametricity.
-      not $ null $ t ^. subTreeAtE pth . forestL
+      not $ null $ t ^. subTreeAtUnsafeL pth . forestL
   ]
     -- Scale sub trees of inner nodes excluding the root and the leaves.
     ++ [ {-# SCC scaleSubTreeUltrametric #-}
-         (timeTree . subTreeAtE pth)
+         (timeTree . subTreeAtUnsafeL pth)
            @~ scaleSubTreeUltrametric s 0.1 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
-           let s = t ^. subTreeAtE pth,
+           let s = t ^. subTreeAtUnsafeL pth,
            -- Don't scale the sub tree of the root node, because we are not
            -- interested in changing the length of the stem.
            not $ null pth,
@@ -240,7 +240,7 @@ proposalsRateTree t =
   (rateTree @~ pulley 0.1 (PName "Rate tree root") (PWeight 10) Tune) :
   -- Scale branches excluding the stem.
   [ {-# SCC slideBranch #-}
-    (rateTree . subTreeAtE pth)
+    (rateTree . subTreeAtUnsafeL pth)
       @~ scaleBranch 0.1 (PName $ "Rate tree branch " ++ show lb) (PWeight 1) Tune
     | (pth, lb) <- itoList $ identify t,
       -- Since the stem does not change the likelihood, it is set to zero, and
@@ -249,10 +249,10 @@ proposalsRateTree t =
   ]
     -- Scale trees of inner nodes excluding the root and the leaves.
     ++ [ {-# SCC scaleTree #-}
-         (rateTree . subTreeAtE pth)
+         (rateTree . subTreeAtUnsafeL pth)
            @~ scaleTree s WithoutStem 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
-           let s = t ^. subTreeAtE pth,
+           let s = t ^. subTreeAtUnsafeL pth,
            -- Path does not lead to a leaf.
            not $ null $ forest s
        ]
@@ -289,7 +289,7 @@ proposals t =
 -- -- 0 if the height correctly calculated?
 -- monDeltaHeight :: Path -> I -> Double
 -- monDeltaHeight pth x = fromLength (t ^. labelL . heightL - rootHeight t)
---   where t = x ^. timeTree . subTreeAtE pth
+--   where t = x ^. timeTree . subTreeAtUnsafeL pth
 
 -- Monitor parameters.
 monParams :: [MonitorParameter I]
@@ -310,7 +310,7 @@ monStdOut = monitorStdOut (take 4 monParams) 1
 
 -- Get the height of the node at path. Useful to have a look at calibrated nodes.
 getTimeTreeNodeHeight :: Path -> I -> Double
-getTimeTreeNodeHeight p x = (* h) $ fromLength $ t ^. subTreeAtE p . labelL . heightL
+getTimeTreeNodeHeight p x = (* h) $ fromLength $ t ^. subTreeAtUnsafeL p . labelL . heightL
   where
     t = x ^. timeTree
     h = x ^. timeHeight
@@ -345,7 +345,7 @@ monFileParams cb cs =
 
 -- Monitor the time tree with absolute branch lengths, because they are more
 -- informative.
-absoluteTimeTree :: I -> Tree Length Name
+absoluteTimeTree :: I -> LengthTree
 absoluteTimeTree s = first (* h) t
   where
     h = either error id $ toLength $ s ^. timeHeight

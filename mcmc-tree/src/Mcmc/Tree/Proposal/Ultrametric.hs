@@ -25,15 +25,16 @@
 -- ultrametric trees will produce bogus trees with mismatching branch lengths
 -- and node heights.
 module Mcmc.Tree.Proposal.Ultrametric
-  ( slideNodeAtUltrametric,
-    -- scaleTreeUltrametric,
-    scaleSubTreeUltrametric,
+  ( -- TODO: slideAllNodesUltrametric
+    slideNodeAtUltrametric,
+    -- TODO: slideAllSubTreesUltrametric
+    scaleSubTreeAtUltrametric,
     pulleyUltrametric,
   )
 where
 
 import Control.Lens
-import Control.Monad
+import Data.Bifunctor
 import ELynx.Tree
 import Mcmc.Proposal
 import Mcmc.Tree.Lens
@@ -42,9 +43,6 @@ import Mcmc.Tree.Types
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
--- setNodeHeight :: Length -> HeightTree -> HeightTree
--- setNodeHeight h (Node () lb ts) = Node () (lb & nodeHeight .~ h) ts
-
 slideNodeAtUltrametricSimple ::
   Path ->
   -- Standard deviation.
@@ -52,30 +50,22 @@ slideNodeAtUltrametricSimple ::
   -- Tuning parameter.
   Double ->
   ProposalSimple HeightTree
-slideNodeAtUltrametricSimple _ _ _ (Node _ _ []) _ =
-  error "slideNodeAtUltrametricSample: Cannot slide leaf node."
-slideNodeAtUltrametricSimple [] _ _ (Node _ _ []) _ =
-  error "slideNodeAtUltrametricSample: Cannot slide root node."
 slideNodeAtUltrametricSimple pth s t tr g
-  | a >= b =
-    error $
-      "slideNodeAtUltrametricSimple: Maximum height of daughters "
-        ++ show a
-        ++ " is larger equal parent height "
-        ++ show b
-        ++ "."
+  | null ts = error $ "slideNodeAtUltrametricSimple: Cannot slide leaf: " ++ show nm ++ "."
   | otherwise = do
-    -- The determinant of the Jacobian is -1.0.
-    (h', q) <- truncatedNormalSample s t a b g
+    -- The absolute value of the determinant of the Jacobian is 1.0.
+    (h', q) <- truncatedNormalSample hNode s t hDaughter hParent g
     -- Use unsafe conversion.
-    let setNodeHeight x = x & labelL . nodeHeight .~ toLengthUnsafe h'
+    let setNodeHeight x = x & labelL . nodeHeightL .~ toLengthUnsafe h'
     return (toTree $ modifyTree setNodeHeight trPos, q, 1.0)
   where
     trPos = goPathUnsafe pth $ fromTree tr
-    -- The maximum of the node heights of the daughter nodes.
-    a = fromLength $ maximum $ map (_nodeHeight . label) $ forest $ current trPos
-    -- The parent node height.
-    b = fromLength $ _nodeHeight $ label $ current $ goParentUnsafe trPos
+    focus = current trPos
+    ts = forest focus
+    nm = nodeName $ label focus
+    hNode = fromLength $ nodeHeight $ label focus
+    hDaughter = fromLength $ maximum $ map (nodeHeight . label) ts
+    hParent = fromLength $ nodeHeight $ label $ current $ goParentUnsafe trPos
 
 -- | Slide node (for ultrametric trees).
 --
@@ -95,7 +85,7 @@ slideNodeAtUltrametric ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
@@ -163,8 +153,8 @@ nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 --   Double ->
 --   -- | Name.
 --   PName ->
---   -- | PWeight.
---   PWeight ->
+--   -- | Weight.
+--   Weight ->
 --   -- | Enable tuning.
 --   Tune ->
 --   Proposal (Tree Length a)
@@ -173,83 +163,86 @@ nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 --     description = PDescription $ "Scale tree ultrametric; shape: " ++ show k
 --     n = nInnerNodes tr
 
--- The stem is elongated by u. So if u is positive, the node height is reduced.
---
 -- The scaling factor for inner node heights is also given, since it is
 -- calculated below.
-slideBranchScaleSubTreeF :: Double -> Double -> HeightTree -> HeightTree
-slideBranchScaleSubTreeF u xi (Node br lb ts) =
-  Node
-    (br & lengthL %~ (+ u))
-    (lb & measurableL . lengthL %~ subtract u)
-    $ map (bimap (lengthL %~ (* xi)) (measurableL . lengthL %~ (* xi))) ts
+scaleSubTreeF :: Double -> Double -> HeightTree -> HeightTree
+scaleSubTreeF h xi (Node _ lb ts) =
+  Node () (lb & nodeHeightL .~ h') $ map (second $ nodeHeightL *~ xi') ts
+  where
+    xi' = toLengthUnsafe xi
+    h' = toLengthUnsafe h
 
-scaleSubTreeUltrametricSimple ::
+scaleSubTreeAtUltrametricSimple ::
   -- Number of inner nodes.
   Int ->
+  -- Path to sub tree.
+  Path ->
+  -- Standard deviation.
   Double ->
+  -- Tuning parameter.
   Double ->
   ProposalSimple HeightTree
-scaleSubTreeUltrametricSimple _ _ _ (Node _ _ []) _ =
-  error "scaleSubTreeUltrametricSample: Cannot scale sub tree of leaf node."
-scaleSubTreeUltrametricSimple n ds t tr g = do
-  when
-    (br <= 0)
-    ( error $
-        "scaleSubTreeUltrametricSimple: Parent branch length is zero or negative: " ++ show br ++ "." ++ show tr
-    )
-  when
-    (ht <= 0)
-    ( error $
-        "scaleSubTreeUltrametricSimple: Node height is zero or negative: " ++ show ht ++ "."
-    )
-  -- The determinant of the Jacobian is not included.
-  (u, q) <- truncatedNormalSample ds t a b g
-  -- For the calculation of the Jacobian matrix, parameterize the tree into the
-  -- stem length, the height of the root, and the heights of other inner nodes.
-  --
-  -- (-1) because the root height has an additive change.
-  --
-  -- Scaling factor (xi, not x_i) is (ht - u)/ht = (1.0 - u/ht).
-  let xi = 1.0 - u / b
-      jacobian = Exp $ fromIntegral (n - 1) * log xi
-  return (slideBranchScaleSubTreeF u xi tr, q, jacobian)
+scaleSubTreeAtUltrametricSimple n pth ds t tr g
+  | null ts =
+    error $
+      "scaleSubTreeAtUltrametricSimple: Cannot scale sub tree of leaf: " ++ show nm ++ "."
+  | otherwise = do
+    -- The determinant of the Jacobian is not included.
+    (hNode', q) <- truncatedNormalSample hNode ds t 0 hParent g
+    -- Scaling factor (xi, not x_i).
+    let xi = hNode' / hNode
+        -- (-1) because the root height has an additive change.
+        jacobian = Exp $ fromIntegral (n - 1) * log xi
+    return (scaleSubTreeF hNode' xi tr, q, jacobian)
   where
-    br = branch tr
-    ht = getLen $ label tr
-    a = fromLength $ negate br
-    b = fromLength ht
+    trPos = goPathUnsafe pth $ fromTree tr
+    focus = current trPos
+    ts = forest focus
+    nm = nodeName $ label focus
+    hNode = fromLength $ nodeHeight $ label focus
+    hParent = fromLength $ nodeHeight $ label $ current $ goParentUnsafe trPos
 
--- | Scale the branches of the sub tree and slide the stem so that the tree
--- height is conserved.
+-- | Scale the node heights of the sub tree at given path.
 --
--- A normal distribution truncated at the parent node (or the origin) and the
--- leaves is used to slide the given node.
-scaleSubTreeUltrametric ::
+-- A normal distribution truncated at the height of the parent node and the
+-- leaves is used to determine the new height of the sub tree.
+--
+-- Call 'error' if
+--
+-- - this proposal is applied to the root node
+--
+-- - this proposal is applied to a leaf node
+scaleSubTreeAtUltrametric ::
   -- | The tree is used to precompute the number of inner nodes for
   -- computational efficiency.
   Tree e b ->
+  -- | Path to sub tree.
+  Path ->
   -- | Standard deviation.
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
   Proposal HeightTree
-scaleSubTreeUltrametric tr sd = createProposal description (scaleSubTreeUltrametricSimple n sd)
+scaleSubTreeAtUltrametric tr pth sd =
+  createProposal
+    description
+    (scaleSubTreeAtUltrametricSimple n pth sd)
   where
     description = PDescription $ "Scale subtree ultrametrc; sd: " ++ show sd
-    n = nInnerNodes tr
+    n = nInnerNodes $ current $ goPathUnsafe pth $ fromTree tr
 
+-- TODO: This can be shortened.
+--
 -- See 'pulleyTruncatedNormalSample'. However, we have to honor more constraints
 -- in the ultrametric case.
 pulleyUltrametricTruncatedNormalSample ::
-  Measurable a =>
   Double ->
   Double ->
-  Tree Length a ->
+  HeightTree ->
   GenIO ->
   IO (Double, Log Double)
 pulleyUltrametricTruncatedNormalSample s t (Node _ lb [l, r])
@@ -259,13 +252,13 @@ pulleyUltrametricTruncatedNormalSample s t (Node _ lb [l, r])
   | brR <= 0 =
     error $
       "pulleyUltrametricTruncatedNormalSample: Right branch is zero or negative: " ++ show brR ++ "."
-  | otherwise = truncatedNormalSample s t a b
+  | otherwise = truncatedNormalSample 0 s t a b
   where
-    -- Left and right branch length.
-    brL = branch l
-    brR = branch r
     -- The new branch lengths are not allowed to exceed the height of the node.
-    ht = getLen lb
+    ht = nodeHeight lb
+    -- Left and right branch length.
+    brL = ht - nodeHeight (label l)
+    brR = ht - nodeHeight (label r)
     -- The constraints are larger than 0.
     constraintRightBoundary = ht - brL
     constraintLeftBoundary = ht - brR
@@ -275,30 +268,28 @@ pulleyUltrametricTruncatedNormalSample _ _ _ =
   error "pulleyUltrametricTruncatedNormalSample: Node is not bifurcating."
 
 pulleyUltrametricSimple ::
-  Measurable a =>
   -- Number of inner nodes of left tree.
   Int ->
   -- Number of inner nodes of right tree.
   Int ->
   Double ->
   Double ->
-  ProposalSimple (Tree Length a)
+  ProposalSimple HeightTree
 pulleyUltrametricSimple nL nR s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyUltrametricTruncatedNormalSample s t tr g
   -- Left.
-  let hL = getLen $ label l
+  let hL = nodeHeight $ label l
       -- Scaling factor left. (hL - u)/hL = (1.0 - u/hL).
       xiL = 1.0 - u / fromLength hL
   -- Right.
-  let hR = getLen $ label r
+  let hR = nodeHeight $ label r
       -- Scaling factor right. (hR + u)/hR = (1.0 + u/hR).
       xiR = 1.0 + u / fromLength hR
-  let tr' = Node br lb [slideBranchScaleSubTreeF u xiL l, slideBranchScaleSubTreeF (negate u) xiR r]
+  let tr' = Node br lb [scaleSubTreeF u xiL l, scaleSubTreeF (negate u) xiR r]
   -- The calculation of the Jacobian matrix is very lengthy. Similar to before,
-  -- we parameterize the tree into the two branch lengths leading to the pulley
-  -- node, and the node heights of all other internal nodes. However, the left
-  -- and right node heights are now treated in a different way. For reference, I
-  -- took a picture, 20201030_122839_DRO.jpg.
+  -- we parameterize the right and left trees into the heights of all other
+  -- internal nodes. However, the left and right node heights are now treated in
+  -- a different way. For reference, I took a picture, 20201030_122839_DRO.jpg.
   --
   -- (-1) because the root height has an additive change.
   let jacobianL = Exp $ fromIntegral (nL - 1) * log xiL
@@ -309,10 +300,8 @@ pulleyUltrametricSimple _ _ _ _ _ _ = error "pulleyUltrametricSimple: Node is no
 -- | Use a node as a pulley.
 --
 -- See 'Mcmc.Tree.Proposal.Unconstrained.pulley', but for ultrametric trees. The
--- sub trees are scaled such that the tree heights are conserved and the tree
--- remains ultrametric.
+-- sub trees are scaled so that the tree remains ultrametric.
 pulleyUltrametric ::
-  Measurable a =>
   -- | The tree is used to precompute the number of inner nodes for
   -- computational efficiency.
   Tree e b ->
@@ -320,11 +309,11 @@ pulleyUltrametric ::
   Double ->
   -- | Name.
   PName ->
-  -- | PWeight.
+  -- | Weight.
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal (Tree Length a)
+  Proposal HeightTree
 pulleyUltrametric (Node _ _ [l, r]) d
   | null (forest l) = error "pulleyUltrametric: Left tree is a leaf."
   | null (forest r) = error "pulleyUltrametric: Right tree is a leaf."

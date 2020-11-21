@@ -73,7 +73,7 @@ fnMeanTree = bnAnalysis ++ ".meantree"
 
 -- The rooted tree with posterior mean branch lengths will be stored in a file
 -- with this name.
-getMeanTree :: IO (Tree Length Name)
+getMeanTree :: IO LengthTree
 getMeanTree = oneTree fnMeanTree
 
 fnData :: FilePath
