@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -18,23 +21,30 @@ module Mcmc.Tree.Types
   ( -- * Miscellaneous
     HandleStem (..),
 
-    -- * Length trees
-    LengthTree,
-
-    -- * Height trees
+    -- * Heights
+    Height (fromHeight),
+    HasHeight (..),
+    toHeight,
+    toHeightUnsafe,
+    checkHeight,
     HeightLabel (..),
     nodeHeightL,
     nodeNameL,
+
+    -- * Height trees
     HeightTree,
     toHeightTreeUltrametric,
     fromHeightTree,
   )
 where
 
+import Control.DeepSeq
 import Control.Lens
+import Data.Monoid
 import Data.Aeson
 import Data.Aeson.TH
 import ELynx.Tree
+import GHC.Generics
 
 -- | Should the stem be handled?
 --
@@ -42,26 +52,59 @@ import ELynx.Tree
 -- during execution of a proposal, or the branch-wise prior?
 data HandleStem = WithStem | WithoutStem
 
--- | Length tree.
+-- | Non-negative height.
 --
--- A 'Tree' with unconstrained branch lengths and node names.
-type LengthTree = Tree Length Name
+-- However, non-negativity is only checked with 'toHeight', and negative values
+-- can be obtained using the 'Num' and related instances.
+--
+-- Safe conversion is roughly 50 percent slower.
+newtype Height = Height {fromHeight :: Double}
+  deriving (Read, Show, Generic, NFData)
+  deriving (Enum, Eq, Floating, Fractional, Num, Ord, Real, RealFloat, RealFrac) via Double
+  deriving (Semigroup, Monoid) via Sum Double
+
+$(deriveJSON defaultOptions ''Height)
+
+-- | If negative, call 'error' with given calling function name.
+toHeight :: String -> Double -> Height
+toHeight s x
+  | x < 0 = error $ s ++ ": Height is negative: " ++ show x ++ "."
+  | otherwise = Height x
+
+-- | Do not check if value is negative.
+toHeightUnsafe :: Double -> Height
+toHeightUnsafe = Height
+
+-- | If negative, call 'error' with given calling function name.
+checkHeight :: String -> Height -> Height
+checkHeight s = toHeight s . fromHeight
+
+-- | A data type with measurable and modifiable values.
+class HasHeight a where
+  getHeight :: a -> Height
+  setHeight :: Height -> a -> a
+  modHeight :: (Height -> Height) -> a -> a
 
 -- | A node label storing node height and node name.
-data HeightLabel = HeightLabel
-  { nodeHeight :: Length,
-    nodeName :: Name
+data HeightLabel a = HeightLabel
+  { nodeHeight :: Height,
+    nodeName :: a
   }
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''HeightLabel)
 
+instance HasHeight (HeightLabel a) where
+  getHeight = nodeHeight
+  setHeight h (HeightLabel _ lb) = HeightLabel h lb
+  modHeight f (HeightLabel h lb) = HeightLabel (f h) lb
+
 -- | Node height.
-nodeHeightL :: Lens' HeightLabel Length
+nodeHeightL :: Lens' (HeightLabel a) Height
 nodeHeightL = lens nodeHeight (\x h -> x {nodeHeight = h})
 
 -- | Node name.
-nodeNameL :: Lens' HeightLabel Name
+nodeNameL :: Lens' (HeightLabel a) a
 nodeNameL = lens nodeName (\x n -> x {nodeName = n})
 
 -- | Height tree.
@@ -71,7 +114,7 @@ nodeNameL = lens nodeName (\x n -> x {nodeName = n})
 --
 -- For example, the height tree representation is required when working with
 -- ultrametric trees.
-type HeightTree = Tree () HeightLabel
+type HeightTree a = Tree () (HeightLabel a)
 
 -- | Calculate node heights for a given tree.
 --
@@ -82,53 +125,19 @@ type HeightTree = Tree () HeightLabel
 -- The length of the stem is lost.
 --
 -- This operation is slow, O(n^2), where n is the number of inner nodes.
-toHeightTreeUltrametric :: LengthTree -> HeightTree
+toHeightTreeUltrametric :: Tree Length a -> HeightTree a
 toHeightTreeUltrametric t@(Node _ lb ts) =
   Node
     ()
-    (HeightLabel (rootHeight t) lb)
+    (HeightLabel (toHeight "toHeightTreeUltrametric" $ fromLength $ rootHeight t) lb)
     (map toHeightTreeUltrametric ts)
 
 -- | Remove information about node height from node label.
-fromHeightTree :: HeightTree -> LengthTree
+fromHeightTree :: HeightTree a -> Tree Length a
 fromHeightTree t = go (nodeHeight $ label t) t
   where
     go hParent (Node () lb ts) =
       let hNode = nodeHeight lb
           nNode = nodeName lb
-       in Node (hParent - hNode) nNode $ map (go hNode) ts
-
--- -- Use the height of the parent node to set the stem length of the tree.
--- setStemLength :: Length -> HeightTree -> HeightTree
--- setStemLength hParent t = t & branchL .~ dh
---   where
---     hChild = t ^. labelL . measurableL
---     dh = hParent - hChild
-
--- -- | Recalculate the branch lengths.
--- --
--- -- The stem length is unchanged.
--- --
--- -- This operation is slow.
--- recalculateBranchLengths :: HeightTree -> HeightTree
--- recalculateBranchLengths t =
---   over (forestL . mapped) (setStemLength l . recalculateBranchLengths) t
---   where
---     l = t ^. labelL . measurableL
-
--- -- | Recalculate the branch lengths up to a given depth.
--- --
--- -- We have:
--- -- @
--- -- recalculateBranchLengthsNLevels 0 t = t
--- -- @
--- --
--- -- The stem length is unchanged.
--- --
--- -- This operation is slow.
--- recalculateBranchLengthsNLevels :: Int -> HeightTree -> HeightTree
--- recalculateBranchLengthsNLevels 0 t = t
--- recalculateBranchLengthsNLevels n t =
---   over (forestL . mapped) (setStemLength l . recalculateBranchLengthsNLevels (n -1)) t
---   where
---     l = t ^. labelL . measurableL
+       in Node (toLength "fromHeightTree" $ fromHeight $ hParent - hNode)
+          nNode $ map (go hNode) ts

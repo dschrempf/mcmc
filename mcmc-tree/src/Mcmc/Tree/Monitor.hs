@@ -19,11 +19,8 @@ import Mcmc
 
 -- | Monitor a tree in Newick format.
 monitorTree ::
-  (Measurable e, Named a) =>
+  (HasLength e, HasName a) =>
   -- | Name.
   String ->
   MonitorParameter (Tree e a)
-monitorTree n =
-  MonitorParameter
-    n
-    (toNewickBuilder . measurableToPhyloTree)
+monitorTree n = MonitorParameter n (toNewickBuilder . measurableToPhyloTree)

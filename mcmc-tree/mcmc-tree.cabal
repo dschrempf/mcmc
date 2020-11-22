@@ -47,6 +47,7 @@ library
     , bytestring
     , comonad
     , containers
+    , deepseq
     , dirichlet
     , elynx-tree
     , lens

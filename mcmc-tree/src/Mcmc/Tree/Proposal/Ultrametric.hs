@@ -49,23 +49,22 @@ slideNodeAtUltrametricSimple ::
   Double ->
   -- Tuning parameter.
   Double ->
-  ProposalSimple HeightTree
+  ProposalSimple (HeightTree a)
 slideNodeAtUltrametricSimple pth s t tr g
-  | null ts = error $ "slideNodeAtUltrametricSimple: Cannot slide leaf: " ++ show nm ++ "."
+  | null ts = error "slideNodeAtUltrametricSimple: Cannot slide leaf."
   | otherwise = do
     -- The absolute value of the determinant of the Jacobian is 1.0.
     (h', q) <- truncatedNormalSample hNode s t hDaughter hParent g
     -- Use unsafe conversion.
-    let setNodeHeight x = x & labelL . nodeHeightL .~ toLengthUnsafe h'
+    let setNodeHeight x = x & labelL . nodeHeightL .~ toHeightUnsafe h'
     return (toTree $ modifyTree setNodeHeight trPos, q, 1.0)
   where
     trPos = goPathUnsafe pth $ fromTree tr
     focus = current trPos
     ts = forest focus
-    nm = nodeName $ label focus
-    hNode = fromLength $ nodeHeight $ label focus
-    hDaughter = fromLength $ maximum $ map (nodeHeight . label) ts
-    hParent = fromLength $ nodeHeight $ label $ current $ goParentUnsafe trPos
+    hNode = fromHeight $ nodeHeight $ label focus
+    hDaughter = fromHeight $ maximum $ map (nodeHeight . label) ts
+    hParent = fromHeight $ nodeHeight $ label $ current $ goParentUnsafe trPos
 
 -- | Slide node (for ultrametric trees).
 --
@@ -89,7 +88,7 @@ slideNodeAtUltrametric ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal HeightTree
+  Proposal (HeightTree a)
 slideNodeAtUltrametric pth ds = createProposal description (slideNodeAtUltrametricSimple pth ds)
   where
     description = PDescription $ "Slide node ultrametric; sd: " ++ show ds
@@ -99,7 +98,7 @@ nInnerNodes :: Tree e a -> Int
 nInnerNodes (Node _ _ []) = 0
 nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 
--- scaleTreeUltrametricFunction :: Measurable a => HandleStem -> Tree Length a -> Double -> Tree Length a
+-- scaleTreeUltrametricFunction :: HasLength a => HandleStem -> Tree Length a -> Double -> Tree Length a
 -- scaleTreeUltrametricFunction WithStem tr u =
 --   bimap
 --     (lengthL %~ (* u))
@@ -123,7 +122,7 @@ nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 -- scaleTreeUltrametricJacobian n WithoutStem _ u = Exp $ fromIntegral (n - 2) * log u
 
 -- scaleTreeUltrametricSimple ::
---   Measurable a =>
+--   HasLength a =>
 --   -- Number of inner nodes.
 --   Int ->
 --   HandleStem ->
@@ -143,7 +142,7 @@ nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 -- -- __The height is changed.__ Do not use this proposal on a sub tree of an
 -- -- ultrametric tree. Instead, use 'scaleSubTreeUltrametric'.
 -- scaleTreeUltrametric ::
---   Measurable a =>
+--   HasLength a =>
 --   -- | The tree is used to precompute the number of inner nodes for
 --   -- computational efficiency.
 --   Tree e b ->
@@ -165,12 +164,12 @@ nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 
 -- The scaling factor for inner node heights is also given, since it is
 -- calculated below.
-scaleSubTreeF :: Double -> Double -> HeightTree -> HeightTree
+scaleSubTreeF :: Double -> Double -> HeightTree a -> HeightTree a
 scaleSubTreeF h xi (Node _ lb ts) =
   Node () (lb & nodeHeightL .~ h') $ map (second $ nodeHeightL *~ xi') ts
   where
-    xi' = toLengthUnsafe xi
-    h' = toLengthUnsafe h
+    xi' = toHeightUnsafe xi
+    h' = toHeightUnsafe h
 
 scaleSubTreeAtUltrametricSimple ::
   -- Number of inner nodes.
@@ -181,11 +180,9 @@ scaleSubTreeAtUltrametricSimple ::
   Double ->
   -- Tuning parameter.
   Double ->
-  ProposalSimple HeightTree
+  ProposalSimple (HeightTree a)
 scaleSubTreeAtUltrametricSimple n pth ds t tr g
-  | null ts =
-    error $
-      "scaleSubTreeAtUltrametricSimple: Cannot scale sub tree of leaf: " ++ show nm ++ "."
+  | null ts = error "scaleSubTreeAtUltrametricSimple: Cannot scale sub tree of leaf."
   | otherwise = do
     -- The determinant of the Jacobian is not included.
     (hNode', q) <- truncatedNormalSample hNode ds t 0 hParent g
@@ -198,9 +195,8 @@ scaleSubTreeAtUltrametricSimple n pth ds t tr g
     trPos = goPathUnsafe pth $ fromTree tr
     focus = current trPos
     ts = forest focus
-    nm = nodeName $ label focus
-    hNode = fromLength $ nodeHeight $ label focus
-    hParent = fromLength $ nodeHeight $ label $ current $ goParentUnsafe trPos
+    hNode = fromHeight $ nodeHeight $ label focus
+    hParent = fromHeight $ nodeHeight $ label $ current $ goParentUnsafe trPos
 
 -- | Scale the node heights of the sub tree at given path.
 --
@@ -226,7 +222,7 @@ scaleSubTreeAtUltrametric ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal HeightTree
+  Proposal (HeightTree a)
 scaleSubTreeAtUltrametric tr pth sd =
   createProposal
     description
@@ -242,7 +238,7 @@ scaleSubTreeAtUltrametric tr pth sd =
 pulleyUltrametricTruncatedNormalSample ::
   Double ->
   Double ->
-  HeightTree ->
+  HeightTree a ->
   GenIO ->
   IO (Double, Log Double)
 pulleyUltrametricTruncatedNormalSample s t (Node _ lb [l, r])
@@ -262,8 +258,8 @@ pulleyUltrametricTruncatedNormalSample s t (Node _ lb [l, r])
     -- The constraints are larger than 0.
     constraintRightBoundary = ht - brL
     constraintLeftBoundary = ht - brR
-    a = fromLength $ negate $ minimum [brL, constraintLeftBoundary]
-    b = fromLength $ minimum [brR, constraintRightBoundary]
+    a = fromHeight $ negate $ minimum [brL, constraintLeftBoundary]
+    b = fromHeight $ minimum [brR, constraintRightBoundary]
 pulleyUltrametricTruncatedNormalSample _ _ _ =
   error "pulleyUltrametricTruncatedNormalSample: Node is not bifurcating."
 
@@ -274,17 +270,17 @@ pulleyUltrametricSimple ::
   Int ->
   Double ->
   Double ->
-  ProposalSimple HeightTree
+  ProposalSimple (HeightTree a)
 pulleyUltrametricSimple nL nR s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyUltrametricTruncatedNormalSample s t tr g
   -- Left.
   let hL = nodeHeight $ label l
       -- Scaling factor left. (hL - u)/hL = (1.0 - u/hL).
-      xiL = 1.0 - u / fromLength hL
+      xiL = 1.0 - u / fromHeight hL
   -- Right.
   let hR = nodeHeight $ label r
       -- Scaling factor right. (hR + u)/hR = (1.0 + u/hR).
-      xiR = 1.0 + u / fromLength hR
+      xiR = 1.0 + u / fromHeight hR
   let tr' = Node br lb [scaleSubTreeF u xiL l, scaleSubTreeF (negate u) xiR r]
   -- The calculation of the Jacobian matrix is very lengthy. Similar to before,
   -- we parameterize the right and left trees into the heights of all other
@@ -313,7 +309,7 @@ pulleyUltrametric ::
   PWeight ->
   -- | Enable tuning.
   Tune ->
-  Proposal HeightTree
+  Proposal (HeightTree a)
 pulleyUltrametric (Node _ _ [l, r]) d
   | null (forest l) = error "pulleyUltrametric: Left tree is a leaf."
   | null (forest r) = error "pulleyUltrametric: Right tree is a leaf."

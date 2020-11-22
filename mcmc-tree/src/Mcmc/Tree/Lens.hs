@@ -23,14 +23,17 @@ module Mcmc.Tree.Lens
     -- * Zipper
     currentL,
 
-    -- * Measurable
-    measurableL,
+    -- * Height and length
+    hasHeightL,
+    heightUnsafeL,
+    hasLengthL,
     lengthUnsafeL,
   )
 where
 
 import Control.Lens
 import ELynx.Tree
+import Mcmc.Tree.Types
 
 -- | Branch attached to the root node.
 branchL :: Lens' (Tree e a) e
@@ -89,22 +92,22 @@ subTreeAtUnsafeL pth f s = go s pth
 currentL :: Lens' (TreePos e a) (Tree e a)
 currentL = lens current (\x t -> x {current = t})
 
+-- | Height.
+hasHeightL :: HasHeight a => Lens' a Height
+hasHeightL = lens getHeight (flip setHeight)
+
+-- | Height, unsafe.
+--
+-- Non-negativity is not ensured.
+heightUnsafeL :: Lens' Height Double
+heightUnsafeL f l = toHeightUnsafe <$> f (fromHeight l)
+
 -- | Length of measurable types.
-measurableL :: Measurable a => Lens' a Length
-measurableL = lens getLen (flip setLen)
-
--- Slower.
-
--- -- | Length, error.
--- --
--- -- Call 'error' if length is negative.
--- lengthUnsafeL :: Lens' Length Double
--- lengthUnsafeL f l = either error id . toLength <$> f (fromLength l)
-
--- Faster.
+hasLengthL :: HasLength a => Lens' a Length
+hasLengthL = lens getLen (flip setLen)
 
 -- | Length, unsafe.
 --
--- Non-negativity property is not ensured.
+-- Non-negativity is not ensured.
 lengthUnsafeL :: Lens' Length Double
 lengthUnsafeL f l = toLengthUnsafe <$> f (fromLength l)

@@ -29,13 +29,13 @@ import Statistics.Distribution.Normal
 -- Get the height of the node at path on the tree.
 --
 -- __Assume the node labels denote node height__.
-getHeightFromNode :: Measurable a => Path -> Tree e a -> Length
-getHeightFromNode p t = t ^. subTreeAtUnsafeL p . labelL . measurableL
+getHeightFromNode :: HasLength a => Path -> Tree e a -> Length
+getHeightFromNode p t = t ^. subTreeAtUnsafeL p . labelL . hasLengthL
 
 -- | Hard constrain order of nodes with given paths using a truncated uniform
 -- distribution.
 constrainHard ::
-  Measurable a =>
+  HasLength a =>
   -- | Path to younger node (closer to the leaves).
   Path ->
   -- | Path to older node (closer to the root).
@@ -58,7 +58,7 @@ constrainHard y o t
 --   of the normal distribution also ensures that the first derivative is
 --   continuous.
 constrainSoft ::
-  Measurable a =>
+  HasLength a =>
   -- | Standard deviation of one sided normal distribution.
   Double ->
   -- | Path to younger node (closer to the leaves).
@@ -79,7 +79,7 @@ constrainSoft s y o t
 
 -- | Calibrate height of a node with given path using the normal distribution.
 calibrate ::
-  Measurable a =>
+  HasLength a =>
   -- | Mean.
   Double ->
   -- | Standard deviation.
@@ -91,7 +91,7 @@ calibrate m s p = Exp . logDensity (normalDistr m s) . fromLength . getHeightFro
 
 -- | Calibrate height of a node with given path using the uniform distribution.
 calibrateUniform ::
-  Measurable a =>
+  HasLength a =>
   -- | Lower bound.
   Double ->
   -- | Upper bound.
@@ -115,7 +115,7 @@ calibrateUniform a b p t
 --   the complete distribution of the constrained is continuous. Use of the
 --   normal distribution also ensures that the first derivative is continuous.
 calibrateUniformSoft ::
-  Measurable a =>
+  HasLength a =>
   -- | Standard deviation of one sided normal distributions.
   Double ->
   -- | Lower bound.
