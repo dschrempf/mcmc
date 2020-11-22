@@ -97,14 +97,14 @@ data I = I
     _timeHeight :: Double,
     -- | Normalized time tree of height 1.0. Branch labels denote relative
     -- times; node labels store relative node heights and names.
-    _timeTree :: HeightTree,
+    _timeTree :: HeightTree Name,
     -- | The mean of the absolute rates.
     _rateMean :: Double,
     -- | The shape of the relative rates.
     _rateShape :: Double,
     -- | Relative rate tree. Branch labels denote relative rates with mean 1.0;
     -- node labels store names.
-    _rateTree :: LengthTree
+    _rateTree :: Tree Length Name
   }
   deriving (Generic)
 
@@ -122,7 +122,7 @@ instance FromJSON I
 -- tree, the terminal branches are elongated such that the tree becomes
 -- ultrametric ('makeUltrametric'). For the rate tree, we just use the topology
 -- and set all rates to 1.0.
-initWith :: LengthTree -> I
+initWith :: Tree Length Name -> I
 initWith t =
   I
     { _timeBirthRate = 1.0,
@@ -197,7 +197,7 @@ likelihoodFunction ::
 likelihoodFunction mu sigmaInv logSigmaDet x =
   logDensityMultivariateNormal mu sigmaInv logSigmaDet distances
   where
-    times = getBranches (x ^. timeTree)
+    times = getBranches (fromHeightTree $ x ^. timeTree)
     rates = getBranches (x ^. rateTree)
     tH = x ^. timeHeight
     rMu = x ^. rateMean
@@ -345,7 +345,7 @@ monFileParams cb cs =
 
 -- Monitor the time tree with absolute branch lengths, because they are more
 -- informative.
-absoluteTimeTree :: I -> LengthTree
+absoluteTimeTree :: I -> Tree Length Name
 absoluteTimeTree s = first (* h) t
   where
     h = either error id $ toLength $ s ^. timeHeight

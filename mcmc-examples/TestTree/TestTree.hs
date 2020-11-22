@@ -21,7 +21,7 @@ import Mcmc
 import Mcmc.Tree
 import System.Random.MWC hiding (uniform)
 
-type I = HeightTree
+type I = HeightTree Name
 
 -- Birth death prior, see Yang (2006), Figure 7.12. For lambda=2, mu=2, rho=0.1,
 -- we expect a relatively linear distribution of inner node ages (a little bit
@@ -52,7 +52,7 @@ cc t =
 
 -- Get the height of the node at path. Useful to have a look at calibrated nodes.
 getTreeNodeHeight :: Path -> I -> Double
-getTreeNodeHeight p t = fromLength $ nodeHeight $ label $ t ^. subTreeAtUnsafeL p
+getTreeNodeHeight p t = fromHeight $ nodeHeight $ label $ t ^. subTreeAtUnsafeL p
 
 -- Monitor the height of all nodes.
 monPs :: Tree e a -> [MonitorParameter I]
