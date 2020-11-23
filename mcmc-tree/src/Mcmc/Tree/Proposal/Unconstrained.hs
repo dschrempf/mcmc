@@ -87,8 +87,7 @@ scaleTreeSimple n s k t =
 -- proposal is only valid, if all branch lengths are unconstrained and strictly
 -- positive.
 scaleTree ::
-  -- | The tree is used to precompute the number of branches for computational
-  -- efficiency.
+  -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e b ->
   -- | Handle the stem?
   HandleStem ->

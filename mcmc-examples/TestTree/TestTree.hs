@@ -45,9 +45,8 @@ cc t =
       -- Scale trees of inner nodes excluding the root and the leaves.
       ++ [ scaleSubTreeAtUltrametric t pth 100 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
            | (pth, lb) <- itoList $ identify t,
-             let s = t ^. subTreeAtUnsafeL pth,
              not $ null pth,
-             not $ null $ forest s
+             not $ null $ forest $ t ^. subTreeAtUnsafeL pth
          ]
 
 -- Get the height of the node at path. Useful to have a look at calibrated nodes.

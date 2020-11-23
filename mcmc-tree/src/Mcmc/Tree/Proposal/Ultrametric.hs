@@ -115,8 +115,8 @@ nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 
 -- The scaling factor for inner node heights is also given, since it is
 -- calculated below.
-scaleSubTreeF :: Double -> Double -> HeightTree a -> HeightTree a
-scaleSubTreeF h xi (Node _ lb ts) =
+scaleTreeF :: Double -> Double -> HeightTree a -> HeightTree a
+scaleTreeF h xi (Node _ lb ts) =
   Node () (lb & nodeHeightL .~ h') $ map (second $ nodeHeightL *~ xi') ts
   where
     xi' = toHeight "scaleSubTreeF:xi" xi
@@ -141,7 +141,7 @@ scaleSubTreeAtUltrametricSimple n pth ds t tr g
     let xi = hNode' / hNode
         -- (-1) because the root height has an additive change.
         jacobian = Exp $ fromIntegral (n - 1) * log xi
-    return (toTree $ modifyTree (scaleSubTreeF hNode' xi) trPos, q, jacobian)
+    return (toTree $ modifyTree (scaleTreeF hNode' xi) trPos, q, jacobian)
   where
     trPos = goPathUnsafe pth $ fromTree tr
     focus = current trPos
@@ -165,8 +165,7 @@ scaleSubTreeAtUltrametricSimple n pth ds t tr g
 --
 -- - The path leads to a leaf.
 scaleSubTreeAtUltrametric ::
-  -- | The topology of the tree is used to precompute the number of inner nodes
-  -- for computational efficiency.
+  -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e b ->
   -- | Path to sub tree.
   Path ->
@@ -187,8 +186,6 @@ scaleSubTreeAtUltrametric tr pth sd =
     description = PDescription $ "Scale subtree ultrametrc; sd: " ++ show sd
     n = nInnerNodes $ current $ goPathUnsafe pth $ fromTree tr
 
--- TODO: This can be shortened.
---
 -- See 'pulleyTruncatedNormalSample'. However, we have to honor more constraints
 -- in the ultrametric case.
 pulleyUltrametricTruncatedNormalSample ::
@@ -231,14 +228,16 @@ pulleyUltrametricSimple nL nR s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyUltrametricTruncatedNormalSample s t tr g
   -- Left.
   let hL = nodeHeight $ label l
+      hL' = fromHeight hL - u
       -- Scaling factor left. (hL - u)/hL = (1.0 - u/hL).
-      xiL = 1.0 - u / fromHeight hL
+      xiL = hL' / fromHeight hL
   -- Right.
   let hR = nodeHeight $ label r
+      hR' = fromHeight hR + u
       -- Scaling factor right. (hR + u)/hR = (1.0 + u/hR).
-      xiR = 1.0 + u / fromHeight hR
-  let tr' = Node br lb [scaleSubTreeF u xiL l, scaleSubTreeF (negate u) xiR r]
-  -- The calculation of the Jacobian matrix is very lengthy. Similar to before,
+      xiR = hR' / fromHeight hR
+  let tr' = Node br lb [scaleTreeF hL' xiL l, scaleTreeF hR' xiR r]
+  -- The derivation of the Jacobian matrix is very lengthy. Similar to before,
   -- we parameterize the right and left trees into the heights of all other
   -- internal nodes. However, the left and right node heights are now treated in
   -- a different way. For reference, I took a picture, 20201030_122839_DRO.jpg.
@@ -251,11 +250,18 @@ pulleyUltrametricSimple _ _ _ _ _ _ = error "pulleyUltrametricSimple: Node is no
 
 -- | Use a node as a pulley.
 --
--- See 'Mcmc.Tree.Proposal.Unconstrained.pulley', but for ultrametric trees. The
+-- See 'Mcmc.Tree.Proposal.Unconstrained.pulley' but for ultrametric trees. The
 -- sub trees are scaled so that the tree remains ultrametric.
+--
+-- Call 'error' if:
+--
+-- - The node is not bifurcating.
+--
+-- - Left sub tree is a leaf.
+--
+-- - Right sub tree is a leaf.
 pulleyUltrametric ::
-  -- | The tree is used to precompute the number of inner nodes for
-  -- computational efficiency.
+  -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e b ->
   -- | Standard deviation.
   Double ->
@@ -267,8 +273,8 @@ pulleyUltrametric ::
   Tune ->
   Proposal (HeightTree a)
 pulleyUltrametric (Node _ _ [l, r]) d
-  | null (forest l) = error "pulleyUltrametric: Left tree is a leaf."
-  | null (forest r) = error "pulleyUltrametric: Right tree is a leaf."
+  | null (forest l) = error "pulleyUltrametric: Left sub tree is a leaf."
+  | null (forest r) = error "pulleyUltrametric: Right sub tree is a leaf."
   | otherwise = createProposal description (pulleyUltrametricSimple nL nR d)
   where
     description = PDescription $ "Pulley ultrametric; sd: " ++ show d
