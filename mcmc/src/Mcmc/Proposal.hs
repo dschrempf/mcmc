@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
@@ -67,6 +68,7 @@ import System.Random.MWC
 -- | Proposal name.
 newtype PName = PName {fromPName :: String}
   deriving (Show, Eq, Ord)
+  deriving (Monoid, Semigroup) via String
 
 -- | Proposal description.
 newtype PDescription = PDescription {fromPDescription :: String}

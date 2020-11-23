@@ -27,10 +27,10 @@
 --
 -- For proposals on unconstrained trees, see "Mcmc.Tree.Proposal.Unconstrained".
 module Mcmc.Tree.Proposal.Ultrametric
-  ( -- TODO: slideAllNodesUltrametric
-    slideNodeAtUltrametric,
-    -- TODO: slideAllSubTreesUltrametric
+  ( slideNodeAtUltrametric,
+    slideNodesUltrametric,
     scaleSubTreeAtUltrametric,
+    scaleSubTreesUltrametric,
     pulleyUltrametric,
   )
 where
@@ -39,6 +39,7 @@ import Control.Lens hiding (children)
 import Data.Bifunctor
 import ELynx.Tree
 import Mcmc.Proposal
+import Mcmc.Tree.Import ()
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Proposal.Common
 import Mcmc.Tree.Types
@@ -93,29 +94,53 @@ slideNodeAtUltrametricSimple pth s t tr g
 --
 -- - The path leads to a leaf.
 slideNodeAtUltrametric ::
-  -- | Path to node.
   Path ->
   -- | Standard deviation.
   Double ->
-  -- | Name.
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal (HeightTree a)
 slideNodeAtUltrametric pth ds = createProposal description (slideNodeAtUltrametricSimple pth ds)
   where
     description = PDescription $ "Slide node ultrametric; sd: " ++ show ds
 
+-- | Slide the nodes of a given tree.
+--
+-- See 'slideNodeAtUltrametric'.
+--
+-- Does not slide the root nor the leaves.
+slideNodesUltrametric ::
+  Tree e a ->
+  -- | Standard deviation.
+  Double ->
+  -- | Base name of proposals.
+  PName ->
+  PWeight ->
+  Tune ->
+  [Proposal (HeightTree b)]
+slideNodesUltrametric tr s n w t =
+  [ slideNodeAtUltrametric pth s (name lb) w t
+    | (pth, lb) <- itoList $ identify tr,
+      not (null pth),
+      not $ null $ tr ^. subTreeAtUnsafeL pth . forestL
+  ]
+  where
+    name lb = n <> PName (" node " ++ show lb)
+
 -- Calculate the number of inner nodes.
 nInnerNodes :: Tree e a -> Int
 nInnerNodes (Node _ _ []) = 0
 nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 
--- The scaling factor for inner node heights is also given, since it is
--- calculated below.
-scaleTreeF :: Double -> Double -> HeightTree a -> HeightTree a
+scaleTreeF ::
+  -- New root node height.
+  Double ->
+  -- Scaling factor for other nodes. The scaling factor for inner node heights
+  -- is also given, since it is calculated anyways by the calling functions.
+  Double ->
+  HeightTree a ->
+  HeightTree a
 scaleTreeF h xi (Node _ lb ts) =
   Node () (lb & nodeHeightL .~ h') $ map (second $ nodeHeightL *~ xi') ts
   where
@@ -125,7 +150,6 @@ scaleTreeF h xi (Node _ lb ts) =
 scaleSubTreeAtUltrametricSimple ::
   -- Number of inner nodes.
   Int ->
-  -- Path to sub tree.
   Path ->
   -- Standard deviation.
   Double ->
@@ -166,18 +190,14 @@ scaleSubTreeAtUltrametricSimple n pth ds t tr g
 -- - The path leads to a leaf.
 scaleSubTreeAtUltrametric ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
-  Tree e b ->
-  -- | Path to sub tree.
+  Tree e a ->
   Path ->
   -- | Standard deviation.
   Double ->
-  -- | Name.
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
-  Proposal (HeightTree a)
+  Proposal (HeightTree b)
 scaleSubTreeAtUltrametric tr pth sd =
   createProposal
     description
@@ -185,6 +205,30 @@ scaleSubTreeAtUltrametric tr pth sd =
   where
     description = PDescription $ "Scale subtree ultrametrc; sd: " ++ show sd
     n = nInnerNodes $ current $ goPathUnsafe pth $ fromTree tr
+
+-- | Scale the sub trees of a given tree.
+--
+-- See 'scaleSubTreeAtUltrametric'.
+--
+-- Does not scale the root nor the leaves.
+scaleSubTreesUltrametric ::
+  Tree e a ->
+  -- | Standard deviation.
+  Double ->
+  -- | Base name of proposals.
+  PName ->
+  PWeight ->
+  Tune ->
+  [Proposal (HeightTree b)]
+scaleSubTreesUltrametric tr s n w t =
+  [ scaleSubTreeAtUltrametric tr pth s (name lb) w t
+    | (pth, lb) <- itoList $ identify tr,
+      let focus = tr ^. subTreeAtUnsafeL pth,
+      not $ null pth,
+      not $ null $ forest focus
+  ]
+  where
+    name lb = n <> PName (" node " ++ show lb)
 
 -- See 'pulleyTruncatedNormalSample'. However, we have to honor more constraints
 -- in the ultrametric case.
@@ -262,16 +306,13 @@ pulleyUltrametricSimple _ _ _ _ _ _ = error "pulleyUltrametricSimple: Node is no
 -- - Right sub tree is a leaf.
 pulleyUltrametric ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
-  Tree e b ->
+  Tree e a ->
   -- | Standard deviation.
   Double ->
-  -- | Name.
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
-  Proposal (HeightTree a)
+  Proposal (HeightTree b)
 pulleyUltrametric (Node _ _ [l, r]) d
   | null (forest l) = error "pulleyUltrametric: Left sub tree is a leaf."
   | null (forest r) = error "pulleyUltrametric: Right sub tree is a leaf."

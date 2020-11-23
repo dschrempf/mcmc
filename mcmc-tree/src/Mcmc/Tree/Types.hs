@@ -20,6 +20,7 @@
 module Mcmc.Tree.Types
   ( -- * Miscellaneous
     HandleStem (..),
+    HandleRoot (..),
 
     -- * Heights
     Height (fromHeight),
@@ -51,6 +52,15 @@ import GHC.Generics
 -- For example, should the stem be considered when calculating the Jacobian
 -- during execution of a proposal, or the branch-wise prior?
 data HandleStem = WithStem | WithoutStem
+
+-- | Should the root be handled?
+--
+-- For example, when scaling all sub trees, should the complete tree including
+-- the stem also be scaled?
+data HandleRoot = WithRoot | WithoutRoot
+
+-- -- | Should the leaves be handled?
+-- data HandleLeaves = WithLeaves | WithoutLeaves
 
 -- | Non-negative height.
 --

@@ -37,7 +37,7 @@ data BurnIn
   = -- | No burn in.
     NoBurnIn
   | -- | Burn in for a given number of iterations.
-    BurnInNoAutoTuning Int
+    BurnInWithoutAutoTuning Int
   | -- | Burn in for a given number of iterations. Enable auto tuning with a
     -- given period.
     BurnInWithAutoTuning Int Int
@@ -48,7 +48,7 @@ $(deriveJSON defaultOptions ''BurnIn)
 -- | Get the number of burn in iterations.
 burnInIterations :: BurnIn -> Int
 burnInIterations NoBurnIn = 0
-burnInIterations (BurnInNoAutoTuning n) = n
+burnInIterations (BurnInWithoutAutoTuning n) = n
 burnInIterations (BurnInWithAutoTuning n _) = n
 
 burnInAutoTuningPeriodValid :: BurnIn -> Bool

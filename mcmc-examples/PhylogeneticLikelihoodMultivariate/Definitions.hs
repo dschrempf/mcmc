@@ -208,52 +208,26 @@ proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
   -- Pulley on the root node.
   (timeTree @~ pulleyUltrametric t 0.1 (PName "Time tree root") (PWeight 10) Tune) :
-  -- Slide nodes excluding the root and the leaves.
-  [ {-# SCC slideNodeUltrametric #-}
-      timeTree @~ slideNodeAtUltrametric pth 0.1 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
-    | (pth, lb) <- itoList $ identify t,
-      -- Since the stem does not change the likelihood, it is set to zero, and
-      -- we do not slide the root node.
-      not (null pth),
-      -- Also, we do not slide leaf nodes, since this would break
-      -- ultrametricity.
-      not $ null $ t ^. subTreeAtUnsafeL pth . forestL
-  ]
-    -- Scale sub trees of inner nodes excluding the root and the leaves.
-    ++ [ {-# SCC scaleSubTreeUltrametric #-}
-           timeTree @~ scaleSubTreeAtUltrametric t pth 0.1 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
-         | (pth, lb) <- itoList $ identify t,
-           let s = t ^. subTreeAtUnsafeL pth,
-           -- Don't scale the sub tree of the root node, because we are not
-           -- interested in changing the length of the stem.
-           not $ null pth,
-           -- Sub trees of leaves cannot be scaled.
-           not $ null $ forest s
-       ]
+  map
+    (timeTree @~)
+    ( -- Slide nodes.
+      slideNodesUltrametric t 0.1 (PName "Time tree") (PWeight 1) Tune
+        -- Scale sub trees.
+        ++ scaleSubTreesUltrametric t 0.1 (PName "Time tree") (PWeight 1) Tune
+    )
 
 -- Proposals for the rate tree.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
   -- Pulley on the root node.
   (rateTree @~ pulley 0.1 (PName "Rate tree root") (PWeight 10) Tune) :
-  -- Scale branches excluding the stem.
-  [ {-# SCC slideBranch #-}
-    (rateTree . subTreeAtUnsafeL pth)
-      @~ scaleBranch 0.1 (PName $ "Rate tree branch " ++ show lb) (PWeight 1) Tune
-    | (pth, lb) <- itoList $ identify t,
-      -- Since the stem does not change the likelihood, it is set to zero, and
-      -- we do not slide the stem.
-      not (null pth)
-  ]
-    -- Scale trees of inner nodes excluding the root and the leaves.
-    ++ [ {-# SCC scaleTree #-}
-         (rateTree . subTreeAtUnsafeL pth)
-           @~ scaleTree s WithoutStem 100 (PName $ "Rate tree node " ++ show lb) (PWeight 1) Tune
-         | (pth, lb) <- itoList $ identify t,
-           let s = t ^. subTreeAtUnsafeL pth,
-           -- Path does not lead to a leaf.
-           not $ null $ forest s
-       ]
+  map
+    (rateTree @~)
+    ( -- Scale branches excluding the stem.
+      scaleBranches t WithoutStem 0.1 (PName "Rate tree") (PWeight 1) Tune
+        -- Scale sub trees excluding the root.
+        ++ scaleSubTrees t WithoutRoot 100 (PName "Rate tree") (PWeight 1) Tune
+    )
 
 -- Lens for a contrary proposal.
 timeHeightRateNormPair :: Lens' I (Double, Double)

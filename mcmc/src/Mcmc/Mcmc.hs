@@ -137,7 +137,7 @@ mcmcBurnIn = do
   case sBurnIn s of
     NoBurnIn ->
       mcmcInfoS "No burn in."
-    BurnInNoAutoTuning n -> do
+    BurnInWithoutAutoTuning n -> do
       mcmcInfoS $ "Burn in for " <> show n <> " iterations."
       mcmcInfoS "Auto tuning is disabled."
       mcmcPrintStdMonitorHeader

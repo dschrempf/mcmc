@@ -13,7 +13,9 @@
 -- For proposals on ultrametric trees, see "Mcmc.Tree.Proposal.Ultrametric".
 module Mcmc.Tree.Proposal.Unconstrained
   ( scaleBranch,
+    scaleBranches,
     scaleTree,
+    scaleSubTrees,
     pulley,
   )
 where
@@ -24,6 +26,7 @@ import ELynx.Tree
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Scale
+import Mcmc.Tree.Import ()
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Proposal.Common
 import Mcmc.Tree.Types
@@ -33,50 +36,66 @@ import System.Random.MWC
 
 -- | Scale branch.
 --
--- See 'scaleUnbiased'.
+-- This proposal scales the stem of the given tree. To slide branches inner, see
+-- 'subTreeAtUnsafeL'. For example, use @subTreeAtUnsafeL path @~ scaleBranch ...@.
 --
--- This proposal scales the stem. To slide other branches, see 'subTreeAtUnsafeL'. For
--- example, @subTreeAtUnsafeL path @~ scaleBranch ...@.
+-- See 'scaleUnbiased'.
 scaleBranch ::
   -- | Standard deviation.
   Double ->
-  -- | Name.
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal (Tree Length a)
 scaleBranch s n w t = (branchL . lengthUnsafeL) @~ scaleUnbiased s n w t
 
-scaleTreeFunction :: HandleStem -> Tree Length a -> Double -> Tree Length a
-scaleTreeFunction WithStem tr u = first (lengthUnsafeL *~ u) tr
-scaleTreeFunction WithoutStem (Node br lb ts) u =
-  Node br lb $ map (first (lengthUnsafeL *~ u)) ts
+-- | Scale the branches of a given tree.
+--
+-- See 'scaleBranch'.
+scaleBranches ::
+  Tree e a ->
+  HandleStem ->
+  -- | Standard deviation.
+  Double ->
+  -- | Base name of proposals.
+  PName ->
+  PWeight ->
+  Tune ->
+  [Proposal (Tree Length b)]
+scaleBranches tr st s n w t =
+  [ subTreeAtUnsafeL pth
+      @~ scaleBranch s (name lb) w t
+    | (pth, lb) <- itoList $ identify tr,
+      case st of
+        WithoutStem -> not (null pth)
+        WithStem -> True
+  ]
+  where
+    name lb = n <> PName (" branch " ++ show lb)
+
+scaleTreeFunction :: Tree Length a -> Double -> Tree Length a
+scaleTreeFunction tr u = first (lengthUnsafeL *~ u) tr
 
 scaleTreeJacobian ::
   -- Number of branches.
   Int ->
-  HandleStem ->
   Tree e a ->
   Double ->
   Log Double
-scaleTreeJacobian n WithStem _ u = Exp $ fromIntegral (n - 2) * log u
-scaleTreeJacobian n WithoutStem _ u = Exp $ fromIntegral (n - 3) * log u
+scaleTreeJacobian n _ u = Exp $ fromIntegral (n - 2) * log u
 
 scaleTreeSimple ::
   -- Number of branches.
   Int ->
-  HandleStem ->
   Double ->
   Double ->
   ProposalSimple (Tree Length a)
-scaleTreeSimple n s k t =
+scaleTreeSimple n k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
-    (scaleTreeFunction s)
+    scaleTreeFunction
     (Just recip)
-    (Just $ scaleTreeJacobian n s)
+    (Just $ scaleTreeJacobian n)
 
 -- | Scale all branches.
 --
@@ -89,21 +108,40 @@ scaleTreeSimple n s k t =
 scaleTree ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e b ->
-  -- | Handle the stem?
-  HandleStem ->
   -- | Shape.
   Double ->
-  -- | Name.
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal (Tree Length a)
-scaleTree tr s k = createProposal description (scaleTreeSimple n s k)
+scaleTree tr k = createProposal description (scaleTreeSimple n k)
   where
     description = PDescription $ "Scale tree; shape: " ++ show k
     n = length tr
+
+-- | Scale the sub trees of a given tree.
+--
+-- See 'scaleBranch'.
+scaleSubTrees ::
+  Tree e a ->
+  HandleRoot ->
+  -- | Standard deviation.
+  Double ->
+  -- | Base name of proposals.
+  PName ->
+  PWeight ->
+  Tune ->
+  [Proposal (Tree Length b)]
+scaleSubTrees tr rt s n w t =
+  [ subTreeAtUnsafeL pth
+      @~ scaleTree focus s (name lb) w t
+    | (pth, lb) <- itoList $ identify tr,
+      let focus = tr ^. subTreeAtUnsafeL pth,
+      case rt of
+        WithoutRoot -> not $ null pth
+        WithRoot -> True
+  ]
+  where name lb = n <> PName (" node " ++ show lb)
 
 -- See 'truncatedNormalSample'. U is added to the left branch. I.e., if u is
 -- positive, the left branch is elongated.
@@ -151,11 +189,8 @@ pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
 pulley ::
   -- | Standard deviation.
   Double ->
-  -- | Name.
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal (Tree Length a)
 pulley s = createProposal description (pulleySimple s)
