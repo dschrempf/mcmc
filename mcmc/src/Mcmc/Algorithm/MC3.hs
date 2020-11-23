@@ -1,5 +1,5 @@
 -- |
--- Module      :  Mcmc.Algorithm.Mc3
+-- Module      :  Mcmc.Algorithm.MC3
 -- Description :  Metropolis-coupled Markov chain Monte Carlo algorithm
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -9,7 +9,7 @@
 -- Portability :  portable
 --
 -- Creation date: Mon Nov 23 15:20:33 2020.
-module Mcmc.Algorithm.Mc3
+module Mcmc.Algorithm.MC3
   ( HeatedChain,
     MC3 (..),
     mc3,
@@ -17,6 +17,7 @@ module Mcmc.Algorithm.Mc3
 where
 
 import Mcmc.Algorithm.Metropolis
+import Mcmc.Algorithm
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
 import Mcmc.Monitor
@@ -57,6 +58,11 @@ setReciprocalTemperature b hc = hc {_heatedChain = MHG c'}
           link = Link x (pr' x) (lh' x)
         }
 
+-- TODO. A better type is needed, because I don't want to recalculate the priors
+-- and the likelihoods.
+swapTemperatures :: (HeatedChain a, HeatedChain a) -> (HeatedChain a, HeatedChain a)
+swapTemperatures = undefined
+
 -- | The MC3 algorithm.
 --
 -- Also known as parallel tempering.
@@ -65,6 +71,8 @@ data MC3 a = MC3
     mc3HeatedChains :: [HeatedChain a],
     mc3SwapPeriod :: Int
   }
+
+instance Algorithm MC3 a where
 
 -- | Initialize an MC3 algorithm with a given number of chains.
 mc3 ::
@@ -88,3 +96,13 @@ mc3 n p pr lh cc mn i0 g
     -- TODO: Think about initial choice of reciprocal temperatures.
     bs = [1.1, 1.2 ..]
     as = replicate (n - 1) $ initializeHeatedChain a
+
+
+-- TODO: Acceptance ratio should be 0.234, since this is a high dimensional
+-- proposal. I think it makes sense to implement a dynamic acceptance ratio for
+-- all proposals at this point.
+
+-- TODO: Start implementing swap of beighboring chains. Determine the index
+-- randomly.
+mc3ProposeSwap :: MC3 a -> IO (MHG a)
+mc3ProposeSwap = undefined
