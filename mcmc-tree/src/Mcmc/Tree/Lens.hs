@@ -14,16 +14,16 @@
 module Mcmc.Tree.Lens
   ( Path,
 
-    -- * Tree
+    -- ** Tree lenses
     labelL,
     forestL,
     branchL,
     subTreeAtUnsafeL,
 
-    -- * Zipper
+    -- ** Tree zippers
     currentL,
 
-    -- * Height and length
+    -- ** Height and length lenses
     hasHeightL,
     heightUnsafeL,
     hasLengthL,

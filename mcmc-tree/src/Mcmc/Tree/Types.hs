@@ -18,11 +18,11 @@
 --
 -- Type synonyms to improve code readability.
 module Mcmc.Tree.Types
-  ( -- * Miscellaneous
+  ( -- ** Miscellaneous
     HandleStem (..),
     HandleRoot (..),
 
-    -- * Heights
+    -- ** Heights
     Height (fromHeight),
     HasHeight (..),
     toHeight,
@@ -32,7 +32,7 @@ module Mcmc.Tree.Types
     nodeHeightL,
     nodeNameL,
 
-    -- * Height trees
+    -- ** Height trees
     HeightTree,
     toHeightTreeUltrametric,
     fromHeightTree,

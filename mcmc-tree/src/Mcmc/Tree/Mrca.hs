@@ -10,7 +10,8 @@
 --
 -- Creation date: Tue Oct 27 12:55:07 2020.
 module Mcmc.Tree.Mrca
-  ( mrca,
+  ( -- ** Most recent command ancestors
+    mrca,
     mrcaUnsafe,
   )
 where

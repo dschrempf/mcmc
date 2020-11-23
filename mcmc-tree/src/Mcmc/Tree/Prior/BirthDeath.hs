@@ -105,11 +105,8 @@ epsNearCritical = 1e-6
 --
 -- XXX: The prior DOES NOT CALCULATE the multiplicative combinatorial factor
 -- relating the number of oriented labeled trees to the number of labeled trees
--- without orientation.
---
--- The aforementioned points are just multiplicative factors that don't
--- influence the stationary distribution of the MCMC run. However, they do
--- change the absolute value of the prior function, and hence, the posterior.
+-- without orientation. This is an issue if the prior is calculated for trees
+-- with different topologies!
 --
 -- Call 'error' if
 --
