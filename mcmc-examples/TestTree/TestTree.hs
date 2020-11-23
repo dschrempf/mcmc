@@ -33,8 +33,8 @@ pr = birthDeath WithoutStem 2.0 2.0 0.1 . fromHeightTree
 cc :: Show a => Tree e a -> Cycle I
 cc t =
   cycleFromList $
-    -- -- -- Pulley on the root node.
-    -- pulleyUltrametric t 0.1 (PName "Tree root") (PWeight 5) Tune :
+    -- Pulley on the root node.
+    pulleyUltrametric t 0.1 (PName "Tree root") (PWeight 5) Tune :
     -- Scale branches excluding the stem.
     [ slideNodeAtUltrametric pth 0.1 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
       | (pth, lb) <- itoList $ identify t,
@@ -42,13 +42,13 @@ cc t =
         let s = t ^. subTreeAtUnsafeL pth,
         not $ null $ forest s
     ]
-      -- -- Scale trees of inner nodes excluding the root and the leaves.
-      -- ++ [ scaleSubTreeAtUltrametric t pth 100 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
-      --      | (pth, lb) <- itoList $ identify t,
-      --        let s = t ^. subTreeAtUnsafeL pth,
-      --        not $ null pth,
-      --        not $ null $ forest s
-      --    ]
+      -- Scale trees of inner nodes excluding the root and the leaves.
+      ++ [ scaleSubTreeAtUltrametric t pth 100 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
+           | (pth, lb) <- itoList $ identify t,
+             let s = t ^. subTreeAtUnsafeL pth,
+             not $ null pth,
+             not $ null $ forest s
+         ]
 
 -- Get the height of the node at path. Useful to have a look at calibrated nodes.
 getTreeNodeHeight :: Path -> I -> Double
@@ -79,7 +79,7 @@ mon :: Tree e a -> Monitor I
 mon t = Monitor (monStd t) [monFile t, monTree] []
 
 burnIn :: BurnIn
-burnIn = BurnInWithAutoTuning 2000 1000
+burnIn = BurnInWithAutoTuning 2000 100
 
 iterations :: Int
 iterations = 20000

@@ -35,7 +35,7 @@ module Mcmc.Tree.Proposal.Ultrametric
   )
 where
 
-import Control.Lens
+import Control.Lens hiding (children)
 import Data.Bifunctor
 import ELynx.Tree
 import Mcmc.Proposal
@@ -53,19 +53,22 @@ slideNodeAtUltrametricSimple ::
   Double ->
   ProposalSimple (HeightTree a)
 slideNodeAtUltrametricSimple pth s t tr g
-  | null ts = error "slideNodeAtUltrametricSimple: Cannot slide leaf."
+  | null children = error "slideNodeAtUltrametricSimple: Cannot slide leaf."
   | otherwise = do
     -- The absolute value of the determinant of the Jacobian is 1.0.
-    (h', q) <- truncatedNormalSample hNode s t hDaughter hParent g
-    -- Use unsafe conversion.
-    let setNodeHeight x = x & labelL . nodeHeightL .~ toHeightUnsafe h'
+    (hNode', q) <- truncatedNormalSample hNode s t hChild hParent g
+    let setNodeHeight x =
+          x & labelL . nodeHeightL
+            -- I think toHeightUnsafe could be used here, since we trust
+            -- 'truncatedNormalSample'.
+            .~ toHeight "slideNodeAtUltrametricSimple" hNode'
     return (toTree $ modifyTree setNodeHeight trPos, q, 1.0)
   where
     trPos = goPathUnsafe pth $ fromTree tr
     focus = current trPos
-    ts = forest focus
+    children = forest focus
     hNode = fromHeight $ nodeHeight $ label focus
-    hDaughter = fromHeight $ maximum $ map (nodeHeight . label) ts
+    hChild = fromHeight $ maximum $ map (nodeHeight . label) children
     hParent = fromHeight $ nodeHeight $ label $ current $ goParentUnsafe trPos
 
 -- | Slide node (for ultrametric trees).
@@ -77,7 +80,7 @@ slideNodeAtUltrametricSimple pth s t tr g
 -- slide node heights.
 --
 -- A normal distribution truncated at the heights of the parent node and the
--- closest daughter node is used.
+-- closest child node is used.
 --
 -- A zipper with given 'Path' has to be used for this proposal, because we need
 -- access to the parent.
@@ -116,8 +119,8 @@ scaleSubTreeF :: Double -> Double -> HeightTree a -> HeightTree a
 scaleSubTreeF h xi (Node _ lb ts) =
   Node () (lb & nodeHeightL .~ h') $ map (second $ nodeHeightL *~ xi') ts
   where
-    xi' = toHeightUnsafe xi
-    h' = toHeightUnsafe h
+    xi' = toHeight "scaleSubTreeF:xi" xi
+    h' = toHeight "scaleSubTreeF:h" h
 
 scaleSubTreeAtUltrametricSimple ::
   -- Number of inner nodes.
@@ -138,7 +141,7 @@ scaleSubTreeAtUltrametricSimple n pth ds t tr g
     let xi = hNode' / hNode
         -- (-1) because the root height has an additive change.
         jacobian = Exp $ fromIntegral (n - 1) * log xi
-    return (scaleSubTreeF hNode' xi tr, q, jacobian)
+    return (toTree $ modifyTree (scaleSubTreeF hNode' xi) trPos, q, jacobian)
   where
     trPos = goPathUnsafe pth $ fromTree tr
     focus = current trPos
