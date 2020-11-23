@@ -112,8 +112,11 @@ epsNearCritical = 1e-6
 -- change the absolute value of the prior function, and hence, the posterior.
 --
 -- Call 'error' if
+--
 -- - The birth or death rate are negative.
+--
 -- - The sampling rate is zero or negative, or above 1.0.
+--
 -- - The tree is not bifurcating.
 birthDeath ::
   -- | Handle the stem?

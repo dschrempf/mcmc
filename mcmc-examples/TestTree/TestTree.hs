@@ -33,8 +33,8 @@ pr = birthDeath WithoutStem 2.0 2.0 0.1 . fromHeightTree
 cc :: Show a => Tree e a -> Cycle I
 cc t =
   cycleFromList $
-    -- -- Pulley on the root node.
-    pulleyUltrametric t 0.1 (PName "Tree root") (PWeight 5) Tune :
+    -- -- -- Pulley on the root node.
+    -- pulleyUltrametric t 0.1 (PName "Tree root") (PWeight 5) Tune :
     -- Scale branches excluding the stem.
     [ slideNodeAtUltrametric pth 0.1 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
       | (pth, lb) <- itoList $ identify t,
@@ -42,13 +42,13 @@ cc t =
         let s = t ^. subTreeAtUnsafeL pth,
         not $ null $ forest s
     ]
-      -- Scale trees of inner nodes excluding the root and the leaves.
-      ++ [ scaleSubTreeAtUltrametric t pth 100 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
-           | (pth, lb) <- itoList $ identify t,
-             let s = t ^. subTreeAtUnsafeL pth,
-             not $ null pth,
-             not $ null $ forest s
-         ]
+      -- -- Scale trees of inner nodes excluding the root and the leaves.
+      -- ++ [ scaleSubTreeAtUltrametric t pth 100 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
+      --      | (pth, lb) <- itoList $ identify t,
+      --        let s = t ^. subTreeAtUnsafeL pth,
+      --        not $ null pth,
+      --        not $ null $ forest s
+      --    ]
 
 -- Get the height of the node at path. Useful to have a look at calibrated nodes.
 getTreeNodeHeight :: Path -> I -> Double
@@ -82,7 +82,7 @@ burnIn :: BurnIn
 burnIn = BurnInWithAutoTuning 2000 1000
 
 iterations :: Int
-iterations = 6000
+iterations = 20000
 
 main :: IO ()
 main = do
@@ -93,6 +93,7 @@ main = do
               phyloToLengthTree $
                 parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,(d:2.0,e:2.0):1.0):0.0;"
       cc' = cc t
+  print t
   g <- create
   let s = Settings "test" burnIn iterations Overwrite NoSave Info
       a = mhg pr noLikelihood cc' (mon t) t g

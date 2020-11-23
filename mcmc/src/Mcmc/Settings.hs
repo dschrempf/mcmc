@@ -57,12 +57,17 @@ burnInAutoTuningPeriodValid _ = True
 
 -- | Execution mode.
 data ExecutionMode
-  = -- | Call 'error' if an output files exists.
+  = -- | Perform new run.
+    --
+    -- Call 'error' if an output files exists.
     Fail
-  | -- | Overwrite existing output files.
+  | -- | Perform new run.
+    --
+    -- Overwrite existing output files.
     Overwrite
-  | -- | Continue a previous run and append to output files. Call 'error' if an
-    -- output file does not exist.
+  | -- | Continue a previous run and append to output files.
+    --
+    -- Call 'error' if an output file does not exist.
     Continue
   deriving (Eq, Read, Show)
 
@@ -150,11 +155,17 @@ settingsError s i err =
 -- Call 'error' if:
 --
 -- - The analysis name is the empty string.
+--
 -- - The number of burn in iterations is negative.
+--
 -- - Auto tuning period is zero or negative.
+--
 -- - The number of iterations is negative.
+--
 -- - The current iteration is larger than the total number of iterations.
+--
 -- - The current iteration is non-zero but the execution mode is not 'Continue'.
+--
 -- - The current iteration is zero but the execution mode is 'Continue'.
 settingsCheck ::
   Settings ->

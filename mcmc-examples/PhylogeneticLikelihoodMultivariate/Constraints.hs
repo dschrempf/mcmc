@@ -36,7 +36,7 @@ type Constraint = (String, Path, Path)
 -- The constraints have to be pre-computed with 'getConstraints'. The reason is
 -- that finding the nodes on the tree is a slow process that should not be
 -- repeated.
-constraints :: HasLength a => [Constraint] -> Tree Length a -> [Log Double]
+constraints :: HasHeight a => [Constraint] -> Tree e a -> [Log Double]
 constraints xs t =
   [constrainSoft 1e-3 y o t | (_, y, o) <- xs]
 

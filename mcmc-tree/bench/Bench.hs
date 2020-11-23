@@ -82,7 +82,6 @@ main = do
             nf (changeLeaf (subTreeAtUnsafeL pthBr . labelL) "") tr
         ]
     ]
-
 -- Post scriptum:
 --
 -- Benchmarks with criterion indicate the following:
@@ -94,7 +93,23 @@ main = do
 --
 -- 3. Zippers are very slow.
 --
--- @
+-- * Lenses:
+--
+-- benchmarking lens/change leaf Gn, optimized lens
+-- time                 5.870 μs   (5.852 μs .. 5.906 μs)
+--                      1.000 R²   (1.000 R² .. 1.000 R²)
+-- mean                 5.864 μs   (5.857 μs .. 5.889 μs)
+-- std dev              42.95 ns   (15.43 ns .. 86.41 ns)
+--
+-- benchmarking lens/change leaf Br, optimized lens
+-- time                 6.285 μs   (6.228 μs .. 6.365 μs)
+--                      0.999 R²   (0.997 R² .. 1.000 R²)
+-- mean                 6.309 μs   (6.227 μs .. 6.534 μs)
+-- std dev              415.1 ns   (155.0 ns .. 820.7 ns)
+-- variance introduced by outliers: 74% (severely inflated)
+--
+-- * Adjacency maps
+--
 -- AdjacencyIntMap; postSet 150
 -- benchmarking...
 -- time                 41.25 ns   (41.09 ns .. 41.58 ns)
@@ -118,6 +133,8 @@ main = do
 -- mean                 5.816 μs   (5.671 μs .. 6.089 μs)
 -- std dev              620.6 ns   (261.2 ns .. 1.094 μs)
 -- variance introduced by outliers: 89% (severely inflated)
+--
+-- * Zippers
 --
 -- Control.Zipper; preview node 150
 -- benchmarking...

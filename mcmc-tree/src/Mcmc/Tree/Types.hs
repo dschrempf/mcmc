@@ -122,9 +122,10 @@ type HeightTree a = Tree () (HeightLabel a)
 -- zero. If the tree is not ultrametric, the node heights cannot be obtained and
 -- the height tree has to be instantiated manually.
 --
--- The length of the stem is lost.
+-- The __length of the stem is lost__.
 --
--- This operation is slow, O(n^2), where n is the number of inner nodes.
+-- This function has not been optimized yet. The run time is @O(n^2)@ where @n@ is
+-- the number of inner nodes.
 toHeightTreeUltrametric :: Tree Length a -> HeightTree a
 toHeightTreeUltrametric t@(Node _ lb ts) =
   Node

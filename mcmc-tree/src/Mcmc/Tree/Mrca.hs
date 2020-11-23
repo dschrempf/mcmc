@@ -46,6 +46,8 @@ mrca xs = fmap tail . go 0
       | isAncestor xs t = Right $ i : head (rights [go j t' | (j, t') <- zip [0 ..] (forest t)])
       | otherwise = Left $ "Could not get MRCA for: " <> show xs
 
--- | See 'mrca', but call 'error' if the MRCA is not found on the tree.
+-- | See 'mrca'.
+--
+-- Call 'error' if the MRCA is not found on the tree.
 mrcaUnsafe :: (Ord a, Show a) => [a] -> Tree e a -> Path
 mrcaUnsafe xs = either error id . mrca xs

@@ -22,6 +22,7 @@ import Control.Lens
 import Data.List
 import ELynx.Tree
 import Mcmc.Tree.Lens
+import Mcmc.Tree.Types
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
@@ -29,13 +30,13 @@ import Statistics.Distribution.Normal
 -- Get the height of the node at path on the tree.
 --
 -- __Assume the node labels denote node height__.
-getHeightFromNode :: HasLength a => Path -> Tree e a -> Length
-getHeightFromNode p t = t ^. subTreeAtUnsafeL p . labelL . hasLengthL
+getHeightFromNode :: HasHeight a => Path -> Tree e a -> Height
+getHeightFromNode p t = t ^. subTreeAtUnsafeL p . labelL . hasHeightL
 
 -- | Hard constrain order of nodes with given paths using a truncated uniform
 -- distribution.
 constrainHard ::
-  HasLength a =>
+  HasHeight a =>
   -- | Path to younger node (closer to the leaves).
   Path ->
   -- | Path to older node (closer to the root).
@@ -58,7 +59,7 @@ constrainHard y o t
 --   of the normal distribution also ensures that the first derivative is
 --   continuous.
 constrainSoft ::
-  HasLength a =>
+  HasHeight a =>
   -- | Standard deviation of one sided normal distribution.
   Double ->
   -- | Path to younger node (closer to the leaves).
@@ -73,13 +74,13 @@ constrainSoft s y o t
   | hY < hO = 1
   | otherwise = Exp $ logDensity d (hY - hO) - logDensity d 0
   where
-    hY = fromLength $ getHeightFromNode y t
-    hO = fromLength $ getHeightFromNode o t
+    hY = fromHeight $ getHeightFromNode y t
+    hO = fromHeight $ getHeightFromNode o t
     d = normalDistr 0 s
 
 -- | Calibrate height of a node with given path using the normal distribution.
 calibrate ::
-  HasLength a =>
+  HasHeight a =>
   -- | Mean.
   Double ->
   -- | Standard deviation.
@@ -87,11 +88,11 @@ calibrate ::
   Path ->
   Tree e a ->
   Log Double
-calibrate m s p = Exp . logDensity (normalDistr m s) . fromLength . getHeightFromNode p
+calibrate m s p = Exp . logDensity (normalDistr m s) . fromHeight . getHeightFromNode p
 
 -- | Calibrate height of a node with given path using the uniform distribution.
 calibrateUniform ::
-  HasLength a =>
+  HasHeight a =>
   -- | Lower bound.
   Double ->
   -- | Upper bound.
@@ -104,7 +105,7 @@ calibrateUniform a b p t
   | h < a = 0
   | otherwise = 1
   where
-    h = fromLength $ getHeightFromNode p t
+    h = fromHeight $ getHeightFromNode p t
 
 -- | Calibrate height of a node with given path.
 --
@@ -115,7 +116,7 @@ calibrateUniform a b p t
 --   the complete distribution of the constrained is continuous. Use of the
 --   normal distribution also ensures that the first derivative is continuous.
 calibrateUniformSoft ::
-  HasLength a =>
+  HasHeight a =>
   -- | Standard deviation of one sided normal distributions.
   Double ->
   -- | Lower bound.
@@ -130,5 +131,5 @@ calibrateUniformSoft s a b p t
   | h < a = Exp $ logDensity d (a - h) - logDensity d 0
   | otherwise = 1
   where
-    h = fromLength $ getHeightFromNode p t
+    h = fromHeight $ getHeightFromNode p t
     d = normalDistr 0 s

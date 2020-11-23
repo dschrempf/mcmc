@@ -24,6 +24,8 @@
 -- Moreover, usage of proposals from "Mcmc.Tree.Proposal.Unconstrained" on
 -- ultrametric trees will produce bogus trees with mismatching branch lengths
 -- and node heights.
+--
+-- For proposals on unconstrained trees, see "Mcmc.Tree.Proposal.Unconstrained".
 module Mcmc.Tree.Proposal.Ultrametric
   ( -- TODO: slideAllNodesUltrametric
     slideNodeAtUltrametric,
@@ -68,15 +70,25 @@ slideNodeAtUltrametricSimple pth s t tr g
 
 -- | Slide node (for ultrametric trees).
 --
--- For ultrametric trees, we cannot exclusively scale the branch such as with
+-- For ultrametric trees, we cannot exclusively scale branches such as with
 -- 'Mcmc.Tree.Proposal.Unconstrained.scaleBranch', because this would change the
--- height and if the proposal is used on a non-root node, it would break
--- ultrametricity of the tree. Instead, we can slide the root node. That is,
--- when the stem is elongated, we need to shorten the daughter branches, and
--- vice versa, such that the tree height is conserved.
+-- heights of all descendant nodes. Consequently, if the proposal was used on a
+-- non-root node, it would break ultrametricity of the tree. Instead, we can
+-- slide node heights.
 --
--- A normal distribution truncated at the origin and the closest daughter node
--- is used.
+-- A normal distribution truncated at the heights of the parent node and the
+-- closest daughter node is used.
+--
+-- A zipper with given 'Path' has to be used for this proposal, because we need
+-- access to the parent.
+--
+-- Call 'error' if:
+--
+-- - The path is invalid.
+--
+-- - The path is empty and leads to the root.
+--
+-- - The path leads to a leaf.
 slideNodeAtUltrametric ::
   -- | Path to node.
   Path ->
@@ -139,14 +151,19 @@ scaleSubTreeAtUltrametricSimple n pth ds t tr g
 -- A normal distribution truncated at the height of the parent node and the
 -- leaves is used to determine the new height of the sub tree.
 --
--- Call 'error' if
+-- A zipper with given 'Path' has to be used for this proposal, because we need
+-- access to the parent.
 --
--- - this proposal is applied to the root node
+-- Call 'error' if:
 --
--- - this proposal is applied to a leaf node
+-- - The path is invalid.
+--
+-- - The path is empty and leads to the root.
+--
+-- - The path leads to a leaf.
 scaleSubTreeAtUltrametric ::
-  -- | The tree is used to precompute the number of inner nodes for
-  -- computational efficiency.
+  -- | The topology of the tree is used to precompute the number of inner nodes
+  -- for computational efficiency.
   Tree e b ->
   -- | Path to sub tree.
   Path ->

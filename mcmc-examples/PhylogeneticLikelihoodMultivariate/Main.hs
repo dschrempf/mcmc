@@ -73,7 +73,7 @@ fnMeanTree = bnAnalysis ++ ".meantree"
 
 -- The rooted tree with posterior mean branch lengths will be stored in a file
 -- with this name.
-getMeanTree :: IO LengthTree
+getMeanTree :: IO (Tree Length Name)
 getMeanTree = oneTree fnMeanTree
 
 fnData :: FilePath
@@ -138,7 +138,7 @@ prepare = do
   print means
   let meanTree =
         fromMaybe (error "Could not label tree with mean branch lengths") $
-          setBranches (map (either error id . toLength) $ V.toList means) (head trs)
+          setBranches (map (toLength "prepare") $ V.toList means) (head trs)
       lvs = leaves meanTree
       trOutgroup = either error id $ outgroup (S.singleton $ head lvs) "root" meanTree
       tr = either error id $ midpoint trOutgroup

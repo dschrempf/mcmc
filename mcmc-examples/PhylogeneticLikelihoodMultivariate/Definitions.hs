@@ -210,8 +210,7 @@ proposalsTimeTree t =
   (timeTree @~ pulleyUltrametric t 0.1 (PName "Time tree root") (PWeight 10) Tune) :
   -- Slide nodes excluding the root and the leaves.
   [ {-# SCC slideNodeUltrametric #-}
-    (timeTree . subTreeAtUnsafeL pth)
-      @~ slideNodeUltrametric 0.1 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
+      timeTree @~ slideNodeAtUltrametric pth 0.1 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
     | (pth, lb) <- itoList $ identify t,
       -- Since the stem does not change the likelihood, it is set to zero, and
       -- we do not slide the root node.
@@ -222,8 +221,7 @@ proposalsTimeTree t =
   ]
     -- Scale sub trees of inner nodes excluding the root and the leaves.
     ++ [ {-# SCC scaleSubTreeUltrametric #-}
-         (timeTree . subTreeAtUnsafeL pth)
-           @~ scaleSubTreeUltrametric s 0.1 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
+           timeTree @~ scaleSubTreeAtUltrametric t pth 0.1 (PName $ "Time tree node " ++ show lb) (PWeight 1) Tune
          | (pth, lb) <- itoList $ identify t,
            let s = t ^. subTreeAtUnsafeL pth,
            -- Don't scale the sub tree of the root node, because we are not
@@ -310,7 +308,7 @@ monStdOut = monitorStdOut (take 4 monParams) 1
 
 -- Get the height of the node at path. Useful to have a look at calibrated nodes.
 getTimeTreeNodeHeight :: Path -> I -> Double
-getTimeTreeNodeHeight p x = (* h) $ fromLength $ t ^. subTreeAtUnsafeL p . labelL . heightL
+getTimeTreeNodeHeight p x = (* h) $ fromHeight $ t ^. subTreeAtUnsafeL p . labelL . hasHeightL
   where
     t = x ^. timeTree
     h = x ^. timeHeight
@@ -348,7 +346,7 @@ monFileParams cb cs =
 absoluteTimeTree :: I -> Tree Length Name
 absoluteTimeTree s = first (* h) t
   where
-    h = either error id $ toLength $ s ^. timeHeight
+    h = toLength "absoluteTimeTree" $ s ^. timeHeight
     t = fromHeightTree $ s ^. timeTree
 
 -- The time tree with absolute branch lengths is written to a separate file.

@@ -58,8 +58,10 @@ import Statistics.Distribution.Dirichlet
 -- Return a probability of zero if the relative rates do not sum to 1.0 (with
 -- tolerance 1e-12).
 --
--- Call error if:
+-- Call 'error' if:
+--
 -- - The \(\alpha\) parameter is negative or zero.
+--
 -- - The number of partitions is smaller than two.
 gammaDirichlet :: Double -> Double -> Double -> Double -> V.Vector Double -> Log Double
 gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmetric ddSym xs

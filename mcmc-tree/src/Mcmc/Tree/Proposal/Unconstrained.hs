@@ -9,6 +9,8 @@
 -- Portability :  portable
 --
 -- Creation date: Thu Jul 23 09:10:07 2020.
+--
+-- For proposals on ultrametric trees, see "Mcmc.Tree.Proposal.Ultrametric".
 module Mcmc.Tree.Proposal.Unconstrained
   ( scaleBranch,
     scaleTree,
@@ -34,7 +36,7 @@ import System.Random.MWC
 -- See 'scaleUnbiased'.
 --
 -- This proposal scales the stem. To slide other branches, see 'subTreeAtUnsafeL'. For
--- example, @subTreeAtUnsafeL path @~ slideNodeUltrametric ...@.
+-- example, @subTreeAtUnsafeL path @~ scaleBranch ...@.
 scaleBranch ::
   -- | Standard deviation.
   Double ->
@@ -76,13 +78,14 @@ scaleTreeSimple n s k t =
     (Just recip)
     (Just $ scaleTreeJacobian n s)
 
--- | Scale all branches with a gamma distributed kernel of given shape. The
--- scale is set such that the mean is 1.0.
+-- | Scale all branches.
+--
+-- A gamma distributed kernel of given shape is used. The scale is set such that
+-- the mean is 1.0.
 --
 -- Because of the specificly used determinant of the Jacobian matrix, this
--- proposal is only valid, if all branch lengths free variables with strictly
--- positive values (including the stem). For example, ultrametric trees do not
--- fulfill this criterion.
+-- proposal is only valid, if all branch lengths are unconstrained and strictly
+-- positive.
 scaleTree ::
   -- | The tree is used to precompute the number of branches for computational
   -- efficiency.
@@ -138,11 +141,14 @@ pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
 
 -- | Use a node as a pulley.
 --
--- For bifurcating nodes; change the daughter branch lengths contrarily. The
--- first and second daughter branches are elongated/shortened by the same
--- amount.
+-- Change the daughter branch lengths contrarily. The left and right daughter
+-- branches are elongated/shortened by the same amount.
 --
 -- The heights of the two sub trees change.
+--
+-- Call error if:
+--
+-- - The node is not bifurcating.
 pulley ::
   -- | Standard deviation.
   Double ->
