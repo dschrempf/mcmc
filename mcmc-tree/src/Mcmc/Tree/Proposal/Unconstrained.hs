@@ -122,6 +122,8 @@ scaleTree tr k = createProposal description (scaleTreeSimple n k)
 -- | Scale the sub trees of a given tree.
 --
 -- See 'scaleBranch'.
+--
+-- Do not scale leaves.
 scaleSubTrees ::
   Tree e a ->
   HandleRoot ->
@@ -139,7 +141,9 @@ scaleSubTrees tr rt s n w t =
       let focus = tr ^. subTreeAtUnsafeL pth,
       case rt of
         WithoutRoot -> not $ null pth
-        WithRoot -> True
+        WithRoot -> True,
+      -- Do not scale the leaves, because 'scaleBranch' is faster.
+      not $ null $ forest focus
   ]
   where name lb = n <> PName (" node " ++ show lb)
 

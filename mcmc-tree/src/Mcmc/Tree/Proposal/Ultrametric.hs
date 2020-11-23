@@ -109,7 +109,7 @@ slideNodeAtUltrametric pth ds = createProposal description (slideNodeAtUltrametr
 --
 -- See 'slideNodeAtUltrametric'.
 --
--- Does not slide the root nor the leaves.
+-- Do not slide the root nor the leaves.
 slideNodesUltrametric ::
   Tree e a ->
   -- | Standard deviation.
@@ -122,8 +122,11 @@ slideNodesUltrametric ::
 slideNodesUltrametric tr s n w t =
   [ slideNodeAtUltrametric pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
+      let focus = tr ^. subTreeAtUnsafeL pth,
+      -- Do not slide the root.
       not (null pth),
-      not $ null $ tr ^. subTreeAtUnsafeL pth . forestL
+      -- Do not slide the leaves.
+      not $ null $ forest focus
   ]
   where
     name lb = n <> PName (" node " ++ show lb)
@@ -210,7 +213,7 @@ scaleSubTreeAtUltrametric tr pth sd =
 --
 -- See 'scaleSubTreeAtUltrametric'.
 --
--- Does not scale the root nor the leaves.
+-- Do not scale the root nor the leaves.
 scaleSubTreesUltrametric ::
   Tree e a ->
   -- | Standard deviation.
@@ -224,7 +227,9 @@ scaleSubTreesUltrametric tr s n w t =
   [ scaleSubTreeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
+      -- Do not scale the root.
       not $ null pth,
+      -- Do not scale the leaves.
       not $ null $ forest focus
   ]
   where
