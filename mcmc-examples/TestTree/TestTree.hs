@@ -1,4 +1,6 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- |
 -- Module      :  Main
@@ -16,52 +18,80 @@ where
 
 import Control.Lens
 import Control.Monad
+import Data.Aeson
 import ELynx.Tree
+import GHC.Generics
 import Mcmc
 import Mcmc.Tree
 import System.Random.MWC hiding (uniform)
 
-type I = HeightTree Name
+data I = I
+  { _ultrametricTree :: HeightTree Name,
+    _unconstrainedTree :: Tree Length Name
+  }
+  deriving (Generic)
+
+makeLenses ''I
+
+instance ToJSON I
+
+instance FromJSON I
 
 -- Birth death prior, see Yang (2006), Figure 7.12. For lambda=2, mu=2, rho=0.1,
 -- we expect a relatively linear distribution of inner node ages (a little bit
 -- biased to younger ages).
 pr :: PriorFunction I
-pr = birthDeath WithoutStem 2.0 2.0 0.1 . fromHeightTree
-
--- Proposals on the tree.
-cc :: Show a => Tree e a -> Cycle I
-cc t =
-  cycleFromList $
-    -- Pulley on the root node.
-    pulleyUltrametric t 0.1 (PName "Tree root") (PWeight 5) Tune :
-    -- Scale branches excluding the stem.
-    [ slideNodeAtUltrametric pth 0.1 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
-      | (pth, lb) <- itoList $ identify t,
-        not (null pth),
-        let s = t ^. subTreeAtUnsafeL pth,
-        not $ null $ forest s
+pr (I t r) =
+  product'
+    [ birthDeath WithoutStem 2.0 2.0 0.1 $ fromHeightTree t,
+      branchesWith WithoutStem (exponential 1.0) r
     ]
-      -- Scale trees of inner nodes excluding the root and the leaves.
-      ++ [ scaleSubTreeAtUltrametric t pth 100 (PName $ "Tree node " ++ show lb) (PWeight 1) Tune
-           | (pth, lb) <- itoList $ identify t,
-             not $ null pth,
-             not $ null $ forest $ t ^. subTreeAtUnsafeL pth
-         ]
+
+-- Proposals on the ultrametric tree.
+psT :: Tree e a -> [Proposal I]
+psT t =
+  map (ultrametricTree @~) $
+    pulleyUltrametric t 0.1 n (PWeight 5) Tune :
+    slideNodesUltrametric t 0.1 n (PWeight 1) Tune
+      ++ scaleSubTreesUltrametric t 100 n (PWeight 1) Tune
+  where
+    n = PName "Ultrametric tree"
+
+-- Proposals on the unconstrained tree.
+psR :: Tree e a -> [Proposal I]
+psR t =
+  map (unconstrainedTree @~) $
+    pulley 0.1 n (PWeight 5) Tune :
+    scaleBranches t WithoutStem 0.1 n (PWeight 1) Tune
+      ++ scaleSubTrees t WithoutRoot 100 n (PWeight 1) Tune
+  where
+    n = PName "Unconstrained tree"
+
+cc :: Tree e a -> Cycle I
+cc t = cycleFromList $ psT t ++ psR t
 
 -- Get the height of the node at path. Useful to have a look at calibrated nodes.
-getTreeNodeHeight :: Path -> I -> Double
-getTreeNodeHeight p t = fromHeight $ nodeHeight $ label $ t ^. subTreeAtUnsafeL p
+getNodeHeightT :: Path -> I -> Double
+getNodeHeightT p x = fromHeight $ nodeHeight $ label $ x ^. ultrametricTree . subTreeAtUnsafeL p
+
+getBranchR :: Path -> I -> Double
+getBranchR p x = fromLength $ branch $ x ^. unconstrainedTree . subTreeAtUnsafeL p
 
 -- Monitor the height of all nodes.
 monPs :: Tree e a -> [MonitorParameter I]
 monPs t =
-  [ getTreeNodeHeight pth >$< monitorDouble ("Node " ++ show lb)
+  [ getNodeHeightT pth >$< monitorDouble ("T Node" ++ show lb)
     | (pth, lb) <- itoList $ identify t,
       let s = t ^. subTreeAtUnsafeL pth,
       -- Path does not lead to a leaf.
       not $ null $ forest s
   ]
+    ++ [ getBranchR pth >$< monitorDouble ("R Branch" ++ show lb)
+         | (pth, lb) <- itoList $ identify t,
+           let s = t ^. subTreeAtUnsafeL pth,
+           -- Path does not lead to a leaf.
+           not $ null $ forest s
+       ]
 
 -- Monitor to standard output.
 monStd :: Tree e a -> MonitorStdOut I
@@ -70,12 +100,15 @@ monStd t = monitorStdOut (monPs t) 1
 monFile :: Tree e a -> MonitorFile I
 monFile t = monitorFile "" (monPs t) 1
 
-monTree :: MonitorFile I
-monTree = monitorFile "-tree" [fromHeightTree >$< monitorTree "Tree"] 1
+monTreeT :: MonitorFile I
+monTreeT = monitorFile "-ultrametric" [fromHeightTree . _ultrametricTree >$< monitorTree "Tree"] 1
+
+monTreeR :: MonitorFile I
+monTreeR = monitorFile "-unconstrained" [_unconstrainedTree >$< monitorTree "Tree"] 1
 
 -- Combine the monitors.
 mon :: Tree e a -> Monitor I
-mon t = Monitor (monStd t) [monFile t, monTree] []
+mon t = Monitor (monStd t) [monFile t, monTreeT, monTreeR] []
 
 burnIn :: BurnIn
 burnIn = BurnInWithAutoTuning 2000 100
@@ -85,15 +118,16 @@ iterations = 20000
 
 main :: IO ()
 main = do
-  let t =
-        toHeightTreeUltrametric $
-          normalizeHeight $
-            either error id $
-              phyloToLengthTree $
-                parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,(d:2.0,e:2.0):1.0):0.0;"
+  let r =
+        normalizeHeight $
+          either error id $
+            phyloToLengthTree $
+              parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,(d:2.0,e:2.0):1.0):0.0;"
+      t = toHeightTreeUltrametric r
       cc' = cc t
+  print r
   print t
   g <- create
   let s = Settings "test" burnIn iterations Overwrite NoSave Info
-      a = mhg pr noLikelihood cc' (mon t) t g
+      a = mhg pr noLikelihood cc' (mon t) (I t r) g
   void $ mcmc s a
