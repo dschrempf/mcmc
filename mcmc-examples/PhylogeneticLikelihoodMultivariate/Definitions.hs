@@ -206,28 +206,26 @@ likelihoodFunction mu sigmaInv logSigmaDet x =
 -- Proposals for the time tree.
 proposalsTimeTree :: Show a => Tree e a -> [Proposal I]
 proposalsTimeTree t =
-  -- Pulley on the root node.
-  (timeTree @~ pulleyUltrametric t 0.1 (PName "Time tree root") (PWeight 10) Tune) :
-  map
-    (timeTree @~)
-    ( -- Slide nodes.
-      slideNodesUltrametric t 0.1 (PName "Time tree") (PWeight 1) Tune
-        -- Scale sub trees.
-        ++ scaleSubTreesUltrametric t 0.1 (PName "Time tree") (PWeight 1) Tune
-    )
+  -- Lift the proposals into the state space.
+  map (timeTree @~) $
+    -- Pulley on the root node.
+    pulleyUltrametric t 0.1 (PName "Time tree root") (PWeight 10) Tune :
+    -- Slide nodes.
+    slideNodesUltrametric t 0.1 (PName "Time tree") (PWeight 1) Tune
+      -- Scale sub trees.
+      ++ scaleSubTreesUltrametric t 0.1 (PName "Time tree") (PWeight 1) Tune
 
 -- Proposals for the rate tree.
 proposalsRateTree :: Show a => Tree e a -> [Proposal I]
 proposalsRateTree t =
-  -- Pulley on the root node.
-  (rateTree @~ pulley 0.1 (PName "Rate tree root") (PWeight 10) Tune) :
-  map
-    (rateTree @~)
-    ( -- Scale branches excluding the stem.
-      scaleBranches t WithoutStem 0.1 (PName "Rate tree") (PWeight 1) Tune
-        -- Scale sub trees excluding the root.
-        ++ scaleSubTrees t WithoutRoot 100 (PName "Rate tree") (PWeight 1) Tune
-    )
+  -- Lift the proposals into the state space.
+  map (rateTree @~) $
+    -- Pulley on the root node.
+    pulley 0.1 (PName "Rate tree root") (PWeight 10) Tune :
+    -- Scale branches excluding the stem.
+    scaleBranches t WithoutStem 0.1 (PName "Rate tree") (PWeight 1) Tune
+      -- Scale sub trees excluding the root.
+      ++ scaleSubTrees t WithoutRoot 100 (PName "Rate tree") (PWeight 1) Tune
 
 -- Lens for a contrary proposal.
 timeHeightRateNormPair :: Lens' I (Double, Double)
