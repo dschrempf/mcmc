@@ -126,15 +126,18 @@ dirichletSimple t (SimplexUnsafe xs) g = do
 --
 -- For a given element of a K-dimensional simplex, propose a new element of the
 -- K-dimensional simplex. The new element is sampled from the multivariate
--- Dirichlet distribution with parameter vector being the old element of the
--- simplex.
+-- Dirichlet distribution with parameter vector being proportional to the
+-- current element of the simplex.
 --
 -- The tuning parameter is used to determine the concentration of the Dirichlet
 -- distribution: the lower the tuning parameter, the higher the concentration.
 --
--- This proposal may have low acceptance ratios. In this case, please see the
--- coordinate wise 'beta' proposal.
-dirichlet :: PName -> PWeight -> Tune -> Proposal Simplex
+-- The proposal dimension, which is the dimension of the simplex, is used to
+-- determine the optimal acceptance rate.
+--
+-- For high dimensional simplices, this proposal may have low acceptance ratios.
+-- In this case, please see the coordinate wise 'beta' proposal.
+dirichlet :: PDimension -> PName -> PWeight -> Tune -> Proposal Simplex
 dirichlet = createProposal (PDescription "Dirichlet") dirichletSimple
 
 -- The tuning parameter is the inverted mean of the shape values.
@@ -197,7 +200,10 @@ betaSimple i t (SimplexUnsafe xs) g = do
 -- No "out of bounds" checks are performed during compile time. Run time errors
 -- can occur if @i@ is negative, or if @i-1@ is larger than the length of the
 -- element vector of the simplex.
+--
+-- This proposal has been assigned a dimension of 2. See the discussion at
+-- 'PDimension'.
 beta :: Int -> PName -> PWeight -> Tune -> Proposal Simplex
-beta i = createProposal description (betaSimple i)
+beta i = createProposal description (betaSimple i) (PDimension 2)
   where
     description = PDescription $ "Beta; coordinate: " ++ show i

@@ -101,7 +101,11 @@ slideNodeAtUltrametric ::
   PWeight ->
   Tune ->
   Proposal (HeightTree a)
-slideNodeAtUltrametric pth ds = createProposal description (slideNodeAtUltrametricSimple pth ds)
+slideNodeAtUltrametric pth ds =
+  createProposal
+    description
+    (slideNodeAtUltrametricSimple pth ds)
+    (PDimension 1)
   where
     description = PDescription $ "Slide node ultrametric; sd: " ++ show ds
 
@@ -205,6 +209,7 @@ scaleSubTreeAtUltrametric tr pth sd =
   createProposal
     description
     (scaleSubTreeAtUltrametricSimple n pth sd)
+    (PDimension n)
   where
     description = PDescription $ "Scale subtree ultrametrc; sd: " ++ show sd
     n = nInnerNodes $ current $ goPathUnsafe pth $ fromTree tr
@@ -321,7 +326,7 @@ pulleyUltrametric ::
 pulleyUltrametric (Node _ _ [l, r]) d
   | null (forest l) = error "pulleyUltrametric: Left sub tree is a leaf."
   | null (forest r) = error "pulleyUltrametric: Right sub tree is a leaf."
-  | otherwise = createProposal description (pulleyUltrametricSimple nL nR d)
+  | otherwise = createProposal description (pulleyUltrametricSimple nL nR d) (PDimension $ nL + nR)
   where
     description = PDescription $ "Pulley ultrametric; sd: " ++ show d
     nL = nInnerNodes l

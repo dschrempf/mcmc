@@ -92,7 +92,16 @@ loadSavedChain pr lh cc mn (SavedChain it i tr ac' g' ts)
     -- TODO: Splitmix. Remove as soon as split mix is used and is available with
     -- the statistics package.
     g = unsafePerformIO $ MWC.restore $ MWC.toSeed g'
-    cc' = tuneCycle (M.mapMaybe id $ M.fromList $ zip (ccProposals cc) ts) cc
+    getTuningF mt = case mt of
+      Nothing -> const 1.0
+      Just t -> const t
+    cc' =
+      tuneCycle
+        ( M.map getTuningF $
+            M.fromList $
+              zip (ccProposals cc) ts
+        )
+        cc
 
 -- | Load a Markov chain from a file.
 loadChainWith ::

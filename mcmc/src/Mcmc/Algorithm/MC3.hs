@@ -87,11 +87,36 @@ getLink = link . fromMHG . heatedChain
 data MC3 a = MC3
   { -- | The first chain is the cold chain with temperature 1.0.
     mc3HeatedChains :: [HeatedChain a],
-    mc3SwapPeriod :: Int
+    mc3SwapPeriod :: Int,
+    -- | Swap proposals.
+    mc3SwapCycle :: Cycle [HeatedChain a],
+    -- | Acceptance rate of swaps.
+    mc3SwapAcceptance :: Acceptance (Proposal [HeatedChain a])
   }
+
+swapSimple :: Int -> Int -> ProposalSimple [HeatedChain a]
+swapSimple i j xs g
+  | i == j = error "swapSimple: Chain indices are equal."
+  -- TODO.
+  | otherwise = undefined
+  where
+    cl = xs !! i
+    cr = xs !! j
 
 -- TODO.
 -- instance Algorithm MC3 a
+
+swap ::
+  PWeight ->
+  -- Index of left chain (0 ..).
+  Int ->
+  -- Index of right chain (0 ..).
+  Int ->
+  Proposal [HeatedChain a]
+swap w i j = Proposal n d PDimensionUnknown w (swapSimple i j) Nothing
+  where
+    d = PDescription "Swap state"
+    n = PName $ "Chain " ++ show i ++ "/" ++ show (i + 1)
 
 -- | Initialize an MC3 algorithm with a given number of chains.
 mc3 ::
@@ -109,16 +134,15 @@ mc3 ::
 mc3 n p pr lh cc mn i0 g
   | n < 2 = error "mc3: The number of chains must be two or larger."
   | p < 1 = error "mc3: The swap period must be strictly positive."
-  | otherwise = MC3 (zipWith setReciprocalTemperature bs as) p
+  | otherwise = MC3 (zipWith setReciprocalTemperature bs as) p (cycleFromList ps) ac
   where
     a = mhg pr lh cc mn i0 g
-    -- TODO: Think about initial choice of reciprocal temperatures.
+    -- XXX: Think about initial choice of reciprocal temperatures.
     bs = [1.0, 1.1 ..]
     as = replicate n $ initializeHeatedChain a
-
--- TODO: Acceptance ratio should be 0.234, since this is a high dimensional
--- proposal. I think it makes sense to implement a dynamic acceptance ratio for
--- all proposals at this point.
+    -- XXX: For now create swap proposals for all neighbors.
+    ps = zipWith (swap $ PWeight 1) [0 .. n -1] [1 ..]
+    ac = emptyA ps
 
 -- TODO: Start implementing swap of beighboring chains. Determine the index
 -- randomly.

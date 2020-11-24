@@ -114,7 +114,7 @@ scaleTree ::
   PWeight ->
   Tune ->
   Proposal (Tree Length a)
-scaleTree tr k = createProposal description (scaleTreeSimple n k)
+scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
   where
     description = PDescription $ "Scale tree; shape: " ++ show k
     n = length tr
@@ -197,6 +197,6 @@ pulley ::
   PWeight ->
   Tune ->
   Proposal (Tree Length a)
-pulley s = createProposal description (pulleySimple s)
+pulley s = createProposal description (pulleySimple s) (PDimension 2)
   where
     description = PDescription $ "Pulley; sd: " ++ show s

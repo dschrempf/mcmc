@@ -50,7 +50,7 @@ noLikelihood = const 1.0
 -- used to store auxiliary information.
 --
 -- For example, the chain stores information about the current 'Link' and
--- 'iteration', the 'Trace', the 'Acceptance' ratios, and the random number
+-- 'iteration', the 'Trace', the 'Acceptance' rates, and the random number
 -- generator.
 --
 -- Further, the chain includes auxiliary variables and functions such as the

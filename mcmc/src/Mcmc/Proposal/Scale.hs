@@ -48,7 +48,7 @@ scale ::
   -- | Enable tuning.
   Tune ->
   Proposal Double
-scale k th = createProposal description (scaleSimple k th)
+scale k th = createProposal description (scaleSimple k th) (PDimension 1)
   where
     description = PDescription $ "Scale; shape: " ++ show k ++ ", scale: " ++ show th
 
@@ -66,7 +66,7 @@ scaleUnbiased ::
   -- | Enable tuning.
   Tune ->
   Proposal Double
-scaleUnbiased k = createProposal description (scaleSimple k (1 / k))
+scaleUnbiased k = createProposal description (scaleSimple k (1 / k)) (PDimension 1)
   where
     description = PDescription $ "Scale unbiased; shape: " ++ show k
 
@@ -101,6 +101,7 @@ scaleContrarily ::
   -- | Enable tuning.
   Tune ->
   Proposal (Double, Double)
-scaleContrarily k th = createProposal description (scaleContrarilySimple k th)
+-- Still one dimensional, because the proposal has one free variable.
+scaleContrarily k th = createProposal description (scaleContrarilySimple k th) (PDimension 2)
   where
     description = PDescription $ "Scale contrariliy; shape: " ++ show k ++ ", scale: " ++ show th

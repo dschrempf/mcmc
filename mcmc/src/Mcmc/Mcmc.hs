@@ -163,7 +163,7 @@ mcmcBurnInWithAutoTuning b t
     mcmcResetAcceptance
     mcmcIterate b
     get >>= mcmcInfoB . aSummarizeCycle
-    mcmcInfoS $ "Acceptance ratios calculated over the last " <> show b <> " iterations."
+    mcmcInfoS $ "Acceptance rates calculated over the last " <> show b <> " iterations."
 
 mcmcIterate :: Algorithm t a => Int -> MCMC (t a) ()
 mcmcIterate n
@@ -195,7 +195,7 @@ mcmcAutotune = do
 -- Reset acceptance counts.
 mcmcResetAcceptance :: Algorithm t a => MCMC (t a) ()
 mcmcResetAcceptance = do
-  mcmcDebugB "Reset acceptance ratios."
+  mcmcDebugB "Reset acceptance rates."
   modify aResetAcceptance
 
 -- Report and finish up.

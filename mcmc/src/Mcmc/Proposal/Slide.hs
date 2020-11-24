@@ -42,7 +42,7 @@ slide ::
   -- | Enable tuning.
   Tune ->
   Proposal Double
-slide m s = createProposal description (slideSimple m s)
+slide m s = createProposal description (slideSimple m s) (PDimension 1)
   where
     description = PDescription $ "Slide; mean: " ++ show m ++ ", sd: " ++ show s
 
@@ -64,7 +64,7 @@ slideSymmetric ::
   -- | Enable tuning.
   Tune ->
   Proposal Double
-slideSymmetric s = createProposal description (slideSymmetricSimple s)
+slideSymmetric s = createProposal description (slideSymmetricSimple s) (PDimension 1)
   where
     description = PDescription $ "Slide symmetric; sd: " ++ show s
 
@@ -86,7 +86,7 @@ slideUniformSymmetric ::
   -- | Enable tuning.
   Tune ->
   Proposal Double
-slideUniformSymmetric d = createProposal description (slideUniformSimple d)
+slideUniformSymmetric d = createProposal description (slideUniformSimple d) (PDimension 1)
   where
     description = PDescription $ "Slide uniform symmetric; delta: " ++ show d
 
@@ -113,6 +113,6 @@ slideContrarily ::
   -- | Enable tuning.
   Tune ->
   Proposal (Double, Double)
-slideContrarily m s = createProposal description (slideContrarilySimple m s)
+slideContrarily m s = createProposal description (slideContrarilySimple m s) (PDimension 2)
   where
     description = PDescription $ "Slide contrarily; mean: " ++ show m ++ ", sd: " ++ show s

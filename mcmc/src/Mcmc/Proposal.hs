@@ -19,6 +19,7 @@ module Mcmc.Proposal
     PName (..),
     PDescription (..),
     PWeight (..),
+    PDimension (..),
     Proposal (..),
     (@~),
     ProposalSimple,
@@ -43,7 +44,7 @@ module Mcmc.Proposal
     pushA,
     resetA,
     transformKeysA,
-    acceptanceRatios,
+    acceptanceRates,
   )
 where
 
@@ -79,17 +80,57 @@ newtype PDescription = PDescription {fromPDescription :: String}
 newtype PWeight = PWeight {fromPWeight :: Int}
   deriving (Show, Eq, Ord)
 
+-- | Proposal dimension.
+--
+-- The number of affected, independent parameters.
+--
+-- The optimal acceptance rate of low dimensional proposals is higher than for
+-- high dimensional ones.
+--
+-- Optimal acceptance rates are still subject to controversies. As far as I
+-- know, research has focused on random walk proposal with a multivariate normal
+-- distribution of dimension @d@. In this case, the following acceptance rates
+-- are desired:
+--
+-- - one dimension: 0.44 (numerical results);
+--
+-- - five and more dimensions: 0.234 (numerical results);
+--
+-- - infinite dimensions: 0.234 (theorem for specific target distributions).
+--
+-- See Handbook of Markov chain Monte Carlo, chapter 4.
+--
+-- Of course, many proposals may not be classical random walk proposals. For
+-- example, the beta proposal on a simplex ('Mcmc.Proposal.Simplex.beta')
+-- samples one new variable of the simplex from a beta distribution while
+-- rescaling all other variables. What is the dimension of this proposal? I
+-- don't know, but I set the dimension to 2. The reason is that if the dimension
+-- of the simplex is 2, two variables are changed. If the dimension of the
+-- simplex is high, one variable is changed substantially, while all others are
+-- changed marginally.
+--
+-- Further, if a proposal changes a number of variables in the same way (and not
+-- independently like in a random walk proposal), I still set the dimension of
+-- the proposal to the number of variables changed.
+--
+-- Finally, I assume that proposals of unknown dimension have high dimension,
+-- and use the optimal acceptance rate 0.234.
+data PDimension = PDimension Int | PDimensionUnknown
+
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability mass or probability density
 -- conditioned on the current state (i.e., a Markov kernel).
 --
 -- A 'Proposal' may be tuneable in that it contains information about how to enlarge
--- or shrink the step size to tune the acceptance ratio.
+-- or shrink the step size to tune the acceptance rate.
 data Proposal a = Proposal
   { -- | Name of the affected variable.
     pName :: PName,
     -- | Description of the proposal type and parameters.
     pDescription :: PDescription,
+    -- | Dimension of the proposal. The dimension is used to calculate the
+    -- optimal acceptance rate, and does not have to be exact.
+    pDimension :: PDimension,
     -- | The weight determines how often a 'Proposal' is executed per iteration of
     -- the Markov chain.
     pWeight :: PWeight,
@@ -117,7 +158,7 @@ instance Ord (Proposal a) where
 -- scaleFirstEntryOfTuple = _1 @~ scale
 -- @
 (@~) :: Lens' b a -> Proposal a -> Proposal b
-(@~) l (Proposal n d w s t) = Proposal n d w (convertProposalSimple l s) (convertTuner l <$> t)
+(@~) l (Proposal n r d w s t) = Proposal n r d w (convertProposalSimple l s) (convertTuner l <$> t)
 
 -- | Simple proposal without tuning information.
 --
@@ -147,7 +188,7 @@ convertProposalSimple l s = s'
       (x', r, j) <- s (v ^. l) g
       return (set l x' v, r, j)
 
--- | Tune the acceptance ratio of a 'Proposal'; see 'tune', or 'autoTuneCycle'.
+-- | Tune the acceptance rate of a 'Proposal'; see 'tune', or 'autoTuneCycle'.
 data Tuner a = Tuner
   { tParam :: Double,
     tFunc :: Double -> ProposalSimple a
@@ -162,14 +203,16 @@ convertTuner l (Tuner p f) = Tuner p f'
 data Tune = Tune | NoTune
   deriving (Show, Eq)
 
--- | Create a possibly tuneable proposal.
+-- | Create a tuneable proposal.
 createProposal ::
   -- | Description of the proposal type and parameters.
   PDescription ->
   -- | Function creating a simple proposal for a given tuning parameter. The
   -- larger the tuning parameter, the larger the proposal (and the lower the
-  -- expected acceptance ratio), and vice versa.
+  -- expected acceptance rate), and vice versa.
   (Double -> ProposalSimple a) ->
+  -- | Dimension.
+  PDimension ->
   -- | Name.
   PName ->
   -- | Weight.
@@ -177,44 +220,51 @@ createProposal ::
   -- | Activate tuning?
   Tune ->
   Proposal a
-createProposal d f n w Tune = Proposal n d w (f 1.0) (Just $ Tuner 1.0 f)
-createProposal d f n w NoTune = Proposal n d w (f 1.0) Nothing
+createProposal r f d n w Tune = Proposal n r d w (f 1.0) (Just $ Tuner 1.0 f)
+createProposal r f d n w NoTune = Proposal n r d w (f 1.0) Nothing
 
 -- Minimal tuning parameter; subject to change.
 tuningParamMin :: Double
 tuningParamMin = 1e-12
 
--- | Tune a 'Proposal'. Return 'Nothing' if 'Proposal' is not tuneable. If the parameter
---   @dt@ is larger than 1.0, the 'Proposal' is enlarged, if @0<dt<1.0@, it is
---   shrunk. Negative tuning parameters are not allowed.
-tune :: Double -> Proposal a -> Maybe (Proposal a)
-tune dt m
-  | dt <= 0 = error $ "tune: Tuning parameter not positive: " <> show dt <> "."
+-- | Tune a 'Proposal'. Return 'Nothing' if 'Proposal' is not tuneable. The size
+--   of the proposal is proportional to the tuning parameter. Negative tuning
+--   parameters are not allowed.
+tune :: (Double -> Double) -> Proposal a -> Maybe (Proposal a)
+tune f m
   | otherwise = do
-    (Tuner t f) <- pTuner m
-    -- Ensure that the tuning parameter is not too small.
-    let t' = max tuningParamMin (t * dt)
-    return $ m {pSimple = f t', pTuner = Just $ Tuner t' f}
+    (Tuner t g) <- pTuner m
+    -- Ensure that the tuning parameter is strictly positive.
+    let t' = max tuningParamMin (f t)
+    return $ m {pSimple = g t', pTuner = Just $ Tuner t' g}
 
--- The desired acceptance ratio 0.44 is optimal for one-dimensional proposals;
+-- The desired acceptance rate 0.44 is optimal for one-dimensional proposals;
 -- one could also store the affected number of dimensions with the proposal and
--- tune towards an acceptance ratio accounting for the number of dimensions.
+-- tune towards an acceptance rate accounting for the number of dimensions.
 --
--- The optimal ratios seem to be:
+-- The optimal acceptance rates seem to be:
 -- - One dimension: 0.44 (numerical result).
 -- - Five and more dimensions: 0.234 seems to be a good value (numerical result).
 -- - Infinite dimensions: 0.234 (theorem for specific target distributions).
 -- See Handbook of Markov chain Monte Carlo, chapter 4.
-ratioOpt :: Double
-ratioOpt = 0.44
+getOptimalRate :: PDimension -> Double
+getOptimalRate (PDimension n)
+  | n <= 0 = error "Proposal dimension is zero or negative."
+  | n == 1 = 0.44
+  -- Use a linear interpolation with delta 0.0515.
+  | n == 2 = 0.3885
+  | n == 3 = 0.337
+  | n == 4 = 0.2855
+  | n >= 5 = 0.234
+getOptimalRate PDimensionUnknown = 0.234
 
--- Warn if acceptance ratio is lower.
-ratioMin :: Double
-ratioMin = 0.1
+-- Warn if acceptance rate is lower.
+rateMin :: Double
+rateMin = 0.1
 
--- Warn if acceptance ratio is larger.
-ratioMax :: Double
-ratioMax = 0.9
+-- Warn if acceptance rate is larger.
+rateMax :: Double
+rateMax = 0.9
 
 -- | Define the order in which 'Proposal's are executed in a 'Cycle'. The total
 -- number of 'Proposal's per 'Cycle' may differ between 'Order's (e.g., compare
@@ -279,25 +329,29 @@ orderProposals (Cycle xs o) g = case o of
     return $ psR ++ reverse psR
   SequentialReversibleO -> return $ ps ++ reverse ps
   where
-    !ps = concat [replicate (fromPWeight $ pWeight m) m | m <- xs]
+    !ps = concat [replicate (fromPWeight $ pWeight p) p | p <- xs]
 
 -- | Tune 'Proposal's in the 'Cycle'. See 'tune'.
-tuneCycle :: Map (Proposal a) Double -> Cycle a -> Cycle a
+tuneCycle :: Map (Proposal a) (Double -> Double) -> Cycle a -> Cycle a
 tuneCycle m c =
   if sort (M.keys m) == sort ps
     then c {ccProposals = map tuneF ps}
-    else error "tuneCycle: Map contains proposals that are not in the cycle."
+    else error "tuneCycle: Propoals in map and cycle do not match."
   where
     ps = ccProposals c
     tuneF p = case m M.!? p of
       Nothing -> p
-      Just x -> fromMaybe p (tune x p)
+      Just f -> fromMaybe p (tune f p)
 
--- | Calculate acceptance ratios and auto tune the 'Proposal's in the 'Cycle'. For
--- now, a 'Proposal' is enlarged when the acceptance ratio is above 0.44, and
+-- | Calculate acceptance rates and auto tune the 'Proposal's in the 'Cycle'. For
+-- now, a 'Proposal' is enlarged when the acceptance rate is above 0.44, and
 -- shrunk otherwise. Do not change 'Proposal's that are not tuneable.
 autoTuneCycle :: Acceptance (Proposal a) -> Cycle a -> Cycle a
-autoTuneCycle a = tuneCycle (M.map (\x -> exp $ x - ratioOpt) $ acceptanceRatios a)
+autoTuneCycle a = tuneCycle (M.mapWithKey tuningF $ acceptanceRates a)
+  where
+    tuningF proposal currentRate currentTuningParam =
+      let optimalRate = getOptimalRate (pDimension proposal)
+       in currentTuningParam * exp (currentRate - optimalRate)
 
 renderRow ::
   BL.ByteString ->
@@ -309,20 +363,20 @@ renderRow ::
   BL.ByteString ->
   BL.ByteString ->
   BL.ByteString
-renderRow name ptype weight nAccept nReject acceptRatio tuneParam manualAdjustment = nm <> pt <> wt <> na <> nr <> ra <> tp <> mt
+renderRow name ptype weight nAccept nReject acceptRate tuneParam manualAdjustment = nm <> pt <> wt <> na <> nr <> ra <> tp <> mt
   where
     nm = alignLeft 30 name
     pt = alignLeft 50 ptype
     wt = alignRight 8 weight
     na = alignRight 15 nAccept
     nr = alignRight 15 nReject
-    ra = alignRight 15 acceptRatio
+    ra = alignRight 15 acceptRate
     tp = alignRight 20 tuneParam
     mt = alignRight 30 manualAdjustment
 
 proposalHeader :: BL.ByteString
 proposalHeader =
-  renderRow "Name" "Description" "Weight" "Accepted" "Rejected" "Ratio" "Tuning parameter" "Consider manual adjustment"
+  renderRow "Name" "Description" "Weight" "Accepted" "Rejected" "Rate" "Tuning parameter" "Consider manual adjustment"
 
 summarizeProposal :: Proposal a -> Maybe (Int, Int, Double) -> BL.ByteString
 summarizeProposal m r =
@@ -332,25 +386,25 @@ summarizeProposal m r =
     weight
     nAccept
     nReject
-    acceptRatio
+    acceptRate
     tuneParamStr
     manualAdjustmentStr
   where
     weight = BB.toLazyByteString $ BB.intDec $ fromPWeight $ pWeight m
     nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) r
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) r
-    acceptRatio = BL.fromStrict $ maybe "" (BC.toFixed 3 . (^. _3)) r
+    acceptRate = BL.fromStrict $ maybe "" (BC.toFixed 3 . (^. _3)) r
     tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) (tParam <$> pTuner m)
     check v
-      | v < ratioMin = "ratio too low"
-      | v > ratioMax = "ratio too high"
+      | v < rateMin = "rate too low"
+      | v > rateMax = "rate too high"
       | otherwise = ""
     manualAdjustmentStr = BL.fromStrict $ maybe "" (check . (^. _3)) r
 
 hLine :: BL.ByteString -> BL.ByteString
 hLine s = BL.replicate (BL.length s - 3) '-'
 
--- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance ratios.
+-- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance rates.
 summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> BL.ByteString
 summarizeCycle a c =
   BL.intercalate "\n" $
@@ -363,7 +417,7 @@ summarizeCycle a c =
   where
     ps = ccProposals c
     mpi = BB.toLazyByteString $ BB.intDec $ sum $ map (fromPWeight . pWeight) ps
-    ar m = acceptanceRatio m a
+    ar m = acceptanceRate m a
 
 -- | For each key @k@, store the number of accepted and rejected proposals.
 newtype Acceptance k = Acceptance {fromAcceptance :: Map k (Int, Int)}
@@ -402,13 +456,13 @@ transformKeys ks1 ks2 m = foldl' insrt M.empty $ zip ks1 ks2
 transformKeysA :: (Ord k1, Ord k2) => [k1] -> [k2] -> Acceptance k1 -> Acceptance k2
 transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
 
--- | Acceptance counts and ratio for a specific proposal.
-acceptanceRatio :: (Show k, Ord k) => k -> Acceptance k -> Maybe (Int, Int, Double)
-acceptanceRatio k a = case fromAcceptance a M.!? k of
+-- Acceptance counts and rate for a specific proposal.
+acceptanceRate :: (Show k, Ord k) => k -> Acceptance k -> Maybe (Int, Int, Double)
+acceptanceRate k a = case fromAcceptance a M.!? k of
   Just (0, 0) -> Nothing
   Just (as, rs) -> Just (as, rs, fromIntegral as / fromIntegral (as + rs))
-  Nothing -> error $ "acceptanceRatio: Key not found in map: " ++ show k ++ "."
+  Nothing -> error $ "acceptanceRate: Key not found in map: " ++ show k ++ "."
 
--- | Acceptance ratios for all proposals.
-acceptanceRatios :: Acceptance k -> Map k Double
-acceptanceRatios = M.map (\(as, rs) -> fromIntegral as / fromIntegral (as + rs)) . fromAcceptance
+-- | Acceptance rates for all proposals.
+acceptanceRates :: Acceptance k -> Map k Double
+acceptanceRates = M.map (\(as, rs) -> fromIntegral as / fromIntegral (as + rs)) . fromAcceptance
