@@ -91,7 +91,7 @@ data MC3 a = MC3
   }
 
 -- TODO.
-instance Algorithm MC3 a
+-- instance Algorithm MC3 a
 
 -- | Initialize an MC3 algorithm with a given number of chains.
 mc3 ::

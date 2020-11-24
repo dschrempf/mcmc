@@ -12,17 +12,20 @@
 --
 -- Creation date: Thu Jul 23 13:26:14 2020.
 module Mcmc.Prior
-  ( -- * Continuous priors
+  ( -- * Improper priors
     largerThan,
     positive,
     lowerThan,
     negative,
-    uniform,
-    normal,
+
+    -- * Continuous priors
     exponential,
     gamma,
-    -- -- * Discrete priors
-    -- No discrete priors are available yet.
+    normal,
+    uniform,
+
+    -- * Discrete priors
+    poisson,
 
     -- * Auxiliary functions
     product',
@@ -36,6 +39,7 @@ import qualified Statistics.Distribution as S
 import qualified Statistics.Distribution.Exponential as S
 import qualified Statistics.Distribution.Gamma as S
 import qualified Statistics.Distribution.Normal as S
+import qualified Statistics.Distribution.Poisson as S
 
 -- | Improper uniform prior; strictly larger than a given value.
 largerThan :: Double -> Double -> Log Double
@@ -56,31 +60,6 @@ lowerThan b x
 -- | Improper uniform prior; strictly lower than zero.
 negative :: Double -> Log Double
 negative = lowerThan 0
-
--- | Uniform prior on [a, b].
-uniform ::
-  -- | Lower bound a.
-  Double ->
-  -- | Upper bound b.
-  Double ->
-  Double ->
-  Log Double
-uniform a b x
-  | x <= a = 0
-  | x >= b = 0
-  | otherwise = Exp 0
-
--- | Normal distributed prior.
-normal ::
-  -- | Mean.
-  Double ->
-  -- | Standard deviation.
-  Double ->
-  Double ->
-  Log Double
-normal m s x = Exp $ S.logDensity d x
-  where
-    d = S.normalDistr m s
 
 -- | Exponential distributed prior.
 exponential ::
@@ -103,6 +82,41 @@ gamma ::
 gamma k t x = Exp $ S.logDensity d x
   where
     d = S.gammaDistr k t
+
+-- | Normal distributed prior.
+normal ::
+  -- | Mean.
+  Double ->
+  -- | Standard deviation.
+  Double ->
+  Double ->
+  Log Double
+normal m s x = Exp $ S.logDensity d x
+  where
+    d = S.normalDistr m s
+
+-- | Uniform prior on [a, b].
+uniform ::
+  -- | Lower bound a.
+  Double ->
+  -- | Upper bound b.
+  Double ->
+  Double ->
+  Log Double
+uniform a b x
+  | x <= a = 0
+  | x >= b = 0
+  | otherwise = Exp 0
+
+-- | Poisson distributed prior.
+poisson ::
+  -- | Rate.
+  Double ->
+  Int ->
+  Log Double
+poisson l x = Exp $ S.logProbability d x
+  where
+    d = S.poisson l
 
 -- | Intelligent product that stops when encountering a zero.
 --

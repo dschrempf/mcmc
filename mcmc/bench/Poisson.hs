@@ -20,11 +20,6 @@ import Control.Monad
 import Lens.Micro
 import Mcmc
 import Numeric.Log hiding (sum)
-import Statistics.Distribution hiding
-  ( mean,
-    stdDev,
-  )
-import Statistics.Distribution.Poisson
 import System.Random.MWC
 
 type I = (Double, Double)
@@ -39,7 +34,7 @@ normalizedYears = map (subtract m) ys
     m = sum ys / fromIntegral (length ys)
 
 f :: Int -> Double -> I -> Log Double
-f ft yr (a, b) = Exp $ logProbability (poisson l) (fromIntegral ft)
+f ft yr (a, b) = poisson l (fromIntegral ft)
   where
     l = exp $ a + b * yr
 

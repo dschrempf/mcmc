@@ -56,7 +56,7 @@ spec =
       do
         gen <- R.create
         let s = Settings "SaveSpec" (BurnInWithAutoTuning 20 10) 200 Overwrite NoSave Quiet
-            c = chain noPrior lh proposals mon 0 gen
+            c = fromMHG $ mhg noPrior lh proposals mon 0 gen
         saveChainWith 100 "SaveSpec.chain" c
         c' <- loadChainWith noPrior lh proposals mon "SaveSpec.chain"
         removeFile "SaveSpec.chain"

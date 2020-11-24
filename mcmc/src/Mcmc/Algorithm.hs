@@ -18,7 +18,6 @@ where
 
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Mcmc.Environment
-import Numeric.Log
 
 -- | @t@ is the algorithm, @a@ is the state space.
 class Algorithm t a where

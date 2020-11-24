@@ -44,8 +44,7 @@ type LikelihoodFunction a = a -> Log Double
 noLikelihood :: LikelihoodFunction a
 noLikelihood = const 1.0
 
--- | The chain contains all information to run an MCMC sampler. A chain is
--- constructed using 'chain'.
+-- | The chain contains all information to run an MCMC sampler.
 --
 -- The state of a chain has type @a@. If necessary, the type @a@ can also be
 -- used to store auxiliary information.
