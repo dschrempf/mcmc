@@ -287,9 +287,9 @@ getTimeTreeNodeHeight p x = (* h) $ fromHeight $ t ^. subTreeAtUnsafeL p . label
 
 -- Monitor the height of calibrated nodes.
 monCalibratedNodes :: [Calibration] -> [MonitorParameter I]
-monCalibratedNodes cb = [getTimeTreeNodeHeight p >$< monitorDouble (name n a b) | (n, p, a, b) <- cb]
+monCalibratedNodes cb = [getTimeTreeNodeHeight p >$< monitorDouble (name n i) | (n, p, i) <- cb]
   where
-    name s l r = "Calibration " ++ s ++ " (" ++ show l ++ ", " ++ show r ++ ")"
+    name nm iv = "Calibration " ++ nm ++ " " ++ show iv
 
 -- Get the difference in height of the nodes at path. Useful to have a look at
 -- constrained nodes. Positive if constraint is honored.

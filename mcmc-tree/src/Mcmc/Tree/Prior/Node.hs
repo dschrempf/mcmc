@@ -136,13 +136,16 @@ instance Show ExtendedPositive where
 data Interval = Interval NonNegative ExtendedPositive
   deriving (Eq)
 
+instance Show Interval where
+  show (Interval a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
+
 -- | Specify a lower and an upper bound.
 properInterval :: Double -> Double -> Interval
 properInterval a b
   | a < b = Interval (nonNegative a) (positive b)
   | otherwise = error "properInterval: Left bound equal or larger right bound."
 
--- | Specify a lower bound only. The upper bound is set to 'Infinity'.
+-- | Specify a lower bound only. The upper bound is set to infinity.
 lowerBoundOnly :: Double -> Interval
 lowerBoundOnly a = Interval (nonNegative a) Infinity
 
