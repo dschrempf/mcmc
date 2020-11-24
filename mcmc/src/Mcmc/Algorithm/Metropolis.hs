@@ -54,7 +54,6 @@ instance (ToJSON a, FromJSON a) => Algorithm MHG a where
   aStdMonitorHeader = mhgStdMonitorHeader
   aCloseMonitors = mhgCloseMonitors
   aSave = mhgSave
-  aReport = mhgReport
 
 -- | Initialize an MHG algorithm.
 mhg ::
@@ -206,8 +205,3 @@ mhgCloseMonitors (MHG c) = do
   return $ MHG $ c {monitor = m'}
   where
     m = monitor c
-
-mhgReport :: MHG a -> (Log Double, Log Double)
-mhgReport (MHG c) = (prior i, likelihood i)
-  where
-    i = link c

@@ -56,6 +56,3 @@ class Algorithm t a where
     String ->
     t a ->
     IO ()
-
-  -- | Report prior and likelihood; useful for debugging.
-  aReport :: t a -> (Log Double, Log Double)
