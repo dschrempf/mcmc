@@ -10,8 +10,17 @@
 --
 -- Creation date: Mon Jul 27 10:49:11 2020.
 module Mcmc.Tree.Prior.Node
-  ( constrainHard,
+  ( -- * Constraints
+    constrainHard,
     constrainSoft,
+
+    -- * Calibtrations
+    NonNegative,
+    ExtendedPositive,
+    Interval,
+    properInterval,
+    lowerBoundOnly,
+    transformInterval,
     calibrate,
     calibrateUniform,
     calibrateUniformSoft,
@@ -26,6 +35,7 @@ import Mcmc.Tree.Types
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
+import Text.Read
 
 -- Get the height of the node at path on the tree.
 --
@@ -78,6 +88,83 @@ constrainSoft s y o t
     hO = fromHeight $ getHeightFromNode o t
     d = normalDistr 0 s
 
+-- | Non-negative number.
+newtype NonNegative = NonNegative {fromNonNegative :: Double}
+  deriving (Eq)
+
+nonNegative :: Double -> NonNegative
+nonNegative x
+  | x < 0 = error "nonNegative: Negative value."
+  | otherwise = NonNegative x
+
+instance Read NonNegative where
+  readPrec = do
+    x <- readPrec
+    return $ nonNegative x
+
+instance Show NonNegative where
+  showsPrec p (NonNegative x) = showsPrec p x
+
+-- | Positive number or infinity.
+data ExtendedPositive = Positive Double | Infinity
+  deriving (Eq)
+
+positive :: Double -> ExtendedPositive
+positive x
+  | x <= 0 = error "positive: Zero or negative value."
+  | otherwise = Positive x
+
+positiveReadPrec :: ReadPrec ExtendedPositive
+positiveReadPrec = do
+  x <- readPrec
+  return $ positive x
+
+infinityReadPrec :: ReadPrec ExtendedPositive
+infinityReadPrec = do
+  Ident "Infinity" <- lexP
+  return Infinity
+
+instance Read ExtendedPositive where
+  readPrec = positiveReadPrec <++ infinityReadPrec
+
+instance Show ExtendedPositive where
+  showsPrec p (Positive x) = showsPrec p x
+  showsPrec p Infinity = showsPrec p "Infinity"
+
+-- | Open interval \((a,b)\) with \(a < b\), \(a \in [0, \infty)\) and \(b \in
+-- (0, \infty]\).
+data Interval = Interval NonNegative ExtendedPositive
+  deriving (Eq)
+
+-- | Specify a lower and an upper bound.
+properInterval :: Double -> Double -> Interval
+properInterval a b
+  | a < b = Interval (nonNegative a) (positive b)
+  | otherwise = error "properInterval: Left bound equal or larger right bound."
+
+-- | Specify a lower bound only. The upper bound is set to 'Infinity'.
+lowerBoundOnly :: Double -> Interval
+lowerBoundOnly a = Interval (nonNegative a) Infinity
+
+-- | Transform an interval by applying a multiplicative change.
+--
+-- Useful when the tree is normalized and height values have to be converted
+-- from relative heights to absolute heights.
+transformInterval :: Double -> Interval -> Interval
+transformInterval x (Interval a b)
+  | x <= 0 = error "transform: Multiplier is zero or negative."
+  | otherwise = Interval a' b'
+  where
+    a' = NonNegative $ x * fromNonNegative a
+    b' = case b of
+      Positive y -> Positive $ x * y
+      Infinity -> Infinity
+
+-- No number is bigger than a non-existing upper bound..
+(>*) :: Double -> ExtendedPositive -> Bool
+_ >* Infinity = False
+h >* Positive b = h > b
+
 -- | Calibrate height of a node with given path using the normal distribution.
 calibrate ::
   HasHeight a =>
@@ -91,20 +178,20 @@ calibrate ::
 calibrate m s p = Exp . logDensity (normalDistr m s) . fromHeight . getHeightFromNode p
 
 -- | Calibrate height of a node with given path using the uniform distribution.
+--
+-- If the upper bound is not given, no upper bound is used.
 calibrateUniform ::
   HasHeight a =>
-  -- | Lower bound.
-  Double ->
-  -- | Upper bound.
-  Double ->
+  Interval ->
   Path ->
   Tree e a ->
   Log Double
-calibrateUniform a b p t
-  | h > b = 0
-  | h < a = 0
+calibrateUniform (Interval a b) p t
+  | h <= a' = 0
+  | h >* b = 0
   | otherwise = 1
   where
+    a' = fromNonNegative a
     h = fromHeight $ getHeightFromNode p t
 
 -- | Calibrate height of a node with given path.
@@ -115,21 +202,23 @@ calibrateUniform a b p t
 --   standard deviation is used. The normal distribution is normalized such that
 --   the complete distribution of the constrained is continuous. Use of the
 --   normal distribution also ensures that the first derivative is continuous.
+--
+-- If the upper bound is not given, no upper bound is used.
 calibrateUniformSoft ::
   HasHeight a =>
   -- | Standard deviation of one sided normal distributions.
   Double ->
-  -- | Lower bound.
-  Double ->
-  -- | Upper bound.
-  Double ->
+  Interval ->
   Path ->
   Tree e a ->
   Log Double
-calibrateUniformSoft s a b p t
-  | h > b = Exp $ logDensity d (h - b) - logDensity d 0
-  | h < a = Exp $ logDensity d (a - h) - logDensity d 0
+calibrateUniformSoft s (Interval a b) p t
+  | h <= a' = Exp $ logDensity d (a' - h) - logDensity d 0
+  | h >* b = case b of
+    Infinity -> 1.0
+    Positive b' -> Exp $ logDensity d (h - b') - logDensity d 0
   | otherwise = 1
   where
+    a' = fromNonNegative a
     h = fromHeight $ getHeightFromNode p t
     d = normalDistr 0 s
