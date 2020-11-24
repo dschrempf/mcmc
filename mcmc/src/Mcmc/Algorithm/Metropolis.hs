@@ -61,10 +61,17 @@ mhg ::
   LikelihoodFunction a ->
   Cycle a ->
   Monitor a ->
+  -- | The initial state in the state space @a@.
   a ->
+  -- | A source of randomness. For reproducible runs, make sure to use
+  -- generators with the same, fixed seed.
   GenIO ->
   MHG a
-mhg pr lh cc mn i0 g = MHG $ chain pr lh cc mn i0 g
+mhg pr lh cc mn i0 g = MHG $ Chain l0 0 tr ac g 0 pr lh cc mn
+  where
+    l0 = Link i0 (pr i0) (lh i0)
+    tr = singletonT l0
+    ac = emptyA $ ccProposals cc
 
 -- | Save an MHG algorithm.
 mhgSave ::

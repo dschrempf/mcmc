@@ -53,6 +53,7 @@ pushT x = Trace . (:) x . fromTrace
 -- | Get the most recent item of the trace.
 headT :: Trace a -> Link a
 headT = head . fromTrace
+{-# INLINEABLE headT #-}
 
 -- | Get the N most recent items of the trace.
 takeLinks :: Int -> Trace a -> [Link a]

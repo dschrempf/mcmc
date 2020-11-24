@@ -15,7 +15,6 @@ module Mcmc.Chain.Chain
     LikelihoodFunction,
     noLikelihood,
     Chain (..),
-    chain,
   )
 where
 
@@ -64,12 +63,14 @@ data Chain a = Chain
   { -- Variables; saved.
 
     -- | The current 'Link' of the chain combines the current state and the
-    -- current likelihood.
+    -- current likelihood. The link is updated after a proposal has been
+    -- executed.
     link :: Link a,
     -- | The current iteration or completed number of cycles.
     iteration :: Int,
     -- | The 'Trace' of the Markov chain in reverse order, the most recent
-    -- 'Link' is at the head of the list.
+    -- 'Link' is at the head of the list. In contrast to the link, the trace is
+    -- updated only after all proposals in the cycle have been executed.
     trace :: Trace a,
     -- | For each 'Proposal', store the list of accepted (True) and rejected (False)
     -- proposals; for reasons of efficiency, the list is also stored in reverse
@@ -93,21 +94,3 @@ data Chain a = Chain
     -- | A 'Monitor' observing the chain.
     monitor :: Monitor a
   }
-
--- | Initialize a Markov chain.
-chain ::
-  PriorFunction a ->
-  LikelihoodFunction a ->
-  Cycle a ->
-  Monitor a ->
-  -- | The initial state in the state space @a@.
-  a ->
-  -- | A source of randomness. For reproducible runs, make sure to use
-  -- generators with the same, fixed seed.
-  GenIO ->
-  Chain a
-chain pr lh cc mn x g = Chain i 0 tr ac g 0 pr lh cc mn
-  where
-    i = Link x (pr x) (lh x)
-    tr = singletonT i
-    ac = emptyA $ ccProposals cc

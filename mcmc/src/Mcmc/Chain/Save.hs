@@ -37,7 +37,6 @@ import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
 import Mcmc.Monitor
 import Mcmc.Proposal
-import System.Directory
 import System.IO.Unsafe (unsafePerformIO)
 import qualified System.Random.MWC as MWC
 import Prelude hiding (cycle)
