@@ -362,39 +362,43 @@ renderRow ::
   BL.ByteString ->
   BL.ByteString ->
   BL.ByteString ->
+  BL.ByteString ->
   BL.ByteString
-renderRow name ptype weight nAccept nReject acceptRate tuneParam manualAdjustment = nm <> pt <> wt <> na <> nr <> ra <> tp <> mt
+renderRow name ptype weight nAccept nReject acceptRate optimalRate tuneParam manualAdjustment = nm <> pt <> wt <> na <> nr <> ra <> ro <> tp <> mt
   where
     nm = alignLeft 30 name
     pt = alignLeft 50 ptype
     wt = alignRight 8 weight
-    na = alignRight 15 nAccept
-    nr = alignRight 15 nReject
-    ra = alignRight 15 acceptRate
+    na = alignRight 14 nAccept
+    nr = alignRight 14 nReject
+    ra = alignRight 14 acceptRate
+    ro = alignRight 14 optimalRate
     tp = alignRight 20 tuneParam
     mt = alignRight 30 manualAdjustment
 
 proposalHeader :: BL.ByteString
 proposalHeader =
-  renderRow "Name" "Description" "Weight" "Accepted" "Rejected" "Rate" "Tuning parameter" "Consider manual adjustment"
+  renderRow "Name" "Description" "Weight" "Accepted" "Rejected" "Rate" "Optimal rate" "Tuning parameter" "Consider manual adjustment"
 
 summarizeProposal :: Proposal a -> Maybe (Int, Int, Double) -> BL.ByteString
-summarizeProposal m r =
+summarizeProposal p r =
   renderRow
-    (BL.pack $ fromPName $ pName m)
-    (BL.pack $ fromPDescription $ pDescription m)
+    (BL.pack $ fromPName $ pName p)
+    (BL.pack $ fromPDescription $ pDescription p)
     weight
     nAccept
     nReject
     acceptRate
+    optimalRate
     tuneParamStr
     manualAdjustmentStr
   where
-    weight = BB.toLazyByteString $ BB.intDec $ fromPWeight $ pWeight m
+    weight = BB.toLazyByteString $ BB.intDec $ fromPWeight $ pWeight p
     nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) r
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) r
-    acceptRate = BL.fromStrict $ maybe "" (BC.toFixed 3 . (^. _3)) r
-    tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) (tParam <$> pTuner m)
+    acceptRate = BL.fromStrict $ maybe "" (BC.toFixed 2 . (^. _3)) r
+    optimalRate = BL.fromStrict $ BC.toFixed 2 $ getOptimalRate $ pDimension p
+    tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) (tParam <$> pTuner p)
     check v
       | v < rateMin = "rate too low"
       | v > rateMax = "rate too high"
@@ -402,7 +406,7 @@ summarizeProposal m r =
     manualAdjustmentStr = BL.fromStrict $ maybe "" (check . (^. _3)) r
 
 hLine :: BL.ByteString -> BL.ByteString
-hLine s = BL.replicate (BL.length s - 3) '-'
+hLine s = BL.replicate (BL.length s) '-'
 
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance rates.
 summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> BL.ByteString
