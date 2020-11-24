@@ -23,6 +23,7 @@ main = do
   g <- create
   defaultMain
     [ bench "Normal" $ nfIO (normalBench g),
+      bench "NormalLargeCycle" $ nfIO (normalLargeCycleBench g),
       bench "NormalBactrian" $ nfIO (normalBactrianBench g),
       bench "Poisson" $ nfIO (poissonBench g)
     ]
@@ -38,6 +39,13 @@ main = do
 --                      1.000 R²   (0.999 R² .. 1.000 R²)
 -- mean                 48.14 ms   (47.91 ms .. 48.52 ms)
 -- std dev              560.3 μs   (325.5 μs .. 734.8 μs)
+
+-- benchmarking NormalCycle
+-- time                 4.831 s    (4.796 s .. 4.855 s)
+--                      1.000 R²   (1.000 R² .. 1.000 R²)
+-- mean                 4.824 s    (4.813 s .. 4.829 s)
+-- std dev              7.806 ms   (699.3 μs .. 9.704 ms)
+-- variance introduced by outliers: 19% (moderately inflated)
 
 -- benchmarking Poisson
 -- time                 63.49 ms   (63.14 ms .. 64.09 ms)
