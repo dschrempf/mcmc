@@ -19,6 +19,7 @@ module Mcmc.Algorithm.Metropolis
     mhg,
     mhgSave,
     mhgLoad,
+    mhgAccept,
   )
 where
 
@@ -42,7 +43,7 @@ import Prelude hiding (cycle)
 -- | The Metropolis-Hastings-Green (MHG) algorithm.
 newtype MHG a = MHG {fromMHG :: Chain a}
 
-instance (ToJSON a, FromJSON a) => Algorithm MHG a where
+instance ToJSON a => Algorithm MHG a where
   aName = const "Metropolis-Hastings-Green"
   aIteration = iteration . fromMHG
   aIterate = mhgIterate
@@ -116,6 +117,14 @@ mhgRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
 mhgRatio fX fY q j = fY / fX * q * j
 {-# INLINE mhgRatio #-}
 
+-- | Accept or reject a proposal with given MHG ratio?
+mhgAccept :: Log Double -> GenIO -> IO Bool
+mhgAccept r g
+  | ln r >= 0.0 = return True
+  | otherwise = do
+    b <- uniform g
+    return $ b < exp (ln r)
+
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
 mhgPropose (MHG c) p = do
   -- 1. Sample new state.
@@ -125,19 +134,27 @@ mhgPropose (MHG c) p = do
       !lY = lF y
       !r = mhgRatio (pX * lX) (pY * lY) q j
   -- 3. Accept or reject.
-  if ln r >= 0.0
+  -- if ln r >= 0.0
+  --   then do
+  --     let !ac' = pushA p True ac
+  --     return $ MHG $ c {link = Link y pY lY, acceptance = ac'}
+  --   else do
+  --     b <- uniform g
+  --     if b < exp (ln r)
+  --       then do
+  --         let !ac' = pushA p True ac
+  --         return $ MHG $ c {link = Link y pY lY, acceptance = ac'}
+  --       else do
+  --         let !ac' = pushA p False ac
+  --         return $ MHG $ c {acceptance = pushA p False ac'}
+  accept <- mhgAccept r g
+  if accept
     then do
       let !ac' = pushA p True ac
       return $ MHG $ c {link = Link y pY lY, acceptance = ac'}
     else do
-      b <- uniform g
-      if b < exp (ln r)
-        then do
-          let !ac' = pushA p True ac
-          return $ MHG $ c {link = Link y pY lY, acceptance = ac'}
-        else do
-          let !ac' = pushA p False ac
-          return $ MHG $ c {acceptance = pushA p False ac'}
+      let !ac' = pushA p False ac
+      return $ MHG $ c {acceptance = pushA p False ac'}
   where
     s = pSimple p
     (Link x pX lX) = link c
@@ -153,7 +170,7 @@ mhgPush (MHG c) = MHG c {trace = pushT i t, iteration = succ n}
     t = trace c
     n = iteration c
 
-mhgIterate :: ToJSON a => MHG a -> IO (MHG a)
+mhgIterate :: MHG a -> IO (MHG a)
 mhgIterate a = do
   ps <- orderProposals cc g
   a' <- foldM mhgPropose a ps

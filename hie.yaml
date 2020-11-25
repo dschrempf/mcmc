@@ -29,4 +29,6 @@ cradle:
     # mcmc-tree
     - path: "mcmc-tree/src"
       component: "mcmc-tree:lib"
+    - path: "mcmc-tree/bench"
+      component: "mcmc-tree:bench:tree-bench"
 

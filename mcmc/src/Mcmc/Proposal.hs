@@ -231,8 +231,7 @@ tuningParamMin = 1e-12
 --   of the proposal is proportional to the tuning parameter. Negative tuning
 --   parameters are not allowed.
 tune :: (Double -> Double) -> Proposal a -> Maybe (Proposal a)
-tune f m
-  | otherwise = do
+tune f m = do
     (Tuner t g) <- pTuner m
     -- Ensure that the tuning parameter is strictly positive.
     let t' = max tuningParamMin (f t)
@@ -249,13 +248,14 @@ tune f m
 -- See Handbook of Markov chain Monte Carlo, chapter 4.
 getOptimalRate :: PDimension -> Double
 getOptimalRate (PDimension n)
-  | n <= 0 = error "Proposal dimension is zero or negative."
+  | n <= 0 = error "getOptimalRate: Proposal dimension is zero or negative."
   | n == 1 = 0.44
   -- Use a linear interpolation with delta 0.0515.
   | n == 2 = 0.3885
   | n == 3 = 0.337
   | n == 4 = 0.2855
   | n >= 5 = 0.234
+  | otherwise = error "getOptimalRate: Proposal dimension is not an integer?"
 getOptimalRate PDimensionUnknown = 0.234
 
 -- Warn if acceptance rate is lower.

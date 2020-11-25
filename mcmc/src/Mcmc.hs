@@ -190,9 +190,9 @@ module Mcmc
     mhgLoad,
 
     -- * Useful type synonyms
-    PriorFunction (..),
+    PriorFunction,
     noPrior,
-    LikelihoodFunction (..),
+    LikelihoodFunction,
     noLikelihood,
   )
 where

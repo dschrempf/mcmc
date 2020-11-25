@@ -47,13 +47,15 @@ library
       Mcmc.Settings
   other-modules:
       Mcmc.Internal.ByteString
+      Mcmc.Internal.Random
       Mcmc.Internal.Shuffle
       Paths_mcmc
   autogen-modules:
       Paths_mcmc
   hs-source-dirs:
       src
-  ghc-options: -Werror
+  ghc-options: -Wall
+  -- ghc-options: -Wall -Werror
   build-depends:
       aeson
     , base >=4.7 && <5
