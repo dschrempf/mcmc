@@ -27,6 +27,7 @@ module Mcmc.Proposal
     Tune (..),
     createProposal,
     tune,
+    getOptimalRate,
 
     -- * Cycle
     Order (..),
@@ -237,15 +238,7 @@ tune f m = do
     let t' = max tuningParamMin (f t)
     return $ m {pSimple = g t', pTuner = Just $ Tuner t' g}
 
--- The desired acceptance rate 0.44 is optimal for one-dimensional proposals;
--- one could also store the affected number of dimensions with the proposal and
--- tune towards an acceptance rate accounting for the number of dimensions.
---
--- The optimal acceptance rates seem to be:
--- - One dimension: 0.44 (numerical result).
--- - Five and more dimensions: 0.234 seems to be a good value (numerical result).
--- - Infinite dimensions: 0.234 (theorem for specific target distributions).
--- See Handbook of Markov chain Monte Carlo, chapter 4.
+-- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double
 getOptimalRate (PDimension n)
   | n <= 0 = error "getOptimalRate: Proposal dimension is zero or negative."
@@ -351,7 +344,7 @@ autoTuneCycle a = tuneCycle (M.mapWithKey tuningF $ acceptanceRates a)
   where
     tuningF proposal currentRate currentTuningParam =
       let optimalRate = getOptimalRate (pDimension proposal)
-       in currentTuningParam * exp (currentRate - optimalRate)
+       in exp (currentRate - optimalRate) * currentTuningParam
 
 renderRow ::
   BL.ByteString ->

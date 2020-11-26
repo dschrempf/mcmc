@@ -48,8 +48,9 @@ class Algorithm t a where
   -- | Close all files and remove the file handles.
   aCloseMonitors :: t a -> IO (t a)
 
-  -- | Save chain(s) with trace of given maximum length.
+  -- | Save chain(s).
   aSave ::
+    -- | Maximum length of trace.
     Int ->
     -- | Analysis name.
     String ->

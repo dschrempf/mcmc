@@ -74,9 +74,13 @@ mhg pr lh cc mn i0 g = MHG $ Chain l0 0 tr ac g 0 pr lh cc mn
     tr = singletonT l0
     ac = emptyA $ ccProposals cc
 
+mhgFn :: String -> FilePath
+mhgFn nm = nm ++ ".chain"
+
 -- | Save an MHG algorithm.
 mhgSave ::
   ToJSON a =>
+  -- | Maximum length of trace.
   Int ->
   -- | Analysis name.
   String ->
@@ -95,9 +99,6 @@ mhgLoad ::
   String ->
   IO (MHG a)
 mhgLoad pr lh cc mn nm = MHG <$> loadChainWith pr lh cc mn (mhgFn nm)
-
-mhgFn :: String -> FilePath
-mhgFn nm = nm ++ ".chain"
 
 -- The MHG ratio.
 --
