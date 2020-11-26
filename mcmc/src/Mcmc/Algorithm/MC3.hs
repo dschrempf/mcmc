@@ -20,6 +20,8 @@ module Mcmc.Algorithm.MC3
     MC3Settings (..),
     MC3 (..),
     mc3,
+    mc3Save,
+    mc3Load,
   )
 where
 
@@ -34,8 +36,10 @@ import Mcmc.Environment
 import Mcmc.Internal.Random
 import Mcmc.Monitor
 import Mcmc.Proposal
+import Mcmc.Settings
 import Numeric.Log
 import System.Random.MWC
+import Text.Printf
 
 -- | The hotter the chain, the flatter the prior and the likelihood.
 data HeatedChain a = HeatedChain
@@ -46,20 +50,40 @@ data HeatedChain a = HeatedChain
     coldLikelihoodFunction :: LikelihoodFunction a
   }
 
--- | A vector of heated chains.
-type HeatedChains a = V.Vector (HeatedChain a)
-
-initializeHeatedChain :: MHG a -> HeatedChain a
-initializeHeatedChain m = HeatedChain m 1.0 pr lh
+hcInitialize :: MHG a -> HeatedChain a
+hcInitialize m = HeatedChain m 1.0 pr lh
   where
     pr = priorFunction $ fromMHG m
     lh = likelihoodFunction $ fromMHG m
 
+-- TODO.
+hcSave ::
+  ToJSON a =>
+  -- Maximum length of trace.
+  Int ->
+  -- Analysis name.
+  String ->
+  HeatedChain a ->
+  IO ()
+hcSave = undefined
+
+-- TODO.
+hcLoad ::
+  FromJSON a =>
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  Cycle a ->
+  Monitor a ->
+  -- Analysis name.
+  String ->
+  IO (HeatedChain a)
+hcLoad = undefined
+
 -- Be careful! When changing the temperature of the chain, the prior and
 -- likelihood values of the trace are not updated! The prior and likelihood
 -- values of the last link are updated.
-modifyReciprocalTemperature :: (Double -> Double) -> HeatedChain a -> HeatedChain a
-modifyReciprocalTemperature f hc = hc {heatedChain = MHG c', heatedBeta = b'}
+hcModifyReciprocalTemperature :: (Double -> Double) -> HeatedChain a -> HeatedChain a
+hcModifyReciprocalTemperature f hc = hc {heatedChain = MHG c', heatedBeta = b'}
   where
     c = fromMHG $ heatedChain hc
     b = heatedBeta hc
@@ -68,6 +92,9 @@ modifyReciprocalTemperature f hc = hc {heatedChain = MHG c', heatedBeta = b'}
     -- XXX: Like this, we need twice the amount of computations compared to
     -- using (pr x * lh x) ** b'. However, I don't think this is a serious
     -- problem.
+    --
+    -- Also, to minimize computations, avoid modification of the reciprocal
+    -- temperature for the cold chain.
     pr' = (** b'LogDomain) . coldPriorFunction hc
     lh' = (** b'LogDomain) . coldLikelihoodFunction hc
     x = state $ link c
@@ -110,6 +137,9 @@ hcApply :: (MHG a -> MHG a) -> HeatedChain a -> HeatedChain a
 hcApply f c = c {heatedChain = c'}
   where
     c' = f $ heatedChain c
+
+-- | A vector of heated chains.
+type HeatedChains a = V.Vector (HeatedChain a)
 
 -- | Swap states between neighboring chains, or random chains.
 data MC3SwapType = MC3Neighbor | MC3Random
@@ -187,15 +217,18 @@ mc3 s pr lh cc mn i0 g
     -- Split random number generators.
     gs <- V.fromList <$> splitGen n g
     let cs = V.map (mhg pr lh cc mn i0) gs
-        as = V.map initializeHeatedChain cs
-    return $ MC3 s (V.zipWith modifyReciprocalTemperature bs as) 0 0 0 g
+        as = V.map hcInitialize cs
+        -- Do not change the prior and likelihood functions of the first chain.
+        hcs = V.head as `V.cons` V.zipWith hcModifyReciprocalTemperature bs (V.tail as)
+    return $ MC3 s hcs 0 0 0 g
   where
     n = mc3NChains s
     p = mc3SwapPeriod s
-    -- XXX: Think about initial choice of reciprocal temperatures.
-    bs = V.fromList $ map (const . recip) [1.0, 1.1 ..]
+    -- XXX: Maybe improve initial choice of reciprocal temperatures.
+    bs = V.fromList $ map (const . recip) [1.1 ..]
 
 -- TODO.
+
 -- | Save an MC3 algorithm.
 mc3Save ::
   -- | Maximum length of trace.
@@ -207,6 +240,7 @@ mc3Save ::
 mc3Save = undefined
 
 -- TODO.
+
 -- | Load an MC3 algorithm.
 mc3Load ::
   FromJSON a =>
@@ -296,6 +330,7 @@ mc3ProposeSwap a = do
     s = mc3Settings a
     g = mc3Generator a
 
+-- TODO: Parallel iteration.
 mc3Iterate :: ToJSON a => MC3 a -> IO (MC3 a)
 mc3Iterate a = do
   -- 1. Iterate all chains.
@@ -320,7 +355,10 @@ mc3AutoTune a = a {mc3HeatedChains = cs''}
     currentRate = fromIntegral (mc3SwapAccepted a) / fromIntegral (mc3SwapRejected a)
     optimalRate = getOptimalRate PDimensionUnknown
     dt = exp (currentRate - optimalRate)
-    cs'' = V.map (modifyReciprocalTemperature (* dt)) cs'
+    -- Do not change the prior and likelihood functions of the cold chain.
+    cs'' =
+      V.head cs'
+        `V.cons` V.map (hcModifyReciprocalTemperature (* dt)) (V.tail cs')
 
 mc3ResetAcceptance :: ToJSON a => MC3 a -> MC3 a
 mc3ResetAcceptance a = a'
@@ -331,21 +369,54 @@ mc3ResetAcceptance a = a'
     a' = a {mc3HeatedChains = cs', mc3SwapAccepted = 0, mc3SwapRejected = 0}
 
 -- TODO.
+--
+-- Information in cycle summary:
+--
+-- - The complete summary of the cycle of the cold chain.
+--
+-- - The temperatures of the chains and the acceptance rate of state swaps.
+--
+-- - The combined acceptance rate of proposals within the hot chains.
 mc3SummarizeCycle :: MC3 a -> BL.ByteString
 mc3SummarizeCycle = undefined
 
--- TODO.
-mc3OpenMonitors :: Environment -> MC3 a -> IO (MC3 a)
-mc3OpenMonitors = undefined
+-- Amend the environment of chain i:
+--
+-- - Add a number to the analysis name.
+--
+-- - Do not temper with verbosity of cold chain, but set verbosity of all other
+-- - chains to 'Quiet'.
+amendEnvironment :: Int -> Environment -> Environment
+amendEnvironment i e = e {settings = s''}
+  where
+    s = settings e
+    n = sAnalysisName s
+    suf = printf "%02d" i
+    s' = s {sAnalysisName = n ++ suf}
+    s'' = if i == 0 then s' else s' {sVerbosity = Quiet}
 
--- TODO.
-mc3ExecuteMonitors :: Environment -> MC3 a -> IO (Maybe BL.ByteString)
-mc3ExecuteMonitors = undefined
+-- See 'amendEnvironment'.
+--
+-- No extra monitors are opened.
+mc3OpenMonitors :: ToJSON a => Environment -> MC3 a -> IO (MC3 a)
+mc3OpenMonitors e a = do
+  cs' <- V.imapM f $ mc3HeatedChains a
+  return $ a {mc3HeatedChains = cs'}
+  where
+    f i = hcApplyM $ aOpenMonitors (amendEnvironment i e)
 
--- TODO.
-mc3StdMonitorHeader :: MC3 a -> BL.ByteString
-mc3StdMonitorHeader = undefined
+-- TODO: Parallel execution?
 
--- TODO.
-mc3CloseMonitors :: MC3 a -> IO (MC3 a)
-mc3CloseMonitors = undefined
+-- TODO: It is a little unfortunate that we have to amend the environment every time.
+mc3ExecuteMonitors :: ToJSON a => Environment -> MC3 a -> IO (Maybe BL.ByteString)
+mc3ExecuteMonitors e a = V.head <$> V.imapM f (mc3HeatedChains a)
+  where
+    f i = aExecuteMonitors (amendEnvironment i e) . heatedChain
+
+mc3StdMonitorHeader :: ToJSON a => MC3 a -> BL.ByteString
+mc3StdMonitorHeader = aStdMonitorHeader . heatedChain . V.head . mc3HeatedChains
+
+mc3CloseMonitors :: ToJSON a => MC3 a -> IO (MC3 a)
+mc3CloseMonitors a = do
+  cs' <- V.mapM (hcApplyM aCloseMonitors) $ mc3HeatedChains a
+  return $ a {mc3HeatedChains = cs'}

@@ -38,6 +38,8 @@ class Algorithm t a where
   -- | Open all monitor files and provide the file handles.
   aOpenMonitors :: Environment -> t a -> IO (t a)
 
+  -- TODO: Can I remove the 'Environment' argument? See 'mc3ExecuteMonitors'.
+
   -- | Execute file monitors and possible return a string to be written to the
   -- standard output and the log file.
   aExecuteMonitors :: Environment -> t a -> IO (Maybe BL.ByteString)
