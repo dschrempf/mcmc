@@ -23,6 +23,7 @@ module Mcmc.Algorithm.Metropolis
   )
 where
 
+import Codec.Compression.GZip
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Aeson
@@ -86,7 +87,7 @@ mhgSave ::
   String ->
   MHG a ->
   IO ()
-mhgSave n nm (MHG c) = saveChainWith n (mhgFn nm) c
+mhgSave n nm (MHG c) = BL.writeFile (mhgFn nm) $ compress $ encode $ toSavedChain n c
 
 -- | Load an MHG algorithm.
 mhgLoad ::
@@ -98,7 +99,12 @@ mhgLoad ::
   -- | Analysis name.
   String ->
   IO (MHG a)
-mhgLoad pr lh cc mn nm = MHG <$> loadChainWith pr lh cc mn (mhgFn nm)
+mhgLoad pr lh cc mn nm =
+  MHG
+    . either error (fromSavedChain pr lh cc mn)
+    . eitherDecode
+    . decompress
+    <$> BL.readFile (mhgFn nm)
 
 -- The MHG ratio.
 --

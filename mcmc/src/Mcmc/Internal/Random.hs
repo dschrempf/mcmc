@@ -13,14 +13,17 @@
 -- Creation date: Wed Nov 25 07:14:52 2020.
 module Mcmc.Internal.Random
   ( splitGen,
+    saveGen,
+    loadGen,
   )
 where
 
 import Control.Monad
 import Control.Monad.Primitive
-import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as V
 import Data.Word
 import System.Random.MWC
+import System.IO.Unsafe
 
 -- | Split a generator.
 --
@@ -33,3 +36,14 @@ splitGen n gen
   | otherwise = do
     seeds :: [V.Vector Word32] <- replicateM (n -1) $ uniformVector gen 256
     fmap (gen :) (mapM initialize seeds)
+
+-- TODO: Splitmix. Remove or amend these functions as soon as split mix is used
+-- and is available with the statistics package.
+
+-- | Save a generator to a seed.
+saveGen :: GenIO -> V.Vector Word32
+saveGen = fromSeed . unsafePerformIO . save
+
+-- | Load a generator from a seed.
+loadGen :: V.Vector Word32 -> GenIO
+loadGen = unsafePerformIO . restore . toSeed
