@@ -32,6 +32,7 @@ import Mcmc.Algorithm
 import Mcmc.Algorithm.Metropolis
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
+import Mcmc.Chain.Save
 import Mcmc.Environment
 import Mcmc.Internal.Random
 import Mcmc.Monitor
@@ -40,6 +41,9 @@ import Mcmc.Settings
 import Numeric.Log
 import System.Random.MWC
 import Text.Printf
+
+-- TODO: Can I remove this data type and just store the beta values in the MC3
+-- data type?
 
 -- | The hotter the chain, the flatter the prior and the likelihood.
 data HeatedChain a = HeatedChain
@@ -55,29 +59,6 @@ hcInitialize m = HeatedChain m 1.0 pr lh
   where
     pr = priorFunction $ fromMHG m
     lh = likelihoodFunction $ fromMHG m
-
--- TODO.
-hcSave ::
-  ToJSON a =>
-  -- Maximum length of trace.
-  Int ->
-  -- Analysis name.
-  String ->
-  HeatedChain a ->
-  IO ()
-hcSave = undefined
-
--- TODO.
-hcLoad ::
-  FromJSON a =>
-  PriorFunction a ->
-  LikelihoodFunction a ->
-  Cycle a ->
-  Monitor a ->
-  -- Analysis name.
-  String ->
-  IO (HeatedChain a)
-hcLoad = undefined
 
 -- Be careful! When changing the temperature of the chain, the prior and
 -- likelihood values of the trace are not updated! The prior and likelihood
@@ -140,6 +121,37 @@ hcApply f c = c {heatedChain = c'}
 
 -- | A vector of heated chains.
 type HeatedChains a = V.Vector (HeatedChain a)
+
+-- TODO: Probably create a HeatedChain module.
+
+-- TODO.
+data SavedHeatedChain a = SavedHeatedChain
+  { shcSavedChain :: SavedChain a,
+    shcBeta :: Double
+  }
+
+-- TODO. Go via SavedHeatedChain.
+hcSave ::
+  ToJSON a =>
+  -- Maximum length of trace.
+  Int ->
+  -- Analysis name.
+  String ->
+  HeatedChain a ->
+  IO ()
+hcSave = undefined
+
+-- TODO.
+hcLoad ::
+  FromJSON a =>
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  Cycle a ->
+  Monitor a ->
+  -- Analysis name.
+  String ->
+  IO (HeatedChain a)
+hcLoad = undefined
 
 -- | Swap states between neighboring chains, or random chains.
 data MC3SwapType = MC3Neighbor | MC3Random
