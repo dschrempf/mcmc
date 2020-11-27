@@ -30,6 +30,7 @@ where
 import Codec.Compression.GZip
 import Data.Aeson
 import Data.Aeson.TH
+import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.Double.Conversion.ByteString as BC
 import qualified Data.Vector as V
@@ -48,6 +49,8 @@ import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 import Text.Printf
+
+import Debug.Trace
 
 -- | Swap states between neighboring chains, or random chains.
 data MC3SwapType = MC3SwapNeighbors | MC3SwapRandom
@@ -299,7 +302,7 @@ swapWith i j xs
 swap :: MC3SwapType -> MHGChains a -> GenIO -> IO (MHGChains a, Log Double)
 swap MC3SwapNeighbors xs g = do
   i <- uniformR (0, V.length xs - 2) g
-  return $ swapWith i (i+1) xs
+  return $ swapWith i (i + 1) xs
 swap MC3SwapRandom xs g = do
   i <- uniformR (0, n - 1) g
   j <- loop i g
@@ -363,11 +366,11 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     coldLhF = likelihoodFunction coldChain
     optimalRate = getOptimalRate PDimensionUnknown
     currentRate = mc3GetAcceptanceRate a
-    dt = exp (currentRate - optimalRate)
+    xi = exp $ (/4) $ currentRate - optimalRate
     bs = mc3ReciprocalTemperatures a
     -- Do not change the temperature, and the prior and likelihood functions of
     -- the cold chain.
-    bs' = V.head bs `V.cons` V.map (/ dt) (V.tail bs)
+    bs' = V.head bs `V.cons` V.map (* xi) (V.tail bs)
     mhgs'' =
       V.head mhgs'
         `V.cons` V.zipWith (setReciprocalTemperature coldPrF coldLhF) (V.tail bs') (V.tail mhgs')
@@ -391,14 +394,22 @@ mc3ResetAcceptance a = a'
 -- - The combined acceptance rate of proposals within the hot chains.
 mc3SummarizeCycle :: ToJSON a => MC3 a -> BL.ByteString
 mc3SummarizeCycle a =
-  BL.intercalate
-    "\n"
+  BL.intercalate "\n" $
     [ "MC3: Cycle of cold chain.",
       coldMHGCycleSummary,
       "MC3: Average acceptance rate across all chains: " <> BL.fromStrict (BC.toFixed 2 ar),
-      "MC3: Reciprocal temperatures of the chains: " <> BL.unwords bs,
-      "MC3: Acceptance rate of state swaps: " <> BL.fromStrict (BC.toFixed 2 swapAr)
+      "MC3: Reciprocal temperatures of the chains: " <> BL.unwords bs
     ]
+      ++ [ BB.toLazyByteString $
+             BB.lazyByteString "MC3: State swaps: "
+               <> BB.intDec swapAc
+               <> BB.lazyByteString " accepted, "
+               <> BB.intDec swapTot
+               <> BB.lazyByteString " total, "
+               <> BB.byteString (BC.toFixed 2 swapAr)
+               <> BB.lazyByteString " rate."
+           | swapTot /= 0
+         ]
   where
     mhgs = mc3MHGChains a
     coldMHGCycleSummary = aSummarizeCycle $ V.head mhgs
@@ -406,6 +417,8 @@ mc3SummarizeCycle a =
     as = V.map (acceptanceRates . acceptance) cs
     ar = V.sum $ V.map (\m -> sum m / fromIntegral (length m)) as
     bs = V.toList $ V.map (BL.fromStrict . BC.toFixed 2) $ mc3ReciprocalTemperatures a
+    swapAc = mc3SwapAccepted a
+    swapTot = mc3SwapRejected a + swapAc
     swapAr = mc3GetAcceptanceRate a
 
 -- Amend the environment of chain i:
