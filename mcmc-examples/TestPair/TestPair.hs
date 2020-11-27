@@ -70,6 +70,6 @@ main = do
   g <- create
   let mcmcS = Settings "test" burnIn iterations Overwrite NoSave Debug
       -- a = mhg pr lh cc mon (1.0, 1.0) g
-  let mc3S = MC3Settings 2 10 MC3SwapNeighbors
+  let mc3S = MC3Settings 2 500 MC3SwapNeighbors
   a <- mc3 mc3S pr lh cc mon (1.0, 1.0) g
   void $ mcmc mcmcS a

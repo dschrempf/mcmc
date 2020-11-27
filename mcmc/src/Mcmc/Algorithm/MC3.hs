@@ -297,13 +297,13 @@ swapWith i j xs
 -- i is the index of left chain (0 ..).
 -- j>i is the index of the right chain.
 swap :: MC3SwapType -> MHGChains a -> GenIO -> IO (MHGChains a, Log Double)
-swap st xs g =
-  do
-    i <- uniformR (0, n - 1) g
-    j <- case st of
-      MC3SwapNeighbors -> return $ i + 1
-      MC3SwapRandom -> loop i g
-    return $ swapWith i j xs
+swap MC3SwapNeighbors xs g = do
+  i <- uniformR (0, V.length xs - 2) g
+  return $ swapWith i (i+1) xs
+swap MC3SwapRandom xs g = do
+  i <- uniformR (0, n - 1) g
+  j <- loop i g
+  return $ swapWith i j xs
   where
     n = V.length xs
     -- Sample j until it is not i. This is an infinite loop if n == 1, but we
@@ -345,6 +345,12 @@ mc3Iterate a = do
   let i'' = mc3Iteration a''
   return $ a'' {mc3Iteration = succ i''}
 
+mc3GetAcceptanceRate :: MC3 a -> Double
+mc3GetAcceptanceRate a = swapAc / (swapAc + swapRe)
+  where
+    swapAc = fromIntegral (mc3SwapAccepted a)
+    swapRe = fromIntegral (mc3SwapRejected a)
+
 mc3AutoTune :: ToJSON a => MC3 a -> MC3 a
 mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
   where
@@ -355,13 +361,13 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     coldChain = fromMHG $ V.head mhgs
     coldPrF = priorFunction coldChain
     coldLhF = likelihoodFunction coldChain
-    currentRate = fromIntegral (mc3SwapAccepted a) / fromIntegral (mc3SwapRejected a)
     optimalRate = getOptimalRate PDimensionUnknown
+    currentRate = mc3GetAcceptanceRate a
     dt = exp (currentRate - optimalRate)
     bs = mc3ReciprocalTemperatures a
     -- Do not change the temperature, and the prior and likelihood functions of
     -- the cold chain.
-    bs' = V.head bs `V.cons` V.map (* dt) (V.tail bs)
+    bs' = V.head bs `V.cons` V.map (/ dt) (V.tail bs)
     mhgs'' =
       V.head mhgs'
         `V.cons` V.zipWith (setReciprocalTemperature coldPrF coldLhF) (V.tail bs') (V.tail mhgs')
@@ -400,7 +406,7 @@ mc3SummarizeCycle a =
     as = V.map (acceptanceRates . acceptance) cs
     ar = V.sum $ V.map (\m -> sum m / fromIntegral (length m)) as
     bs = V.toList $ V.map (BL.fromStrict . BC.toFixed 2) $ mc3ReciprocalTemperatures a
-    swapAr = fromIntegral (mc3SwapAccepted a) / fromIntegral (mc3SwapRejected a)
+    swapAr = mc3GetAcceptanceRate a
 
 -- Amend the environment of chain i:
 --
