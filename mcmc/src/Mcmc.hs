@@ -183,6 +183,10 @@ module Mcmc
     -- * Algorithms
     MHG,
     mhg,
+    MC3SwapType (..),
+    MC3Settings (..),
+    MC3,
+    mc3,
 
     -- * Save and load
     settingsLoad,
@@ -197,6 +201,7 @@ module Mcmc
   )
 where
 
+import Mcmc.Algorithm.MC3
 import Mcmc.Algorithm.Metropolis
 import Mcmc.Chain.Chain
 import Mcmc.Mcmc

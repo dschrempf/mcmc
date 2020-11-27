@@ -45,7 +45,7 @@ import Prelude hiding (cycle)
 newtype MHG a = MHG {fromMHG :: Chain a}
 
 instance ToJSON a => Algorithm MHG a where
-  aName = const "Metropolis-Hastings-Green"
+  aName = const "Metropolis-Hastings-Green (MHG)"
   aIteration = iteration . fromMHG
   aIterate = mhgIterate
   aAutoTune = mhgAutoTune

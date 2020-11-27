@@ -29,7 +29,7 @@ import Data.Aeson.TH
 import Data.List hiding (cycle)
 import qualified Data.Map as M
 import Data.Maybe
-import Data.Vector.Unboxed (Vector)
+import qualified Data.Vector.Unboxed as V
 import Data.Word
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
@@ -47,7 +47,7 @@ data SavedChain a = SavedChain
     savedIteration :: Int,
     savedTrace :: Trace a,
     savedAcceptance :: Acceptance Int,
-    savedSeed :: Vector Word32,
+    savedSeed :: V.Vector Word32,
     savedTuningParameters :: [Maybe Double]
   }
   deriving (Eq, Read, Show)

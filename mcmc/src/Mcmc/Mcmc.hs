@@ -90,16 +90,19 @@ fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
 
 mcmcReportTime :: MCMC a ()
 mcmcReportTime = do
+  mcmcDebugB "Report time."
   ti <- reader startingTime
   mcmcInfoS $ "Starting time: " <> fTime ti
 
 mcmcExecute :: Algorithm t a => MCMC (t a) ()
 mcmcExecute = do
+  mcmcDebugB "Executing MCMC run."
   s <- reader settings
   case sExecutionMode s of
     Fail -> mcmcNewRun
     Overwrite -> mcmcNewRun
     Continue -> mcmcContinueRun
+  mcmcDebugB "Executed MCMC run."
 
 mcmcNewRun :: Algorithm t a => MCMC (t a) ()
 mcmcNewRun = do
@@ -201,6 +204,7 @@ mcmcResetAcceptance = do
 -- Report and finish up.
 mcmcClose :: Algorithm t a => MCMC (t a) ()
 mcmcClose = do
+  mcmcDebugB "Closing MCMC run."
   a <- get
   mcmcInfoB $ aSummarizeCycle a
   mcmcInfoS $ aName a ++ " algorithm finished."
@@ -240,7 +244,9 @@ mcmcRun = do
   a <- get
   mcmcInfoS $ aName a ++ " algorithm."
   e <- ask
+  mcmcDebugB "Opening monitors."
   get >>= liftIO . aOpenMonitors e >>= put
+  mcmcDebugB "Monitors opened."
   mcmcReportTime
 
   -- Execute.

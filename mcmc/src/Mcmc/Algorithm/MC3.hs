@@ -1,6 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- |
 -- Module      :  Mcmc.Algorithm.MC3
@@ -25,26 +27,33 @@ module Mcmc.Algorithm.MC3
   )
 where
 
+import Codec.Compression.GZip
 import Data.Aeson
+import Data.Aeson.TH
 import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.Double.Conversion.ByteString as BC
 import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as U
+import Data.Word
 import Mcmc.Algorithm
 import Mcmc.Algorithm.Metropolis
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
--- import Mcmc.Chain.Save
+import Mcmc.Chain.Save
 import Mcmc.Environment
 import Mcmc.Internal.Random
 import Mcmc.Monitor
 import Mcmc.Proposal
 import Mcmc.Settings
-import Numeric.Log
+import Numeric.Log hiding (sum)
 import System.Random.MWC
 import Text.Printf
 
 -- | Swap states between neighboring chains, or random chains.
-data MC3SwapType = MC3Neighbor | MC3Random
+data MC3SwapType = MC3SwapNeighbors | MC3SwapRandom
   deriving (Eq, Read, Show)
+
+$(deriveJSON defaultOptions ''MC3SwapType)
 
 -- | MC3 settings.
 data MC3Settings = MC3Settings
@@ -57,6 +66,8 @@ data MC3Settings = MC3Settings
   }
   deriving (Eq, Read, Show)
 
+$(deriveJSON defaultOptions ''MC3Settings)
+
 -- | Vector of MHG chains.
 type MHGChains a = V.Vector (MHG a)
 
@@ -65,6 +76,41 @@ type MHGChains a = V.Vector (MHG a)
 
 -- | Vector of reciprocal temperatures.
 type ReciprocalTemperatures = V.Vector Double
+
+data MC3Saved a = MC3Saved
+  { mc3SavedSettings :: MC3Settings,
+    mc3SavedChains :: V.Vector (SavedChain a),
+    mc3SavedReciprocalTemperatures :: ReciprocalTemperatures,
+    mc3SavedIteration :: Int,
+    mc3SavedSwapAccepted :: Int,
+    mc3SavedSwapRejected :: Int,
+    mc3SavedGenerator :: U.Vector Word32
+  }
+  deriving (Eq, Read, Show)
+
+$(deriveJSON defaultOptions ''MC3Saved)
+
+toMC3Saved ::
+  Int ->
+  MC3 a ->
+  MC3Saved a
+toMC3Saved n (MC3 s mhgs bs i ac re g) = MC3Saved s scs bs i ac re g'
+  where
+    scs = V.map (toSavedChain n . fromMHG) mhgs
+    g' = saveGen g
+
+fromMC3Saved ::
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  Cycle a ->
+  Monitor a ->
+  MC3Saved a ->
+  MC3 a
+fromMC3Saved pr lh cc mn (MC3Saved s scs bs i ac re g') =
+  MC3 s mhgs bs i ac re g
+  where
+    mhgs = V.map (MHG . fromSavedChain pr lh cc mn) scs
+    g = loadGen g'
 
 -- | The MC3 algorithm.
 --
@@ -91,7 +137,7 @@ data MC3 a = MC3
   }
 
 instance ToJSON a => Algorithm MC3 a where
-  aName = const "Metropolis-coupled Markov chain Monte Carlo"
+  aName = const "Metropolis-coupled Markov chain Monte Carlo (MC3)"
   aIteration = mc3Iteration
   aIterate = mc3Iterate
   aAutoTune = mc3AutoTune
@@ -160,6 +206,8 @@ mc3 s pr lh cc mn i0 g
   | otherwise = do
     -- Split random number generators.
     gs <- V.fromList <$> splitGen n g
+    -- TODO: Check if split generators are all unique and different from g.
+    -- TODO: How many chains are created?
     let cs = V.map (mhg pr lh cc mn i0) gs
         -- Do not change the prior and likelihood functions of the first chain.
         hcs =
@@ -170,21 +218,23 @@ mc3 s pr lh cc mn i0 g
     n = mc3NChains s
     p = mc3SwapPeriod s
     -- XXX: Maybe improve initial choice of reciprocal temperatures.
-    bs = V.fromList $ map recip [1.0, 1.1 ..]
+    --
+    -- Have to 'take n' elements, because vectors are not as lazy as lists.
+    bs = V.fromList $ map recip $ take n [1.0, 1.1 ..]
 
--- TODO.
+mc3Fn :: String -> FilePath
+mc3Fn nm = nm ++ ".mc3chain"
 
 -- | Save an MC3 algorithm.
 mc3Save ::
+  ToJSON a =>
   -- | Maximum length of trace.
   Int ->
   -- | Analysis name.
   String ->
   MC3 a ->
   IO ()
-mc3Save = undefined
-
--- TODO.
+mc3Save n nm a = BL.writeFile (mc3Fn nm) $ compress $ encode $ toMC3Saved n a
 
 -- | Load an MC3 algorithm.
 mc3Load ::
@@ -196,7 +246,11 @@ mc3Load ::
   -- | Analysis name.
   String ->
   IO (MC3 a)
-mc3Load pr lh cc mn nm = undefined
+mc3Load pr lh cc mn nm =
+  either error (fromMC3Saved pr lh cc mn)
+    . eitherDecode
+    . decompress
+    <$> BL.readFile (mc3Fn nm)
 
 -- I call the chains left and right, because it is easy to think about them as
 -- being left and right. Of course, the left chain may also have a larger index
@@ -247,8 +301,8 @@ swap st xs g =
   do
     i <- uniformR (0, n - 1) g
     j <- case st of
-      MC3Neighbor -> return $ i + 1
-      MC3Random -> loop i g
+      MC3SwapNeighbors -> return $ i + 1
+      MC3SwapRandom -> loop i g
     return $ swapWith i j xs
   where
     n = V.length xs
@@ -307,7 +361,7 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     bs = mc3ReciprocalTemperatures a
     -- Do not change the temperature, and the prior and likelihood functions of
     -- the cold chain.
-    bs' = V.head bs `V.cons` V.map (*dt) (V.tail bs)
+    bs' = V.head bs `V.cons` V.map (* dt) (V.tail bs)
     mhgs'' =
       V.head mhgs'
         `V.cons` V.zipWith (setReciprocalTemperature coldPrF coldLhF) (V.tail bs') (V.tail mhgs')
@@ -320,7 +374,7 @@ mc3ResetAcceptance a = a'
     -- 2. Reset acceptance of swaps.
     a' = a {mc3MHGChains = mhgs', mc3SwapAccepted = 0, mc3SwapRejected = 0}
 
--- TODO.
+-- TODO: Improve output.
 --
 -- Information in cycle summary:
 --
@@ -329,8 +383,24 @@ mc3ResetAcceptance a = a'
 -- - The temperatures of the chains and the acceptance rate of state swaps.
 --
 -- - The combined acceptance rate of proposals within the hot chains.
-mc3SummarizeCycle :: MC3 a -> BL.ByteString
-mc3SummarizeCycle = undefined
+mc3SummarizeCycle :: ToJSON a => MC3 a -> BL.ByteString
+mc3SummarizeCycle a =
+  BL.intercalate
+    "\n"
+    [ "MC3: Cycle of cold chain.",
+      coldMHGCycleSummary,
+      "MC3: Average acceptance rate across all chains: " <> BL.fromStrict (BC.toFixed 2 ar),
+      "MC3: Reciprocal temperatures of the chains: " <> BL.unwords bs,
+      "MC3: Acceptance rate of state swaps: " <> BL.fromStrict (BC.toFixed 2 swapAr)
+    ]
+  where
+    mhgs = mc3MHGChains a
+    coldMHGCycleSummary = aSummarizeCycle $ V.head mhgs
+    cs = V.map fromMHG mhgs
+    as = V.map (acceptanceRates . acceptance) cs
+    ar = V.sum $ V.map (\m -> sum m / fromIntegral (length m)) as
+    bs = V.toList $ V.map (BL.fromStrict . BC.toFixed 2) $ mc3ReciprocalTemperatures a
+    swapAr = fromIntegral (mc3SwapAccepted a) / fromIntegral (mc3SwapRejected a)
 
 -- Amend the environment of chain i:
 --

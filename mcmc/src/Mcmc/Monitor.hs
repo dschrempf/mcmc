@@ -98,7 +98,7 @@ msHeader m = BL.intercalate "\n" [row, sep]
         ["Iteration", "Log-Prior", "Log-Likelihood", "Log-Posterior"]
           ++ nms
           ++ ["Runtime", "ETA"]
-    sep = "   " <> BL.replicate (BL.length row - 3) '-'
+    sep = BL.replicate (BL.length row) '-'
     nms = [BL.pack $ mpName p | p <- msParams m]
 
 msDataLine ::
