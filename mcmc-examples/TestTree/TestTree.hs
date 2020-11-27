@@ -95,16 +95,16 @@ monPs t =
 
 -- Monitor to standard output.
 monStd :: Tree e a -> MonitorStdOut I
-monStd t = monitorStdOut (monPs t) 1
+monStd t = monitorStdOut (monPs t) 10
 
 monFile :: Tree e a -> MonitorFile I
-monFile t = monitorFile "" (monPs t) 1
+monFile t = monitorFile "" (monPs t) 5
 
 monTreeT :: MonitorFile I
-monTreeT = monitorFile "-ultrametric" [fromHeightTree . _ultrametricTree >$< monitorTree "Tree"] 1
+monTreeT = monitorFile "-ultrametric" [fromHeightTree . _ultrametricTree >$< monitorTree "Tree"] 5
 
 monTreeR :: MonitorFile I
-monTreeR = monitorFile "-unconstrained" [_unconstrainedTree >$< monitorTree "Tree"] 1
+monTreeR = monitorFile "-unconstrained" [_unconstrainedTree >$< monitorTree "Tree"] 5
 
 -- Combine the monitors.
 mon :: Tree e a -> Monitor I
@@ -128,6 +128,10 @@ main = do
   print r
   print t
   g <- create
-  let s = Settings "test" burnIn iterations Overwrite NoSave Info
+  let mcmcS = Settings "test-tree" burnIn iterations Overwrite NoSave Info
+      -- Metropolis-Hastings-Green algorithm.
       a = mhg pr noLikelihood cc' (mon t) (I t r) g
-  void $ mcmc s a
+  -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
+  -- let mc3S = MC3Settings 3 2 MC3SwapNeighbors
+  -- a <- mc3 mc3S pr noLikelihood cc' (mon t) (I t r) g
+  void $ mcmc mcmcS a

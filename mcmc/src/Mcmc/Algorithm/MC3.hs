@@ -36,11 +36,13 @@ import qualified Data.Double.Conversion.ByteString as BC
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 import Data.Word
+-- import Debug.Trace hiding (trace)
 import Mcmc.Algorithm
 import Mcmc.Algorithm.Metropolis
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
 import Mcmc.Chain.Save
+import Mcmc.Chain.Trace
 import Mcmc.Environment
 import Mcmc.Internal.Random
 import Mcmc.Monitor
@@ -49,8 +51,6 @@ import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 import Text.Printf
-
-import Debug.Trace
 
 -- | Swap states between neighboring chains, or random chains.
 data MC3SwapType = MC3SwapNeighbors | MC3SwapRandom
@@ -215,7 +215,9 @@ mc3 s pr lh cc mn i0 g
         -- Do not change the prior and likelihood functions of the first chain.
         hcs =
           V.head cs
-            `V.cons` V.zipWith (setReciprocalTemperature pr lh) (V.tail bs) (V.tail cs)
+            `V.cons` V.map
+              resetTrace
+              (V.zipWith (setReciprocalTemperature pr lh) (V.tail bs) (V.tail cs))
     return $ MC3 s hcs bs 0 0 0 g
   where
     n = mc3NChains s
@@ -223,7 +225,12 @@ mc3 s pr lh cc mn i0 g
     -- XXX: Maybe improve initial choice of reciprocal temperatures.
     --
     -- Have to 'take n' elements, because vectors are not as lazy as lists.
-    bs = V.fromList $ map recip $ take n [1.0, 1.1 ..]
+    bs = V.fromList $ take n $ iterate (* 0.9) 1.0
+    -- XXX: We have to reset the trace, since it is not set by 'setReciprocalTemperature'.
+    resetTrace a =
+      let c = fromMHG a
+          l = link c
+       in MHG $ c {trace = singletonT l}
 
 mc3Fn :: String -> FilePath
 mc3Fn nm = nm ++ ".mc3chain"
@@ -292,7 +299,7 @@ swapWith i j xs
     lr' = Link xr' prr' lhr'
     -- Set the new links and the proposed state.
     cl' = cl {link = ll'}
-    cr' = cl {link = lr'}
+    cr' = cr {link = lr'}
     xs' = xs V.// [(i, MHG cl'), (j, MHG cr')]
     -- Compute the Metropolis ratio.
     q = prl' * prr' * lhl' * lhr' / prl / prr / lhl / lhr
@@ -319,7 +326,7 @@ mc3ProposeSwap :: MC3 a -> IO (MC3 a)
 mc3ProposeSwap a = do
   -- 1. Sample new state and get the Metropolis ratio.
   (!y, !r) <- swap (mc3SwapType s) (mc3MHGChains a) g
-  -- 3. Accept or reject.
+  -- 2. Accept or reject.
   accept <- mhgAccept r g
   if accept
     then do
@@ -335,18 +342,17 @@ mc3ProposeSwap a = do
 -- TODO: Parallel iteration.
 mc3Iterate :: ToJSON a => MC3 a -> IO (MC3 a)
 mc3Iterate a = do
-  -- 1. Iterate all chains.
-  mhgs' <- V.mapM aIterate (mc3MHGChains a)
-  let a' = a {mc3MHGChains = mhgs'}
-  -- 2. Maybe propose swap.
-  let s' = mc3Settings a'
-  a'' <-
-    if mc3Iteration a' `mod` mc3SwapPeriod s' == 0
-      then mc3ProposeSwap a'
-      else return a'
-  -- 3. Increment iteration counter.
-  let i'' = mc3Iteration a''
-  return $ a'' {mc3Iteration = succ i''}
+  -- 1. Maybe propose swap. A swap has to be propose first, because the traces
+  -- are automatically updated at step 2.
+  let s = mc3Settings a
+  a' <-
+    if mc3Iteration a `mod` mc3SwapPeriod s == 0
+      then mc3ProposeSwap a
+      else return a
+  -- 2. Iterate all chains and increment iteration.
+  mhgs <- V.mapM aIterate (mc3MHGChains a')
+  let i = mc3Iteration a'
+  return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
 
 mc3GetAcceptanceRate :: MC3 a -> Double
 mc3GetAcceptanceRate a = swapAc / (swapAc + swapRe)
@@ -366,11 +372,14 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     coldLhF = likelihoodFunction coldChain
     optimalRate = getOptimalRate PDimensionUnknown
     currentRate = mc3GetAcceptanceRate a
-    xi = exp $ (/4) $ currentRate - optimalRate
+    xi = exp $ (/ 4) $ currentRate - optimalRate
     bs = mc3ReciprocalTemperatures a
+    -- The reciprocal temperatures are changed differently for each chain so
+    -- that the monotonicity of the reciprocal temperatures is retained.
+    bf i b = b * (xi ** (fromIntegral i + 1))
     -- Do not change the temperature, and the prior and likelihood functions of
     -- the cold chain.
-    bs' = V.head bs `V.cons` V.map (* xi) (V.tail bs)
+    bs' = V.head bs `V.cons` V.imap bf (V.tail bs)
     mhgs'' =
       V.head mhgs'
         `V.cons` V.zipWith (setReciprocalTemperature coldPrF coldLhF) (V.tail bs') (V.tail mhgs')
@@ -415,7 +424,8 @@ mc3SummarizeCycle a =
     coldMHGCycleSummary = aSummarizeCycle $ V.head mhgs
     cs = V.map fromMHG mhgs
     as = V.map (acceptanceRates . acceptance) cs
-    ar = V.sum $ V.map (\m -> sum m / fromIntegral (length m)) as
+    vAr = V.map (\m -> sum m / fromIntegral (length m)) as
+    ar = V.sum vAr / fromIntegral (V.length vAr)
     bs = V.toList $ V.map (BL.fromStrict . BC.toFixed 2) $ mc3ReciprocalTemperatures a
     swapAc = mc3SwapAccepted a
     swapTot = mc3SwapRejected a + swapAc
@@ -444,7 +454,7 @@ mc3OpenMonitors e a = do
   mhgs' <- V.imapM f $ mc3MHGChains a
   return $ a {mc3MHGChains = mhgs'}
   where
-    f i = aOpenMonitors (amendEnvironment i e)
+    f j = aOpenMonitors (amendEnvironment j e)
 
 -- TODO: Parallel execution?
 

@@ -43,7 +43,7 @@ instance FromJSON a => FromJSON (Trace a) where
 
 -- | The empty trace.
 singletonT :: Link a -> Trace a
-singletonT i = Trace [i]
+singletonT l = Trace [l]
 
 -- | Prepend an 'Link' to a 'Trace'.
 pushT :: Link a -> Trace a -> Trace a
