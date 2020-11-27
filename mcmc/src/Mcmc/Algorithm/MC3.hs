@@ -14,10 +14,10 @@
 --
 -- Creation date: Mon Nov 23 15:20:33 2020.
 module Mcmc.Algorithm.MC3
-  ( HeatedChain,
-    HeatedChains,
-    MC3SwapType (..),
+  ( MC3SwapType (..),
     MC3Settings (..),
+    MHGChains,
+    ReciprocalTemperatures,
     MC3 (..),
     mc3,
     mc3Save,
@@ -32,7 +32,7 @@ import Mcmc.Algorithm
 import Mcmc.Algorithm.Metropolis
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
-import Mcmc.Chain.Save
+-- import Mcmc.Chain.Save
 import Mcmc.Environment
 import Mcmc.Internal.Random
 import Mcmc.Monitor
@@ -41,117 +41,6 @@ import Mcmc.Settings
 import Numeric.Log
 import System.Random.MWC
 import Text.Printf
-
--- TODO: Can I remove this data type and just store the beta values in the MC3
--- data type?
-
--- | The hotter the chain, the flatter the prior and the likelihood.
-data HeatedChain a = HeatedChain
-  { heatedChain :: MHG a,
-    -- | Reciprocal temperature.
-    heatedBeta :: Double,
-    coldPriorFunction :: PriorFunction a,
-    coldLikelihoodFunction :: LikelihoodFunction a
-  }
-
-hcInitialize :: MHG a -> HeatedChain a
-hcInitialize m = HeatedChain m 1.0 pr lh
-  where
-    pr = priorFunction $ fromMHG m
-    lh = likelihoodFunction $ fromMHG m
-
--- Be careful! When changing the temperature of the chain, the prior and
--- likelihood values of the trace are not updated! The prior and likelihood
--- values of the last link are updated.
-hcModifyReciprocalTemperature :: (Double -> Double) -> HeatedChain a -> HeatedChain a
-hcModifyReciprocalTemperature f hc = hc {heatedChain = MHG c', heatedBeta = b'}
-  where
-    c = fromMHG $ heatedChain hc
-    b = heatedBeta hc
-    b' = f b
-    b'LogDomain = Exp $ log b'
-    -- XXX: Like this, we need twice the amount of computations compared to
-    -- using (pr x * lh x) ** b'. However, I don't think this is a serious
-    -- problem.
-    --
-    -- Also, to minimize computations, avoid modification of the reciprocal
-    -- temperature for the cold chain.
-    pr' = (** b'LogDomain) . coldPriorFunction hc
-    lh' = (** b'LogDomain) . coldLikelihoodFunction hc
-    x = state $ link c
-    c' =
-      c
-        { priorFunction = pr',
-          likelihoodFunction = lh',
-          link = Link x (pr' x) (lh' x)
-        }
-
--- Set a new link in a heated chain.
-hcSetLink ::
-  -- New link.
-  Link a ->
-  -- Chain with old link.
-  HeatedChain a ->
-  -- Chain with new link.
-  HeatedChain a
-hcSetLink l hc = hc {heatedChain = c'}
-  where
-    c = fromMHG $ heatedChain hc
-    c' = MHG $ c {link = l}
-
--- Get the link from a heated chain.
-hcGetLink :: HeatedChain a -> Link a
-hcGetLink = link . fromMHG . heatedChain
-
-hcGetPriorFunction :: HeatedChain a -> PriorFunction a
-hcGetPriorFunction = priorFunction . fromMHG . heatedChain
-
-hcGetLikelihoodFunction :: HeatedChain a -> LikelihoodFunction a
-hcGetLikelihoodFunction = likelihoodFunction . fromMHG . heatedChain
-
-hcApplyM :: (MHG a -> IO (MHG a)) -> HeatedChain a -> IO (HeatedChain a)
-hcApplyM m c = do
-  a' <- m $ heatedChain c
-  return $ c {heatedChain = a'}
-
-hcApply :: (MHG a -> MHG a) -> HeatedChain a -> HeatedChain a
-hcApply f c = c {heatedChain = c'}
-  where
-    c' = f $ heatedChain c
-
--- | A vector of heated chains.
-type HeatedChains a = V.Vector (HeatedChain a)
-
--- TODO: Probably create a HeatedChain module.
-
--- TODO.
-data SavedHeatedChain a = SavedHeatedChain
-  { shcSavedChain :: SavedChain a,
-    shcBeta :: Double
-  }
-
--- TODO. Go via SavedHeatedChain.
-hcSave ::
-  ToJSON a =>
-  -- Maximum length of trace.
-  Int ->
-  -- Analysis name.
-  String ->
-  HeatedChain a ->
-  IO ()
-hcSave = undefined
-
--- TODO.
-hcLoad ::
-  FromJSON a =>
-  PriorFunction a ->
-  LikelihoodFunction a ->
-  Cycle a ->
-  Monitor a ->
-  -- Analysis name.
-  String ->
-  IO (HeatedChain a)
-hcLoad = undefined
 
 -- | Swap states between neighboring chains, or random chains.
 data MC3SwapType = MC3Neighbor | MC3Random
@@ -168,6 +57,15 @@ data MC3Settings = MC3Settings
   }
   deriving (Eq, Read, Show)
 
+-- | Vector of MHG chains.
+type MHGChains a = V.Vector (MHG a)
+
+-- XXX: An unboxed vector could be used for 'ReciprocalTemperatures', but it is
+-- complicated. Since we zip with the boxed vector 'Chains'.
+
+-- | Vector of reciprocal temperatures.
+type ReciprocalTemperatures = V.Vector Double
+
 -- | The MC3 algorithm.
 --
 -- Also known as parallel tempering.
@@ -181,7 +79,9 @@ data MC3Settings = MC3Settings
 data MC3 a = MC3
   { mc3Settings :: MC3Settings,
     -- | The first chain is the cold chain with temperature 1.0.
-    mc3HeatedChains :: HeatedChains a,
+    mc3MHGChains :: MHGChains a,
+    -- | Vector of reciprocal temperatures.
+    mc3ReciprocalTemperatures :: ReciprocalTemperatures,
     mc3Iteration :: Int,
     -- | Number of accepted swaps.
     mc3SwapAccepted :: Int,
@@ -202,6 +102,38 @@ instance ToJSON a => Algorithm MC3 a where
   aStdMonitorHeader = mc3StdMonitorHeader
   aCloseMonitors = mc3CloseMonitors
   aSave = mc3Save
+
+-- Be careful! When changing the temperature of the chain, the prior and
+-- likelihood values of the trace are not updated! The prior and likelihood
+-- values of the last link are updated.
+setReciprocalTemperature ::
+  -- Cold prior function.
+  PriorFunction a ->
+  -- Cold likelihood function.
+  LikelihoodFunction a ->
+  -- New reciprocal temperature.
+  Double ->
+  MHG a ->
+  MHG a
+setReciprocalTemperature prf lhf b a =
+  MHG $
+    c
+      { priorFunction = prf',
+        likelihoodFunction = lhf',
+        link = Link x (prf' x) (lhf' x)
+      }
+  where
+    c = fromMHG a
+    b' = Exp $ log b
+    -- XXX: Like this, we need twice the amount of computations compared to
+    -- using (pr x * lh x) ** b'. However, I don't think this is a serious
+    -- problem.
+    --
+    -- Also, to minimize computations, avoid modification of the reciprocal
+    -- temperature for the cold chain.
+    prf' = (** b') . prf
+    lhf' = (** b') . lhf
+    x = state $ link c
 
 -- TODO: Splitmix. Initialization of the MC3 algorithm is an IO action because
 -- the generators have to be split.
@@ -229,15 +161,16 @@ mc3 s pr lh cc mn i0 g
     -- Split random number generators.
     gs <- V.fromList <$> splitGen n g
     let cs = V.map (mhg pr lh cc mn i0) gs
-        as = V.map hcInitialize cs
         -- Do not change the prior and likelihood functions of the first chain.
-        hcs = V.head as `V.cons` V.zipWith hcModifyReciprocalTemperature bs (V.tail as)
-    return $ MC3 s hcs 0 0 0 g
+        hcs =
+          V.head cs
+            `V.cons` V.zipWith (setReciprocalTemperature pr lh) (V.tail bs) (V.tail cs)
+    return $ MC3 s hcs bs 0 0 0 g
   where
     n = mc3NChains s
     p = mc3SwapPeriod s
     -- XXX: Maybe improve initial choice of reciprocal temperatures.
-    bs = V.fromList $ map (const . recip) [1.1 ..]
+    bs = V.fromList $ map recip [1.0, 1.1 ..]
 
 -- TODO.
 
@@ -273,8 +206,8 @@ swapWith ::
   Int ->
   -- Index j>=0, j/=i of right chain.
   Int ->
-  HeatedChains a ->
-  (HeatedChains a, Log Double)
+  MHGChains a ->
+  (MHGChains a, Log Double)
 swapWith i j xs
   | i < 0 = error "swapWith: Left index is negative."
   | j < 0 = error "swapWith: Right index is negative."
@@ -282,10 +215,10 @@ swapWith i j xs
   | otherwise = (xs', q)
   where
     -- Gather information from current chains.
-    cl = xs V.! i
-    cr = xs V.! j
-    ll = hcGetLink cl
-    lr = hcGetLink cr
+    cl = fromMHG $ xs V.! i
+    cr = fromMHG $ xs V.! j
+    ll = link cl
+    lr = link cr
     prl = prior ll
     prr = prior lr
     lhl = likelihood ll
@@ -294,22 +227,22 @@ swapWith i j xs
     xl' = state lr
     xr' = state ll
     -- Compute new priors and likelihoods.
-    prl' = hcGetPriorFunction cl xl'
-    prr' = hcGetPriorFunction cr xr'
-    lhl' = hcGetLikelihoodFunction cl xl'
-    lhr' = hcGetLikelihoodFunction cr xr'
+    prl' = priorFunction cl xl'
+    prr' = priorFunction cr xr'
+    lhl' = likelihoodFunction cl xl'
+    lhr' = likelihoodFunction cr xr'
     ll' = Link xl' prl' lhl'
     lr' = Link xr' prr' lhr'
     -- Set the new links and the proposed state.
-    cl' = hcSetLink ll' cl
-    cr' = hcSetLink lr' cr
-    xs' = xs V.// [(i, cl'), (j, cr')]
+    cl' = cl {link = ll'}
+    cr' = cl {link = lr'}
+    xs' = xs V.// [(i, MHG cl'), (j, MHG cr')]
     -- Compute the Metropolis ratio.
     q = prl' * prr' * lhl' * lhr' / prl / prr / lhl / lhr
 
 -- i is the index of left chain (0 ..).
 -- j>i is the index of the right chain.
-swap :: MC3SwapType -> HeatedChains a -> GenIO -> IO (HeatedChains a, Log Double)
+swap :: MC3SwapType -> MHGChains a -> GenIO -> IO (MHGChains a, Log Double)
 swap st xs g =
   do
     i <- uniformR (0, n - 1) g
@@ -328,13 +261,13 @@ swap st xs g =
 mc3ProposeSwap :: MC3 a -> IO (MC3 a)
 mc3ProposeSwap a = do
   -- 1. Sample new state and get the Metropolis ratio.
-  (!y, !r) <- swap (mc3SwapType s) (mc3HeatedChains a) g
+  (!y, !r) <- swap (mc3SwapType s) (mc3MHGChains a) g
   -- 3. Accept or reject.
   accept <- mhgAccept r g
   if accept
     then do
       let !ac' = mc3SwapAccepted a + 1
-      return $ a {mc3HeatedChains = y, mc3SwapAccepted = ac'}
+      return $ a {mc3MHGChains = y, mc3SwapAccepted = ac'}
     else do
       let !re' = mc3SwapRejected a + 1
       return $ a {mc3SwapRejected = re'}
@@ -346,8 +279,8 @@ mc3ProposeSwap a = do
 mc3Iterate :: ToJSON a => MC3 a -> IO (MC3 a)
 mc3Iterate a = do
   -- 1. Iterate all chains.
-  cs' <- V.mapM (hcApplyM aIterate) (mc3HeatedChains a)
-  let a' = a {mc3HeatedChains = cs'}
+  mhgs' <- V.mapM aIterate (mc3MHGChains a)
+  let a' = a {mc3MHGChains = mhgs'}
   -- 2. Maybe propose swap.
   let s' = mc3Settings a'
   a'' <-
@@ -359,26 +292,33 @@ mc3Iterate a = do
   return $ a'' {mc3Iteration = succ i''}
 
 mc3AutoTune :: ToJSON a => MC3 a -> MC3 a
-mc3AutoTune a = a {mc3HeatedChains = cs''}
+mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
   where
+    mhgs = mc3MHGChains a
     -- 1. Auto tune all chains.
-    cs' = V.map (hcApply aAutoTune) (mc3HeatedChains a)
+    mhgs' = V.map aAutoTune mhgs
     -- 2. Auto tune temperatures.
+    coldChain = fromMHG $ V.head mhgs
+    coldPrF = priorFunction coldChain
+    coldLhF = likelihoodFunction coldChain
     currentRate = fromIntegral (mc3SwapAccepted a) / fromIntegral (mc3SwapRejected a)
     optimalRate = getOptimalRate PDimensionUnknown
     dt = exp (currentRate - optimalRate)
-    -- Do not change the prior and likelihood functions of the cold chain.
-    cs'' =
-      V.head cs'
-        `V.cons` V.map (hcModifyReciprocalTemperature (* dt)) (V.tail cs')
+    bs = mc3ReciprocalTemperatures a
+    -- Do not change the temperature, and the prior and likelihood functions of
+    -- the cold chain.
+    bs' = V.head bs `V.cons` V.map (*dt) (V.tail bs)
+    mhgs'' =
+      V.head mhgs'
+        `V.cons` V.zipWith (setReciprocalTemperature coldPrF coldLhF) (V.tail bs') (V.tail mhgs')
 
 mc3ResetAcceptance :: ToJSON a => MC3 a -> MC3 a
 mc3ResetAcceptance a = a'
   where
     -- 1. Reset acceptance of all chains.
-    cs' = V.map (hcApply aResetAcceptance) (mc3HeatedChains a)
+    mhgs' = V.map aResetAcceptance (mc3MHGChains a)
     -- 2. Reset acceptance of swaps.
-    a' = a {mc3HeatedChains = cs', mc3SwapAccepted = 0, mc3SwapRejected = 0}
+    a' = a {mc3MHGChains = mhgs', mc3SwapAccepted = 0, mc3SwapRejected = 0}
 
 -- TODO.
 --
@@ -412,23 +352,23 @@ amendEnvironment i e = e {settings = s''}
 -- No extra monitors are opened.
 mc3OpenMonitors :: ToJSON a => Environment -> MC3 a -> IO (MC3 a)
 mc3OpenMonitors e a = do
-  cs' <- V.imapM f $ mc3HeatedChains a
-  return $ a {mc3HeatedChains = cs'}
+  mhgs' <- V.imapM f $ mc3MHGChains a
+  return $ a {mc3MHGChains = mhgs'}
   where
-    f i = hcApplyM $ aOpenMonitors (amendEnvironment i e)
+    f i = aOpenMonitors (amendEnvironment i e)
 
 -- TODO: Parallel execution?
 
 -- TODO: It is a little unfortunate that we have to amend the environment every time.
 mc3ExecuteMonitors :: ToJSON a => Environment -> MC3 a -> IO (Maybe BL.ByteString)
-mc3ExecuteMonitors e a = V.head <$> V.imapM f (mc3HeatedChains a)
+mc3ExecuteMonitors e a = V.head <$> V.imapM f (mc3MHGChains a)
   where
-    f i = aExecuteMonitors (amendEnvironment i e) . heatedChain
+    f i = aExecuteMonitors (amendEnvironment i e)
 
 mc3StdMonitorHeader :: ToJSON a => MC3 a -> BL.ByteString
-mc3StdMonitorHeader = aStdMonitorHeader . heatedChain . V.head . mc3HeatedChains
+mc3StdMonitorHeader = aStdMonitorHeader . V.head . mc3MHGChains
 
 mc3CloseMonitors :: ToJSON a => MC3 a -> IO (MC3 a)
 mc3CloseMonitors a = do
-  cs' <- V.mapM (hcApplyM aCloseMonitors) $ mc3HeatedChains a
-  return $ a {mc3HeatedChains = cs'}
+  mhgs' <- V.mapM aCloseMonitors $ mc3MHGChains a
+  return $ a {mc3MHGChains = mhgs'}
