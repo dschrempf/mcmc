@@ -22,10 +22,21 @@ main :: IO ()
 main = do
   g <- create
   defaultMain
-    [ bench "Normal" $ nfIO (normalBench g),
-      bench "NormalLargeCycle" $ nfIO (normalLargeCycleBench g),
-      bench "NormalBactrian" $ nfIO (normalBactrianBench g),
-      bench "Poisson" $ nfIO (poissonBench g)
+    [ bgroup
+        "Normal"
+        [ bench "Slide" $ nfIO (normalSlide g),
+          bench "Bactrian" $ nfIO (normalBactrianBench g),
+          bench "LargeCycle" $ nfIO (normalLargeCycleBench g)
+        ],
+      bench "Poisson" $ nfIO (poissonBench g),
+      bgroup
+        "MC3"
+        [ bench "MC3 2" $ nfIO (normalMC3 g 2),
+          bench "MC3 3" $ nfIO (normalMC3 g 3),
+          bench "MC3 4" $ nfIO (normalMC3 g 4),
+          bench "MC3 5" $ nfIO (normalMC3 g 5),
+          bench "MC3 10" $ nfIO (normalMC3 g 10)
+        ]
     ]
 
 -- benchmarking Normal

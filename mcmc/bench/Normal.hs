@@ -10,9 +10,10 @@
 --
 -- Creation date: Wed May  6 00:10:11 2020.
 module Normal
-  ( normalBench,
-    normalLargeCycleBench,
+  ( normalSlide,
     normalBactrianBench,
+    normalLargeCycleBench,
+    normalMC3,
   )
 where
 
@@ -41,8 +42,8 @@ monStd = monitorStdOut mons 200
 mon :: Monitor Double
 mon = Monitor monStd [] []
 
-normalBench :: GenIO -> IO ()
-normalBench g = do
+normalSlide :: GenIO -> IO ()
+normalSlide g = do
   let s = Settings "Normal" (BurnInWithAutoTuning 2000 500) 20000 Overwrite NoSave Quiet
       a = mhg noPrior lh cc mon 0 g
   void $ mcmc s a
@@ -52,7 +53,7 @@ ccLarge =
   cycleFromList
     [slideSymmetric 1.0 (PName $ "Medium " ++ show i) (PWeight 1) Tune | i <- [0 .. 100 :: Int]]
 
--- Should have the same run time as 'normalBench'.
+-- Should have the same run time as 'normalSlide'.
 normalLargeCycleBench :: GenIO -> IO ()
 normalLargeCycleBench g = do
   let s = Settings "Normal" (BurnInWithAutoTuning 20 5) 200 Overwrite NoSave Quiet
@@ -67,3 +68,10 @@ normalBactrianBench g = do
   let s = Settings "NormalBactrian" (BurnInWithAutoTuning 2000 200) 20000 Overwrite NoSave Quiet
       a = mhg noPrior lh ccBactrian mon 0 g
   void $ mcmc s a
+
+normalMC3 :: GenIO -> Int -> IO ()
+normalMC3 g n = do
+  let mcmcS = Settings "MC3" (BurnInWithAutoTuning 200 20) 2000 Overwrite NoSave Quiet
+      mc3S = MC3Settings n 2 MC3SwapNeighbors
+  a <- mc3 mc3S noPrior lh cc mon 0 g
+  void $ mcmc mcmcS a

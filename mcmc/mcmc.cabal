@@ -70,6 +70,7 @@ library
     , math-functions
     , microlens
     , mwc-random
+    , parallel
     , primitive
     , statistics
     , time
@@ -110,7 +111,7 @@ benchmark mcmc-bench
       Paths_mcmc
   hs-source-dirs:
       bench
-  ghc-options: -Wall -Werror
+  ghc-options: -Wall -Werror -threaded
   build-depends:
       base >=4.7 && <5
     , criterion

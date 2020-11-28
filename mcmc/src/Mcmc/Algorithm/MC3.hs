@@ -78,7 +78,7 @@ type MHGChains a = V.Vector (MHG a)
 -- complicated. Since we zip with the boxed vector 'Chains'.
 
 -- | Vector of reciprocal temperatures.
-type ReciprocalTemperatures = V.Vector Double
+type ReciprocalTemperatures = U.Vector Double
 
 data MC3Saved a = MC3Saved
   { mc3SavedSettings :: MC3Settings,
@@ -217,7 +217,7 @@ mc3 s pr lh cc mn i0 g
           V.head cs
             `V.cons` V.map
               resetTrace
-              (V.zipWith (setReciprocalTemperature pr lh) (V.tail bs) (V.tail cs))
+              (V.zipWith (setReciprocalTemperature pr lh) (V.convert $ U.tail bs) (V.tail cs))
     return $ MC3 s hcs bs 0 0 0 g
   where
     n = mc3NChains s
@@ -225,7 +225,7 @@ mc3 s pr lh cc mn i0 g
     -- XXX: Maybe improve initial choice of reciprocal temperatures.
     --
     -- Have to 'take n' elements, because vectors are not as lazy as lists.
-    bs = V.fromList $ take n $ iterate (* 0.9) 1.0
+    bs = U.fromList $ take n $ iterate (* 0.9) 1.0
     -- XXX: We have to reset the trace, since it is not set by 'setReciprocalTemperature'.
     resetTrace a =
       let c = fromMHG a
@@ -350,6 +350,7 @@ mc3Iterate a = do
       then mc3ProposeSwap a
       else return a
   -- 2. Iterate all chains and increment iteration.
+  -- mhgs <- V.fromList <$> mapM aIterate (V.toList (mc3MHGChains a'))
   mhgs <- V.mapM aIterate (mc3MHGChains a')
   let i = mc3Iteration a'
   return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
@@ -379,10 +380,13 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     bf i b = b * (xi ** (fromIntegral i + 1))
     -- Do not change the temperature, and the prior and likelihood functions of
     -- the cold chain.
-    bs' = V.head bs `V.cons` V.imap bf (V.tail bs)
+    bs' = U.head bs `U.cons` U.imap bf (U.tail bs)
     mhgs'' =
       V.head mhgs'
-        `V.cons` V.zipWith (setReciprocalTemperature coldPrF coldLhF) (V.tail bs') (V.tail mhgs')
+        `V.cons` V.zipWith
+          (setReciprocalTemperature coldPrF coldLhF)
+          (V.convert $ U.tail bs')
+          (V.tail mhgs')
 
 mc3ResetAcceptance :: ToJSON a => MC3 a -> MC3 a
 mc3ResetAcceptance a = a'
@@ -426,7 +430,7 @@ mc3SummarizeCycle a =
     as = V.map (acceptanceRates . acceptance) cs
     vAr = V.map (\m -> sum m / fromIntegral (length m)) as
     ar = V.sum vAr / fromIntegral (V.length vAr)
-    bs = V.toList $ V.map (BL.fromStrict . BC.toFixed 2) $ mc3ReciprocalTemperatures a
+    bs = map (BL.fromStrict . BC.toFixed 2) $ U.toList $ mc3ReciprocalTemperatures a
     swapAc = mc3SwapAccepted a
     swapTot = mc3SwapRejected a + swapAc
     swapAr = mc3GetAcceptanceRate a
