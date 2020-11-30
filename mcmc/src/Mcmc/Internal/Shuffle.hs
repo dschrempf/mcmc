@@ -22,9 +22,11 @@ import Control.Monad.ST
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as M
 import System.Random.MWC
-  ( GenIO,
-    uniformR,
-  )
+
+-- Fisher-Yates shuffle. See also
+-- 'System.Random.MWC.Distributions.uniformPermutation' which is a little
+-- cleaner, in my opinion. However, I would like to move away from MWC so I
+-- leave the custom implementation for now.
 
 -- | Shuffle a vector.
 shuffle :: [a] -> GenIO -> IO [a]
