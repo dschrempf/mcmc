@@ -17,6 +17,7 @@ module Mcmc.Settings
     burnInIterations,
     ExecutionMode (..),
     openWithExecutionMode,
+    ParallelizationMode (..),
     SaveMode (..),
     Verbosity (..),
     Settings (..),
@@ -50,10 +51,6 @@ burnInIterations :: BurnIn -> Int
 burnInIterations NoBurnIn = 0
 burnInIterations (BurnInWithoutAutoTuning n) = n
 burnInIterations (BurnInWithAutoTuning n _) = n
-
-burnInAutoTuningPeriodValid :: BurnIn -> Bool
-burnInAutoTuningPeriodValid (BurnInWithAutoTuning _ t) = t > 0
-burnInAutoTuningPeriodValid _ = True
 
 -- | Execution mode.
 data ExecutionMode
@@ -92,6 +89,18 @@ openWithExecutionMode em fn = do
       error $ "openWithExecutionMode: File exists: " ++ fn ++ "; use 'Overwrite'?"
     _ -> openFile fn WriteMode
 
+-- | Parallelization mode.
+data ParallelizationMode
+  = Sequential
+  | -- | Automatic determination of the optimal number of capabilities before
+    -- execution of the MCMC run. This option leads to a slow startup, because
+    -- some MCMC iterations have to be computed.
+    ParallelAuto
+  | ParallelWith Int
+  deriving (Eq, Read, Show)
+
+$(deriveJSON defaultOptions ''ParallelizationMode)
+
 -- | Should the MCMC run with trace of given maximum length be saved at the end
 -- of the run?
 data SaveMode = NoSave | SaveWithTrace Int
@@ -116,6 +125,7 @@ data Settings = Settings
     -- only happens during burn in.
     sIterations :: Int,
     sExecutionMode :: ExecutionMode,
+    sParallelizationMode :: ParallelizationMode,
     sSaveMode :: SaveMode,
     sVerbosity :: Verbosity
   }
@@ -167,19 +177,34 @@ settingsError s i err =
 -- - The current iteration is non-zero but the execution mode is not 'Continue'.
 --
 -- - The current iteration is zero but the execution mode is 'Continue'.
+--
+-- - The given number of capabilities is zero or negative.
 settingsCheck ::
   Settings ->
   -- | Current iteration.
   Int ->
   IO ()
-settingsCheck s@(Settings nm bi i em _ _) iCurrent
+settingsCheck s@(Settings nm bi i em pm _ _) iCurrent
   | null nm = serr "Analysis name is the empty string."
   | burnInIterations bi < 0 = serr "Number of burn in iterations is negative."
   | not $ burnInAutoTuningPeriodValid bi = serr "Auto tuning period is zero or negative."
   | i < 0 = serr "Number of iterations is negative."
-  | burnInIterations bi + i - iCurrent < 0 = serr "Current iteration is larger than the total number of iterations."
-  | iCurrent /= 0 && em /= Continue = serr "Current iteration is non-zero but execution mode is not 'Continue'."
-  | iCurrent == 0 && em == Continue = serr "Current iteration is zero but execution mode is 'Continue'."
+  | burnInIterations bi + i - iCurrent < 0 =
+    serr "Current iteration is larger than the total number of iterations."
+  | iCurrent /= 0 && em /= Continue =
+    serr "Current iteration is non-zero but execution mode is not 'Continue'."
+  | iCurrent == 0 && em == Continue =
+    serr "Current iteration is zero but execution mode is 'Continue'."
+  | not $ parallelizationModeValid pm =
+    serr "parallelizationModeValid: Number of capabilities is zero or negative."
   | otherwise = return ()
   where
     serr = settingsError s iCurrent
+    --
+    burnInAutoTuningPeriodValid :: BurnIn -> Bool
+    burnInAutoTuningPeriodValid (BurnInWithAutoTuning _ t) = t > 0
+    burnInAutoTuningPeriodValid _ = True
+    --
+    parallelizationModeValid :: ParallelizationMode -> Bool
+    parallelizationModeValid (ParallelWith n) | n <= 0 = False
+    parallelizationModeValid _ = True
