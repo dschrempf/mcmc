@@ -13,8 +13,7 @@
 --
 -- Creation date: Mon Nov 16 11:13:01 2020.
 module Mcmc.Settings
-  (
-    -- * Data types
+  ( -- * Data types
     AnalysisName (..),
     BurnInSpecification (..),
     burnInIterations,
@@ -110,13 +109,23 @@ openWithExecutionMode em fn = do
     _ -> openFile fn WriteMode
 
 -- | Parallelization mode.
+--
+-- Parallel execution of the chains is only beneficial when the algorithm allows
+-- for parallelization, and if computation of the next iteration takes a long
+-- time. If the calculation of the next state is fast, sequential execution is
+-- usually beneficial, even for algorithms involving parallel chains. If the
+-- calculation of the next state is slow, parallel execution may be beneficial.
+--
+-- - The "Mcmc.Algorithm.Metropolis" algorithm is inherently sequential.
+--
+-- - The "Mcmc.Algorithm.MC3" algorithm works well with parallelization.
+--
+-- Of course, also the prior or likelihood functions can be computed in
+-- parallel. However, this library is not aware of how these functions are
+-- computed.
 data ParallelizationMode
   = Sequential
-  | -- | Automatic determination of the optimal number of capabilities before
-    -- execution of the MCMC run. This option leads to a slow startup, because
-    -- some MCMC iterations have to be computed.
-    ParallelAuto
-  | ParallelWith Int
+  | Parallel
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''ParallelizationMode)
@@ -194,14 +203,12 @@ settingsError s i err =
 -- - The current iteration is non-zero but the execution mode is not 'Continue'.
 --
 -- - The current iteration is zero but the execution mode is 'Continue'.
---
--- - The given number of capabilities is zero or negative.
 settingsCheck ::
   Settings ->
   -- | Current iteration.
   Int ->
   IO ()
-settingsCheck s@(Settings nm bi i em pm _ _) iCurrent
+settingsCheck s@(Settings nm bi i em _ _ _) iCurrent
   | null (fromAnalysisName nm) = serr "Analysis name is the empty string."
   | burnInIterations bi < 0 = serr "Number of burn in iterations is negative."
   | not $ burnInAutoTuningPeriodValid bi = serr "Auto tuning period is zero or negative."
@@ -212,16 +219,9 @@ settingsCheck s@(Settings nm bi i em pm _ _) iCurrent
     serr "Current iteration is non-zero but execution mode is not 'Continue'."
   | iCurrent == 0 && em == Continue =
     serr "Current iteration is zero but execution mode is 'Continue'."
-  | not $ parallelizationModeValid pm =
-    serr "parallelizationModeValid: Number of capabilities is zero or negative."
   | otherwise = return ()
   where
     serr = settingsError s iCurrent
-    --
     burnInAutoTuningPeriodValid :: BurnInSpecification -> Bool
     burnInAutoTuningPeriodValid (BurnInWithAutoTuning _ t) = t > 0
     burnInAutoTuningPeriodValid _ = True
-    --
-    parallelizationModeValid :: ParallelizationMode -> Bool
-    parallelizationModeValid (ParallelWith n) | n <= 0 = False
-    parallelizationModeValid _ = True

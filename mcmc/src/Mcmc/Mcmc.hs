@@ -129,9 +129,8 @@ mcmcIterate n a
   | n < 0 = error "mcmcIterate: Number of iterations is negative."
   | n == 0 = return a
   | otherwise = do
-    c <- numCap <$> ask
-    -- TODO: Splitmix. Remove IO monad as soon as possible.
-    a' <- liftIO $ aIterate c a
+    p <- sParallelizationMode . settings <$> ask
+    a' <- liftIO $ aIterate p a
     mcmcExecuteMonitors a'
     mcmcIterate (n -1) a'
 
@@ -270,8 +269,7 @@ mcmcRun a = do
 mcmc :: Algorithm a => Settings -> a -> IO a
 mcmc s a = do
   settingsCheck s $ aIteration a
-  c <- aParallelizationCheck a
-  e <- initializeEnvironment s c
+  e <- initializeEnvironment s
   runReaderT (mcmcRun a) e
 
 -- | Continue an MCMC algorithm for the given number of iterations.

@@ -338,36 +338,29 @@ mc3ProposeSwap a = do
 
 -- TODO: Splimix. 'mc3Iterate' is actually not parallel, but concurrent because
 -- of the IO constraint. Use pure parallel code when we have a pure generator.
---
--- Parallel execution of the chains is only beneficial when the computations are
--- expensive. For all of my tests, this is not the case. However, for
--- phylogenetic dating the speed up is substantial.
 mc3Iterate ::
   ToJSON a =>
-  -- Number of capabilities.
-  Int ->
+  ParallelizationMode ->
   MC3 a ->
   IO (MC3 a)
-mc3Iterate c a
-  | c > 0 = do
-    -- 1. Maybe propose swap. A swap has to be propose first, because the traces
-    -- are automatically updated at step 2.
-    let s = mc3Settings a
-    a' <-
-      if mc3Iteration a `mod` mc3SwapPeriod s == 0
-        then mc3ProposeSwap a
-        else return a
-    -- 2. Iterate all chains and increment iteration.
-    --
-    -- In any case, the MHG algorithm only gets one capability.
-    mhgs <-
-      if c > 1
-        then -- Use 'forkIO'.
-          V.fromList <$> P.mapM (aIterate 1) (V.toList (mc3MHGChains a'))
-        else V.mapM (aIterate 1) (mc3MHGChains a')
-    let i = mc3Iteration a'
-    return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
-  | otherwise = error " mc3Iterate: Number of capabilities is zero or negative."
+mc3Iterate pm a = do
+  -- 1. Maybe propose swap. A swap has to be propose first, because the traces
+  -- are automatically updated at step 2.
+  let s = mc3Settings a
+  a' <-
+    if mc3Iteration a `mod` mc3SwapPeriod s == 0
+      then mc3ProposeSwap a
+      else return a
+  -- 2. Iterate all chains and increment iteration.
+  --
+  -- In any case, the MHG algorithm only gets one capability.
+  mhgs <- case pm of
+    Sequential -> V.mapM (aIterate pm) (mc3MHGChains a')
+    Parallel ->
+      -- Use 'forkIO'.
+      V.fromList <$> P.mapM (aIterate pm) (V.toList (mc3MHGChains a'))
+  let i = mc3Iteration a'
+  return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
 
 mc3GetAcceptanceRate :: MC3 a -> Double
 mc3GetAcceptanceRate a = swapAc / (swapAc + swapRe)

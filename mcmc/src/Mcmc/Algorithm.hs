@@ -11,11 +11,9 @@
 -- Creation date: Mon Nov 16 14:37:11 2020.
 module Mcmc.Algorithm
   ( Algorithm (..),
-    aParallelizationCheck,
   )
 where
 
-import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Time
 import Mcmc.Settings
@@ -29,8 +27,7 @@ class Algorithm a where
   -- TODO: Splitmix. Remove IO monad constraint as soon as possible.
 
   aIterate ::
-    -- | Number of capabilities for parallel execution.
-    Int ->
+    ParallelizationMode ->
     a ->
     IO a
 
@@ -69,14 +66,3 @@ class Algorithm a where
     IO ()
 
 -- TODO: Splitmix. Guess what? Remove IO.
-
--- | For a given algorithm check if parallelization is beneficial.
-aParallelizationCheck ::
-  Algorithm a =>
-  a ->
-  -- Number of capabilities to use with 'aIterate'.
-  IO Int
-aParallelizationCheck a = do
-  c <- getNumCapabilities
-  -- TODO.
-  return 1
