@@ -87,14 +87,6 @@ monBatch = monitorBatch "-mu" [monMuBatch] 1000
 mon :: Monitor Precision
 mon = Monitor monStd [monFile] [monBatch]
 
--- Number of burn in iterations.
-burnIn :: BurnInSpecification
-burnIn = BurnInWithAutoTuning 200000 10000
-
--- Number of iterations after burn in.
-iterations :: Int
-iterations = 1000000
-
 main :: IO ()
 main = do
   g <- create
@@ -104,8 +96,8 @@ main = do
   let s =
         Settings
           (AnalysisName "archery")
-          burnIn
-          iterations
+          (BurnInWithAutoTuning 200000 10000)
+          (Iterations 1000000)
           Overwrite
           Sequential
           NoSave

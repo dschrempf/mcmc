@@ -17,8 +17,8 @@ where
 
 import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Time
 import Mcmc.Settings
-import Mcmc.Environment
 
 -- | Class for algorithms used by MCMC samplers.
 class Algorithm a where
@@ -43,11 +43,16 @@ class Algorithm a where
   -- | Open all monitor files and provide the file handles.
   aOpenMonitors :: AnalysisName -> ExecutionMode -> a -> IO a
 
-  -- TODO: Can I remove the 'Environment' argument? See 'mc3ExecuteMonitors'.
-
   -- | Execute file monitors and possible return a string to be written to the
   -- standard output and the log file.
-  aExecuteMonitors :: Environment -> a -> IO (Maybe BL.ByteString)
+  aExecuteMonitors ::
+    Verbosity ->
+    -- | Starting time.
+    UTCTime ->
+    -- | Total number of iterations.
+    Int ->
+    a ->
+    IO (Maybe BL.ByteString)
 
   -- | Header of monitor to standard output.
   aStdMonitorHeader :: a -> BL.ByteString
@@ -64,6 +69,7 @@ class Algorithm a where
     IO ()
 
 -- TODO: Splitmix. Guess what? Remove IO.
+
 -- | For a given algorithm check if parallelization is beneficial.
 aParallelizationCheck ::
   Algorithm a =>

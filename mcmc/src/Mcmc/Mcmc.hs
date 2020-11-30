@@ -33,6 +33,7 @@ import Mcmc.Environment
 import Mcmc.Monitor.Time
 import Mcmc.Settings
 import System.IO
+import Text.Show.Pretty
 import Prelude hiding (cycle)
 
 -- The MCMC algorithm has read access to an environment and uses an algorithm
@@ -116,7 +117,11 @@ mcmcResetAcceptance a = do
 mcmcExecuteMonitors :: Algorithm a => a -> MCMC ()
 mcmcExecuteMonitors a = do
   e <- ask
-  mStdLog <- liftIO (aExecuteMonitors e a)
+  let s = settings e
+      vb = sVerbosity s
+      t0 = startingTime e
+      iTotal = burnInIterations (sBurnIn s) + fromIterations (sIterations s)
+  mStdLog <- liftIO (aExecuteMonitors vb t0 iTotal a)
   forM_ mStdLog (mcmcOutB "   ")
 
 mcmcIterate :: Algorithm a => Int -> a -> MCMC a
@@ -140,7 +145,7 @@ mcmcNewRun a = do
   mcmcInfoB $ aSummarizeCycle a
   a' <- mcmcBurnIn a
   a'' <- mcmcResetAcceptance a'
-  let i = sIterations s
+  let i = fromIterations $ sIterations s
   mcmcInfoS $ "Run chain for " ++ show i ++ " iterations."
   mcmcPrintStdMonitorHeader a''
   mcmcIterate i a''
@@ -148,7 +153,7 @@ mcmcNewRun a = do
 mcmcContinueRun :: Algorithm a => a -> MCMC a
 mcmcContinueRun a = do
   s <- reader settings
-  let iTotal = sIterations s + burnInIterations (sBurnIn s)
+  let iTotal = fromIterations (sIterations s) + burnInIterations (sBurnIn s)
   mcmcInfoB "Continuation of MCMC sampler."
   let iCurrent = aIteration a
   mcmcInfoS $ "Current iteration: " ++ show iCurrent ++ "."
@@ -249,7 +254,7 @@ mcmcClose a = do
 mcmcRun :: Algorithm a => a -> MCMC a
 mcmcRun a = do
   mcmcDebugB "The settings are:"
-  reader settings >>= mcmcDebugS . show
+  reader settings >>= mcmcDebugS . ppShow
 
   -- Initialize.
   a' <- mcmcInitialize a
@@ -273,5 +278,5 @@ mcmc s a = do
 mcmcContinue :: Algorithm a => Int -> Settings -> a -> IO a
 mcmcContinue dn s = mcmc s'
   where
-    n = sIterations s
-    s' = s {sIterations = n + dn, sExecutionMode = Continue}
+    n' = Iterations $ fromIterations (sIterations s) + dn
+    s' = s {sIterations = n', sExecutionMode = Continue}

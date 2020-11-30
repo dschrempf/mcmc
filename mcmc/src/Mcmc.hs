@@ -148,13 +148,15 @@ module Mcmc
     setOrder,
 
     -- * Settings
+    Settings (..),
+    -- ** Data types
     AnalysisName (..),
     BurnInSpecification (..),
+    Iterations (..),
     ExecutionMode (..),
     ParallelizationMode (..),
     SaveMode (..),
     Verbosity (..),
-    Settings (..),
 
     -- * Monitor
 

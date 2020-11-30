@@ -110,12 +110,6 @@ monTreeR = monitorFile "-unconstrained" [_unconstrainedTree >$< monitorTree "Tre
 mon :: Tree e a -> Monitor I
 mon t = Monitor (monStd t) [monFile t, monTreeT, monTreeR] []
 
-burnIn :: BurnInSpecification
-burnIn = BurnInWithAutoTuning 2000 100
-
-iterations :: Int
-iterations = 20000
-
 main :: IO ()
 main = do
   let r =
@@ -131,8 +125,8 @@ main = do
   let mcmcS =
         Settings
           (AnalysisName "test-tree")
-          burnIn
-          iterations
+          (BurnInWithAutoTuning 2000 100)
+          (Iterations 20000)
           Overwrite
           Sequential
           NoSave

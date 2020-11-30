@@ -176,17 +176,8 @@ monBatch = monitorBatch "-branches" branchBatchMons 100
 mon :: Monitor (Tree Length)
 mon = Monitor monStdOut [monFile] [monBatch]
 
--- Burn in specification.
-burnIn :: BurnInSpecification
-burnIn = BurnInWithAutoTuning 4000 200
-
--- Number of Metropolis-Hasting-Green iterations after burn in.
-iterations :: Int
-iterations = 20000
-
--- Name of the analysis; used as prefix of the output file names.
-name :: AnalysisName
-name = AnalysisName "plh"
+analysisName :: AnalysisName
+analysisName = AnalysisName "plh"
 
 -- The main program.
 main :: IO ()
@@ -198,7 +189,15 @@ main = do
     [] -> do
       g <- create
       -- Combine all the objects defined above.
-      let s = Settings name burnIn iterations Overwrite Sequential (SaveWithTrace 1000) Debug
+      let s =
+            Settings
+              analysisName
+              (BurnInWithAutoTuning 4000 200)
+              (Iterations 20000)
+              Overwrite
+              Sequential
+              (SaveWithTrace 1000)
+              Debug
           -- Initialize the Metropolis-Hastings-Green algorithm.
           a = mhg pr (lh meanTree stdDevTree) cc mon startingTree g
       -- Run the MCMC sampler.
@@ -212,8 +211,8 @@ main = do
       -- sets the tuning parameters of the proposals in the cycle. Using different
       -- proposals in the cycle, or using different monitors may lead to undefined
       -- behavior and is not supported.
-      s <- settingsLoad name
-      a <- mhgLoad pr (lh meanTree stdDevTree) cc mon name
+      s <- settingsLoad analysisName
+      a <- mhgLoad pr (lh meanTree stdDevTree) cc mon analysisName
       -- Continue the MCMC sampler for the given number of iterations.
       void $ mcmcContinue (read nStr) s a
     xs -> do

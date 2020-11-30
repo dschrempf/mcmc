@@ -32,6 +32,7 @@ import Data.Aeson.TH
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.Double.Conversion.ByteString as BC
+import Data.Time
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 import Data.Word
@@ -42,7 +43,6 @@ import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
-import Mcmc.Environment
 import Mcmc.Internal.Random
 import Mcmc.Monitor
 import Mcmc.Proposal
@@ -360,10 +360,11 @@ mc3Iterate c a
     -- 2. Iterate all chains and increment iteration.
     --
     -- In any case, the MHG algorithm only gets one capability.
-    mhgs <- if c > 1
-      -- Use 'forkIO'.
-      then V.fromList <$> P.mapM (aIterate 1) (V.toList (mc3MHGChains a'))
-      else V.mapM (aIterate 1) (mc3MHGChains a')
+    mhgs <-
+      if c > 1
+        then -- Use 'forkIO'.
+          V.fromList <$> P.mapM (aIterate 1) (V.toList (mc3MHGChains a'))
+        else V.mapM (aIterate 1) (mc3MHGChains a')
     let i = mc3Iteration a'
     return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
   | otherwise = error " mc3Iterate: Number of capabilities is zero or negative."
@@ -462,16 +463,6 @@ amendAnalysisName i an = AnalysisName $ nm ++ suf
     nm = fromAnalysisName an
     suf = printf "%02d" i
 
--- TODO: THIS HAS TO GO :).
-amendEnvironment :: Int -> Environment -> Environment
-amendEnvironment i e = e {settings = s''}
-  where
-    s = settings e
-    n = fromAnalysisName $ sAnalysisName s
-    suf = printf "%02d" i
-    s' = s {sAnalysisName = AnalysisName $ n ++ suf}
-    s'' = if i == 0 then s' else s' {sVerbosity = Quiet}
-
 -- See 'amendEnvironment'.
 --
 -- No extra monitors are opened.
@@ -482,13 +473,21 @@ mc3OpenMonitors nm em a = do
   where
     f i = aOpenMonitors (amendAnalysisName i nm) em
 
--- TODO: Parallel execution?
-
--- TODO: It is a little unfortunate that we have to amend the environment every time.
-mc3ExecuteMonitors :: ToJSON a => Environment -> MC3 a -> IO (Maybe BL.ByteString)
-mc3ExecuteMonitors e a = V.head <$> V.imapM f (mc3MHGChains a)
+mc3ExecuteMonitors ::
+  ToJSON a =>
+  Verbosity ->
+  -- Starting time.
+  UTCTime ->
+  -- Total number of iterations.
+  Int ->
+  MC3 a ->
+  IO (Maybe BL.ByteString)
+mc3ExecuteMonitors vb t0 iTotal a = V.head <$> V.imapM f (mc3MHGChains a)
   where
-    f i = aExecuteMonitors (amendEnvironment i e)
+    -- The first chain honors verbosity.
+    f 0 = aExecuteMonitors vb t0 iTotal
+    -- All other chains are to be quiet.
+    f _ = aExecuteMonitors Quiet t0 iTotal
 
 mc3StdMonitorHeader :: ToJSON a => MC3 a -> BL.ByteString
 mc3StdMonitorHeader = aStdMonitorHeader . V.head . mc3MHGChains

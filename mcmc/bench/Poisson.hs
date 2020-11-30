@@ -71,7 +71,7 @@ poissonBench g = do
         Settings
           (AnalysisName "Poisson")
           (BurnInWithAutoTuning 2000 200)
-          10000
+          (Iterations 10000)
           Overwrite
           Sequential
           NoSave

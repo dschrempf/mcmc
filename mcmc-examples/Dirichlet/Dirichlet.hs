@@ -120,12 +120,6 @@ start = I as 1.0
   where
     as = simplexUniform (V.length alphasTrue)
 
-burnIn :: BurnInSpecification
-burnIn = BurnInWithAutoTuning 3000 100
-
-iterations :: Int
-iterations = 30000
-
 main :: IO ()
 main = do
   g <- create
@@ -138,8 +132,8 @@ main = do
       s =
         Settings
           (AnalysisName "dirichlet")
-          burnIn
-          iterations
+          (BurnInWithAutoTuning 3000 100)
+          (Iterations 30000)
           Overwrite
           Sequential
           NoSave

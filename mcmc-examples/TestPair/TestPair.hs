@@ -57,22 +57,14 @@ monFile = monitorFile "" monPs 50
 mon :: Monitor I
 mon = Monitor monStd [monFile] []
 
--- Number of burn in iterations and auto tuning period.
-burnIn :: BurnInSpecification
-burnIn = BurnInWithAutoTuning 20000 1000
-
--- Number of iterations after burn in.
-iterations :: Int
-iterations = 100000
-
 main :: IO ()
 main = do
   g <- create
   let mcmcS =
         Settings
           (AnalysisName "test-pair")
-          burnIn
-          iterations
+          (BurnInWithAutoTuning 20000 1000)
+          (Iterations 100000)
           Overwrite
           Sequential
           NoSave

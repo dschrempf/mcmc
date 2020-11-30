@@ -338,5 +338,5 @@ burnIn :: BurnInSpecification
 burnIn = BurnInWithAutoTuning 3000 100
 
 -- | Number of iterations after burn in.
-iterations :: Int
-iterations = 40000
+iterations :: Iterations
+iterations = Iterations 40000

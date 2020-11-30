@@ -72,6 +72,7 @@ library
     , mwc-random
     , monad-parallel
     , parallel
+    , pretty-show
     , primitive
     , statistics
     , time

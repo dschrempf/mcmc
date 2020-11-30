@@ -26,12 +26,12 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Time
 import Mcmc.Algorithm
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
-import Mcmc.Environment
 import Mcmc.Monitor
 import Mcmc.Proposal
 import Mcmc.Settings
@@ -211,17 +211,19 @@ mhgOpenMonitors nm em (MHG c) = do
   where
     m = monitor c
 
-mhgExecuteMonitors :: Environment -> MHG a -> IO (Maybe BL.ByteString)
-mhgExecuteMonitors e (MHG c) = mExec vb i i0 t0 tr j m
+mhgExecuteMonitors ::
+  Verbosity ->
+  -- Starting time.
+  UTCTime ->
+  -- Total number of iterations.
+  Int ->
+  MHG a ->
+  IO (Maybe BL.ByteString)
+mhgExecuteMonitors vb t0 iTotal (MHG c) = mExec vb i i0 t0 tr iTotal m
   where
-    s = settings e
-    vb = sVerbosity s
     i = iteration c
     i0 = start c
-    t0 = startingTime e
     tr = trace c
-    b = burnInIterations $ sBurnIn s
-    j = sIterations s + b
     m = monitor c
 
 mhgStdMonitorHeader :: MHG a -> BL.ByteString
