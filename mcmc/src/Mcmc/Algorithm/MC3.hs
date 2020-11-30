@@ -362,10 +362,12 @@ mc3Iterate c a
         then mc3ProposeSwap a
         else return a
     -- 2. Iterate all chains and increment iteration.
+    --
+    -- In any case, the MHG algorithm only gets one capability.
     mhgs <- if c > 1
       -- Use 'forkIO'.
-      then V.fromList <$> P.mapM aIterate (V.toList (mc3MHGChains a'))
-      else V.mapM aIterate (mc3MHGChains a')
+      then V.fromList <$> P.mapM (aIterate 1) (V.toList (mc3MHGChains a'))
+      else V.mapM (aIterate 1) (mc3MHGChains a')
     let i = mc3Iteration a'
     return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
   | otherwise = error " mc3Iterate: Number of capabilities is zero or negative."
