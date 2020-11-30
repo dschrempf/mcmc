@@ -13,9 +13,11 @@
 -- Creation date: Mon Nov 16 14:37:11 2020.
 module Mcmc.Algorithm
   ( Algorithm (..),
+    aParallelizationCheck,
   )
 where
 
+import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Mcmc.Environment
 
@@ -62,3 +64,15 @@ class Algorithm t a where
     String ->
     t a ->
     IO ()
+
+-- TODO: Splitmix. Guess what? Remove IO.
+-- | For a given algorithm check if parallelization is beneficial.
+aParallelizationCheck ::
+  Algorithm t a =>
+  t a ->
+  -- Number of capabilities to use with 'aIterate'.
+  IO Int
+aParallelizationCheck a = do
+  c <- getNumCapabilities
+  -- TODO.
+  undefined

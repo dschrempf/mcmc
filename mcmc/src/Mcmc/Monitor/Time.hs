@@ -14,12 +14,14 @@
 module Mcmc.Monitor.Time
   ( renderDuration,
     renderDurationS,
+    renderTime,
   )
 where
 
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Time.Clock
+import Data.Time.Format
 import Mcmc.Internal.ByteString
 
 -- | Adapted from System.ProgressBar.renderDuration of package
@@ -43,3 +45,7 @@ renderDurationS dt = BB.toLazyByteString $ BB.intDec ts
   where
     ts :: Int
     ts = round dt
+
+-- | Render a time stamp.
+renderTime :: FormatTime t => t -> String
+renderTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."

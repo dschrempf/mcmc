@@ -15,7 +15,6 @@ module Mcmc.Environment
   )
 where
 
-import Control.Concurrent
 import Data.Time.Clock
 import Mcmc.Settings
 import System.IO
@@ -23,6 +22,8 @@ import System.IO
 -- | The environment of an MCMC run.
 data Environment = Environment
   { settings :: Settings,
+    -- | We have to use 'Maybe' here, because we do not want to open any log
+    -- file when being 'Quiet'.
     logHandle :: Maybe Handle,
     -- | Number of capabilities.
     numCap :: Int,
@@ -34,10 +35,13 @@ data Environment = Environment
 -- | Initialize the environment.
 --
 -- Open log file, get current time.
-initializeEnvironment :: Settings -> IO Environment
-initializeEnvironment s = do
+initializeEnvironment ::
+  Settings ->
+  -- | Number of capabilities.
+  Int ->
+  IO Environment
+initializeEnvironment s c = do
   t <- getCurrentTime
-  c <- getNumCapabilities
   case sVerbosity s of
     Quiet -> return $ Environment s Nothing c t
     _ -> do

@@ -27,7 +27,6 @@ import Control.Monad.Trans.RWS.CPS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Maybe
 import Data.Time.Clock
-import Data.Time.Format
 import Mcmc.Algorithm
 import Mcmc.Environment
 import Mcmc.Monitor.Time
@@ -47,7 +46,8 @@ mcmcOutB :: BL.ByteString -> BL.ByteString -> MCMC a ()
 mcmcOutB pref msg = do
   h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> reader logHandle
   liftIO $ BL.putStrLn msg' >> BL.hPutStrLn h msg'
-  where msg' = msgPrepare pref msg
+  where
+    msg' = msgPrepare pref msg
 
 -- -- Perform warning action.
 -- mcmcWarnA :: MCMC a () -> MCMC a ()
@@ -85,14 +85,11 @@ mcmcDebugB = mcmcDebugA . mcmcOutB "D: "
 mcmcDebugS :: String -> MCMC a ()
 mcmcDebugS = mcmcDebugB . BL.pack
 
-fTime :: FormatTime t => t -> String
-fTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."
-
 mcmcReportTime :: MCMC a ()
 mcmcReportTime = do
   mcmcDebugB "Report time."
   ti <- reader startingTime
-  mcmcInfoS $ "Starting time: " <> fTime ti
+  mcmcInfoS $ "Starting time of MCMC sampler: " <> renderTime ti
 
 mcmcExecute :: Algorithm t a => MCMC (t a) ()
 mcmcExecute = do
@@ -214,7 +211,7 @@ mcmcClose = do
   te <- liftIO getCurrentTime
   let dt = te `diffUTCTime` ti
   mcmcInfoB $ "Wall clock run time: " <> renderDuration dt <> "."
-  mcmcInfoS $ "End time: " <> fTime te
+  mcmcInfoS $ "End time: " <> renderTime te
   h <- reader logHandle
   liftIO $ forM_ h hClose
 
@@ -261,7 +258,8 @@ mcmcRun = do
 mcmc :: Algorithm t a => Settings -> t a -> IO (t a)
 mcmc s a = do
   settingsCheck s $ aIteration a
-  e <- initializeEnvironment s
+  c <- aParallelizationCheck a
+  e <- initializeEnvironment s c
   fst <$> execRWST mcmcRun e a
 
 -- | Continue an MCMC algorithm for the given number of iterations.
