@@ -390,14 +390,16 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     coldLhF = likelihoodFunction coldChain
     optimalRate = getOptimalRate PDimensionUnknown
     currentRate = mc3GetAcceptanceRate a
+    -- The factor (1/4) was determined by a few tests and is otherwise
+    -- absolutely arbitrary.
     xi = exp $ (/ 4) $ currentRate - optimalRate
     bs = mc3ReciprocalTemperatures a
     -- The reciprocal temperatures are changed differently for each chain so
     -- that the monotonicity of the reciprocal temperatures is retained.
-    bf i b = b * (xi ** (fromIntegral i + 1))
+    bf b = b ** xi
     -- Do not change the temperature, and the prior and likelihood functions of
     -- the cold chain.
-    bs' = U.head bs `U.cons` U.imap bf (U.tail bs)
+    bs' = U.head bs `U.cons` U.map bf (U.tail bs)
     mhgs'' =
       V.head mhgs'
         `V.cons` V.zipWith
