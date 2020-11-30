@@ -1,6 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -140,7 +138,7 @@ data MC3 a = MC3
     mc3Generator :: GenIO
   }
 
-instance ToJSON a => Algorithm MC3 a where
+instance ToJSON a => Algorithm (MC3 a) where
   aName = const "Metropolis-coupled Markov chain Monte Carlo (MC3)"
   aIteration = mc3Iteration
   aIterate = mc3Iterate

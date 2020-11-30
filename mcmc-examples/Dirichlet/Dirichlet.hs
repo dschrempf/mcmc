@@ -136,7 +136,7 @@ main = do
   let
     lh = lhf xs
     -- Settings.
-    s = Settings "dirichlet" burnIn iterations Overwrite NoSave Info
+    s = Settings "dirichlet" burnIn iterations Overwrite Sequential NoSave Info
     -- Initialize the Metropolis-Hastings-Green algorithm.
     a = mhg pr lh cc mon start g
   -- Run the MCMC sampler.

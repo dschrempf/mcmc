@@ -198,7 +198,7 @@ main = do
     [] -> do
       g <- create
       -- Combine all the objects defined above.
-      let s = Settings name burnIn iterations Overwrite (SaveWithTrace 1000) Debug
+      let s = Settings name burnIn iterations Overwrite Sequential (SaveWithTrace 1000) Debug
           -- Initialize the Metropolis-Hastings-Green algorithm.
           a = mhg pr (lh meanTree stdDevTree) cc mon startingTree g
       -- Run the MCMC sampler.

@@ -1,6 +1,4 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
@@ -44,7 +42,7 @@ import Prelude hiding (cycle)
 -- | The Metropolis-Hastings-Green (MHG) algorithm.
 newtype MHG a = MHG {fromMHG :: Chain a}
 
-instance ToJSON a => Algorithm MHG a where
+instance ToJSON a => Algorithm (MHG a) where
   aName = const "Metropolis-Hastings-Green (MHG)"
   aIteration = iteration . fromMHG
   aIterate = mhgIterate

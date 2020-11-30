@@ -146,6 +146,7 @@ module Mcmc
     -- * Settings
     BurnIn (..),
     ExecutionMode (..),
+    ParallelizationMode (..),
     SaveMode (..),
     Verbosity (..),
     Settings (..),

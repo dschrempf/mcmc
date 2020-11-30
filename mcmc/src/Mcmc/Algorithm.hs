@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 -- |
 -- Module      :  Mcmc.Algorithm
 -- Description :  Algortihms for Markov chain Monte Carlo samplers
@@ -21,40 +19,40 @@ import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Mcmc.Environment
 
--- | @t@ is the algorithm, @a@ is the state space.
-class Algorithm t a where
-  aName :: t a -> String
+-- | Class for algorithms used by MCMC samplers.
+class Algorithm a where
+  aName :: a -> String
 
-  aIteration :: t a -> Int
+  aIteration :: a -> Int
 
   -- TODO: Splitmix. Remove IO monad constraint as soon as possible.
 
   aIterate ::
     -- | Number of capabilities for parallel execution.
     Int ->
-    t a ->
-    IO (t a)
+    a ->
+    IO a
 
-  aAutoTune :: t a -> t a
+  aAutoTune :: a -> a
 
-  aResetAcceptance :: t a -> t a
+  aResetAcceptance :: a -> a
 
-  aSummarizeCycle :: t a -> BL.ByteString
+  aSummarizeCycle :: a -> BL.ByteString
 
   -- | Open all monitor files and provide the file handles.
-  aOpenMonitors :: Environment -> t a -> IO (t a)
+  aOpenMonitors :: Environment -> a -> IO a
 
   -- TODO: Can I remove the 'Environment' argument? See 'mc3ExecuteMonitors'.
 
   -- | Execute file monitors and possible return a string to be written to the
   -- standard output and the log file.
-  aExecuteMonitors :: Environment -> t a -> IO (Maybe BL.ByteString)
+  aExecuteMonitors :: Environment -> a -> IO (Maybe BL.ByteString)
 
   -- | Header of monitor to standard output.
-  aStdMonitorHeader :: t a -> BL.ByteString
+  aStdMonitorHeader :: a -> BL.ByteString
 
   -- | Close all files and remove the file handles.
-  aCloseMonitors :: t a -> IO (t a)
+  aCloseMonitors :: a -> IO a
 
   -- | Save chain(s).
   aSave ::
@@ -62,14 +60,14 @@ class Algorithm t a where
     Int ->
     -- | Analysis name.
     String ->
-    t a ->
+    a ->
     IO ()
 
 -- TODO: Splitmix. Guess what? Remove IO.
 -- | For a given algorithm check if parallelization is beneficial.
 aParallelizationCheck ::
-  Algorithm t a =>
-  t a ->
+  Algorithm a =>
+  a ->
   -- Number of capabilities to use with 'aIterate'.
   IO Int
 aParallelizationCheck a = do

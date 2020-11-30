@@ -55,7 +55,7 @@ spec =
     it "doesn't change the MCMC chain" $
       do
         gen <- R.create
-        let s = Settings "SaveSpec" (BurnInWithAutoTuning 20 10) 200 Overwrite NoSave Quiet
+        let s = Settings "SaveSpec" (BurnInWithAutoTuning 20 10) 200 Overwrite Sequential NoSave Quiet
             c = fromMHG $ mhg noPrior lh proposals mon 0 gen
             c' = fromSavedChain noPrior lh proposals mon $ toSavedChain 100 c
         removeFile "SaveSpec.chain"

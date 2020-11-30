@@ -25,7 +25,7 @@ data Environment = Environment
     -- | We have to use 'Maybe' here, because we do not want to open any log
     -- file when being 'Quiet'.
     logHandle :: Maybe Handle,
-    -- | Number of capabilities.
+    -- | Number of used capabilities.
     numCap :: Int,
     -- | Used to calculate the ETA.
     startingTime :: UTCTime
@@ -42,11 +42,12 @@ initializeEnvironment ::
   IO Environment
 initializeEnvironment s c = do
   t <- getCurrentTime
-  case sVerbosity s of
-    Quiet -> return $ Environment s Nothing c t
+  mh <- case sVerbosity s of
+    Quiet -> return Nothing
     _ -> do
       h <- openWithExecutionMode em fn
-      return $ Environment s (Just h) c t
+      return $ Just h
+  return $ Environment s mh c t
   where
     fn = sAnalysisName s ++ ".log"
     em = sExecutionMode s

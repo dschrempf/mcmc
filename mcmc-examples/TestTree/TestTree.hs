@@ -128,7 +128,7 @@ main = do
   print r
   print t
   g <- create
-  let mcmcS = Settings "test-tree" burnIn iterations Overwrite NoSave Info
+  let mcmcS = Settings "test-tree" burnIn iterations Overwrite Sequential NoSave Info
       -- Metropolis-Hastings-Green algorithm.
       a = mhg pr noLikelihood cc' (mon t) (I t r) g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.

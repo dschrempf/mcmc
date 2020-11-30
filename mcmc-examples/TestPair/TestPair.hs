@@ -68,7 +68,7 @@ iterations = 100000
 main :: IO ()
 main = do
   g <- create
-  let mcmcS = Settings "test-pair" burnIn iterations Overwrite NoSave Info
+  let mcmcS = Settings "test-pair" burnIn iterations Overwrite Sequential NoSave Info
       -- Metropolis-Hastings-Green algorithm.
       a = mhg pr lh cc mon (1, 1) g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
