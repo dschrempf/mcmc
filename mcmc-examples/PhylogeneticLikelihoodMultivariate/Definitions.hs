@@ -58,8 +58,8 @@ fnInTrees :: FilePath
 fnInTrees = "mcmc-examples/PhylogeneticLikelihoodMultivariate/data-landplants/alignment_201020.phy_gtr_1.treelist"
 
 -- | Base name of analysis.
-bnAnalysis :: String
-bnAnalysis = "plh-multivariate"
+bnAnalysis :: AnalysisName
+bnAnalysis = AnalysisName "plh-multivariate"
 
 -- | State space containing all parameters.
 --
@@ -334,7 +334,7 @@ monitor :: [Calibration] -> [Constraint] -> Monitor I
 monitor cb cs = Monitor monStdOut [monFileParams cb cs, monFileTimeTree, monFileRateTree] []
 
 -- | Number of burn in iterations and auto tuning period.
-burnIn :: BurnIn
+burnIn :: BurnInSpecification
 burnIn = BurnInWithAutoTuning 3000 100
 
 -- | Number of iterations after burn in.

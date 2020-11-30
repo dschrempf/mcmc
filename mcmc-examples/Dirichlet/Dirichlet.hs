@@ -120,7 +120,7 @@ start = I as 1.0
   where
     as = simplexUniform (V.length alphasTrue)
 
-burnIn :: BurnIn
+burnIn :: BurnInSpecification
 burnIn = BurnInWithAutoTuning 3000 100
 
 iterations :: Int
@@ -133,12 +133,19 @@ main = do
   xs <- simulateData g
   print xs
   print start
-  let
-    lh = lhf xs
-    -- Settings.
-    s = Settings "dirichlet" burnIn iterations Overwrite Sequential NoSave Info
-    -- Initialize the Metropolis-Hastings-Green algorithm.
-    a = mhg pr lh cc mon start g
+  let lh = lhf xs
+      -- Settings.
+      s =
+        Settings
+          (AnalysisName "dirichlet")
+          burnIn
+          iterations
+          Overwrite
+          Sequential
+          NoSave
+          Info
+      -- Initialize the Metropolis-Hastings-Green algorithm.
+      a = mhg pr lh cc mon start g
   -- Run the MCMC sampler.
   _ <- mcmc s a
   putStrLn "Done."

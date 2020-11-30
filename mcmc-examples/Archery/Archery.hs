@@ -88,7 +88,7 @@ mon :: Monitor Precision
 mon = Monitor monStd [monFile] [monBatch]
 
 -- Number of burn in iterations.
-burnIn :: BurnIn
+burnIn :: BurnInSpecification
 burnIn = BurnInWithAutoTuning 200000 10000
 
 -- Number of iterations after burn in.
@@ -101,7 +101,15 @@ main = do
   -- Simulate a list of observed arrow distances.
   xs <- distances g
   -- MCMC settings and algorithm.
-  let s = Settings "archery" burnIn iterations Overwrite Sequential NoSave Info
+  let s =
+        Settings
+          (AnalysisName "archery")
+          burnIn
+          iterations
+          Overwrite
+          Sequential
+          NoSave
+          Info
       -- Use the Metropolis-Hastings-Green (MHG) algorithm.
       a = mhg pr (lh xs) cc mon 0.01 g
   -- Run the MCMC sampler.

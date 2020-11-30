@@ -44,7 +44,15 @@ mon = Monitor monStd [] []
 
 normalSlide :: GenIO -> IO ()
 normalSlide g = do
-  let s = Settings "Normal" (BurnInWithAutoTuning 2000 500) 20000 Overwrite Sequential NoSave Quiet
+  let s =
+        Settings
+          (AnalysisName "Normal")
+          (BurnInWithAutoTuning 2000 500)
+          20000
+          Overwrite
+          Sequential
+          NoSave
+          Quiet
       a = mhg noPrior lh cc mon 0 g
   void $ mcmc s a
 
@@ -56,7 +64,15 @@ ccLarge =
 -- Should have the same run time as 'normalSlide'.
 normalLargeCycleBench :: GenIO -> IO ()
 normalLargeCycleBench g = do
-  let s = Settings "Normal" (BurnInWithAutoTuning 20 5) 200 Overwrite Sequential NoSave Quiet
+  let s =
+        Settings
+          (AnalysisName "Normal")
+          (BurnInWithAutoTuning 20 5)
+          200
+          Overwrite
+          Sequential
+          NoSave
+          Quiet
       a = mhg noPrior lh ccLarge mon 0 g
   void $ mcmc s a
 
@@ -65,13 +81,29 @@ ccBactrian = cycleFromList [slideBactrian 0.5 1.0 (PName "Bactrian") (PWeight 1)
 
 normalBactrianBench :: GenIO -> IO ()
 normalBactrianBench g = do
-  let s = Settings "NormalBactrian" (BurnInWithAutoTuning 2000 200) 20000 Overwrite Sequential NoSave Quiet
+  let s =
+        Settings
+          (AnalysisName "NormalBactrian")
+          (BurnInWithAutoTuning 2000 200)
+          20000
+          Overwrite
+          Sequential
+          NoSave
+          Quiet
       a = mhg noPrior lh ccBactrian mon 0 g
   void $ mcmc s a
 
 normalMC3 :: GenIO -> Int -> IO ()
 normalMC3 g n = do
-  let mcmcS = Settings "MC3" (BurnInWithAutoTuning 200 20) 2000 Overwrite Sequential NoSave Quiet
+  let mcmcS =
+        Settings
+          (AnalysisName "MC3")
+          (BurnInWithAutoTuning 200 20)
+          2000
+          Overwrite
+          Sequential
+          NoSave
+          Quiet
       mc3S = MC3Settings n 2 MC3SwapNeighbors
   a <- mc3 mc3S noPrior lh cc mon 0 g
   void $ mcmc mcmcS a

@@ -73,16 +73,15 @@ mhg pr lh cc mn i0 g = MHG $ Chain l0 0 tr ac g 0 pr lh cc mn
     tr = singletonT l0
     ac = emptyA $ ccProposals cc
 
-mhgFn :: String -> FilePath
-mhgFn nm = nm ++ ".chain"
+mhgFn :: AnalysisName -> FilePath
+mhgFn (AnalysisName nm) = nm ++ ".chain"
 
 -- | Save an MHG algorithm.
 mhgSave ::
   ToJSON a =>
   -- | Maximum length of trace.
   Int ->
-  -- | Analysis name.
-  String ->
+  AnalysisName ->
   MHG a ->
   IO ()
 mhgSave n nm (MHG c) = BL.writeFile (mhgFn nm) $ compress $ encode $ toSavedChain n c
@@ -94,8 +93,7 @@ mhgLoad ::
   LikelihoodFunction a ->
   Cycle a ->
   Monitor a ->
-  -- | Analysis name.
-  String ->
+  AnalysisName ->
   IO (MHG a)
 mhgLoad pr lh cc mn nm =
   MHG
@@ -206,15 +204,12 @@ mhgSummarizeCycle (MHG c) = summarizeCycle ac cc
     cc = cycle c
     ac = acceptance c
 
-mhgOpenMonitors :: Environment -> MHG a -> IO (MHG a)
-mhgOpenMonitors e (MHG c) = do
+mhgOpenMonitors :: AnalysisName -> ExecutionMode -> MHG a -> IO (MHG a)
+mhgOpenMonitors nm em (MHG c) = do
   m' <- mOpen nm em m
   return $ MHG c {monitor = m'}
   where
     m = monitor c
-    s = settings e
-    nm = sAnalysisName s
-    em = sExecutionMode s
 
 mhgExecuteMonitors :: Environment -> MHG a -> IO (Maybe BL.ByteString)
 mhgExecuteMonitors e (MHG c) = mExec vb i i0 t0 tr j m

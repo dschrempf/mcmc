@@ -58,7 +58,7 @@ mon :: Monitor I
 mon = Monitor monStd [monFile] []
 
 -- Number of burn in iterations and auto tuning period.
-burnIn :: BurnIn
+burnIn :: BurnInSpecification
 burnIn = BurnInWithAutoTuning 20000 1000
 
 -- Number of iterations after burn in.
@@ -68,7 +68,15 @@ iterations = 100000
 main :: IO ()
 main = do
   g <- create
-  let mcmcS = Settings "test-pair" burnIn iterations Overwrite Sequential NoSave Info
+  let mcmcS =
+        Settings
+          (AnalysisName "test-pair")
+          burnIn
+          iterations
+          Overwrite
+          Sequential
+          NoSave
+          Info
       -- Metropolis-Hastings-Green algorithm.
       a = mhg pr lh cc mon (1, 1) g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.

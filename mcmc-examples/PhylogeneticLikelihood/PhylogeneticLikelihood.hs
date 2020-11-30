@@ -177,7 +177,7 @@ mon :: Monitor (Tree Length)
 mon = Monitor monStdOut [monFile] [monBatch]
 
 -- Burn in specification.
-burnIn :: BurnIn
+burnIn :: BurnInSpecification
 burnIn = BurnInWithAutoTuning 4000 200
 
 -- Number of Metropolis-Hasting-Green iterations after burn in.
@@ -185,8 +185,8 @@ iterations :: Int
 iterations = 20000
 
 -- Name of the analysis; used as prefix of the output file names.
-name :: String
-name = "plh"
+name :: AnalysisName
+name = AnalysisName "plh"
 
 -- The main program.
 main :: IO ()

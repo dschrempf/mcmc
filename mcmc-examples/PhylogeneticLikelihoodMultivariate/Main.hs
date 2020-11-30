@@ -69,7 +69,7 @@ import Tools
 {- ORMOLU_ENABLE -}
 
 fnMeanTree :: FilePath
-fnMeanTree = bnAnalysis ++ ".meantree"
+fnMeanTree = fromAnalysisName bnAnalysis ++ ".meantree"
 
 -- The rooted tree with posterior mean branch lengths will be stored in a file
 -- with this name.
@@ -77,7 +77,7 @@ getMeanTree :: IO (Tree Length Name)
 getMeanTree = oneTree fnMeanTree
 
 fnData :: FilePath
-fnData = bnAnalysis ++ ".data"
+fnData = fromAnalysisName bnAnalysis ++ ".data"
 
 -- Get the posterior branch length means, the inverted covariance matrix, and
 -- the determinant of the covariance matrix.
@@ -242,7 +242,7 @@ continueMetropolisHastingsGreen n = do
 
   -- Load the MCMC settings and the algorithm.
   s <- settingsLoad bnAnalysis
-  a <- mhgLoad pr' lh' cc' mon' bnAnalysis
+  a <- mc3Load pr' lh' cc' mon' bnAnalysis
   void $ mcmcContinue n s a
 
 main :: IO ()

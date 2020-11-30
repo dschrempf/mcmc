@@ -300,12 +300,11 @@ mbClose m = case mbHandle m of
 
 -- | Open the files associated with the 'Monitor'.
 mOpen ::
-  -- | Analysis name.
-  String ->
+  AnalysisName ->
   ExecutionMode ->
   Monitor a ->
   IO (Monitor a)
-mOpen n em (Monitor s fs bs) = do
+mOpen (AnalysisName n) em (Monitor s fs bs) = do
   fs' <- mapM (mfOpen n em) fs
   unless (em == Continue) $ mapM_ mfHeader fs'
   bs' <- mapM (mbOpen n em) bs

@@ -231,16 +231,15 @@ mc3 s pr lh cc mn i0 g
           l = link c
        in MHG $ c {trace = singletonT l}
 
-mc3Fn :: String -> FilePath
-mc3Fn nm = nm ++ ".mc3chain"
+mc3Fn :: AnalysisName -> FilePath
+mc3Fn (AnalysisName nm) = nm ++ ".mc3chain"
 
 -- | Save an MC3 algorithm.
 mc3Save ::
   ToJSON a =>
   -- | Maximum length of trace.
   Int ->
-  -- | Analysis name.
-  String ->
+  AnalysisName ->
   MC3 a ->
   IO ()
 mc3Save n nm a = BL.writeFile (mc3Fn nm) $ compress $ encode $ toMC3Saved n a
@@ -252,8 +251,7 @@ mc3Load ::
   LikelihoodFunction a ->
   Cycle a ->
   Monitor a ->
-  -- | Analysis name.
-  String ->
+  AnalysisName ->
   IO (MC3 a)
 mc3Load pr lh cc mn nm =
   either error (fromMC3Saved pr lh cc mn)
@@ -458,24 +456,31 @@ mc3SummarizeCycle a =
 --
 -- - Do not temper with verbosity of cold chain, but set verbosity of all other
 -- - chains to 'Quiet'.
+amendAnalysisName :: Int -> AnalysisName -> AnalysisName
+amendAnalysisName i an = AnalysisName $ nm ++ suf
+  where
+    nm = fromAnalysisName an
+    suf = printf "%02d" i
+
+-- TODO: THIS HAS TO GO :).
 amendEnvironment :: Int -> Environment -> Environment
 amendEnvironment i e = e {settings = s''}
   where
     s = settings e
-    n = sAnalysisName s
+    n = fromAnalysisName $ sAnalysisName s
     suf = printf "%02d" i
-    s' = s {sAnalysisName = n ++ suf}
+    s' = s {sAnalysisName = AnalysisName $ n ++ suf}
     s'' = if i == 0 then s' else s' {sVerbosity = Quiet}
 
 -- See 'amendEnvironment'.
 --
 -- No extra monitors are opened.
-mc3OpenMonitors :: ToJSON a => Environment -> MC3 a -> IO (MC3 a)
-mc3OpenMonitors e a = do
+mc3OpenMonitors :: ToJSON a => AnalysisName -> ExecutionMode -> MC3 a -> IO (MC3 a)
+mc3OpenMonitors nm em a = do
   mhgs' <- V.imapM f $ mc3MHGChains a
   return $ a {mc3MHGChains = mhgs'}
   where
-    f j = aOpenMonitors (amendEnvironment j e)
+    f i = aOpenMonitors (amendAnalysisName i nm) em
 
 -- TODO: Parallel execution?
 

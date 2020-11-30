@@ -53,7 +53,11 @@
 --
 -- runMcmc :: GenIO -> IO (MHG Double)
 -- runMcmc g = do
---   let s = Settings \"Normal\" (BurnInWithAutoTuning 2000 200) 20000 Overwrite NoSave Quiet
+--   let s = Settings
+--             (AnalysisName \"Normal\")
+--             (BurnInWithAutoTuning 2000 200)
+--             20000 Overwrite Sequential
+--             NoSave Quiet
 --       a = mhg noPrior lh cc mon 0 g
 --   mcmc s a
 -- @
@@ -144,7 +148,8 @@ module Mcmc
     setOrder,
 
     -- * Settings
-    BurnIn (..),
+    AnalysisName (..),
+    BurnInSpecification (..),
     ExecutionMode (..),
     ParallelizationMode (..),
     SaveMode (..),
@@ -193,6 +198,8 @@ module Mcmc
     settingsLoad,
     mhgSave,
     mhgLoad,
+    mc3Save,
+    mc3Load,
 
     -- * Useful type synonyms
     PriorFunction,

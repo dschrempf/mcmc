@@ -17,6 +17,7 @@ where
 
 import Control.Concurrent
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Mcmc.Settings
 import Mcmc.Environment
 
 -- | Class for algorithms used by MCMC samplers.
@@ -40,7 +41,7 @@ class Algorithm a where
   aSummarizeCycle :: a -> BL.ByteString
 
   -- | Open all monitor files and provide the file handles.
-  aOpenMonitors :: Environment -> a -> IO a
+  aOpenMonitors :: AnalysisName -> ExecutionMode -> a -> IO a
 
   -- TODO: Can I remove the 'Environment' argument? See 'mc3ExecuteMonitors'.
 
@@ -58,8 +59,7 @@ class Algorithm a where
   aSave ::
     -- | Maximum length of trace.
     Int ->
-    -- | Analysis name.
-    String ->
+    AnalysisName ->
     a ->
     IO ()
 
@@ -73,4 +73,4 @@ aParallelizationCheck ::
 aParallelizationCheck a = do
   c <- getNumCapabilities
   -- TODO.
-  undefined
+  return 1

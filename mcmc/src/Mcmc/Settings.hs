@@ -13,7 +13,8 @@
 --
 -- Creation date: Mon Nov 16 11:13:01 2020.
 module Mcmc.Settings
-  ( BurnIn (..),
+  ( AnalysisName (..),
+    BurnInSpecification (..),
     burnInIterations,
     ExecutionMode (..),
     openWithExecutionMode,
@@ -33,8 +34,14 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import System.Directory
 import System.IO
 
+-- | Analysis name.
+newtype AnalysisName = AnalysisName { fromAnalysisName :: String }
+  deriving (Eq, Read, Show)
+
+$(deriveJSON defaultOptions ''AnalysisName)
+
 -- | Burn in specification.
-data BurnIn
+data BurnInSpecification
   = -- | No burn in.
     NoBurnIn
   | -- | Burn in for a given number of iterations.
@@ -44,10 +51,10 @@ data BurnIn
     BurnInWithAutoTuning Int Int
   deriving (Eq, Read, Show)
 
-$(deriveJSON defaultOptions ''BurnIn)
+$(deriveJSON defaultOptions ''BurnInSpecification)
 
 -- | Get the number of burn in iterations.
-burnInIterations :: BurnIn -> Int
+burnInIterations :: BurnInSpecification -> Int
 burnInIterations NoBurnIn = 0
 burnInIterations (BurnInWithoutAutoTuning n) = n
 burnInIterations (BurnInWithAutoTuning n _) = n
@@ -119,8 +126,8 @@ $(deriveJSON defaultOptions ''Verbosity)
 -- | Settings of an MCMC sampler.
 data Settings = Settings
   { -- | Analysis name of the MCMC sampler.
-    sAnalysisName :: String,
-    sBurnIn :: BurnIn,
+    sAnalysisName :: AnalysisName,
+    sBurnIn :: BurnInSpecification,
     -- | Number of normal iterations excluding burn in. Note that auto tuning
     -- only happens during burn in.
     sIterations :: Int,
@@ -140,11 +147,11 @@ settingsFn n = n ++ ".settings"
 settingsSave :: Settings -> IO ()
 settingsSave s = BL.writeFile fn $ encode s
   where
-    fn = settingsFn $ sAnalysisName s
+    fn = settingsFn $ fromAnalysisName $ sAnalysisName s
 
--- | Load settings from a given analysis name.
-settingsLoad :: String -> IO Settings
-settingsLoad n = either error id . eitherDecode <$> BL.readFile fn
+-- | Load settings.
+settingsLoad :: AnalysisName -> IO Settings
+settingsLoad (AnalysisName n) = either error id . eitherDecode <$> BL.readFile fn
   where
     fn = settingsFn n
 
@@ -185,7 +192,7 @@ settingsCheck ::
   Int ->
   IO ()
 settingsCheck s@(Settings nm bi i em pm _ _) iCurrent
-  | null nm = serr "Analysis name is the empty string."
+  | null (fromAnalysisName nm) = serr "Analysis name is the empty string."
   | burnInIterations bi < 0 = serr "Number of burn in iterations is negative."
   | not $ burnInAutoTuningPeriodValid bi = serr "Auto tuning period is zero or negative."
   | i < 0 = serr "Number of iterations is negative."
@@ -201,7 +208,7 @@ settingsCheck s@(Settings nm bi i em pm _ _) iCurrent
   where
     serr = settingsError s iCurrent
     --
-    burnInAutoTuningPeriodValid :: BurnIn -> Bool
+    burnInAutoTuningPeriodValid :: BurnInSpecification -> Bool
     burnInAutoTuningPeriodValid (BurnInWithAutoTuning _ t) = t > 0
     burnInAutoTuningPeriodValid _ = True
     --

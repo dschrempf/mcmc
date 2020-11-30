@@ -110,7 +110,7 @@ monTreeR = monitorFile "-unconstrained" [_unconstrainedTree >$< monitorTree "Tre
 mon :: Tree e a -> Monitor I
 mon t = Monitor (monStd t) [monFile t, monTreeT, monTreeR] []
 
-burnIn :: BurnIn
+burnIn :: BurnInSpecification
 burnIn = BurnInWithAutoTuning 2000 100
 
 iterations :: Int
@@ -128,7 +128,15 @@ main = do
   print r
   print t
   g <- create
-  let mcmcS = Settings "test-tree" burnIn iterations Overwrite Sequential NoSave Info
+  let mcmcS =
+        Settings
+          (AnalysisName "test-tree")
+          burnIn
+          iterations
+          Overwrite
+          Sequential
+          NoSave
+          Info
       -- Metropolis-Hastings-Green algorithm.
       a = mhg pr noLikelihood cc' (mon t) (I t r) g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
