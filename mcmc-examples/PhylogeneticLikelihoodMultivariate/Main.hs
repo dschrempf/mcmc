@@ -211,7 +211,7 @@ runMetropolisHastingsGreen = do
   g <- create
 
   -- Construct the Markov chain.
-  let mcmcS = Settings bnAnalysis burnIn iterations Overwrite Sequential (SaveWithTrace 1) Debug
+  let mcmcS = Settings bnAnalysis burnIn iterations Overwrite Parallel (SaveWithTrace 1) Debug
       mc3S = MC3Settings 4 1 MC3SwapNeighbors
   a <- mc3 mc3S pr' lh' cc' mon' start' g
   -- Run the Markov chain.
