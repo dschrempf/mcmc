@@ -177,8 +177,12 @@ mhgPush (MHG c) = MHG c {trace = pushT i t, iteration = succ n}
     t = trace c
     n = iteration c
 
-mhgIterate :: MHG a -> IO (MHG a)
-mhgIterate a = do
+-- Ignore the number of capabilities. I have tried a lot of stuff, but the MHG
+-- algorithm is just inherently sequential. Parallelization can be achieved by
+-- having parallel prior and/or likelihood functions, or by using algorithms
+-- running parallel chains such as 'MC3'.
+mhgIterate :: Int -> MHG a -> IO (MHG a)
+mhgIterate _ a = do
   ps <- orderProposals cc g
   a' <- foldM mhgPropose a ps
   return $ mhgPush a'

@@ -70,6 +70,7 @@ library
     , math-functions
     , microlens
     , mwc-random
+    , monad-parallel
     , parallel
     , primitive
     , statistics

@@ -211,11 +211,12 @@ runMetropolisHastingsGreen = do
   g <- create
 
   -- Construct the Markov chain.
-  let s = Settings bnAnalysis burnIn iterations Overwrite (SaveWithTrace 1) Debug
-      a = mhg pr' lh' cc' mon' start' g
-
+  let mcmcS = Settings bnAnalysis burnIn iterations Overwrite (SaveWithTrace 1) Debug
+      -- a = mhg pr' lh' cc' mon' start' g
+      mc3S = MC3Settings 3 5 MC3SwapNeighbors
+  a <- mc3 mc3S pr' lh' cc' mon' start' g
   -- Run the Markov chain.
-  void $ mcmc s a
+  void $ mcmc mcmcS a
 
 continueMetropolisHastingsGreen :: Int -> IO ()
 continueMetropolisHastingsGreen n = do

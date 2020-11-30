@@ -15,15 +15,17 @@ module Mcmc.Environment
   )
 where
 
+import Control.Concurrent
 import Data.Time.Clock
 import Mcmc.Settings
 import System.IO
-
 
 -- | The environment of an MCMC run.
 data Environment = Environment
   { settings :: Settings,
     logHandle :: Maybe Handle,
+    -- | Number of capabilities.
+    numCap :: Int,
     -- | Used to calculate the ETA.
     startingTime :: UTCTime
   }
@@ -35,11 +37,12 @@ data Environment = Environment
 initializeEnvironment :: Settings -> IO Environment
 initializeEnvironment s = do
   t <- getCurrentTime
+  c <- getNumCapabilities
   case sVerbosity s of
-    Quiet -> return $ Environment s Nothing t
+    Quiet -> return $ Environment s Nothing c t
     _ -> do
       h <- openWithExecutionMode em fn
-      return $ Environment s (Just h) t
+      return $ Environment s (Just h) c t
   where
     fn = sAnalysisName s ++ ".log"
     em = sExecutionMode s

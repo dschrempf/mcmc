@@ -25,9 +25,13 @@ class Algorithm t a where
 
   aIteration :: t a -> Int
 
-  -- TODO: Splitmix. Remove IO monad as soon as possible.
+  -- TODO: Splitmix. Remove IO monad constraint as soon as possible.
 
-  aIterate :: t a -> IO (t a)
+  aIterate ::
+    -- | Number of capabilities for parallel execution.
+    Int ->
+    t a ->
+    IO (t a)
 
   aAutoTune :: t a -> t a
 

@@ -173,8 +173,9 @@ mcmcIterate n
   | n < 0 = error "mcmcIterate: Number of iterations is negative."
   | n == 0 = return ()
   | otherwise = do
+    c <- numCap <$> ask
     -- TODO: Splitmix. Remove IO monad as soon as possible.
-    get >>= liftIO . aIterate >>= put
+    get >>= liftIO . aIterate c >>= put
     mcmcExecuteMonitors
     mcmcIterate (n -1)
 

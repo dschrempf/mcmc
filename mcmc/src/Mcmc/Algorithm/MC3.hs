@@ -28,6 +28,7 @@ module Mcmc.Algorithm.MC3
 where
 
 import Codec.Compression.GZip
+import qualified Control.Monad.Parallel as P
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Builder as BB
@@ -339,21 +340,35 @@ mc3ProposeSwap a = do
     s = mc3Settings a
     g = mc3Generator a
 
--- TODO: Parallel iteration.
-mc3Iterate :: ToJSON a => MC3 a -> IO (MC3 a)
-mc3Iterate a = do
-  -- 1. Maybe propose swap. A swap has to be propose first, because the traces
-  -- are automatically updated at step 2.
-  let s = mc3Settings a
-  a' <-
-    if mc3Iteration a `mod` mc3SwapPeriod s == 0
-      then mc3ProposeSwap a
-      else return a
-  -- 2. Iterate all chains and increment iteration.
-  -- mhgs <- V.fromList <$> mapM aIterate (V.toList (mc3MHGChains a'))
-  mhgs <- V.mapM aIterate (mc3MHGChains a')
-  let i = mc3Iteration a'
-  return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
+-- TODO: Splimix. 'mc3Iterate' is actually not parallel, but concurrent because
+-- of the IO constraint. Use pure parallel code when we have a pure generator.
+--
+-- Parallel execution of the chains is only beneficial when the computations are
+-- expensive. For all of my tests, this is not the case. However, for
+-- phylogenetic dating the speed up is substantial.
+mc3Iterate ::
+  ToJSON a =>
+  -- Number of capabilities.
+  Int ->
+  MC3 a ->
+  IO (MC3 a)
+mc3Iterate c a
+  | c > 0 = do
+    -- 1. Maybe propose swap. A swap has to be propose first, because the traces
+    -- are automatically updated at step 2.
+    let s = mc3Settings a
+    a' <-
+      if mc3Iteration a `mod` mc3SwapPeriod s == 0
+        then mc3ProposeSwap a
+        else return a
+    -- 2. Iterate all chains and increment iteration.
+    mhgs <- if c > 1
+      -- Use 'forkIO'.
+      then V.fromList <$> P.mapM aIterate (V.toList (mc3MHGChains a'))
+      else V.mapM aIterate (mc3MHGChains a')
+    let i = mc3Iteration a'
+    return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
+  | otherwise = error " mc3Iterate: Number of capabilities is zero or negative."
 
 mc3GetAcceptanceRate :: MC3 a -> Double
 mc3GetAcceptanceRate a = swapAc / (swapAc + swapRe)
