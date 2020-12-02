@@ -14,7 +14,9 @@
 --
 -- Creation date: Mon Nov 23 15:20:33 2020.
 module Mcmc.Algorithm.MC3
-  ( MC3SwapType (..),
+  ( NChains (..),
+    SwapPeriod (..),
+    NSwaps (..),
     MC3Settings (..),
     MHGChains,
     ReciprocalTemperatures,
@@ -26,12 +28,15 @@ module Mcmc.Algorithm.MC3
 where
 
 import Codec.Compression.GZip
+import Control.Monad
 import qualified Control.Monad.Parallel as P
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.Double.Conversion.ByteString as BC
+import Data.List
+import qualified Data.Map.Strict as M
 import Data.Time
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
@@ -44,26 +49,43 @@ import Mcmc.Chain.Link
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
 import Mcmc.Internal.Random
+import Mcmc.Internal.Shuffle
 import Mcmc.Monitor
 import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
--- | Swap states between neighboring chains, or random chains.
-data MC3SwapType = MC3SwapNeighbors | MC3SwapRandom
+-- | Total number of parallel chains.
+--
+-- Must be two or larger.
+newtype NChains = NChains {fromNChains :: Int}
   deriving (Eq, Read, Show)
 
-$(deriveJSON defaultOptions ''MC3SwapType)
+$(deriveJSON defaultOptions ''NChains)
+
+-- | The period of proposing state swaps between chains.
+--
+-- Must be one or larger.
+newtype SwapPeriod = SwapPeriod {fromSwapPeriod :: Int}
+  deriving (Eq, Read, Show)
+
+$(deriveJSON defaultOptions ''SwapPeriod)
+
+-- | The number of proposed swaps at each swapping event.
+--
+-- Must be in @[1, NChains - 1]@.
+newtype NSwaps = NSwaps {fromNSwaps :: Int}
+  deriving (Eq, Read, Show)
+
+$(deriveJSON defaultOptions ''NSwaps)
 
 -- | MC3 settings.
 data MC3Settings = MC3Settings
   { -- | The number of chains has to be larger equal two.
-    mc3NChains :: Int,
-    -- | The period of proposing state swaps between chains has to be strictly
-    -- positive.
-    mc3SwapPeriod :: Int,
-    mc3SwapType :: MC3SwapType
+    mc3NChains :: NChains,
+    mc3SwapPeriod :: SwapPeriod,
+    mc3NSwaps :: NSwaps
   }
   deriving (Eq, Read, Show)
 
@@ -83,8 +105,7 @@ data SavedMC3 a = SavedMC3
     savedMC3Chains :: V.Vector (SavedChain a),
     savedMC3ReciprocalTemperatures :: ReciprocalTemperatures,
     savedMC3Iteration :: Int,
-    savedMC3SwapAccepted :: Int,
-    savedMC3SwapRejected :: Int,
+    savedMC3SwapAcceptance :: Acceptance Int,
     savedMC3Generator :: U.Vector Word32
   }
   deriving (Eq, Read, Show)
@@ -95,10 +116,10 @@ toSavedMC3 ::
   Int ->
   MC3 a ->
   IO (SavedMC3 a)
-toSavedMC3 n (MC3 s mhgs bs i ac re g) = do
+toSavedMC3 n (MC3 s mhgs bs i ac g) = do
   scs <- V.mapM (toSavedChain n . fromMHG) mhgs
   g' <- saveGen g
-  return $ SavedMC3 s scs bs i ac re g'
+  return $ SavedMC3 s scs bs i ac g'
 
 fromSavedMC3 ::
   PriorFunction a ->
@@ -107,10 +128,10 @@ fromSavedMC3 ::
   Monitor a ->
   SavedMC3 a ->
   IO (MC3 a)
-fromSavedMC3 pr lh cc mn (SavedMC3 s scs bs i ac re g') = do
+fromSavedMC3 pr lh cc mn (SavedMC3 s scs bs i ac g') = do
   mhgs <- V.mapM (fmap MHG . fromSavedChain pr lh cc mn) scs
   g <- loadGen g'
-  return $ MC3 s mhgs bs i ac re g
+  return $ MC3 s mhgs bs i ac g
 
 -- | The MC3 algorithm.
 --
@@ -129,10 +150,8 @@ data MC3 a = MC3
     -- | Vector of reciprocal temperatures.
     mc3ReciprocalTemperatures :: ReciprocalTemperatures,
     mc3Iteration :: Int,
-    -- | Number of accepted swaps.
-    mc3SwapAccepted :: Int,
-    -- | Number of rejected swaps.
-    mc3SwapRejected :: Int,
+    -- | Number of accepted and rejected swaps.
+    mc3SwapAcceptance :: Acceptance Int,
     mc3Generator :: GenIO
   }
 
@@ -202,7 +221,8 @@ mc3 ::
   IO (MC3 a)
 mc3 s pr lh cc mn i0 g
   | n < 2 = error "mc3: The number of chains must be two or larger."
-  | p < 1 = error "mc3: The swap period must be strictly positive."
+  | sp < 1 = error "mc3: The swap period must be strictly positive."
+  | sn < 1 || sn > n - 1 = error "mc3: The number of swaps must be in [1, NChains - 1]."
   | otherwise = do
     -- Split random number generators.
     gs <- V.fromList <$> splitGen n g
@@ -218,10 +238,11 @@ mc3 s pr lh cc mn i0 g
             `V.cons` V.imap
               setIndexAndTrace
               (V.zipWith (setReciprocalTemperature pr lh) (V.convert $ U.tail bs) (V.tail cs))
-    return $ MC3 s hcs bs 0 0 0 g
+    return $ MC3 s hcs bs 0 (emptyA [0 .. n - 2]) g
   where
-    n = mc3NChains s
-    p = mc3SwapPeriod s
+    n = fromNChains $ mc3NChains s
+    sp = fromSwapPeriod $ mc3SwapPeriod s
+    sn = fromNSwaps $ mc3NSwaps s
     -- XXX: Maybe improve initial choice of reciprocal temperatures.
     --
     -- Have to 'take n' elements, because vectors are not as lazy as lists.
@@ -302,39 +323,20 @@ swapWith i j xs
     -- Compute the Metropolis ratio.
     q = prl' * prr' * lhl' * lhr' / prl / prr / lhl / lhr
 
--- i is the index of left chain (0 ..).
--- j>i is the index of the right chain.
-swap :: MC3SwapType -> MHGChains a -> GenIO -> IO (MHGChains a, Log Double)
-swap MC3SwapNeighbors xs g = do
-  i <- uniformR (0, V.length xs - 2) g
-  return $ swapWith i (i + 1) xs
-swap MC3SwapRandom xs g = do
-  i <- uniformR (0, n - 1) g
-  j <- loop i g
-  return $ swapWith i j xs
-  where
-    n = V.length xs
-    -- Sample j until it is not i. This is an infinite loop if n == 1, but we
-    -- ensure n > 1 in 'mc3'.
-    loop l gen = do
-      m <- uniformR (0, n - 1) gen
-      if l == m then loop l gen else return m
-
-mc3ProposeSwap :: MC3 a -> IO (MC3 a)
-mc3ProposeSwap a = do
+mc3ProposeSwap :: MC3 a -> Int -> IO (MC3 a)
+mc3ProposeSwap a i = do
   -- 1. Sample new state and get the Metropolis ratio.
-  (!y, !r) <- swap (mc3SwapType s) (mc3MHGChains a) g
+  let (!y, !r) = swapWith i (i + 1) $ mc3MHGChains a
   -- 2. Accept or reject.
   accept <- mhgAccept r g
   if accept
     then do
-      let !ac' = mc3SwapAccepted a + 1
-      return $ a {mc3MHGChains = y, mc3SwapAccepted = ac'}
+      let !ac' = pushA i True (mc3SwapAcceptance a)
+      return $ a {mc3MHGChains = y, mc3SwapAcceptance = ac'}
     else do
-      let !re' = mc3SwapRejected a + 1
-      return $ a {mc3SwapRejected = re'}
+      let !ac' = pushA i False (mc3SwapAcceptance a)
+      return $ a {mc3SwapAcceptance = ac'}
   where
-    s = mc3Settings a
     g = mc3Generator a
 
 -- TODO: Splimix. 'mc3Iterate' is actually not parallel, but concurrent because
@@ -345,12 +347,17 @@ mc3Iterate ::
   MC3 a ->
   IO (MC3 a)
 mc3Iterate pm a = do
-  -- 1. Maybe propose swap. A swap has to be propose first, because the traces
+  -- 1. Maybe propose swap. A swap has to be proposed first, because the traces
   -- are automatically updated at step 2.
   let s = mc3Settings a
   a' <-
-    if mc3Iteration a `mod` mc3SwapPeriod s == 0
-      then mc3ProposeSwap a
+    if mc3Iteration a `mod` fromSwapPeriod (mc3SwapPeriod s) == 0
+      then do
+        let n = V.length $ mc3MHGChains a
+            is = [0 .. n - 2]
+            ns = fromNSwaps $ mc3NSwaps $ mc3Settings a
+        is' <- shuffle is $ mc3Generator a
+        foldM mc3ProposeSwap a (take ns is')
       else return a
   -- 2. Iterate all chains and increment iteration.
   --
@@ -363,11 +370,24 @@ mc3Iterate pm a = do
   let i = mc3Iteration a'
   return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
 
-mc3GetAcceptanceRate :: MC3 a -> Double
-mc3GetAcceptanceRate a = swapAc / (swapAc + swapRe)
+tuneBeta ::
+  -- The old reciprocal temperatures are needed to retrieve the old ratios.
+  ReciprocalTemperatures ->
+  -- Index i of left chain. Change the reciprocal temperature of chain (i+1).
+  Int ->
+  -- Exponent xi of the reciprocal temperature ratio.
+  Double ->
+  ReciprocalTemperatures ->
+  ReciprocalTemperatures
+tuneBeta bsOld i xi bsNew = bsNew U.// [(j, brNew)]
   where
-    swapAc = fromIntegral (mc3SwapAccepted a)
-    swapRe = fromIntegral (mc3SwapRejected a)
+    j = i + 1
+    blOld = bsOld U.! i
+    brOld = bsOld U.! j
+    blNew = bsNew U.! i
+    -- The new ratio is in (0,1).
+    rNew = (brOld / blOld) ** xi
+    brNew = blNew * rNew
 
 mc3AutoTune :: ToJSON a => MC3 a -> MC3 a
 mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
@@ -380,17 +400,21 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     coldPrF = priorFunction coldChain
     coldLhF = likelihoodFunction coldChain
     optimalRate = getOptimalRate PDimensionUnknown
-    currentRate = mc3GetAcceptanceRate a
-    -- The factor (1/4) was determined by a few tests and is otherwise
+    currentRates = acceptanceRates $ mc3SwapAcceptance a
+    -- We assume that the acceptance rate of state swaps between two chains is
+    -- roughly proportional to the ratio of the temperatures of the chains.
+    -- Hence, we focus on reciprocal temperature ratios, which is the same.
+    -- Also, by working with ratios in (0,1) of neighboring chains, we ensure
+    -- the monotonicity of the reciprocal temperatures.
+    --
+    -- The factor (1/3) was determined by a few tests and is otherwise
     -- absolutely arbitrary.
-    xi = exp $ (/ 4) $ currentRate - optimalRate
+    xi i = exp $ (/3) $ (currentRates M.! i) - optimalRate
     bs = mc3ReciprocalTemperatures a
-    -- The reciprocal temperatures are changed differently for each chain so
-    -- that the monotonicity of the reciprocal temperatures is retained.
-    bf b = b ** xi
+    n = fromNChains $ mc3NChains $ mc3Settings a
     -- Do not change the temperature, and the prior and likelihood functions of
     -- the cold chain.
-    bs' = U.head bs `U.cons` U.map bf (U.tail bs)
+    bs' = foldl' (\xs j -> tuneBeta bs j (xi j) xs) bs [0 .. n - 2]
     mhgs'' =
       V.head mhgs'
         `V.cons` V.zipWith
@@ -404,35 +428,40 @@ mc3ResetAcceptance a = a'
     -- 1. Reset acceptance of all chains.
     mhgs' = V.map aResetAcceptance (mc3MHGChains a)
     -- 2. Reset acceptance of swaps.
-    a' = a {mc3MHGChains = mhgs', mc3SwapAccepted = 0, mc3SwapRejected = 0}
+    ac = mc3SwapAcceptance a
+    a' = a {mc3MHGChains = mhgs', mc3SwapAcceptance = resetA ac}
 
--- TODO: Improve output.
---
 -- Information in cycle summary:
 --
 -- - The complete summary of the cycle of the cold chain.
 --
--- - The temperatures of the chains and the acceptance rate of state swaps.
---
 -- - The combined acceptance rate of proposals within the hot chains.
+--
+-- - The temperatures of the chains and the acceptance rates of the state swaps.
 mc3SummarizeCycle :: ToJSON a => MC3 a -> BL.ByteString
 mc3SummarizeCycle a =
   BL.intercalate "\n" $
     [ "MC3: Cycle of cold chain.",
-      coldMHGCycleSummary,
-      "MC3: Average acceptance rate across all chains: " <> BL.fromStrict (BC.toFixed 2 ar),
-      "MC3: Reciprocal temperatures of the chains: " <> BL.unwords bs
+      coldMHGCycleSummary
     ]
-      ++ [ BB.toLazyByteString $
-             BB.lazyByteString "MC3: State swaps: "
-               <> BB.intDec swapAc
-               <> BB.lazyByteString " accepted, "
-               <> BB.intDec swapTot
-               <> BB.lazyByteString " total, "
-               <> BB.byteString (BC.toFixed 2 swapAr)
-               <> BB.lazyByteString " rate."
-           | swapTot /= 0
+      ++ [ "MC3: Average acceptance rate across all chains: " <> BL.fromStrict (BC.toFixed 2 ar)
+           | not $ isNaN ar
          ]
+      ++ [ "MC3: Reciprocal temperatures of the chains: " <> BL.intercalate ", " bsB <> ".",
+           "MC3: Summary of state swaps. The swap period is " <> swapPeriodB <> ".",
+           proposalHeader,
+           proposalHLine
+         ]
+      ++ [ summarizeProposal
+             (PName $ show i ++ " <-> " ++ show (i + 1))
+             (PDescription "Swap states between chains")
+             (PWeight 1)
+             (Just $ bs U.! (i + 1))
+             PDimensionUnknown
+             (acceptanceRate i swapAcceptance)
+           | i <- [0 .. n - 2]
+         ]
+      ++ [proposalHLine]
   where
     mhgs = mc3MHGChains a
     coldMHGCycleSummary = aSummarizeCycle $ V.head mhgs
@@ -440,10 +469,12 @@ mc3SummarizeCycle a =
     as = V.map (acceptanceRates . acceptance) cs
     vAr = V.map (\m -> sum m / fromIntegral (length m)) as
     ar = V.sum vAr / fromIntegral (V.length vAr)
-    bs = map (BL.fromStrict . BC.toFixed 2) $ U.toList $ mc3ReciprocalTemperatures a
-    swapAc = mc3SwapAccepted a
-    swapTot = mc3SwapRejected a + swapAc
-    swapAr = mc3GetAcceptanceRate a
+    bs = mc3ReciprocalTemperatures a
+    bsB = map (BL.fromStrict . BC.toFixed 2) $ U.toList bs
+    swapPeriod = fromSwapPeriod $ mc3SwapPeriod $ mc3Settings a
+    swapPeriodB = BB.toLazyByteString $ BB.intDec swapPeriod
+    swapAcceptance = mc3SwapAcceptance a
+    n = fromNChains $ mc3NChains $ mc3Settings a
 
 -- See 'amendEnvironment'.
 --

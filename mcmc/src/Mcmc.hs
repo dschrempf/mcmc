@@ -152,7 +152,7 @@ module Mcmc
     -- ** Data types
     AnalysisName (..),
     BurnInSpecification (..),
-    Iterations (..),
+    NIterations (..),
     ExecutionMode (..),
     ParallelizationMode (..),
     SaveMode (..),
@@ -189,9 +189,13 @@ module Mcmc
     mcmcContinue,
 
     -- * Algorithms
+    -- ** Metropolis-Hastings-Green algorithm
     MHG,
     mhg,
-    MC3SwapType (..),
+    -- ** Metropolis-coupled Markov chain Monte Carlo algorithm
+    NChains (..),
+    SwapPeriod (..),
+    NSwaps (..),
     MC3Settings (..),
     MC3,
     mc3,

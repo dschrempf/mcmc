@@ -126,7 +126,7 @@ main = do
         Settings
           (AnalysisName "test-tree")
           (BurnInWithAutoTuning 2000 100)
-          (Iterations 20000)
+          (NIterations 20000)
           Overwrite
           Sequential
           NoSave
@@ -134,6 +134,6 @@ main = do
       -- Metropolis-Hastings-Green algorithm.
       a = mhg pr noLikelihood cc' (mon t) (I t r) g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
-  -- let mc3S = MC3Settings 3 2 MC3SwapNeighbors
+  -- let mc3S = MC3Settings 3 2
   -- a <- mc3 mc3S pr noLikelihood cc' (mon t) (I t r) g
   void $ mcmc mcmcS a

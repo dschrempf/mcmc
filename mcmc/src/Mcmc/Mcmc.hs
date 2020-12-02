@@ -104,9 +104,6 @@ mcmcExecute a = do
   mcmcDebugB "Executed MCMC run."
   return a'
 
-mcmcPrintStdMonitorHeader :: Algorithm a => a -> MCMC ()
-mcmcPrintStdMonitorHeader = mcmcInfoB . aStdMonitorHeader
-
 -- Reset acceptance counts.
 mcmcResetAcceptance :: Algorithm a => a -> MCMC a
 mcmcResetAcceptance a = do
@@ -120,7 +117,7 @@ mcmcExecuteMonitors a = do
   let s = settings e
       vb = sVerbosity s
       t0 = startingTime e
-      iTotal = burnInIterations (sBurnIn s) + fromIterations (sIterations s)
+      iTotal = burnInIterations (sBurnIn s) + fromNIterations (sNIterations s)
   mStdLog <- liftIO (aExecuteMonitors vb t0 iTotal a)
   forM_ mStdLog (mcmcOutB "   ")
 
@@ -139,20 +136,20 @@ mcmcNewRun a = do
   s <- reader settings
   mcmcInfoB "Start new MCMC sampler."
   mcmcInfoB "Initial state."
-  mcmcPrintStdMonitorHeader a
+  mcmcInfoB $ aStdMonitorHeader a
   mcmcExecuteMonitors a
   mcmcInfoB $ aSummarizeCycle a
   a' <- mcmcBurnIn a
   a'' <- mcmcResetAcceptance a'
-  let i = fromIterations $ sIterations s
+  let i = fromNIterations $ sNIterations s
   mcmcInfoS $ "Run chain for " ++ show i ++ " iterations."
-  mcmcPrintStdMonitorHeader a''
+  mcmcInfoB $ aStdMonitorHeader a''
   mcmcIterate i a''
 
 mcmcContinueRun :: Algorithm a => a -> MCMC a
 mcmcContinueRun a = do
   s <- reader settings
-  let iTotal = fromIterations (sIterations s) + burnInIterations (sBurnIn s)
+  let iTotal = fromNIterations (sNIterations s) + burnInIterations (sBurnIn s)
   mcmcInfoB "Continuation of MCMC sampler."
   let iCurrent = aIteration a
   mcmcInfoS $ "Current iteration: " ++ show iCurrent ++ "."
@@ -160,7 +157,7 @@ mcmcContinueRun a = do
   let di = iTotal - iCurrent
   mcmcInfoB $ aSummarizeCycle a
   mcmcInfoS $ "Run chain for " ++ show di ++ " iterations."
-  mcmcPrintStdMonitorHeader a
+  mcmcInfoB $ aStdMonitorHeader a
   mcmcIterate di a
 
 mcmcBurnIn :: Algorithm a => a -> MCMC a
@@ -173,7 +170,7 @@ mcmcBurnIn a = do
     BurnInWithoutAutoTuning n -> do
       mcmcInfoS $ "Burn in for " <> show n <> " iterations."
       mcmcInfoS "Auto tuning is disabled."
-      mcmcPrintStdMonitorHeader a
+      mcmcInfoB $ aStdMonitorHeader a
       a' <- mcmcIterate n a
       mcmcInfoB $ aSummarizeCycle a'
       mcmcInfoB "Burn in finished."
@@ -181,7 +178,7 @@ mcmcBurnIn a = do
     BurnInWithAutoTuning n t -> do
       mcmcInfoS $ "Burn in for " ++ show n ++ " iterations."
       mcmcInfoS $ "Auto tuning is enabled with a period of " ++ show t ++ "."
-      mcmcPrintStdMonitorHeader a
+      mcmcInfoB $ aStdMonitorHeader a
       a' <- mcmcBurnInWithAutoTuning n t a
       mcmcInfoB "Burn in finished."
       return a'
@@ -199,6 +196,7 @@ mcmcBurnInWithAutoTuning b t a
     a'' <- mcmcIterate t a'
     mcmcDebugB $ aSummarizeCycle a''
     a''' <- mcmcAutotune a''
+    mcmcDebugB $ aStdMonitorHeader a''
     mcmcBurnInWithAutoTuning (b - t) t a'''
   | otherwise = do
     a' <- mcmcResetAcceptance a
@@ -276,5 +274,5 @@ mcmc s a = do
 mcmcContinue :: Algorithm a => Int -> Settings -> a -> IO a
 mcmcContinue dn s = mcmc s'
   where
-    n' = Iterations $ fromIterations (sIterations s) + dn
-    s' = s {sIterations = n', sExecutionMode = Continue}
+    n' = NIterations $ fromNIterations (sNIterations s) + dn
+    s' = s {sNIterations = n', sExecutionMode = Continue}

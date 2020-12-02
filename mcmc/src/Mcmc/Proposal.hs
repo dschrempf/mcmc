@@ -28,6 +28,9 @@ module Mcmc.Proposal
     createProposal,
     tune,
     getOptimalRate,
+    proposalHeader,
+    proposalHLine,
+    summarizeProposal,
 
     -- * Cycle
     Order (..),
@@ -45,6 +48,7 @@ module Mcmc.Proposal
     pushA,
     resetA,
     transformKeysA,
+    acceptanceRate,
     acceptanceRates,
   )
 where
@@ -58,7 +62,6 @@ import Data.Default
 import qualified Data.Double.Conversion.ByteString as BC
 import Data.Function
 import Data.List
-import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import Lens.Micro
@@ -233,10 +236,10 @@ tuningParamMin = 1e-12
 --   parameters are not allowed.
 tune :: (Double -> Double) -> Proposal a -> Maybe (Proposal a)
 tune f m = do
-    (Tuner t g) <- pTuner m
-    -- Ensure that the tuning parameter is strictly positive.
-    let t' = max tuningParamMin (f t)
-    return $ m {pSimple = g t', pTuner = Just $ Tuner t' g}
+  (Tuner t g) <- pTuner m
+  -- Ensure that the tuning parameter is strictly positive.
+  let t' = max tuningParamMin (f t)
+  return $ m {pSimple = g t', pTuner = Just $ Tuner t' g}
 
 -- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double
@@ -325,7 +328,7 @@ orderProposals (Cycle xs o) g = case o of
     !ps = concat [replicate (fromPWeight $ pWeight p) p | p <- xs]
 
 -- | Tune 'Proposal's in the 'Cycle'. See 'tune'.
-tuneCycle :: Map (Proposal a) (Double -> Double) -> Cycle a -> Cycle a
+tuneCycle :: M.Map (Proposal a) (Double -> Double) -> Cycle a -> Cycle a
 tuneCycle m c =
   if sort (M.keys m) == sort ps
     then c {ccProposals = map tuneF ps}
@@ -369,16 +372,39 @@ renderRow name ptype weight nAccept nReject acceptRate optimalRate tuneParam man
     tp = alignRight 20 tuneParam
     mt = alignRight 30 manualAdjustment
 
+-- | Header of proposal summaries.
 proposalHeader :: BL.ByteString
 proposalHeader =
-  renderRow "Name" "Description" "Weight" "Accepted" "Rejected" "Rate" "Optimal rate" "Tuning parameter" "Consider manual adjustment"
-
-summarizeProposal :: Proposal a -> Maybe (Int, Int, Double) -> BL.ByteString
-summarizeProposal p r =
   renderRow
-    (BL.pack $ fromPName $ pName p)
-    (BL.pack $ fromPDescription $ pDescription p)
-    weight
+    "Name"
+    "Description"
+    "Weight"
+    "Accepted"
+    "Rejected"
+    "Rate"
+    "Optimal rate"
+    "Tuning parameter"
+    "Consider manual adjustment"
+
+-- | Horizontal line of proposal summaries.
+proposalHLine :: BL.ByteString
+proposalHLine = BL.replicate (BL.length proposalHeader) '-'
+
+-- | Proposal summary.
+summarizeProposal ::
+  PName ->
+  PDescription ->
+  PWeight ->
+  -- Tuning parameter.
+  Maybe Double ->
+  PDimension ->
+  Maybe (Int, Int, Double) ->
+  BL.ByteString
+summarizeProposal name description weight tuningParam dimension r =
+  renderRow
+    (BL.pack $ fromPName name)
+    (BL.pack $ fromPDescription description)
+    weightStr
     nAccept
     nReject
     acceptRate
@@ -386,20 +412,17 @@ summarizeProposal p r =
     tuneParamStr
     manualAdjustmentStr
   where
-    weight = BB.toLazyByteString $ BB.intDec $ fromPWeight $ pWeight p
+    weightStr = BB.toLazyByteString $ BB.intDec $ fromPWeight weight
     nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) r
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) r
     acceptRate = BL.fromStrict $ maybe "" (BC.toFixed 2 . (^. _3)) r
-    optimalRate = BL.fromStrict $ BC.toFixed 2 $ getOptimalRate $ pDimension p
-    tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) (tParam <$> pTuner p)
+    optimalRate = BL.fromStrict $ BC.toFixed 2 $ getOptimalRate dimension
+    tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) tuningParam
     check v
       | v < rateMin = "rate too low"
       | v > rateMax = "rate too high"
       | otherwise = ""
     manualAdjustmentStr = BL.fromStrict $ maybe "" (check . (^. _3)) r
-
-hLine :: BL.ByteString -> BL.ByteString
-hLine s = BL.replicate (BL.length s) '-'
 
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance rates.
 summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> BL.ByteString
@@ -407,17 +430,25 @@ summarizeCycle a c =
   BL.intercalate "\n" $
     [ "Summary of proposal(s) in cycle. " <> mpi <> " proposal(s) are performed per iteration.",
       proposalHeader,
-      hLine proposalHeader
+      proposalHLine
     ]
-      ++ [summarizeProposal m (ar m) | m <- ps]
-      ++ [hLine proposalHeader]
+      ++ [ summarizeProposal
+             (pName p)
+             (pDescription p)
+             (pWeight p)
+             (tParam <$> pTuner p)
+             (pDimension p)
+             (ar p)
+           | p <- ps
+         ]
+      ++ [proposalHLine]
   where
     ps = ccProposals c
     mpi = BB.toLazyByteString $ BB.intDec $ sum $ map (fromPWeight . pWeight) ps
     ar m = acceptanceRate m a
 
 -- | For each key @k@, store the number of accepted and rejected proposals.
-newtype Acceptance k = Acceptance {fromAcceptance :: Map k (Int, Int)}
+newtype Acceptance k = Acceptance {fromAcceptance :: M.Map k (Int, Int)}
   deriving (Eq, Read, Show)
 
 instance ToJSONKey k => ToJSON (Acceptance k) where
@@ -443,7 +474,7 @@ pushA k False = Acceptance . M.adjust (force . second succ) k . fromAcceptance
 resetA :: Ord k => Acceptance k -> Acceptance k
 resetA = emptyA . M.keys . fromAcceptance
 
-transformKeys :: (Ord k1, Ord k2) => [k1] -> [k2] -> Map k1 v -> Map k2 v
+transformKeys :: (Ord k1, Ord k2) => [k1] -> [k2] -> M.Map k1 v -> M.Map k2 v
 transformKeys ks1 ks2 m = foldl' insrt M.empty $ zip ks1 ks2
   where
     insrt m' (k1, k2) = M.insert k2 (m M.! k1) m'
@@ -453,7 +484,7 @@ transformKeys ks1 ks2 m = foldl' insrt M.empty $ zip ks1 ks2
 transformKeysA :: (Ord k1, Ord k2) => [k1] -> [k2] -> Acceptance k1 -> Acceptance k2
 transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
 
--- Acceptance counts and rate for a specific proposal.
+-- | Acceptance counts and rate for a specific proposal.
 acceptanceRate :: (Show k, Ord k) => k -> Acceptance k -> Maybe (Int, Int, Double)
 acceptanceRate k a = case fromAcceptance a M.!? k of
   Just (0, 0) -> Nothing
@@ -461,5 +492,5 @@ acceptanceRate k a = case fromAcceptance a M.!? k of
   Nothing -> error $ "acceptanceRate: Key not found in map: " ++ show k ++ "."
 
 -- | Acceptance rates for all proposals.
-acceptanceRates :: Acceptance k -> Map k Double
+acceptanceRates :: Acceptance k -> M.Map k Double
 acceptanceRates = M.map (\(as, rs) -> fromIntegral as / fromIntegral (as + rs)) . fromAcceptance
