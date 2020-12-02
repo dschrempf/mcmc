@@ -73,7 +73,7 @@ monStd = monitorStdOut [monMu] 5000
 
 -- Monitor to file.
 monFile :: MonitorFile Precision
-monFile = monitorFile "-mu" [monMu] 500
+monFile = monitorFile "mu" [monMu] 500
 
 -- Monitor the batch mean of the precision of the archer.
 monMuBatch :: MonitorParameterBatch Precision
@@ -81,7 +81,7 @@ monMuBatch = monitorBatchMean "Mean mu"
 
 -- Monitor the batch mean to file.
 monBatch :: MonitorBatch Precision
-monBatch = monitorBatch "-mu" [monMuBatch] 1000
+monBatch = monitorBatch "mu" [monMuBatch] 1000
 
 -- Combine the monitors.
 mon :: Monitor Precision

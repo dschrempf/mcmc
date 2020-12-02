@@ -159,7 +159,7 @@ monStdOut = monitorStdOut branchMons 100
 
 -- Monitor branch lengths to a file.
 monFile :: MonitorFile (Tree Length)
-monFile = monitorFile "-branches" branchMons 10
+monFile = monitorFile "branches" branchMons 10
 
 -- Monitor batch means of branch lengths.
 branchBatchMons :: [MonitorParameterBatch (Tree Length)]
@@ -170,7 +170,7 @@ branchBatchMons =
 
 -- Monitor batch means of branch lengths to a file.
 monBatch :: MonitorBatch (Tree Length)
-monBatch = monitorBatch "-branches" branchBatchMons 100
+monBatch = monitorBatch "branches" branchBatchMons 100
 
 -- Combine the monitors.
 mon :: Monitor (Tree Length)

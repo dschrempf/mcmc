@@ -101,10 +101,10 @@ monFile :: Tree e a -> MonitorFile I
 monFile t = monitorFile "" (monPs t) 5
 
 monTreeT :: MonitorFile I
-monTreeT = monitorFile "-ultrametric" [fromHeightTree . _ultrametricTree >$< monitorTree "Tree"] 5
+monTreeT = monitorFile "ultrametric" [fromHeightTree . _ultrametricTree >$< monitorTree "Tree"] 5
 
 monTreeR :: MonitorFile I
-monTreeR = monitorFile "-unconstrained" [_unconstrainedTree >$< monitorTree "Tree"] 5
+monTreeR = monitorFile "unconstrained" [_unconstrainedTree >$< monitorTree "Tree"] 5
 
 -- Combine the monitors.
 mon :: Tree e a -> Monitor I

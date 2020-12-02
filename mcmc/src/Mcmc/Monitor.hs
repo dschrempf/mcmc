@@ -33,6 +33,7 @@ import Control.Monad
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Int
+import Data.List hiding (sum)
 import Data.Time.Clock
 import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
@@ -169,7 +170,7 @@ mfRenderRow = BL.intercalate "\t"
 
 mfOpen :: String -> String -> ExecutionMode -> MonitorFile a -> IO (MonitorFile a)
 mfOpen pre suf em m = do
-  let fn = pre <> mfName m <> suf <> ".monitor"
+  let fn = intercalate "." $ filter (not . null) [pre, mfName m, suf, "monitor"]
   h <- openWithExecutionMode em fn
   hSetBuffering h LineBuffering
   return $ m {mfHandle = Just h}
@@ -242,7 +243,7 @@ monitorBatch n ps p
 
 mbOpen :: String -> String -> ExecutionMode -> MonitorBatch a -> IO (MonitorBatch a)
 mbOpen pre suf em m = do
-  let fn = pre <> mbName m <> suf <> ".batch"
+  let fn = intercalate "." $ filter (not . null) [pre, mbName m, suf, "batch"]
   h <- openWithExecutionMode em fn
   hSetBuffering h LineBuffering
   return $ m {mbHandle = Just h}
