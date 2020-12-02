@@ -79,43 +79,6 @@ executable plh
     , statistics
   default-language: Haskell2010
 
-executable plh-multivariate
-  main-is: Main.hs
-  other-modules:
-      Calibrations
-      Constraints
-      Definitions
-      Tools
-      Paths_mcmc_examples
-  autogen-modules:
-      Paths_mcmc_examples
-  hs-source-dirs:
-      PhylogeneticLikelihoodMultivariate
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      aeson
-    , algebraic-graphs
-    , base >=4.7 && <5
-    , bytestring
-    , bytestring-conversion
-    , comonad
-    , containers
-    , criterion
-    , deepseq
-    , elynx-tree
-    , hmatrix
-    , lens
-    , log-domain
-    , mcmc
-    , mcmc-tree
-    , mwc-random
-    , parallel
-    , primitive
-    , statistics
-    , vector
-    , zippers
-  default-language: Haskell2010
-
 executable test-pair
   main-is: TestPair.hs
   other-modules:
