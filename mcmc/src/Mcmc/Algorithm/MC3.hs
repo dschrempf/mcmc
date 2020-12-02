@@ -209,6 +209,11 @@ mc3 s pr lh cc mn i0 g
     gs <- V.fromList <$> splitGen n g
     let cs = V.map (mhg pr lh cc mn i0) gs
         -- Do not change the prior and likelihood functions of the first chain.
+        --
+        -- TODO: This construct is a little hack. It would be nicer if I could
+        -- directly create the correct chains here. Maybe I should remove the
+        -- MHG newtype and directly work with chains? But what happens if I want
+        -- to implement Hamiltonian Monte Carlo?
         hcs =
           V.head cs
             `V.cons` V.imap
