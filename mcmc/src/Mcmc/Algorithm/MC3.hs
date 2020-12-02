@@ -407,9 +407,9 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     -- Also, by working with ratios in (0,1) of neighboring chains, we ensure
     -- the monotonicity of the reciprocal temperatures.
     --
-    -- The factor (1/3) was determined by a few tests and is otherwise
+    -- The factor (1/2) was determined by a few tests and is otherwise
     -- absolutely arbitrary.
-    xi i = exp $ (/3) $ (currentRates M.! i) - optimalRate
+    xi i = exp $ (/2) $ (currentRates M.! i) - optimalRate
     bs = mc3ReciprocalTemperatures a
     n = fromNChains $ mc3NChains $ mc3Settings a
     -- Do not change the temperature, and the prior and likelihood functions of
