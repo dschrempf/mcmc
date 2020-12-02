@@ -23,7 +23,6 @@ import Control.Monad.Primitive
 import qualified Data.Vector.Unboxed as V
 import Data.Word
 import System.Random.MWC
-import System.IO.Unsafe
 
 -- | Split a generator.
 --
@@ -41,9 +40,9 @@ splitGen n gen
 -- and is available with the statistics package.
 
 -- | Save a generator to a seed.
-saveGen :: GenIO -> V.Vector Word32
-saveGen = fromSeed . unsafePerformIO . save
+saveGen :: GenIO -> IO (V.Vector Word32)
+saveGen = fmap fromSeed . save
 
 -- | Load a generator from a seed.
-loadGen :: V.Vector Word32 -> GenIO
-loadGen = unsafePerformIO . restore . toSeed
+loadGen :: V.Vector Word32 -> IO GenIO
+loadGen = restore . toSeed

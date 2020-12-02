@@ -21,7 +21,6 @@ import Mcmc.Chain.Save
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
-import System.Directory
 import qualified System.Random.MWC as R
 import Test.Hspec
 
@@ -50,7 +49,7 @@ mon :: Monitor Double
 mon = Monitor monStd [] []
 
 spec :: Spec
-spec =
+spec = do
   describe "save and load" $
     it "doesn't change the MCMC chain" $
       do
@@ -65,16 +64,24 @@ spec =
                 NoSave
                 Quiet
             c = fromMHG $ mhg noPrior lh proposals mon 0 gen
-            c' = fromSavedChain noPrior lh proposals mon $ toSavedChain 100 c
-        removeFile "SaveSpec.chain"
+        savedChain <- toSavedChain 100 c
+        c' <- fromSavedChain noPrior lh proposals mon savedChain
+        putStrLn "@load . save@ should be @id@."
+        link c `shouldBe` link c'
+        iteration c `shouldBe` iteration c'
+        trace c `shouldBe` trace c'
+        -- g1 <- R.save $ generator c
+        -- g1' <- R.save $ generator c'
+        -- g1 `shouldBe` g1'
+        putStrLn "Sampling from the chains should be the same."
         r <- fromMHG <$> mcmc s (MHG c)
         r' <- fromMHG <$> mcmc s (MHG c')
         link r `shouldBe` link r'
         iteration r `shouldBe` iteration r'
         trace r `shouldBe` trace r'
-        g <- R.save $ generator r
-        g' <- R.save $ generator r'
-        g `shouldBe` g'
+        g2 <- R.save $ generator r
+        g2' <- R.save $ generator r'
+        g2 `shouldBe` g2'
 
 -- -- TODO.
 -- describe "mhContinue"

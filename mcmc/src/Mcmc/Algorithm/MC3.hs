@@ -78,40 +78,39 @@ type MHGChains a = V.Vector (MHG a)
 -- | Vector of reciprocal temperatures.
 type ReciprocalTemperatures = U.Vector Double
 
-data MC3Saved a = MC3Saved
-  { mc3SavedSettings :: MC3Settings,
-    mc3SavedChains :: V.Vector (SavedChain a),
-    mc3SavedReciprocalTemperatures :: ReciprocalTemperatures,
-    mc3SavedIteration :: Int,
-    mc3SavedSwapAccepted :: Int,
-    mc3SavedSwapRejected :: Int,
-    mc3SavedGenerator :: U.Vector Word32
+data SavedMC3 a = SavedMC3
+  { savedMC3Settings :: MC3Settings,
+    savedMC3Chains :: V.Vector (SavedChain a),
+    savedMC3ReciprocalTemperatures :: ReciprocalTemperatures,
+    savedMC3Iteration :: Int,
+    savedMC3SwapAccepted :: Int,
+    savedMC3SwapRejected :: Int,
+    savedMC3Generator :: U.Vector Word32
   }
   deriving (Eq, Read, Show)
 
-$(deriveJSON defaultOptions ''MC3Saved)
+$(deriveJSON defaultOptions ''SavedMC3)
 
-toMC3Saved ::
+toSavedMC3 ::
   Int ->
   MC3 a ->
-  MC3Saved a
-toMC3Saved n (MC3 s mhgs bs i ac re g) = MC3Saved s scs bs i ac re g'
-  where
-    scs = V.map (toSavedChain n . fromMHG) mhgs
-    g' = saveGen g
+  IO (SavedMC3 a)
+toSavedMC3 n (MC3 s mhgs bs i ac re g) = do
+  scs <- V.mapM (toSavedChain n . fromMHG) mhgs
+  g' <- saveGen g
+  return $ SavedMC3 s scs bs i ac re g'
 
-fromMC3Saved ::
+fromSavedMC3 ::
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
   Monitor a ->
-  MC3Saved a ->
-  MC3 a
-fromMC3Saved pr lh cc mn (MC3Saved s scs bs i ac re g') =
-  MC3 s mhgs bs i ac re g
-  where
-    mhgs = V.map (MHG . fromSavedChain pr lh cc mn) scs
-    g = loadGen g'
+  SavedMC3 a ->
+  IO (MC3 a)
+fromSavedMC3 pr lh cc mn (SavedMC3 s scs bs i ac re g') = do
+  mhgs <- V.mapM (fmap MHG . fromSavedChain pr lh cc mn) scs
+  g <- loadGen g'
+  return $ MC3 s mhgs bs i ac re g
 
 -- | The MC3 algorithm.
 --
@@ -231,7 +230,7 @@ mc3 s pr lh cc mn i0 g
     setIndexAndTrace i a =
       let c = fromMHG a
           l = link c
-       in MHG $ c {chainId = i+1, trace = singletonT l}
+       in MHG $ c {chainId = i + 1, trace = singletonT l}
 
 mc3Fn :: AnalysisName -> FilePath
 mc3Fn (AnalysisName nm) = nm ++ ".mc3chain"
@@ -244,7 +243,9 @@ mc3Save ::
   AnalysisName ->
   MC3 a ->
   IO ()
-mc3Save n nm a = BL.writeFile (mc3Fn nm) $ compress $ encode $ toMC3Saved n a
+mc3Save n nm a = do
+  savedMC3 <- toSavedMC3 n a
+  BL.writeFile (mc3Fn nm) $ compress $ encode savedMC3
 
 -- | Load an MC3 algorithm.
 mc3Load ::
@@ -255,11 +256,9 @@ mc3Load ::
   Monitor a ->
   AnalysisName ->
   IO (MC3 a)
-mc3Load pr lh cc mn nm =
-  either error (fromMC3Saved pr lh cc mn)
-    . eitherDecode
-    . decompress
-    <$> BL.readFile (mc3Fn nm)
+mc3Load pr lh cc mn nm = do
+  savedMC3 <- eitherDecode . decompress <$> BL.readFile (mc3Fn nm)
+  either error (fromSavedMC3 pr lh cc mn) savedMC3
 
 -- I call the chains left and right, because it is easy to think about them as
 -- being left and right. Of course, the left chain may also have a larger index

@@ -7,6 +7,7 @@
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
+
 -- Maintainer  :  dominik.schrempf@gmail.com
 -- Stability   :  unstable
 -- Portability :  portable
@@ -61,14 +62,14 @@ toSavedChain ::
   -- | Maximum length of trace.
   Int ->
   Chain a ->
-  SavedChain a
-toSavedChain n (Chain ci it i tr ac g _ _ _ cc _) =
-  SavedChain ci it i tr' ac' g' ts
+  IO (SavedChain a)
+toSavedChain n (Chain ci it i tr ac g _ _ _ cc _) = do
+  g' <- saveGen g
+  return $ SavedChain ci it i tr' ac' g' ts
   where
     tr' = takeT n tr
     ps = ccProposals cc
     ac' = transformKeysA ps [0 ..] ac
-    g' = saveGen g
     ts = [fmap tParam mt | mt <- map pTuner ps]
 
 -- | Load a saved chain.
@@ -83,16 +84,17 @@ fromSavedChain ::
   Cycle a ->
   Monitor a ->
   SavedChain a ->
-  Chain a
+  IO (Chain a)
 fromSavedChain pr lh cc mn (SavedChain ci it i tr ac' g' ts)
   | pr (state it) /= prior it =
     error "fromSave: Provided prior function does not match the saved prior."
   | lh (state it) /= likelihood it =
     error "fromSave: Provided likelihood function does not match the saved likelihood."
-  | otherwise = Chain ci it i tr ac g i pr lh cc' mn
+  | otherwise = do
+      g <- loadGen g'
+      return $ Chain ci it i tr ac g i pr lh cc' mn
   where
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
-    g = loadGen g'
     getTuningF mt = case mt of
       Nothing -> const 1.0
       Just t -> const t

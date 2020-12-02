@@ -85,7 +85,9 @@ mhgSave ::
   AnalysisName ->
   MHG a ->
   IO ()
-mhgSave n nm (MHG c) = BL.writeFile (mhgFn nm) $ compress $ encode $ toSavedChain n c
+mhgSave n nm (MHG c) = do
+  savedChain <- toSavedChain n c
+  BL.writeFile (mhgFn nm) $ compress $ encode savedChain
 
 -- | Load an MHG algorithm.
 mhgLoad ::
@@ -96,12 +98,10 @@ mhgLoad ::
   Monitor a ->
   AnalysisName ->
   IO (MHG a)
-mhgLoad pr lh cc mn nm =
-  MHG
-    . either error (fromSavedChain pr lh cc mn)
-    . eitherDecode
-    . decompress
-    <$> BL.readFile (mhgFn nm)
+mhgLoad pr lh cc mn nm = do
+  savedChain <- eitherDecode . decompress <$> BL.readFile (mhgFn nm)
+  chain <- either error (fromSavedChain pr lh cc mn) savedChain
+  return $ MHG chain
 
 -- The MHG ratio.
 --
