@@ -37,6 +37,7 @@ import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log
 import System.Random.MWC
+import Text.Printf
 import Prelude hiding (cycle)
 
 -- | The Metropolis-Hastings-Green (MHG) algorithm.
@@ -67,7 +68,7 @@ mhg ::
   -- generators with the same, fixed seed.
   GenIO ->
   MHG a
-mhg pr lh cc mn i0 g = MHG $ Chain l0 0 tr ac g 0 pr lh cc mn
+mhg pr lh cc mn i0 g = MHG $ Chain 0 l0 0 tr ac g 0 pr lh cc mn
   where
     l0 = Link i0 (pr i0) (lh i0)
     tr = singletonT l0
@@ -206,10 +207,12 @@ mhgSummarizeCycle (MHG c) = summarizeCycle ac cc
 
 mhgOpenMonitors :: AnalysisName -> ExecutionMode -> MHG a -> IO (MHG a)
 mhgOpenMonitors nm em (MHG c) = do
-  m' <- mOpen nm em m
+  m' <- mOpen pre suf em m
   return $ MHG c {monitor = m'}
   where
     m = monitor c
+    pre = fromAnalysisName nm
+    suf = printf "%02d" $ chainId c
 
 mhgExecuteMonitors ::
   Verbosity ->

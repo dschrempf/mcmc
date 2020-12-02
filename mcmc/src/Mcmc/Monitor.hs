@@ -167,9 +167,9 @@ monitorFile n ps p
 mfRenderRow :: [BL.ByteString] -> BL.ByteString
 mfRenderRow = BL.intercalate "\t"
 
-mfOpen :: String -> ExecutionMode -> MonitorFile a -> IO (MonitorFile a)
-mfOpen n em m = do
-  let fn = n <> mfName m <> ".monitor"
+mfOpen :: String -> String -> ExecutionMode -> MonitorFile a -> IO (MonitorFile a)
+mfOpen pre suf em m = do
+  let fn = pre <> mfName m <> suf <> ".monitor"
   h <- openWithExecutionMode em fn
   hSetBuffering h LineBuffering
   return $ m {mfHandle = Just h}
@@ -240,9 +240,9 @@ monitorBatch n ps p
   | p < 2 = error "monitorBatch: Batch size has to be 2 or larger."
   | otherwise = MonitorBatch n Nothing ps p
 
-mbOpen :: String -> ExecutionMode -> MonitorBatch a -> IO (MonitorBatch a)
-mbOpen n em m = do
-  let fn = n <> mbName m <> ".batch"
+mbOpen :: String -> String -> ExecutionMode -> MonitorBatch a -> IO (MonitorBatch a)
+mbOpen pre suf em m = do
+  let fn = pre <> mbName m <> suf <> ".batch"
   h <- openWithExecutionMode em fn
   hSetBuffering h LineBuffering
   return $ m {mbHandle = Just h}
@@ -300,14 +300,17 @@ mbClose m = case mbHandle m of
 
 -- | Open the files associated with the 'Monitor'.
 mOpen ::
-  AnalysisName ->
+  -- Base name prefix.
+  String ->
+  -- Base name suffix.
+  String ->
   ExecutionMode ->
   Monitor a ->
   IO (Monitor a)
-mOpen (AnalysisName n) em (Monitor s fs bs) = do
-  fs' <- mapM (mfOpen n em) fs
+mOpen pre suf em (Monitor s fs bs) = do
+  fs' <- mapM (mfOpen pre suf em) fs
   unless (em == Continue) $ mapM_ mfHeader fs'
-  bs' <- mapM (mbOpen n em) bs
+  bs' <- mapM (mbOpen pre suf em) bs
   unless (em == Continue) $ mapM_ mbHeader bs'
   hSetBuffering stdout LineBuffering
   return $ Monitor s fs' bs'

@@ -108,6 +108,13 @@ openWithExecutionMode em fn = do
       error $ "openWithExecutionMode: File exists: " ++ fn ++ "; use 'Overwrite'?"
     _ -> openFile fn WriteMode
 
+-- One could automatically select 'Parallel' or 'Sequential' according to the
+-- number of capabilities when initializing the environment or according to the
+-- iteration time in dependence of the number of used capabilities. However, I
+-- decided to opt for a manual configuration, because more capabilities may be
+-- available and other parts of the program may be executed in parallel even if
+-- sequential execution of the MCMC sampler is beneficial.
+
 -- | Parallelization mode.
 --
 -- Parallel execution of the chains is only beneficial when the algorithm allows

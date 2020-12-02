@@ -43,7 +43,9 @@ import Prelude hiding (cycle)
 --
 -- See 'toSavedChain'.
 data SavedChain a = SavedChain
-  { savedLink :: Link a,
+  {
+    savedId :: Int,
+    savedLink :: Link a,
     savedIteration :: Int,
     savedTrace :: Trace a,
     savedAcceptance :: Acceptance Int,
@@ -60,8 +62,8 @@ toSavedChain ::
   Int ->
   Chain a ->
   SavedChain a
-toSavedChain n (Chain it i tr ac g _ _ _ cc _) =
-  SavedChain it i tr' ac' g' ts
+toSavedChain n (Chain ci it i tr ac g _ _ _ cc _) =
+  SavedChain ci it i tr' ac' g' ts
   where
     tr' = takeT n tr
     ps = ccProposals cc
@@ -82,12 +84,12 @@ fromSavedChain ::
   Monitor a ->
   SavedChain a ->
   Chain a
-fromSavedChain pr lh cc mn (SavedChain it i tr ac' g' ts)
+fromSavedChain pr lh cc mn (SavedChain ci it i tr ac' g' ts)
   | pr (state it) /= prior it =
     error "fromSave: Provided prior function does not match the saved prior."
   | lh (state it) /= likelihood it =
     error "fromSave: Provided likelihood function does not match the saved likelihood."
-  | otherwise = Chain it i tr ac g i pr lh cc' mn
+  | otherwise = Chain ci it i tr ac g i pr lh cc' mn
   where
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
     g = loadGen g'

@@ -60,7 +60,8 @@ noLikelihood = const 1.0
 -- The 'Mcmc.Environment.Environment' of the chain is not stored externally.
 data Chain a = Chain
   { -- Variables; saved.
-
+    -- | Chain index; useful if more chains are run.
+    chainId :: Int,
     -- | The current 'Link' of the chain combines the current state and the
     -- current likelihood. The link is updated after a proposal has been
     -- executed.

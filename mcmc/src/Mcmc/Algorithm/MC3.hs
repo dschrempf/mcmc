@@ -49,7 +49,6 @@ import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Random.MWC
-import Text.Printf
 
 -- | Swap states between neighboring chains, or random chains.
 data MC3SwapType = MC3SwapNeighbors | MC3SwapRandom
@@ -208,14 +207,12 @@ mc3 s pr lh cc mn i0 g
   | otherwise = do
     -- Split random number generators.
     gs <- V.fromList <$> splitGen n g
-    -- TODO: Check if split generators are all unique and different from g.
-    -- TODO: How many chains are created?
     let cs = V.map (mhg pr lh cc mn i0) gs
         -- Do not change the prior and likelihood functions of the first chain.
         hcs =
           V.head cs
-            `V.cons` V.map
-              resetTrace
+            `V.cons` V.imap
+              setIndexAndTrace
               (V.zipWith (setReciprocalTemperature pr lh) (V.convert $ U.tail bs) (V.tail cs))
     return $ MC3 s hcs bs 0 0 0 g
   where
@@ -226,10 +223,10 @@ mc3 s pr lh cc mn i0 g
     -- Have to 'take n' elements, because vectors are not as lazy as lists.
     bs = U.fromList $ take n $ iterate (* 0.9) 1.0
     -- XXX: We have to reset the trace, since it is not set by 'setReciprocalTemperature'.
-    resetTrace a =
+    setIndexAndTrace i a =
       let c = fromMHG a
           l = link c
-       in MHG $ c {trace = singletonT l}
+       in MHG $ c {chainId = i+1, trace = singletonT l}
 
 mc3Fn :: AnalysisName -> FilePath
 mc3Fn (AnalysisName nm) = nm ++ ".mc3chain"
@@ -444,27 +441,13 @@ mc3SummarizeCycle a =
     swapTot = mc3SwapRejected a + swapAc
     swapAr = mc3GetAcceptanceRate a
 
--- Amend the environment of chain i:
---
--- - Add a number to the analysis name.
---
--- - Do not temper with verbosity of cold chain, but set verbosity of all other
--- - chains to 'Quiet'.
-amendAnalysisName :: Int -> AnalysisName -> AnalysisName
-amendAnalysisName i an = AnalysisName $ nm ++ suf
-  where
-    nm = fromAnalysisName an
-    suf = printf "%02d" i
-
 -- See 'amendEnvironment'.
 --
 -- No extra monitors are opened.
 mc3OpenMonitors :: ToJSON a => AnalysisName -> ExecutionMode -> MC3 a -> IO (MC3 a)
 mc3OpenMonitors nm em a = do
-  mhgs' <- V.imapM f $ mc3MHGChains a
+  mhgs' <- V.mapM (aOpenMonitors nm em) (mc3MHGChains a)
   return $ a {mc3MHGChains = mhgs'}
-  where
-    f i = aOpenMonitors (amendAnalysisName i nm) em
 
 mc3ExecuteMonitors ::
   ToJSON a =>
