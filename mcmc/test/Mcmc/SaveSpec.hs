@@ -18,6 +18,7 @@ import Mcmc
 import Mcmc.Algorithm.Metropolis
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Save
+import Mcmc.Chain.Trace
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
@@ -63,13 +64,15 @@ spec = do
                 Sequential
                 NoSave
                 Quiet
-            c = fromMHG $ mhg noPrior lh proposals mon 0 gen
-        savedChain <- toSavedChain 100 c
+        c <- fromMHG <$> mhg noPrior lh proposals mon 0 gen
+        savedChain <- toSavedChain c
         c' <- fromSavedChain noPrior lh proposals mon savedChain
         putStrLn "@load . save@ should be @id@."
         link c `shouldBe` link c'
         iteration c `shouldBe` iteration c'
-        trace c `shouldBe` trace c'
+        frozenT1 <- freezeT (trace c)
+        frozenT1' <- freezeT (trace c')
+        frozenT1 `shouldBe` frozenT1'
         -- g1 <- R.save $ generator c
         -- g1' <- R.save $ generator c'
         -- g1 `shouldBe` g1'
@@ -78,7 +81,9 @@ spec = do
         r' <- fromMHG <$> mcmc s (MHG c')
         link r `shouldBe` link r'
         iteration r `shouldBe` iteration r'
-        trace r `shouldBe` trace r'
+        frozenT2 <- freezeT (trace c)
+        frozenT2' <- freezeT (trace c')
+        frozenT2 `shouldBe` frozenT2'
         g2 <- R.save $ generator r
         g2' <- R.save $ generator r'
         g2 `shouldBe` g2'
