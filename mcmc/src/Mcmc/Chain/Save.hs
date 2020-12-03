@@ -30,7 +30,8 @@ import Data.Aeson.TH
 import Data.List hiding (cycle)
 import qualified Data.Map as M
 import Data.Maybe
-import qualified Data.Vector.Unboxed as V
+import qualified Data.Vector as VB
+import qualified Data.Vector.Unboxed as VU
 import Data.Word
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
@@ -39,6 +40,7 @@ import Mcmc.Internal.Random
 import Mcmc.Monitor
 import Mcmc.Proposal
 import Prelude hiding (cycle)
+import qualified Data.Stack.Circular as C
 
 -- | Storable values of a Markov chain.
 --
@@ -48,9 +50,9 @@ data SavedChain a = SavedChain
     savedId :: Int,
     savedLink :: Link a,
     savedIteration :: Int,
-    savedTrace :: Trace a,
+    savedTrace :: C.Stack VB.Vector (Link a),
     savedAcceptance :: Acceptance Int,
-    savedSeed :: V.Vector Word32,
+    savedSeed :: VU.Vector Word32,
     savedTuningParameters :: [Maybe Double]
   }
   deriving (Eq, Read, Show)
@@ -59,15 +61,13 @@ $(deriveJSON defaultOptions ''SavedChain)
 
 -- | Save a chain.
 toSavedChain ::
-  -- | Maximum length of trace.
-  Int ->
   Chain a ->
   IO (SavedChain a)
-toSavedChain n (Chain ci it i tr ac g _ _ _ cc _) = do
+toSavedChain (Chain ci it i tr ac g _ _ _ cc _) = do
   g' <- saveGen g
+  tr' <- freezeT tr
   return $ SavedChain ci it i tr' ac' g' ts
   where
-    tr' = takeT n tr
     ps = ccProposals cc
     ac' = transformKeysA ps [0 ..] ac
     ts = [fmap tParam mt | mt <- map pTuner ps]
@@ -92,7 +92,8 @@ fromSavedChain pr lh cc mn (SavedChain ci it i tr ac' g' ts)
     error "fromSave: Provided likelihood function does not match the saved likelihood."
   | otherwise = do
       g <- loadGen g'
-      return $ Chain ci it i tr ac g i pr lh cc' mn
+      tr' <- thawT tr
+      return $ Chain ci it i tr' ac g i pr lh cc' mn
   where
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
     getTuningF mt = case mt of

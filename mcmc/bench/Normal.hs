@@ -53,7 +53,7 @@ normalSlide g = do
           Sequential
           NoSave
           Quiet
-      a = mhg noPrior lh cc mon 0 g
+  a <- mhg noPrior lh cc mon 0 g
   void $ mcmc s a
 
 ccLarge :: Cycle Double
@@ -73,7 +73,7 @@ normalLargeCycleBench g = do
           Sequential
           NoSave
           Quiet
-      a = mhg noPrior lh ccLarge mon 0 g
+  a <- mhg noPrior lh ccLarge mon 0 g
   void $ mcmc s a
 
 ccBactrian :: Cycle Double
@@ -90,7 +90,7 @@ normalBactrianBench g = do
           Sequential
           NoSave
           Quiet
-      a = mhg noPrior lh ccBactrian mon 0 g
+  a <- mhg noPrior lh ccBactrian mon 0 g
   void $ mcmc s a
 
 normalMC3 :: GenIO -> Int -> IO ()

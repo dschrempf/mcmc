@@ -131,8 +131,8 @@ main = do
           Sequential
           NoSave
           Info
-      -- Metropolis-Hastings-Green algorithm.
-      a = mhg pr noLikelihood cc' (mon t) (I t r) g
+  -- Metropolis-Hastings-Green algorithm.
+  a <- mhg pr noLikelihood cc' (mon t) (I t r) g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
   -- let mc3S = MC3Settings 3 2
   -- a <- mc3 mc3S pr noLikelihood cc' (mon t) (I t r) g

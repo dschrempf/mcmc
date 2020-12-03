@@ -35,6 +35,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Int
 import Data.List hiding (sum)
 import Data.Time.Clock
+import qualified Data.Vector as VB
 import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
 import Mcmc.Internal.ByteString
@@ -261,15 +262,15 @@ mbHeader m = case mbHandle m of
         ["Iteration", "Mean log-Prior", "Mean log-Likelihood", "Mean log-Posterior"]
           ++ [BL.pack $ mbpName mbp | mbp <- mbParams m]
 
-mean :: [Log Double] -> Log Double
-mean xs = sum xs / fromIntegral (length xs)
+mean :: VB.Vector (Log Double) -> Log Double
+mean xs = VB.sum xs / fromIntegral (VB.length xs)
 
 mbExec ::
   Int ->
   Trace a ->
   MonitorBatch a ->
   IO ()
-mbExec i t' m
+mbExec i t m
   | (i `mod` mbSize m /= 0) || (i == 0) = return ()
   | otherwise = case mbHandle m of
     Nothing ->
@@ -277,22 +278,23 @@ mbExec i t' m
         "mbExec: No handle available for batch monitor with name "
           <> mbName m
           <> "."
-    Just h ->
+    Just h -> do
+      xs <- takeT (mbSize m) t
+      let
+        lps = VB.map prior xs
+        lls = VB.map likelihood xs
+        los = VB.zipWith (*) lps lls
+        mlps = mean lps
+        mlls = mean lls
+        mlos = mean los
       BL.hPutStrLn h $
         mfRenderRow $
           BL.pack (show i) :
           renderLog mlps :
           renderLog mlls :
           renderLog mlos :
-            [BB.toLazyByteString $ mbpFunc mbp (map state t) | mbp <- mbParams m]
-  where
-    t = takeLinks (mbSize m) t'
-    lps = map prior t
-    lls = map likelihood t
-    los = zipWith (*) lps lls
-    mlps = mean lps
-    mlls = mean lls
-    mlos = mean los
+            -- TODO: Use vectors for batch monitors if we stick to circular stacks.
+            [BB.toLazyByteString $ mbpFunc mbp (VB.toList $ VB.map state xs) | mbp <- mbParams m]
 
 mbClose :: MonitorBatch a -> IO ()
 mbClose m = case mbHandle m of
@@ -335,11 +337,12 @@ mExec ::
   Monitor a ->
   IO (Maybe BL.ByteString)
 mExec v i ss st xs j (Monitor s fs bs) = do
-  mapM_ (mfExec i $ headT xs) fs
+  x <- headT xs
+  mapM_ (mfExec i x) fs
   mapM_ (mbExec i xs) bs
   if v == Quiet
     then return Nothing
-    else msExec i (headT xs) ss st j s
+    else msExec i x ss st j s
 
 -- | Close the files associated with the 'Monitor'.
 mClose :: Monitor a -> IO (Monitor a)

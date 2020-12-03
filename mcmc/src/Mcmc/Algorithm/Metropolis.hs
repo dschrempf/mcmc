@@ -67,11 +67,12 @@ mhg ::
   -- | A source of randomness. For reproducible runs, make sure to use
   -- generators with the same, fixed seed.
   GenIO ->
-  MHG a
-mhg pr lh cc mn i0 g = MHG $ Chain 0 l0 0 tr ac g 0 pr lh cc mn
+  IO (MHG a)
+mhg pr lh cc mn i0 g = do
+  tr <- replicateT 1000 l0
+  return $ MHG $ Chain 0 l0 0 tr ac g 0 pr lh cc mn
   where
     l0 = Link i0 (pr i0) (lh i0)
-    tr = singletonT l0
     ac = emptyA $ ccProposals cc
 
 mhgFn :: AnalysisName -> FilePath
@@ -80,13 +81,11 @@ mhgFn (AnalysisName nm) = nm ++ ".chain"
 -- | Save an MHG algorithm.
 mhgSave ::
   ToJSON a =>
-  -- | Maximum length of trace.
-  Int ->
   AnalysisName ->
   MHG a ->
   IO ()
-mhgSave n nm (MHG c) = do
-  savedChain <- toSavedChain n c
+mhgSave nm (MHG c) = do
+  savedChain <- toSavedChain c
   BL.writeFile (mhgFn nm) $ compress $ encode savedChain
 
 -- | Load an MHG algorithm.
@@ -167,8 +166,10 @@ mhgPropose (MHG c) p = do
     ac = acceptance c
     g = generator c
 
-mhgPush :: MHG a -> MHG a
-mhgPush (MHG c) = MHG c {trace = pushT i t, iteration = succ n}
+mhgPush :: MHG a -> IO (MHG a)
+mhgPush (MHG c) = do
+  t' <- pushT i t
+  return $ MHG c {trace = t', iteration = succ n}
   where
     i = link c
     t = trace c
@@ -182,7 +183,7 @@ mhgIterate :: ParallelizationMode -> MHG a -> IO (MHG a)
 mhgIterate _ a = do
   ps <- orderProposals cc g
   a' <- foldM mhgPropose a ps
-  return $ mhgPush a'
+  mhgPush a'
   where
     c = fromMHG a
     cc = cycle c

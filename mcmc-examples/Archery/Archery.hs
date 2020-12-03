@@ -102,7 +102,7 @@ main = do
           Sequential
           NoSave
           Info
-      -- Use the Metropolis-Hastings-Green (MHG) algorithm.
-      a = mhg pr (lh xs) cc mon 0.01 g
+  -- Use the Metropolis-Hastings-Green (MHG) algorithm.
+  a <- mhg pr (lh xs) cc mon 0.01 g
   -- Run the MCMC sampler.
   void $ mcmc s a

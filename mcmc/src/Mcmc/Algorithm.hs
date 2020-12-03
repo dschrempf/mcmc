@@ -57,12 +57,12 @@ class Algorithm a where
   -- | Close all files and remove the file handles.
   aCloseMonitors :: a -> IO a
 
+  -- TODO: Splitmix. Guess what? Remove IO. But then, we remain with PrimMonad
+  -- because of the trace.
+
   -- | Save chain(s).
   aSave ::
-    -- | Maximum length of trace.
-    Int ->
     AnalysisName ->
     a ->
     IO ()
 
--- TODO: Splitmix. Guess what? Remove IO.

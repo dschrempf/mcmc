@@ -113,11 +113,10 @@ data SavedMC3 a = SavedMC3
 $(deriveJSON defaultOptions ''SavedMC3)
 
 toSavedMC3 ::
-  Int ->
   MC3 a ->
   IO (SavedMC3 a)
-toSavedMC3 n (MC3 s mhgs bs i ac g) = do
-  scs <- V.mapM (toSavedChain n . fromMHG) mhgs
+toSavedMC3 (MC3 s mhgs bs i ac g) = do
+  scs <- V.mapM (toSavedChain . fromMHG) mhgs
   g' <- saveGen g
   return $ SavedMC3 s scs bs i ac g'
 
@@ -226,18 +225,18 @@ mc3 s pr lh cc mn i0 g
   | otherwise = do
     -- Split random number generators.
     gs <- V.fromList <$> splitGen n g
-    let cs = V.map (mhg pr lh cc mn i0) gs
-        -- Do not change the prior and likelihood functions of the first chain.
-        --
-        -- TODO: This construct is a little hack. It would be nicer if I could
-        -- directly create the correct chains here. Maybe I should remove the
-        -- MHG newtype and directly work with chains? But what happens if I want
-        -- to implement Hamiltonian Monte Carlo?
-        hcs =
-          V.head cs
-            `V.cons` V.imap
-              setIndexAndTrace
-              (V.zipWith (setReciprocalTemperature pr lh) (V.convert $ U.tail bs) (V.tail cs))
+    cs <- V.mapM (mhg pr lh cc mn i0) gs
+    -- Do not change the prior and likelihood functions of the first chain.
+    --
+    -- TODO: This construct is a little hack. It would be nicer if I could
+    -- directly create the correct chains here. Maybe I should remove the
+    -- MHG newtype and directly work with chains? But what happens if I want
+    -- to implement Hamiltonian Monte Carlo?
+    tailCs <-
+      V.imapM
+        setIndexAndTrace
+        (V.zipWith (setReciprocalTemperature pr lh) (V.convert $ U.tail bs) (V.tail cs))
+    let hcs = V.head cs `V.cons` tailCs
     return $ MC3 s hcs bs 0 (emptyA [0 .. n - 2]) g
   where
     n = fromNChains $ mc3NChains s
@@ -248,10 +247,12 @@ mc3 s pr lh cc mn i0 g
     -- Have to 'take n' elements, because vectors are not as lazy as lists.
     bs = U.fromList $ take n $ iterate (* 0.9) 1.0
     -- XXX: We have to reset the trace, since it is not set by 'setReciprocalTemperature'.
-    setIndexAndTrace i a =
+    setIndexAndTrace i a = do
       let c = fromMHG a
           l = link c
-       in MHG $ c {chainId = i + 1, trace = singletonT l}
+          t = trace c
+      t' <- pushT l t
+      return $ MHG $ c {chainId = i + 1, trace = t'}
 
 mc3Fn :: AnalysisName -> FilePath
 mc3Fn (AnalysisName nm) = nm ++ ".mc3chain"
@@ -259,13 +260,11 @@ mc3Fn (AnalysisName nm) = nm ++ ".mc3chain"
 -- | Save an MC3 algorithm.
 mc3Save ::
   ToJSON a =>
-  -- | Maximum length of trace.
-  Int ->
   AnalysisName ->
   MC3 a ->
   IO ()
-mc3Save n nm a = do
-  savedMC3 <- toSavedMC3 n a
+mc3Save nm a = do
+  savedMC3 <- toSavedMC3 a
   BL.writeFile (mc3Fn nm) $ compress $ encode savedMC3
 
 -- | Load an MC3 algorithm.
@@ -409,7 +408,7 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     --
     -- The factor (1/2) was determined by a few tests and is otherwise
     -- absolutely arbitrary.
-    xi i = exp $ (/2) $ (currentRates M.! i) - optimalRate
+    xi i = exp $ (/ 2) $ (currentRates M.! i) - optimalRate
     bs = mc3ReciprocalTemperatures a
     n = fromNChains $ mc3NChains $ mc3Settings a
     -- Do not change the temperature, and the prior and likelihood functions of

@@ -76,5 +76,5 @@ poissonBench g = do
           Sequential
           NoSave
           Quiet
-      a = mhg noPrior lh proposals mon initial g
+  a <- mhg noPrior lh proposals mon initial g
   void $ mcmc s a

@@ -227,7 +227,7 @@ mcmcSave a = do
       mcmcInfoS $
         "Save compressed Markov chain with trace of length " ++ show n ++ "."
       mcmcInfoB "For long traces, or complex objects, this may take a while."
-      liftIO $ aSave n nm a
+      liftIO $ aSave nm a
       mcmcInfoB "Markov chain saved."
 
 -- Report and finish up.

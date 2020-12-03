@@ -11,54 +11,52 @@
 -- Creation date: Wed May 20 09:11:25 2020.
 module Mcmc.Chain.Trace
   ( Trace,
-    singletonT,
+    replicateT,
     pushT,
     headT,
-    takeLinks,
     takeT,
+    freezeT,
+    thawT,
   )
 where
 
-import Data.Aeson
+import Control.Monad.Primitive
+import qualified Data.Stack.Circular as C
+import qualified Data.Vector as VB
 import Mcmc.Chain.Link
 
--- | A 'Trace' passes through a list of states with associated likelihoods which
--- are called 'Link's. New 'Link's are prepended, and the path of the Markov
--- chain is stored in reversed order.
-newtype Trace a = Trace {fromTrace :: [Link a]}
-  deriving (Show, Read, Eq)
-
-instance Semigroup (Trace a) where
-  (Trace l) <> (Trace r) = Trace (l <> r)
-
-instance Monoid (Trace a) where
-  mempty = Trace []
-
-instance ToJSON a => ToJSON (Trace a) where
-  toJSON (Trace xs) = toJSON xs
-  toEncoding (Trace xs) = toEncoding xs
-
-instance FromJSON a => FromJSON (Trace a) where
-  parseJSON v = Trace <$> parseJSONList v
+-- | A 'Trace' is a mutable circular stack that passes through a list of states
+-- with associated likelihoods which are called 'Link's.
+newtype Trace a = Trace {fromTrace :: C.MStack VB.Vector RealWorld (Link a)}
 
 -- | The empty trace.
-singletonT :: Link a -> Trace a
-singletonT l = Trace [l]
+replicateT :: Int -> Link a -> IO (Trace a)
+replicateT n l = Trace <$> C.replicate n l
 
 -- | Prepend an 'Link' to a 'Trace'.
-pushT :: Link a -> Trace a -> Trace a
-pushT x = Trace . (:) x . fromTrace
+pushT :: Link a -> Trace a -> IO (Trace a)
+pushT x t = do
+  s' <- C.push x (fromTrace t)
+  return $ Trace s'
 {-# INLINEABLE pushT #-}
 
--- | Get the most recent item of the trace.
-headT :: Trace a -> Link a
-headT = head . fromTrace
+-- | Get the most recent links of the trace.
+--
+-- O(1).
+headT :: Trace a -> IO (Link a)
+headT = C.get . fromTrace
 {-# INLINEABLE headT #-}
 
--- | Get the N most recent items of the trace.
-takeLinks :: Int -> Trace a -> [Link a]
-takeLinks n = take n . fromTrace
+-- | Get the k most recent links of the trace.
+--
+-- O(k).
+takeT :: Int -> Trace a -> IO (VB.Vector (Link a))
+takeT k = C.take k . fromTrace
 
--- | Shorten the trace to given length.
-takeT :: Int -> Trace a -> Trace a
-takeT n = Trace . take n . fromTrace
+-- | Freeze the mutable trace for storage.
+freezeT :: Trace a -> IO (C.Stack VB.Vector (Link a))
+freezeT = C.freeze . fromTrace
+
+-- | Thaw a circular stack.
+thawT :: C.Stack VB.Vector (Link a) -> IO (Trace a)
+thawT t = Trace <$> C.thaw t
