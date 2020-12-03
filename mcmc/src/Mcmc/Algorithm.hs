@@ -20,19 +20,22 @@ import Mcmc.Settings
 
 -- | Class for algorithms used by MCMC samplers.
 class Algorithm a where
+  -- | Algorithm name.
   aName :: a -> String
 
+  -- | Get the number of iterations.
   aIteration :: a -> Int
 
-  -- TODO: Splitmix. Remove IO monad constraint as soon as possible.
-
+  -- | Move the chain one iteration forward.
   aIterate ::
     ParallelizationMode ->
     a ->
     IO a
 
+  -- | Auto tune all proposals.
   aAutoTune :: a -> a
 
+  -- | Reset acceptance counts.
   aResetAcceptance :: a -> a
 
   aSummarizeCycle :: a -> BL.ByteString
@@ -40,7 +43,7 @@ class Algorithm a where
   -- | Open all monitor files and provide the file handles.
   aOpenMonitors :: AnalysisName -> ExecutionMode -> a -> IO a
 
-  -- | Execute file monitors and possible return a string to be written to the
+  -- | Execute file monitors and possibly return a string to be written to the
   -- standard output and the log file.
   aExecuteMonitors ::
     Verbosity ->
@@ -57,12 +60,6 @@ class Algorithm a where
   -- | Close all files and remove the file handles.
   aCloseMonitors :: a -> IO a
 
-  -- TODO: Splitmix. Guess what? Remove IO. But then, we remain with PrimMonad
-  -- because of the trace.
-
-  -- | Save chain(s).
-  aSave ::
-    AnalysisName ->
-    a ->
-    IO ()
+  -- | Save the analysis.
+  aSave :: AnalysisName -> a -> IO ()
 

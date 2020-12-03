@@ -26,37 +26,45 @@ import qualified Data.Vector as VB
 import Mcmc.Chain.Link
 
 -- | A 'Trace' is a mutable circular stack that passes through a list of states
--- with associated likelihoods which are called 'Link's.
+-- with associated likelihoods called 'Link's.
 newtype Trace a = Trace {fromTrace :: C.MStack VB.Vector RealWorld (Link a)}
 
--- | The empty trace.
+-- | Initialize a trace of given length by replicating the same value.
+--
+-- Be careful not to compute summary statistics before pushing enough values.
+--
+-- Call 'error' if the maximum size is zero or negative.
 replicateT :: Int -> Link a -> IO (Trace a)
 replicateT n l = Trace <$> C.replicate n l
 
--- | Prepend an 'Link' to a 'Trace'.
+-- | Push a 'Link' on the 'Trace'.
 pushT :: Link a -> Trace a -> IO (Trace a)
 pushT x t = do
   s' <- C.push x (fromTrace t)
   return $ Trace s'
 {-# INLINEABLE pushT #-}
 
--- | Get the most recent links of the trace.
+-- | Get the most recent link of the trace.
 --
--- O(1).
+-- See 'C.get'.
 headT :: Trace a -> IO (Link a)
 headT = C.get . fromTrace
 {-# INLINEABLE headT #-}
 
 -- | Get the k most recent links of the trace.
 --
--- O(k).
+-- See 'C.take'.
 takeT :: Int -> Trace a -> IO (VB.Vector (Link a))
 takeT k = C.take k . fromTrace
 
 -- | Freeze the mutable trace for storage.
+--
+-- See 'C.freeze'.
 freezeT :: Trace a -> IO (C.Stack VB.Vector (Link a))
 freezeT = C.freeze . fromTrace
 
 -- | Thaw a circular stack.
+--
+-- See 'See.thaw'.
 thawT :: C.Stack VB.Vector (Link a) -> IO (Trace a)
 thawT t = Trace <$> C.thaw t
