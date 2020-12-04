@@ -335,9 +335,10 @@ mExec ::
 mExec v i ss st xs j (Monitor s fs bs) = do
   x <- headT xs
   mapM_ (mfExec i x) fs
-  -- TODO: Slow because separate batch monitors will extract separate immutable
-  -- stacks from the trace. However, using folds on the mutable stack only could
-  -- be an option! But then, the batch sizes need to match the length of the trace.
+  -- XXX: Batch monitors are slow because separate batch monitors will extract
+  -- separate immutable stacks from the trace. However, using folds on the
+  -- mutable stack only could be an option! But then, we require two polymorphic
+  -- types (for the fold).
   mapM_ (mbExec i xs) bs
   if v == Quiet
     then return Nothing
