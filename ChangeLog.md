@@ -1,8 +1,23 @@
 
-# Markov chain Monte Carlo sampler - ChangeLog
+# Markov chain Monte Carlo sampling - ChangeLog
 
 
 ## Unreleased changes
+
+
+## Unreleased changes; 0.4.0
+
+-   Batch monitors use vectors now!
+-   Documentation.
+-   Save chain with complete trace always (but with sensible length).
+-   Determine necessary trace length at initialization.
+-   Use a circular trace with constant memory usage (big change).
+-   Greatly improve documentation.
+-   Major design change: Introduction of the `Algorithm` type class; algorithms
+    are data types. See `MHG`.
+-   Rename `Item` to `Link`.
+-   Rename `Status` to `Chain` and separate `Settings` and `Environment` from the
+    `Chain`.
 
 
 ## 0.3.0

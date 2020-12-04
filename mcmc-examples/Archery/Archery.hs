@@ -100,7 +100,7 @@ main = do
           (NIterations 1000000)
           Overwrite
           Sequential
-          NoSave
+          Save
           Info
   -- Use the Metropolis-Hastings-Green (MHG) algorithm.
   a <- mhg pr (lh xs) cc mon 0.01 g

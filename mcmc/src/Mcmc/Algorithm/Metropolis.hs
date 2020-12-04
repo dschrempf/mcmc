@@ -42,7 +42,7 @@ import Prelude hiding (cycle)
 
 -- | The Metropolis-Hastings-Green (MHG) algorithm.
 --
--- For example, see Geyer, C. J., Introduction to markov chain monte carlo, In
+-- For example, see Geyer, C. J., Introduction to Markov chain Monte Carlo, In
 -- Handbook of Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
 newtype MHG a = MHG {fromMHG :: Chain a}
 
