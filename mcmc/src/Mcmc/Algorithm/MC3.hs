@@ -167,9 +167,10 @@ instance ToJSON a => Algorithm (MC3 a) where
   aCloseMonitors = mc3CloseMonitors
   aSave = mc3Save
 
--- Be careful! When changing the temperature of the chain, the prior and
--- likelihood values of the trace are not updated! The prior and likelihood
--- values of the last link are updated.
+--  The prior and likelihood values of the current link are updated.
+--
+-- Be careful. The trace is not changed! In particular, the prior and likelihood
+-- values are not updated for any link of the trace.
 setReciprocalTemperature ::
   -- Cold prior function.
   PriorFunction a ->
@@ -179,7 +180,7 @@ setReciprocalTemperature ::
   Double ->
   MHG a ->
   MHG a
-setReciprocalTemperature prf lhf b a =
+setReciprocalTemperature prf lhf beta a =
   MHG $
     c
       { priorFunction = prf',
@@ -188,10 +189,10 @@ setReciprocalTemperature prf lhf b a =
       }
   where
     c = fromMHG a
-    b' = Exp $ log b
-    -- XXX: Like this, we need twice the amount of computations compared to
-    -- using (pr x * lh x) ** b'. However, I don't think this is a serious
-    -- problem.
+    b' = Exp $ log beta
+    -- Like this, we need twice the amount of computations compared to taking
+    -- the power after calculating the posterior (pr x * lh x) ** b'. However, I
+    -- don't think this is a serious problem.
     --
     -- Also, to minimize computations, avoid modification of the reciprocal
     -- temperature for the cold chain.
@@ -199,8 +200,33 @@ setReciprocalTemperature prf lhf b a =
     lhf' = (** b') . lhf
     x = state $ link c
 
+initMHG ::
+  -- Cold prior function.
+  PriorFunction a ->
+  -- Cold likelihood function.
+  LikelihoodFunction a ->
+  -- Index of MHG chain.
+  Int ->
+  -- Reciprocal temperature.
+  Double ->
+  MHG a ->
+  IO (MHG a)
+initMHG prf lhf i beta a
+  | i < 0 = error "initMHG: Chain index negative."
+  -- Do not temper with the first chain.
+  | i == 0 = return a
+  | otherwise = do
+    -- We have to reset the trace, since it is not set by 'setReciprocalTemperature'.
+      t' <- pushT l t
+      return $ MHG $ c {chainId = i + 1, trace = t'}
+  where
+    a' = setReciprocalTemperature prf lhf beta a
+    c = fromMHG a'
+    l = link c
+    t = trace c
+
 -- TODO: Splitmix. Initialization of the MC3 algorithm is an IO action because
--- the generators have to be split.
+-- the generators have to be split. And also because of the mutable trace.
 
 -- | Initialize an MC3 algorithm with a given number of chains.
 --
@@ -226,17 +252,7 @@ mc3 s pr lh cc mn i0 g
     -- Split random number generators.
     gs <- V.fromList <$> splitGen n g
     cs <- V.mapM (mhg pr lh cc mn i0) gs
-    -- Do not change the prior and likelihood functions of the first chain.
-    --
-    -- TODO: This construct is a little hack. It would be nicer if I could
-    -- directly create the correct chains here. Maybe I should remove the
-    -- MHG newtype and directly work with chains? But what happens if I want
-    -- to implement Hamiltonian Monte Carlo?
-    tailCs <-
-      V.imapM
-        setIndexAndTrace
-        (V.zipWith (setReciprocalTemperature pr lh) (V.convert $ U.tail bs) (V.tail cs))
-    let hcs = V.head cs `V.cons` tailCs
+    hcs <- V.izipWithM (initMHG pr lh) (V.convert bs) cs
     return $ MC3 s hcs bs 0 (emptyA [0 .. n - 2]) g
   where
     n = fromNChains $ mc3NChains s
@@ -246,13 +262,6 @@ mc3 s pr lh cc mn i0 g
     --
     -- Have to 'take n' elements, because vectors are not as lazy as lists.
     bs = U.fromList $ take n $ iterate (* 0.9) 1.0
-    -- XXX: We have to reset the trace, since it is not set by 'setReciprocalTemperature'.
-    setIndexAndTrace i a = do
-      let c = fromMHG a
-          l = link c
-          t = trace c
-      t' <- pushT l t
-      return $ MHG $ c {chainId = i + 1, trace = t'}
 
 mc3Fn :: AnalysisName -> FilePath
 mc3Fn (AnalysisName nm) = nm ++ ".mc3"
