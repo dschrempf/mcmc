@@ -29,8 +29,10 @@ dist-*
 *.data
 *.json
 *.log
+*.mc3
 *.mcmc
 *.meantree
+*.mhg
 *.monitor
 *.settings
 
