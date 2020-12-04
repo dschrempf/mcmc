@@ -68,8 +68,7 @@ data Chain a = Chain
     link :: Link a,
     -- | The current iteration or completed number of cycles.
     iteration :: Int,
-    -- | The 'Trace' of the Markov chain in reverse order, the most recent
-    -- 'Link' is at the head of the list. In contrast to the link, the trace is
+    -- | The 'Trace' of the Markov chain. In contrast to the link, the trace is
     -- updated only after all proposals in the cycle have been executed.
     trace :: Trace a,
     -- | For each 'Proposal', store the list of accepted (True) and rejected (False)

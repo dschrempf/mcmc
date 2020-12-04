@@ -383,7 +383,7 @@ mc3Iterate pm a = do
   mhgs <- case pm of
     Sequential -> V.mapM (aIterate pm) (mc3MHGChains a')
     Parallel ->
-      -- Use 'forkIO'.
+      -- Go via a list, use 'forkIO'.
       V.fromList <$> P.mapM (aIterate pm) (V.toList (mc3MHGChains a'))
   let i = mc3Iteration a'
   return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
