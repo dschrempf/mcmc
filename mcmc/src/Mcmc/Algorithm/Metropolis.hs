@@ -74,11 +74,13 @@ mhg ::
 mhg pr lh cc mn i0 g = do
   -- The trace is a mutable vector and the mutable state needs to be handled by
   -- a monad.
-  tr <- replicateT 1000 l0
+  tr <- replicateT traceLength l0
   return $ MHG $ Chain 0 l0 0 tr ac g 0 pr lh cc mn
   where
     l0 = Link i0 (pr i0) (lh i0)
     ac = emptyA $ ccProposals cc
+    batchMonitorSizes = map getMonitorBatchSize $ mBatches mn
+    traceLength = maximum $ 1 : batchMonitorSizes
 
 mhgFn :: AnalysisName -> FilePath
 mhgFn (AnalysisName nm) = nm ++ ".mhg"

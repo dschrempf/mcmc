@@ -21,6 +21,7 @@ module Mcmc.Monitor
     monitorFile,
     MonitorBatch,
     monitorBatch,
+    getMonitorBatchSize,
 
     -- * Use monitors
     mOpen,
@@ -239,6 +240,12 @@ monitorBatch ::
 monitorBatch n ps p
   | p < 2 = error "monitorBatch: Batch size has to be 2 or larger."
   | otherwise = MonitorBatch n Nothing ps p
+
+-- | Batch monitor size.
+--
+-- Useful to determine the trace length.
+getMonitorBatchSize :: MonitorBatch a -> Int
+getMonitorBatchSize = mbSize
 
 mbOpen :: String -> String -> ExecutionMode -> MonitorBatch a -> IO (MonitorBatch a)
 mbOpen pre suf em m = do
