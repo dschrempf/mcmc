@@ -87,6 +87,11 @@ computeDENearCritical la mu rho dt e0 = (nomD / denom / denom, nomE / denom)
 epsNearCritical :: Double
 epsNearCritical = 1e-6
 
+-- TODO: Condition on time of origin and survival (or MRCA and survival).
+
+-- TODO: Condition on time of origin and the number of taxa (or MRCA and the
+-- number of taxa).
+
 -- | Birth and death prior for bifurcating trees.
 --
 -- See Stadler, T., Mammalian phylogeny reveals recent diversification rate
@@ -98,12 +103,7 @@ epsNearCritical = 1e-6
 -- If the stem is not handled ('WithoutStem'), the prior conditions on the most
 -- recent common ancestor (MRCA).
 --
--- TODO: Condition on time of origin and survival (or MRCA and survival).
---
--- TODO: Condition on time of origin and the number of taxa (or MRCA and the
--- number of taxa).
---
--- XXX: The prior DOES NOT CALCULATE the multiplicative combinatorial factor
+-- NOTE: The prior DOES NOT CALCULATE the multiplicative combinatorial factor
 -- relating the number of oriented labeled trees to the number of labeled trees
 -- without orientation. This is an issue if the prior is calculated for trees
 -- with different topologies!

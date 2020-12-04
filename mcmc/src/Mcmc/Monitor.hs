@@ -115,7 +115,7 @@ msDataLine ::
 msDataLine i (Link x p l) ss st j m = do
   ct <- getCurrentTime
   let dt = ct `diffUTCTime` st
-      -- Careful, don't evaluate this when i == ss.
+      -- XXX: Don't evaluate this when i == ss.
       timePerIter = dt / fromIntegral (i - ss)
       -- -- Always 0; doesn't make much sense.
       -- tpi = if (i - ss) < 10
@@ -342,7 +342,7 @@ mExec ::
 mExec v i ss st xs j (Monitor s fs bs) = do
   x <- headT xs
   mapM_ (mfExec i x) fs
-  -- XXX: Batch monitors are slow because separate batch monitors will extract
+  -- NOTE: Batch monitors are slow because separate batch monitors will extract
   -- separate immutable stacks from the trace. However, using folds on the
   -- mutable stack only could be an option! But then, we require two polymorphic
   -- types (for the fold).

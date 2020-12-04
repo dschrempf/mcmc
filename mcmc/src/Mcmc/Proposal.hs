@@ -144,10 +144,6 @@ data Proposal a = Proposal
     pTuner :: Maybe (Tuner a)
   }
 
--- XXX: This should be removed.
-instance Show (Proposal a) where
-  show m = fromPName (pName m) <> " " <> fromPDescription (pDescription m) <> ", weight " <> show (fromPWeight $ pWeight m)
-
 instance Eq (Proposal a) where
   m == n = pName m == pName n && pDescription m == pDescription n
 
@@ -465,7 +461,7 @@ emptyA :: Ord k => [k] -> Acceptance k
 emptyA ks = Acceptance $ M.fromList [(k, (0, 0)) | k <- ks]
 
 -- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
-pushA :: (Ord k, Show k) => k -> Bool -> Acceptance k -> Acceptance k
+pushA :: Ord k => k -> Bool -> Acceptance k -> Acceptance k
 pushA k True = Acceptance . M.adjust (force . first succ) k . fromAcceptance
 pushA k False = Acceptance . M.adjust (force . second succ) k . fromAcceptance
 {-# INLINEABLE pushA #-}
@@ -485,11 +481,11 @@ transformKeysA :: (Ord k1, Ord k2) => [k1] -> [k2] -> Acceptance k1 -> Acceptanc
 transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
 
 -- | Acceptance counts and rate for a specific proposal.
-acceptanceRate :: (Show k, Ord k) => k -> Acceptance k -> Maybe (Int, Int, Double)
+acceptanceRate :: Ord k => k -> Acceptance k -> Maybe (Int, Int, Double)
 acceptanceRate k a = case fromAcceptance a M.!? k of
   Just (0, 0) -> Nothing
   Just (as, rs) -> Just (as, rs, fromIntegral as / fromIntegral (as + rs))
-  Nothing -> error $ "acceptanceRate: Key not found in map: " ++ show k ++ "."
+  Nothing -> error "acceptanceRate: Key not found in map."
 
 -- | Acceptance rates for all proposals.
 acceptanceRates :: Acceptance k -> M.Map k Double

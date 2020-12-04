@@ -94,9 +94,6 @@ $(deriveJSON defaultOptions ''MC3Settings)
 -- | Vector of MHG chains.
 type MHGChains a = V.Vector (MHG a)
 
--- XXX: An unboxed vector could be used for 'ReciprocalTemperatures', but it is
--- complicated. Since we zip with the boxed vector 'Chains'.
-
 -- | Vector of reciprocal temperatures.
 type ReciprocalTemperatures = U.Vector Double
 
@@ -169,8 +166,8 @@ instance ToJSON a => Algorithm (MC3 a) where
 
 --  The prior and likelihood values of the current link are updated.
 --
--- Be careful. The trace is not changed! In particular, the prior and likelihood
--- values are not updated for any link of the trace.
+-- XXX: The trace is not changed! In particular, the prior and likelihood values
+-- are not updated for any link of the trace.
 setReciprocalTemperature ::
   -- Cold prior function.
   PriorFunction a ->
@@ -268,10 +265,11 @@ mc3 s pr lh cc mn i0 g
     n = fromNChains $ mc3NChains s
     sp = fromSwapPeriod $ mc3SwapPeriod s
     sn = fromNSwaps $ mc3NSwaps s
-    -- XXX: Maybe improve initial choice of reciprocal temperatures.
+    -- NOTE: The initial choice of reciprocal temperatures is based on a few
+    -- tests but otherwise pretty arbitrary.
     --
-    -- Have to 'take n' elements, because vectors are not as lazy as lists.
-    bs = U.fromList $ take n $ iterate (* 0.9) 1.0
+    -- XXX: Have to 'take n' elements, because vectors are not as lazy as lists.
+    bs = U.fromList $ take n $ iterate (* 0.92) 1.0
 
 mc3Fn :: AnalysisName -> FilePath
 mc3Fn (AnalysisName nm) = nm ++ ".mc3"
@@ -359,6 +357,7 @@ mc3ProposeSwap a i = do
 
 -- TODO: Splimix. 'mc3Iterate' is actually not parallel, but concurrent because
 -- of the IO constraint. Use pure parallel code when we have a pure generator.
+-- However, we have honor the mutable traces.
 mc3Iterate ::
   ToJSON a =>
   ParallelizationMode ->

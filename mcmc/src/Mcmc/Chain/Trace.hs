@@ -27,7 +27,7 @@ import qualified Data.Vector as VB
 import Mcmc.Chain.Link
 
 -- | A 'Trace' is a mutable circular stack that passes through a list of states
--- with associated likelihoods called 'Link's.
+-- with associated priors and likelihoods called 'Link's.
 newtype Trace a = Trace {fromTrace :: C.MStack VB.Vector RealWorld (Link a)}
 
 -- | Initialize a trace of given length by replicating the same value.
