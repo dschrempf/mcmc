@@ -230,6 +230,16 @@ initMHG prf lhf i beta a
 
 -- | Initialize an MC3 algorithm with a given number of chains.
 --
+-- For example, see
+--
+-- - Geyer, C. J., Markov chain monte carlo maximum likelihood, Computing
+--   Science and Statistics, Proceedings of the 23rd Symposium on the Interface,
+--   (1991).
+--
+-- - Altekar, G., Dwarkadas, S., Huelsenbeck, J. P., & Ronquist, F., Parallel
+--   metropolis coupled markov chain monte carlo for bayesian phylogenetic
+--   inference, Bioinformatics, 20(3), 407–415 (2004).
+--
 -- Call 'error' if:
 --
 -- - The number of chains is one or lower.

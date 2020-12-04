@@ -41,6 +41,9 @@ import Text.Printf
 import Prelude hiding (cycle)
 
 -- | The Metropolis-Hastings-Green (MHG) algorithm.
+--
+-- For example, see Geyer, C. J., Introduction to markov chain monte carlo, In
+-- Handbook of Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
 newtype MHG a = MHG {fromMHG :: Chain a}
 
 instance ToJSON a => Algorithm (MHG a) where
@@ -57,9 +60,6 @@ instance ToJSON a => Algorithm (MHG a) where
   aSave = mhgSave
 
 -- | Initialize an MHG algorithm.
---
--- For example, see Geyer, C. J., Introduction to markov chain monte carlo, In
--- Handbook of Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
 mhg ::
   PriorFunction a ->
   LikelihoodFunction a ->
