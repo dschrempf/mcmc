@@ -216,11 +216,10 @@ mfClose m = case mfHandle m of
   Just h -> hClose h
   Nothing -> error $ "mfClose: File was not opened for monitor " <> mfName m <> "."
 
--- | Monitor to a file, but calculate batch means for the given batch size;
--- constructed with 'monitorBatch'.
+-- | Batch monitor to a file.
 --
--- Batch monitors are slow at the moment because the monitored parameter has to
--- be extracted from the state for each iteration.
+-- Calculate summary statistics over the last given number of iterations (batch
+-- size). Construct with 'monitorBatch'.
 data MonitorBatch a = MonitorBatch
   { mbName :: String,
     mbHandle :: Maybe Handle,
@@ -228,12 +227,11 @@ data MonitorBatch a = MonitorBatch
     mbSize :: Int
   }
 
--- | Monitor parameters to a file, see 'MonitorBatch'.
+-- | Batch monitor parameters to a file, see 'MonitorBatch'.
 monitorBatch ::
   -- | Name; used as part of the file name.
   String ->
-  -- | Instructions about which parameters to log
-  -- and how to calculate the batch means.
+  -- | Instructions about how to calculate the summary statistics.
   [MonitorParameterBatch a] ->
   -- | Batch size.
   Int ->
@@ -280,21 +278,19 @@ mbExec i t m
           <> "."
     Just h -> do
       xs <- takeT (mbSize m) t
-      let
-        lps = VB.map prior xs
-        lls = VB.map likelihood xs
-        los = VB.zipWith (*) lps lls
-        mlps = mean lps
-        mlls = mean lls
-        mlos = mean los
+      let lps = VB.map prior xs
+          lls = VB.map likelihood xs
+          los = VB.zipWith (*) lps lls
+          mlps = mean lps
+          mlls = mean lls
+          mlos = mean los
       BL.hPutStrLn h $
         mfRenderRow $
           BL.pack (show i) :
           renderLog mlps :
           renderLog mlls :
           renderLog mlos :
-            -- TODO: Use vectors for batch monitors if we stick to circular stacks.
-            [BB.toLazyByteString $ mbpFunc mbp (VB.toList $ VB.map state xs) | mbp <- mbParams m]
+            [BB.toLazyByteString $ mbpFunc mbp (VB.map state xs) | mbp <- mbParams m]
 
 mbClose :: MonitorBatch a -> IO ()
 mbClose m = case mbHandle m of
@@ -339,6 +335,9 @@ mExec ::
 mExec v i ss st xs j (Monitor s fs bs) = do
   x <- headT xs
   mapM_ (mfExec i x) fs
+  -- TODO: Slow because separate batch monitors will extract separate immutable
+  -- stacks from the trace. However, using folds on the mutable stack only could
+  -- be an option! But then, the batch sizes need to match the length of the trace.
   mapM_ (mbExec i xs) bs
   if v == Quiet
     then return Nothing

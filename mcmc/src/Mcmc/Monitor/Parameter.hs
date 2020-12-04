@@ -15,7 +15,6 @@ module Mcmc.Monitor.Parameter
   ( -- * Parameter monitors
     MonitorParameter (..),
     (>$<),
-    (@.),
     monitorInt,
     monitorDouble,
     monitorDoubleF,
@@ -45,19 +44,6 @@ data MonitorParameter a = MonitorParameter
 
 instance Contravariant MonitorParameter where
   contramap f (MonitorParameter n m) = MonitorParameter n (m . f)
-
--- | Convert a parameter monitor from one data type to another.
---
--- DEPRECATED.
---
--- For example, to monitor a 'Double' value being the first entry of a tuple:
---
--- @
--- mon = fst @. monitorDouble
--- @
-(@.) :: (b -> a) -> MonitorParameter a -> MonitorParameter b
-(@.) = contramap
-{-# DEPRECATED (@.) "Superseded by the contravariant instance, use '(>$<)'." #-}
 
 -- | Monitor 'Int'.
 monitorInt ::
