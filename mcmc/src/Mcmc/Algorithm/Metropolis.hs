@@ -57,6 +57,9 @@ instance ToJSON a => Algorithm (MHG a) where
   aSave = mhgSave
 
 -- | Initialize an MHG algorithm.
+--
+-- For example, see Geyer, C. J., Introduction to markov chain monte carlo, In
+-- Handbook of Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
 mhg ::
   PriorFunction a ->
   LikelihoodFunction a ->
@@ -65,10 +68,12 @@ mhg ::
   -- | The initial state in the state space @a@.
   a ->
   -- | A source of randomness. For reproducible runs, make sure to use
-  -- generators with the same, fixed seed.
+  -- generators with the same seed.
   GenIO ->
   IO (MHG a)
 mhg pr lh cc mn i0 g = do
+  -- The trace is a mutable vector and the mutable state needs to be handled by
+  -- a monad.
   tr <- replicateT 1000 l0
   return $ MHG $ Chain 0 l0 0 tr ac g 0 pr lh cc mn
   where
