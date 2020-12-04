@@ -219,13 +219,12 @@ mcmcSave :: Algorithm a => a -> MCMC ()
 mcmcSave a = do
   s <- reader settings
   case sSaveMode s of
-    NoSave -> mcmcInfoB "Do not save the Markov chain."
-    SaveWithTrace n -> do
+    NoSave -> mcmcInfoB "Do not save the MCMC analysis."
+    Save -> do
       mcmcInfoB "Save settings."
       liftIO $ settingsSave s
       let nm = sAnalysisName s
-      mcmcInfoS $
-        "Save compressed Markov chain with trace of length " ++ show n ++ "."
+      mcmcInfoB "Save compressed MCMC analysis."
       mcmcInfoB "For long traces, or complex objects, this may take a while."
       liftIO $ aSave nm a
       mcmcInfoB "Markov chain saved."

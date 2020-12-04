@@ -137,9 +137,8 @@ data ParallelizationMode
 
 $(deriveJSON defaultOptions ''ParallelizationMode)
 
--- | Should the MCMC run with trace of given maximum length be saved at the end
--- of the run?
-data SaveMode = NoSave | SaveWithTrace Int
+-- | Should the MCMC run be saved at the end of the run?
+data SaveMode = NoSave | Save
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''SaveMode)

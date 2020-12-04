@@ -196,7 +196,7 @@ main = do
               (NIterations 20000)
               Overwrite
               Sequential
-              (SaveWithTrace 1000)
+              Save
               Debug
       -- Initialize the Metropolis-Hastings-Green algorithm.
       a <- mhg pr (lh meanTree stdDevTree) cc mon startingTree g
