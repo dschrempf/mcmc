@@ -81,7 +81,7 @@ mhg pr lh cc mn i0 g = do
     ac = emptyA $ ccProposals cc
 
 mhgFn :: AnalysisName -> FilePath
-mhgFn (AnalysisName nm) = nm ++ ".chain"
+mhgFn (AnalysisName nm) = nm ++ ".mhg"
 
 -- | Save an MHG algorithm.
 mhgSave ::

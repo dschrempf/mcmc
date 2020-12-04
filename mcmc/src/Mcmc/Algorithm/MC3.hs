@@ -255,7 +255,7 @@ mc3 s pr lh cc mn i0 g
       return $ MHG $ c {chainId = i + 1, trace = t'}
 
 mc3Fn :: AnalysisName -> FilePath
-mc3Fn (AnalysisName nm) = nm ++ ".mc3chain"
+mc3Fn (AnalysisName nm) = nm ++ ".mc3"
 
 -- | Save an MC3 algorithm.
 mc3Save ::
