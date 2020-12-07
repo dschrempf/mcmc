@@ -20,7 +20,7 @@
     `Chain`.
 
 
-## 0.3.0
+## 0.3.0.0
 
 -   New shorter example/test for dating trees.
 -   `noData` allows running a chain without likelihood function.

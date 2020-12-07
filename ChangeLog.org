@@ -14,7 +14,7 @@
 - Rename =Status= to =Chain= and separate =Settings= and =Environment= from the
   =Chain=.
 
-** 0.3.0
+** 0.3.0.0
 - New shorter example/test for dating trees.
 - =noData= allows running a chain without likelihood function.
 - Give proposal parameters =PName=, =PDescription=, and =PWeight= newtype
