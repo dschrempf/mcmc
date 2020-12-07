@@ -5,7 +5,7 @@
 ## Unreleased changes
 
 
-## Unreleased changes; 0.4.0
+## Unreleased changes; 0.4.0.0
 
 -   Batch monitors use vectors now!
 -   Documentation.
