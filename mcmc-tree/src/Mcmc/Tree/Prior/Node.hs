@@ -60,6 +60,7 @@ data Constraint = Constraint
     -- | Path to older node (closer to the root).
     constraintOldNode :: Path
   }
+  deriving (Eq, Read, Show)
 
 -- Get the height of the node at path on the tree.
 --
@@ -226,6 +227,7 @@ data Calibration = Calibration
     calibrationNode :: Path,
     calibrationInterval :: Interval
   }
+  deriving (Eq, Show)
 
 -- | Check if a calibration is valid.
 --
