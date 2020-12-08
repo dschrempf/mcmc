@@ -82,14 +82,15 @@ validConstraint ::
   Tree e a ->
   Either String Constraint
 validConstraint c t
-  | isLeft (validPath y t) = Left "validConstraint: Path to young node is invalid."
-  | isLeft (validPath o t) = Left "validConstraint: Path to old node is invalid."
-  | y `isPrefixOf` o = Left "validConstraint: Young node is direct ancestor of old node (?)."
-  | o `isPrefixOf` y = Left "validConstraint: No need to constrain old node which is direct ancestor of young node."
+  | isLeft (validPath y t) = Left $ getErrMsg "Path to young node is invalid."
+  | isLeft (validPath o t) = Left $ getErrMsg "Path to old node is invalid."
+  | y `isPrefixOf` o = Left $ getErrMsg "Young node is direct ancestor of old node (?)."
+  | o `isPrefixOf` y = Left $ getErrMsg "No need to constrain old node which is direct ancestor of young node."
   | otherwise = Right c
   where
     y = constraintYoungNode c
     o = constraintOldNode c
+    getErrMsg msg = "validConstraint: " ++ constraintName c ++ ": " ++ msg
 
 -- | Hard constrain order of nodes with given paths.
 --
@@ -239,10 +240,11 @@ validCalibration ::
   Tree e a ->
   Either String Calibration
 validCalibration c t
-  | isLeft (validPath p t) = Left "validCalibration: Path to node is invalid."
+  | isLeft (validPath p t) = Left $ getErrMsg "Path to node is invalid."
   | otherwise = Right c
   where
     p = calibrationNode c
+    getErrMsg msg = "validCalibration: " ++ calibrationName c ++ ": " ++ msg
 
 -- | Calibrate height of a node with given path using the uniform distribution.
 --
