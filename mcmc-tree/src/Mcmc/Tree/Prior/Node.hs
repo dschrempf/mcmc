@@ -82,8 +82,8 @@ validConstraint ::
   Constraint ->
   Either String Constraint
 validConstraint t c
-  | isLeft (validPath y t) = Left $ getErrMsg "Path to young node is invalid."
-  | isLeft (validPath o t) = Left $ getErrMsg "Path to old node is invalid."
+  | isLeft (validPath t y) = Left $ getErrMsg "Path to young node is invalid."
+  | isLeft (validPath t o) = Left $ getErrMsg "Path to old node is invalid."
   | y `isPrefixOf` o = Left $ getErrMsg "Young node is direct ancestor of old node (?)."
   | o `isPrefixOf` y = Left $ getErrMsg "No need to constrain old node which is direct ancestor of young node."
   | otherwise = Right c
@@ -240,7 +240,7 @@ validCalibration ::
   Calibration ->
   Either String Calibration
 validCalibration t c
-  | isLeft (validPath p t) = Left $ getErrMsg "Path to node is invalid."
+  | isLeft (validPath t p) = Left $ getErrMsg "Path to node is invalid."
   | otherwise = Right c
   where
     p = calibrationNode c
