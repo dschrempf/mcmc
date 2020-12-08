@@ -16,9 +16,7 @@ module Mcmc.Tree.Prior.Node
     constrainHardUnsafe,
     constrainSoftUnsafe,
 
-    -- * Calibrations
-
-    -- ** Intervals
+    -- * Intervals
     NonNegative,
     ExtendedPositive,
     Interval,
@@ -26,14 +24,16 @@ module Mcmc.Tree.Prior.Node
     lowerBoundOnly,
     transformInterval,
 
-    -- ** Priors
-    calibrateUnsafe,
-    calibrateUniformUnsafe,
-    calibrateUniformSoftUnsafe,
+    -- * Calibrations
+    Calibration (..),
+    validCalibration,
+    calibrateHardUnsafe,
+    calibrateSoftUnsafe,
   )
 where
 
 import Control.Lens
+import Data.Either
 import Data.List
 import ELynx.Tree
 import Mcmc.Tree.Lens
@@ -44,6 +44,15 @@ import Statistics.Distribution.Normal
 import Text.Read
 
 -- | Constraints define node orders.
+--
+-- For example,
+--
+-- @
+--   Constraint "Name" YOUNG OLD
+-- @
+--
+-- ensures that the node with path @YOUNG@ is younger than the node with path
+-- @OLD@.
 data Constraint = Constraint
   { constraintName :: String,
     -- | Path to younger node (closer to the leaves).
@@ -72,8 +81,8 @@ validConstraint ::
   Tree e a ->
   Either String Constraint
 validConstraint c t
-  | not (validPath y t) = Left "validConstraint: Path to young node is invalid."
-  | not (validPath o t) = Left "validConstraint: Path to old node is invalid."
+  | isLeft (validPath y t) = Left "validConstraint: Path to young node is invalid."
+  | isLeft (validPath o t) = Left "validConstraint: Path to old node is invalid."
   | y `isPrefixOf` o = Left "validConstraint: Young node is direct ancestor of old node (?)."
   | o `isPrefixOf` y = Left "validConstraint: No need to constrain old node which is direct ancestor of young node."
   | otherwise = Right c
@@ -203,63 +212,78 @@ transformInterval x (Interval a b)
 _ >* Infinity = False
 h >* Positive b = h > b
 
--- | Calibrate height of a node with given path using the normal distribution.
+-- | A calibration is specified by a name, a node at given path, and height boundaries.
 --
--- For reasons of computational efficiency, the path is not checked for
--- validity. Please do so beforehand using 'validPath'.
-calibrateUnsafe ::
-  HasHeight a =>
-  -- | Mean.
-  Double ->
-  -- | Standard deviation.
-  Double ->
-  Path ->
+-- For example,
+--
+-- @
+--   let c = Calibration "Root" [] YOUNG OLD
+-- @
+--
+-- ensures that the root node is older than @YOUNG@, and younger than @OLD@.
+data Calibration = Calibration
+  { calibrationName :: String,
+    calibrationNode :: Path,
+    calibrationInterval :: Interval
+  }
+
+-- | Check if a calibration is valid.
+--
+-- Returns 'Left' if:
+--
+-- - The path is invalid in that it does not lead to a node on the tree.
+validCalibration ::
+  Calibration ->
   Tree e a ->
-  Log Double
-calibrateUnsafe m s p = Exp . logDensity (normalDistr m s) . fromHeight . getHeightFromNodeUnsafe p
+  Either String Calibration
+validCalibration c t
+  | isLeft (validPath p t) = Left "validCalibration: Path to node is invalid."
+  | otherwise = Right c
+  where
+    p = calibrationNode c
 
 -- | Calibrate height of a node with given path using the uniform distribution.
 --
 -- If the upper bound is not given, no upper bound is used.
 --
 -- For reasons of computational efficiency, the path is not checked for
--- validity. Please do so beforehand using 'validPath'.
-calibrateUniformUnsafe ::
+-- validity. Please do so beforehand using 'validCalibration'.
+calibrateHardUnsafe ::
   HasHeight a =>
-  Interval ->
-  Path ->
+  Calibration ->
   Tree e a ->
   Log Double
-calibrateUniformUnsafe (Interval a b) p t
+calibrateHardUnsafe c t
   | h <= a' = 0
   | h >* b = 0
   | otherwise = 1
   where
     a' = fromNonNegative a
     h = fromHeight $ getHeightFromNodeUnsafe p t
+    (Interval a b) = calibrationInterval c
+    p = calibrationNode c
 
 -- | Calibrate height of a node with given path.
 --
--- - When the node is in the given bounds, a uniform distribution is used.
+-- When the node is in the given bounds, a uniform distribution is used.
 --
--- - When the node is out of bounds, a one-sided normal distribution with given
---   standard deviation is used. The normal distribution is normalized such that
---   the complete distribution of the constrained is continuous. Use of the
---   normal distribution also ensures that the first derivative is continuous.
+-- When the node is out of bounds, a one-sided normal distribution with given
+-- standard deviation is used. The normal distribution is normalized such that
+-- the complete distribution of the constrained is continuous. Use of the normal
+-- distribution also ensures that the first derivative is continuous.
 --
 -- If the upper bound is not given, no upper bound is used.
 --
 -- For reasons of computational efficiency, the path is not checked for
--- validity. Please do so beforehand using 'validPath'.
-calibrateUniformSoftUnsafe ::
+-- validity. Please do so beforehand using 'validCalibration'.
+calibrateSoftUnsafe ::
   HasHeight a =>
   -- | Standard deviation of one sided normal distributions.
   Double ->
-  Interval ->
-  Path ->
+  Calibration ->
   Tree e a ->
   Log Double
-calibrateUniformSoftUnsafe s (Interval a b) p t
+calibrateSoftUnsafe s c t
   | h <= a' = Exp $ logDensity d (a' - h) - logDensity d 0
   | h >* b = case b of
     Infinity -> 1.0
@@ -269,3 +293,5 @@ calibrateUniformSoftUnsafe s (Interval a b) p t
     a' = fromNonNegative a
     h = fromHeight $ getHeightFromNodeUnsafe p t
     d = normalDistr 0 s
+    (Interval a b) = calibrationInterval c
+    p = calibrationNode c
