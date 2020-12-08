@@ -78,10 +78,10 @@ getHeightFromNodeUnsafe p t = t ^. subTreeAtUnsafeL p . labelL . hasHeightL
 --
 -- - The old node is a direct ancestor of the young node.
 validConstraint ::
-  Constraint ->
   Tree e a ->
+  Constraint ->
   Either String Constraint
-validConstraint c t
+validConstraint t c
   | isLeft (validPath y t) = Left $ getErrMsg "Path to young node is invalid."
   | isLeft (validPath o t) = Left $ getErrMsg "Path to old node is invalid."
   | y `isPrefixOf` o = Left $ getErrMsg "Young node is direct ancestor of old node (?)."
@@ -236,10 +236,10 @@ data Calibration = Calibration
 --
 -- - The path is invalid in that it does not lead to a node on the tree.
 validCalibration ::
-  Calibration ->
   Tree e a ->
+  Calibration ->
   Either String Calibration
-validCalibration c t
+validCalibration t c
   | isLeft (validPath p t) = Left $ getErrMsg "Path to node is invalid."
   | otherwise = Right c
   where
