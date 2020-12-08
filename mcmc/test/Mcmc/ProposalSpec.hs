@@ -40,4 +40,4 @@ spec =
         l2 `shouldBe` 8
         o3 <- orderProposals (setOrder SequentialReversibleO c) g
         length o3 `shouldBe` 8
-        o3 `shouldBe` [p1, p2, p2, p2, p2, p2, p2, p1]
+        o3 == [p1, p2, p2, p2, p2, p2, p2, p1] `shouldBe` True
