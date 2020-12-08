@@ -11,6 +11,7 @@
 -- Creation date: Mon Jul 27 10:49:11 2020.
 module Mcmc.Tree.Prior.Node
   ( -- * Constraints
+    Constraint (..),
     validConstraint,
     constrainHardUnsafe,
     constrainSoftUnsafe,
@@ -42,6 +43,15 @@ import Statistics.Distribution
 import Statistics.Distribution.Normal
 import Text.Read
 
+-- | Constraints define node orders.
+data Constraint = Constraint
+  { constraintName :: String,
+    -- | Path to younger node (closer to the leaves).
+    constraintYoungNode :: Path,
+    -- | Path to older node (closer to the root).
+    constraintOldNode :: Path
+  }
+
 -- Get the height of the node at path on the tree.
 --
 -- __Assume the node labels denote node height__.
@@ -58,18 +68,18 @@ getHeightFromNodeUnsafe p t = t ^. subTreeAtUnsafeL p . labelL . hasHeightL
 --
 -- - The old node is a direct ancestor of the young node.
 validConstraint ::
-  -- | Path to younger node (closer to the leaves).
-  Path ->
-  -- | Path to older node (closer to the root).
-  Path ->
+  Constraint ->
   Tree e a ->
-  Either String ()
-validConstraint y o t
+  Either String Constraint
+validConstraint c t
   | not (validPath y t) = Left "validConstraint: Path to young node is invalid."
   | not (validPath o t) = Left "validConstraint: Path to old node is invalid."
   | y `isPrefixOf` o = Left "validConstraint: Young node is direct ancestor of old node (?)."
   | o `isPrefixOf` y = Left "validConstraint: No need to constrain old node which is direct ancestor of young node."
-  | otherwise = Right ()
+  | otherwise = Right c
+  where
+    y = constraintYoungNode c
+    o = constraintOldNode c
 
 -- | Hard constrain order of nodes with given paths.
 --
@@ -79,15 +89,15 @@ validConstraint y o t
 -- validity. Please do so beforehand using 'validConstraint'.
 constrainHardUnsafe ::
   HasHeight a =>
-  -- | Path to younger node (closer to the leaves).
-  Path ->
-  -- | Path to older node (closer to the root).
-  Path ->
+  Constraint ->
   Tree e a ->
   Log Double
-constrainHardUnsafe y o t
+constrainHardUnsafe c t
   | getHeightFromNodeUnsafe y t < getHeightFromNodeUnsafe o t = 1
   | otherwise = 0
+  where
+    y = constraintYoungNode c
+    o = constraintOldNode c
 
 -- | Soft constrain order of nodes with given paths.
 --
@@ -104,19 +114,18 @@ constrainSoftUnsafe ::
   HasHeight a =>
   -- | Standard deviation of one sided normal distribution.
   Double ->
-  -- | Path to younger node (closer to the leaves).
-  Path ->
-  -- | Path to older node (closer to the root).
-  Path ->
+  Constraint ->
   Tree e a ->
   Log Double
-constrainSoftUnsafe s y o t
+constrainSoftUnsafe s c t
   | hY < hO = 1
   | otherwise = Exp $ logDensity d (hY - hO) - logDensity d 0
   where
     hY = fromHeight $ getHeightFromNodeUnsafe y t
     hO = fromHeight $ getHeightFromNodeUnsafe o t
     d = normalDistr 0 s
+    y = constraintYoungNode c
+    o = constraintOldNode c
 
 -- | Non-negative number.
 newtype NonNegative = NonNegative {fromNonNegative :: Double}
