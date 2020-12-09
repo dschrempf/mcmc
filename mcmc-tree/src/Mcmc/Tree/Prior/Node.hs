@@ -12,7 +12,8 @@
 module Mcmc.Tree.Prior.Node
   ( -- * Constraints
     Constraint (..),
-    validConstraint,
+    constraint,
+    validateConstraint,
     constrainHardUnsafe,
     constrainSoftUnsafe,
 
@@ -26,17 +27,17 @@ module Mcmc.Tree.Prior.Node
 
     -- * Calibrations
     Calibration (..),
-    validCalibration,
+    calibration,
     calibrateHardUnsafe,
     calibrateSoftUnsafe,
   )
 where
 
 import Control.Lens
-import Data.Either
 import Data.List
 import ELynx.Tree
 import Mcmc.Tree.Lens
+import Mcmc.Tree.Mrca
 import Mcmc.Tree.Types
 import Numeric.Log
 import Statistics.Distribution
@@ -48,11 +49,11 @@ import Text.Read
 -- For example,
 --
 -- @
---   Constraint "Name" YOUNG OLD
+--   Constraint "Name" YOUNGER OLDER
 -- @
 --
--- ensures that the node with path @YOUNG@ is younger than the node with path
--- @OLD@.
+-- ensures that the node with path @YOUNGER@ is younger than the node with path
+-- @OLDER@.
 data Constraint = Constraint
   { constraintName :: String,
     -- | Path to younger node (closer to the leaves).
@@ -70,34 +71,57 @@ getHeightFromNodeUnsafe p t = t ^. subTreeAtUnsafeL p . labelL . hasHeightL
 
 -- | Check if a constraint is valid.
 --
--- Returns 'Left' if:
+-- Return 'Left' if:
 --
--- - A path is invalid in that it does not lead to a node on the tree.
+-- - The younger node is a direct ancestor of the old node.
 --
--- - The young node is a direct ancestor of the old node.
---
--- - The old node is a direct ancestor of the young node.
-validConstraint ::
-  Tree e a ->
+-- - The older node is a direct ancestor of the young node.
+validateConstraint ::
   Constraint ->
   Either String Constraint
-validConstraint t c
-  | isLeft (validPath t y) = Left $ getErrMsg "Path to young node is invalid."
-  | isLeft (validPath t o) = Left $ getErrMsg "Path to old node is invalid."
-  | y `isPrefixOf` o = Left $ getErrMsg "Young node is direct ancestor of old node (?)."
-  | o `isPrefixOf` y = Left $ getErrMsg "No need to constrain old node which is direct ancestor of young node."
+validateConstraint c
+  | y `isPrefixOf` o = Left $ getErrMsg "Younger node is direct ancestor of older node (?)."
+  | o `isPrefixOf` y = Left $ getErrMsg "No need to constrain older node which is direct ancestor of younger node."
   | otherwise = Right c
   where
     y = constraintYoungNode c
     o = constraintOldNode c
-    getErrMsg msg = "validConstraint: " ++ constraintName c ++ ": " ++ msg
+    getErrMsg msg = "validateConstraint: " ++ constraintName c ++ ": " ++ msg
+
+-- | Create and validate a constraint.
+--
+-- Call 'error' if:
+--
+-- - A node cannot be found on the tree.
+--
+-- - The younger node is a direct ancestor of the old node.
+--
+-- - The older node is a direct ancestor of the young node.
+constraint ::
+  (Ord a, Show a) =>
+  Tree e a ->
+  -- | Name.
+  String ->
+  -- | The most recent common ancestor of the given leaves is the younger node.
+  [a] ->
+  -- | The most recent common ancestor of the given leave is the older node.
+  [a] ->
+  Constraint
+constraint t n ys os =
+  either error id $
+    validateConstraint $
+      Constraint n y o
+  where
+    err msg = error $ "constraint: " ++ n ++ ": " ++ msg
+    y = either err id $ mrca ys t
+    o = either err id $ mrca os t
 
 -- | Hard constrain order of nodes with given paths.
 --
 -- A truncated, improper uniform distribution is used.
 --
 -- For reasons of computational efficiency, the paths are not checked for
--- validity. Please do so beforehand using 'validConstraint'.
+-- validity. Please do so beforehand using 'constraint' or 'validateConstraint'.
 constrainHardUnsafe ::
   HasHeight a =>
   Constraint ->
@@ -120,7 +144,7 @@ constrainHardUnsafe c t
 -- distribution also ensures that the first derivative is continuous.
 --
 -- For reasons of computational efficiency, the paths are not checked for
--- validity. Please do so beforehand using 'validConstraint'.
+-- validity. Please do so beforehand using 'constraint' or 'validateConstraint'.
 constrainSoftUnsafe ::
   HasHeight a =>
   -- | Standard deviation of one sided normal distribution.
@@ -214,7 +238,8 @@ transformInterval x (Interval a b)
 _ >* Infinity = False
 h >* Positive b = h > b
 
--- | A calibration is specified by a name, a node at given path, and height boundaries.
+-- | A calibration is specified by a name, a node at given path, and height
+-- boundaries.
 --
 -- For example,
 --
@@ -230,28 +255,31 @@ data Calibration = Calibration
   }
   deriving (Eq, Show)
 
--- | Check if a calibration is valid.
+-- | Create and validate a calibration.
 --
--- Returns 'Left' if:
+-- Call 'error' if:
 --
--- - The path is invalid in that it does not lead to a node on the tree.
-validCalibration ::
+-- - The node cannot be found on the tree.
+calibration ::
+  (Ord a, Show a) =>
   Tree e a ->
-  Calibration ->
-  Either String Calibration
-validCalibration t c
-  | isLeft (validPath t p) = Left $ getErrMsg "Path to node is invalid."
-  | otherwise = Right c
+  -- | Name.
+  String ->
+  -- | The most recent common ancestor of the given leaves is the calibrated node.
+  [a] ->
+  Interval ->
+  Calibration
+calibration t n xs = Calibration n p
   where
-    p = calibrationNode c
-    getErrMsg msg = "validCalibration: " ++ calibrationName c ++ ": " ++ msg
+    err msg = error $ "calibration: " ++ n ++ ": " ++ msg
+    p = either err id $ mrca xs t
 
 -- | Calibrate height of a node with given path using the uniform distribution.
 --
 -- If the upper bound is not given, no upper bound is used.
 --
 -- For reasons of computational efficiency, the path is not checked for
--- validity. Please do so beforehand using 'validCalibration'.
+-- validity. Please do so beforehand using 'calibration'.
 calibrateHardUnsafe ::
   HasHeight a =>
   Calibration ->
@@ -279,7 +307,7 @@ calibrateHardUnsafe c t
 -- If the upper bound is not given, no upper bound is used.
 --
 -- For reasons of computational efficiency, the path is not checked for
--- validity. Please do so beforehand using 'validCalibration'.
+-- validity. Please do so beforehand using 'calibration'.
 calibrateSoftUnsafe ::
   HasHeight a =>
   -- | Standard deviation of one sided normal distributions.
