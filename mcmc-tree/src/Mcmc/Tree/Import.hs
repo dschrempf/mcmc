@@ -48,9 +48,9 @@ parseFileWith p f = do
   return $ either error id $ parseOnly p l
 
 -- | Parse first Newick tree in file.
-oneTree :: FilePath -> IO (Tree Length Name)
-oneTree f = do
-  t <- parseFileWith (newick Standard) f
+oneTree :: NewickFormat -> FilePath -> IO (Tree Length Name)
+oneTree fm f = do
+  t <- parseFileWith (newick fm) f
   return $ either error id $ phyloToLengthTree t
 
 -- | Parse one or more Newick trees until end of file.
