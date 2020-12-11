@@ -106,7 +106,10 @@ openWithExecutionMode em fn = do
       openFile fn AppendMode
     (Fail, True) ->
       error $ "openWithExecutionMode: File exists: " ++ fn ++ "; use 'Overwrite'?"
-    _ -> openFile fn WriteMode
+    _ -> do
+      h <- openFile fn WriteMode
+      hSetBuffering h LineBuffering
+      return h
 
 -- One could automatically select 'Parallel' or 'Sequential' according to the
 -- number of capabilities when initializing the environment or according to the

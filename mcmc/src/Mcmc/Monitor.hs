@@ -174,7 +174,6 @@ mfOpen :: String -> String -> ExecutionMode -> MonitorFile a -> IO (MonitorFile 
 mfOpen pre suf em m = do
   let fn = intercalate "." $ filter (not . null) [pre, mfName m, suf, "monitor"]
   h <- openWithExecutionMode em fn
-  hSetBuffering h LineBuffering
   return $ m {mfHandle = Just h}
 
 mfHeader :: MonitorFile a -> IO ()
@@ -251,7 +250,6 @@ mbOpen :: String -> String -> ExecutionMode -> MonitorBatch a -> IO (MonitorBatc
 mbOpen pre suf em m = do
   let fn = intercalate "." $ filter (not . null) [pre, mbName m, suf, "batch"]
   h <- openWithExecutionMode em fn
-  hSetBuffering h LineBuffering
   return $ m {mbHandle = Just h}
 
 mbHeader :: MonitorBatch a -> IO ()
