@@ -10,7 +10,8 @@
 --
 -- Creation date: Mon Aug  3 10:46:27 2020.
 module Mcmc.Internal.ByteString
-  ( alignRightWith,
+  ( alignRightWithNoTrim,
+    alignRightWith,
     alignRight,
     alignLeftWith,
     alignLeft,
@@ -19,11 +20,16 @@ where
 
 import qualified Data.ByteString.Lazy.Char8 as BL
 
+-- | For a given width, align string to the right; use given fill character.
+alignRightWithNoTrim :: Char -> Int -> BL.ByteString -> BL.ByteString
+alignRightWithNoTrim c n s = BL.replicate (fromIntegral n - l) c <> s
+  where
+    l = BL.length s
+
 -- | For a given width, align string to the right; use given fill character;
 -- trim on the left if string is longer.
 alignRightWith :: Char -> Int -> BL.ByteString -> BL.ByteString
-alignRightWith c n s =
-  BL.replicate (fromIntegral n - l) c <> BL.take (fromIntegral n) s
+alignRightWith c n s = BL.replicate (fromIntegral n - l) c <> BL.take (fromIntegral n) s
   where
     l = BL.length s
 

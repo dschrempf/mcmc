@@ -37,7 +37,7 @@ renderDuration dt = hTxt <> mTxt <> sTxt
     -- Total amount of seconds
     ts :: Int
     ts = round dt
-    renderDecimal n = alignRightWith '0' 2 $ BB.toLazyByteString $ BB.intDec n
+    renderDecimal n = alignRightWithNoTrim '0' 2 $ BB.toLazyByteString $ BB.intDec n
 
 -- | Render duration in seconds.
 renderDurationS :: NominalDiffTime -> BL.ByteString
