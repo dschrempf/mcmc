@@ -193,7 +193,7 @@ main = do
             Settings
               analysisName
               (BurnInWithAutoTuning 4000 200)
-              (NIterations 20000)
+              (Iterations 20000)
               Overwrite
               Sequential
               Save

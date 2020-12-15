@@ -152,7 +152,7 @@ module Mcmc
     -- ** Data types
     AnalysisName (..),
     BurnInSpecification (..),
-    NIterations (..),
+    Iterations (..),
     ExecutionMode (..),
     ParallelizationMode (..),
     SaveMode (..),

@@ -126,7 +126,7 @@ main = do
         Settings
           (AnalysisName "test-tree")
           (BurnInWithAutoTuning 2000 100)
-          (NIterations 20000)
+          (Iterations 20000)
           Overwrite
           Sequential
           NoSave

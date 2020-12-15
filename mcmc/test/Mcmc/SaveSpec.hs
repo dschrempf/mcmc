@@ -59,7 +59,7 @@ spec = do
               Settings
                 (AnalysisName "SaveSpec")
                 (BurnInWithAutoTuning 20 10)
-                (NIterations 200)
+                (Iterations 200)
                 Overwrite
                 Sequential
                 NoSave

@@ -133,7 +133,7 @@ main = do
         Settings
           (AnalysisName "dirichlet")
           (BurnInWithAutoTuning 3000 100)
-          (NIterations 30000)
+          (Iterations 30000)
           Overwrite
           Sequential
           NoSave

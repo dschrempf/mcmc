@@ -97,7 +97,7 @@ main = do
         Settings
           (AnalysisName "archery")
           (BurnInWithAutoTuning 200000 10000)
-          (NIterations 1000000)
+          (Iterations 1000000)
           Overwrite
           Sequential
           Save

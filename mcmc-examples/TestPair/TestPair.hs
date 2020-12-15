@@ -64,7 +64,7 @@ main = do
         Settings
           (AnalysisName "test-pair")
           (BurnInWithAutoTuning 20000 1000)
-          (NIterations 100000)
+          (Iterations 100000)
           Overwrite
           Sequential
           NoSave

@@ -117,7 +117,7 @@ mcmcExecuteMonitors a = do
   let s = settings e
       vb = sVerbosity s
       t0 = startingTime e
-      iTotal = burnInIterations (sBurnIn s) + fromNIterations (sNIterations s)
+      iTotal = burnInIterations (sBurnIn s) + fromIterations (sIterations s)
   mStdLog <- liftIO (aExecuteMonitors vb t0 iTotal a)
   forM_ mStdLog (mcmcOutB "   ")
 
@@ -141,7 +141,7 @@ mcmcNewRun a = do
   mcmcInfoB $ aSummarizeCycle a
   a' <- mcmcBurnIn a
   a'' <- mcmcResetAcceptance a'
-  let i = fromNIterations $ sNIterations s
+  let i = fromIterations $ sIterations s
   mcmcInfoS $ "Run chain for " ++ show i ++ " iterations."
   mcmcInfoB $ aStdMonitorHeader a''
   mcmcIterate i a''
@@ -149,7 +149,7 @@ mcmcNewRun a = do
 mcmcContinueRun :: Algorithm a => a -> MCMC a
 mcmcContinueRun a = do
   s <- reader settings
-  let iTotal = fromNIterations (sNIterations s) + burnInIterations (sBurnIn s)
+  let iTotal = fromIterations (sIterations s) + burnInIterations (sBurnIn s)
   mcmcInfoB "Continuation of MCMC sampler."
   let iCurrent = aIteration a
   mcmcInfoS $ "Current iteration: " ++ show iCurrent ++ "."
@@ -273,5 +273,5 @@ mcmc s a = do
 mcmcContinue :: Algorithm a => Int -> Settings -> a -> IO a
 mcmcContinue dn s = mcmc s'
   where
-    n' = NIterations $ fromNIterations (sNIterations s) + dn
-    s' = s {sNIterations = n', sExecutionMode = Continue}
+    n' = Iterations $ fromIterations (sIterations s) + dn
+    s' = s {sIterations = n', sExecutionMode = Continue}

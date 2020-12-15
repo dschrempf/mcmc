@@ -17,7 +17,7 @@ module Mcmc.Settings
     AnalysisName (..),
     BurnInSpecification (..),
     burnInIterations,
-    NIterations (..),
+    Iterations (..),
     ExecutionMode (..),
     openWithExecutionMode,
     ParallelizationMode (..),
@@ -66,10 +66,10 @@ burnInIterations (BurnInWithAutoTuning n _) = n
 -- | Number of normal iterations after burn in.
 --
 -- Note that auto tuning only happens during burn in.
-newtype NIterations = NIterations {fromNIterations :: Int}
+newtype Iterations = Iterations {fromIterations :: Int}
   deriving (Eq, Read, Show)
 
-$(deriveJSON defaultOptions ''NIterations)
+$(deriveJSON defaultOptions ''Iterations)
 
 -- | Execution mode.
 data ExecutionMode
@@ -158,7 +158,7 @@ $(deriveJSON defaultOptions ''Verbosity)
 data Settings = Settings
   { sAnalysisName :: AnalysisName,
     sBurnIn :: BurnInSpecification,
-    sNIterations :: NIterations,
+    sIterations :: Iterations,
     sExecutionMode :: ExecutionMode,
     sParallelizationMode :: ParallelizationMode,
     sSaveMode :: SaveMode,
@@ -221,8 +221,8 @@ settingsCheck s@(Settings nm bi i em _ _ _) iCurrent
   | null (fromAnalysisName nm) = serr "Analysis name is the empty string."
   | burnInIterations bi < 0 = serr "Number of burn in iterations is negative."
   | not $ burnInAutoTuningPeriodValid bi = serr "Auto tuning period is zero or negative."
-  | fromNIterations i < 0 = serr "Number of iterations is negative."
-  | burnInIterations bi + fromNIterations i - iCurrent < 0 =
+  | fromIterations i < 0 = serr "Number of iterations is negative."
+  | burnInIterations bi + fromIterations i - iCurrent < 0 =
     serr "Current iteration is larger than the total number of iterations."
   | iCurrent /= 0 && em /= Continue =
     serr "Current iteration is non-zero but execution mode is not 'Continue'."

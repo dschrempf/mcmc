@@ -48,7 +48,7 @@ normalSlide g = do
         Settings
           (AnalysisName "Normal")
           (BurnInWithAutoTuning 2000 500)
-          (NIterations 20000)
+          (Iterations 20000)
           Overwrite
           Sequential
           NoSave
@@ -68,7 +68,7 @@ normalLargeCycleBench g = do
         Settings
           (AnalysisName "Normal")
           (BurnInWithAutoTuning 20 5)
-          (NIterations 200)
+          (Iterations 200)
           Overwrite
           Sequential
           NoSave
@@ -85,7 +85,7 @@ normalBactrianBench g = do
         Settings
           (AnalysisName "NormalBactrian")
           (BurnInWithAutoTuning 2000 200)
-          (NIterations 20000)
+          (Iterations 20000)
           Overwrite
           Sequential
           NoSave
@@ -99,7 +99,7 @@ normalMC3 g n = do
         Settings
           (AnalysisName "MC3")
           (BurnInWithAutoTuning 200 20)
-          (NIterations 2000)
+          (Iterations 2000)
           Overwrite
           Sequential
           NoSave

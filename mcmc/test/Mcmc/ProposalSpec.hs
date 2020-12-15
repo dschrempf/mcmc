@@ -30,7 +30,7 @@ c = cycleFromList [p1, p2]
 
 spec :: Spec
 spec =
-  describe "getNIterations" $
+  describe "orderProposals" $
     it "returns the correct number of proposals in a cycle" $
       do
         g <- create
