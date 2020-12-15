@@ -215,7 +215,7 @@ initMHG prf lhf i beta a
   | otherwise = do
     -- We have to reset the trace, since it is not set by 'setReciprocalTemperature'.
       t' <- pushT l t
-      return $ MHG $ c {chainId = i + 1, trace = t'}
+      return $ MHG $ c {chainId = i, trace = t'}
   where
     a' = setReciprocalTemperature prf lhf beta a
     c = fromMHG a'
