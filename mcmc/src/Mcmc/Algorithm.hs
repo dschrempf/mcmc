@@ -50,7 +50,7 @@ class Algorithm a where
     Verbosity ->
     -- | Starting time.
     UTCTime ->
-    -- | Total number of iterations.
+    -- | Total number of iterations including burn in.
     Int ->
     a ->
     IO (Maybe BL.ByteString)
