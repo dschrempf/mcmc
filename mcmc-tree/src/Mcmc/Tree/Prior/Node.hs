@@ -199,7 +199,7 @@ instance Read ExtendedPositive where
 
 instance Show ExtendedPositive where
   showsPrec p (Positive x) = showsPrec p x
-  showsPrec p Infinity = showsPrec p "Infinity"
+  showsPrec _ Infinity = showString "Infinity"
 
 -- | Open interval \((a,b)\) with \(a < b\), \(a \in [0, \infty)\) and \(b \in
 -- (0, \infty]\).
@@ -230,7 +230,7 @@ transformInterval x (Interval a b)
   where
     a' = NonNegative $ x * fromNonNegative a
     b' = case b of
-      Positive y -> Positive $ x * y
+      Positive bVal -> Positive $ x * bVal
       Infinity -> Infinity
 
 -- No number is bigger than a non-existing upper bound..
