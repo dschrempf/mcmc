@@ -20,13 +20,13 @@ import Mcmc.Settings
 
 -- | Class for algorithms used by MCMC samplers.
 class Algorithm a where
-  -- | Algorithm name.
+  -- | Name.
   aName :: a -> String
 
-  -- | Get the number of iterations.
+  -- | Current iteration.
   aIteration :: a -> Int
 
-  -- | Move the chain one iteration forward.
+  -- | Sample the next state.
   aIterate ::
     ParallelizationMode ->
     a ->
@@ -38,9 +38,10 @@ class Algorithm a where
   -- | Reset acceptance counts.
   aResetAcceptance :: a -> a
 
+  -- | Summarize proposals.
   aSummarizeCycle :: a -> BL.ByteString
 
-  -- | Open all monitor files and provide the file handles.
+  -- | Open required monitor files and setup corresponding file handles.
   aOpenMonitors :: AnalysisName -> ExecutionMode -> a -> IO a
 
   -- | Execute file monitors and possibly return a string to be written to the
@@ -57,9 +58,8 @@ class Algorithm a where
   -- | Header of monitor to standard output.
   aStdMonitorHeader :: a -> BL.ByteString
 
-  -- | Close all files and remove the file handles.
+  -- | Close monitor files and remove the file handles.
   aCloseMonitors :: a -> IO a
 
-  -- | Save the analysis.
+  -- | Save analysis.
   aSave :: AnalysisName -> a -> IO ()
-

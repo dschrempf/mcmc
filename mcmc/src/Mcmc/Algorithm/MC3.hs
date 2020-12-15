@@ -145,6 +145,7 @@ data MC3 a = MC3
     mc3MHGChains :: MHGChains a,
     -- | Vector of reciprocal temperatures.
     mc3ReciprocalTemperatures :: ReciprocalTemperatures,
+    -- | Current iteration.
     mc3Iteration :: Int,
     -- | Number of accepted and rejected swaps.
     mc3SwapAcceptance :: Acceptance Int,
