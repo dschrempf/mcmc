@@ -115,7 +115,7 @@ msDataLine ::
 msDataLine i (Link x p l) ss st j m = do
   ct <- getCurrentTime
   let dt = ct `diffUTCTime` st
-      -- XXX: Don't evaluate this when i == ss.
+      -- NOTE: Don't evaluate this when i == ss.
       timePerIter = dt / fromIntegral (i - ss)
       -- -- Always 0; doesn't make much sense.
       -- tpi = if (i - ss) < 10

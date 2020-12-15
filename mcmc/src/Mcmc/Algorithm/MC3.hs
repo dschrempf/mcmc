@@ -167,7 +167,7 @@ instance ToJSON a => Algorithm (MC3 a) where
 
 --  The prior and likelihood values of the current link are updated.
 --
--- XXX: The trace is not changed! In particular, the prior and likelihood values
+-- NOTE: The trace is not changed! In particular, the prior and likelihood values
 -- are not updated for any link of the trace.
 setReciprocalTemperature ::
   -- Cold prior function.
@@ -269,7 +269,8 @@ mc3 s pr lh cc mn i0 g
     -- NOTE: The initial choice of reciprocal temperatures is based on a few
     -- tests but otherwise pretty arbitrary.
     --
-    -- XXX: Have to 'take n' elements, because vectors are not as lazy as lists.
+    -- NOTE: Have to 'take n' elements, because vectors are not as lazy as
+    -- lists.
     bs = U.fromList $ take n $ iterate (* 0.92) 1.0
 
 mc3Fn :: AnalysisName -> FilePath

@@ -59,6 +59,8 @@ instance ToJSON a => Algorithm (MHG a) where
   aCloseMonitors = mhgCloseMonitors
   aSave = mhgSave
 
+-- NOTE: IO is required because the trace is mutable.
+
 -- | Initialize an MHG algorithm.
 mhg ::
   PriorFunction a ->
