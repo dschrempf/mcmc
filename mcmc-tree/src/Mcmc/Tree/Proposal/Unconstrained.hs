@@ -36,12 +36,14 @@ import System.Random.MWC
 
 -- | Scale branch.
 --
--- This proposal scales the stem of the given tree. To slide branches inner, see
--- 'subTreeAtUnsafeL'. For example, use @subTreeAtUnsafeL path @~ scaleBranch ...@.
+-- This proposal scales the stem of the given tree. To slide inner branches, use
+-- 'subTreeAtUnsafeL' or 'scaleBranches'. For example,
+--
+-- @subTreeAtUnsafeL path @~ scaleBranch ...@.
 --
 -- See 'scaleUnbiased'.
 scaleBranch ::
-  -- | Standard deviation.
+  -- | Shape.
   Double ->
   PName ->
   PWeight ->
@@ -55,7 +57,7 @@ scaleBranch s n w t = (branchL . lengthUnsafeL) @~ scaleUnbiased s n w t
 scaleBranches ::
   Tree e a ->
   HandleStem ->
-  -- | Standard deviation.
+  -- | Shape.
   Double ->
   -- | Base name of proposals.
   PName ->
@@ -127,7 +129,7 @@ scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
 scaleSubTrees ::
   Tree e a ->
   HandleRoot ->
-  -- | Standard deviation.
+  -- | Shape.
   Double ->
   -- | Base name of proposals.
   PName ->
