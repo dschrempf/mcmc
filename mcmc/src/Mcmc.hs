@@ -149,6 +149,7 @@ module Mcmc
 
     -- * Settings
     Settings (..),
+
     -- ** Data types
     AnalysisName (..),
     BurnInSpecification (..),
@@ -189,9 +190,11 @@ module Mcmc
     mcmcContinue,
 
     -- * Algorithms
+
     -- ** Metropolis-Hastings-Green algorithm
     MHG,
     mhg,
+
     -- ** Metropolis-coupled Markov chain Monte Carlo algorithm
     NChains (..),
     SwapPeriod (..),

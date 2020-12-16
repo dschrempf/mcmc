@@ -41,11 +41,8 @@ scale ::
   Double ->
   -- | Scale.
   Double ->
-  -- | Name.
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal Double
 scale k th = createProposal description (scaleSimple k th) (PDimension 1)
@@ -59,11 +56,8 @@ scale k th = createProposal description (scaleSimple k th) (PDimension 1)
 scaleUnbiased ::
   -- | Shape.
   Double ->
-  -- | Name.
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal Double
 scaleUnbiased k = createProposal description (scaleSimple k (1 / k)) (PDimension 1)
@@ -81,10 +75,6 @@ scaleContrarilySimple k th t =
     contra (x, y) u = (x * u, y / u)
     jac _ u = Exp $ log $ recip $ u * u
 
--- -- Determinant of Jacobian matrix.
--- contraJac :: (Double, Double) -> Double
--- contraJac (x, y) = x * y
-
 -- | Multiplicative proposal with gamma distributed kernel.
 --
 -- The two values are scaled contrarily so that their product stays constant.
@@ -94,14 +84,10 @@ scaleContrarily ::
   Double ->
   -- | Scale.
   Double ->
-  -- | Name.
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal (Double, Double)
--- Still one dimensional, because the proposal has one free variable.
 scaleContrarily k th = createProposal description (scaleContrarilySimple k th) (PDimension 2)
   where
     description = PDescription $ "Scale contrariliy; shape: " ++ show k ++ ", scale: " ++ show th
