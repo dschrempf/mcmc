@@ -35,14 +35,14 @@ class Algorithm a where
   -- | Reset acceptance counts.
   aResetAcceptance :: a -> a
 
-  -- | Summarize proposals.
+  -- | Summarize the cycle.
   aSummarizeCycle :: a -> BL.ByteString
 
   -- | Open required monitor files and setup corresponding file handles.
   aOpenMonitors :: AnalysisName -> ExecutionMode -> a -> IO a
 
-  -- | Execute file monitors and possibly return a string to be written to the
-  -- standard output and the log file.
+  -- | Execute file monitors and possibly return a monitor string to be written
+  -- to the standard output and the log file.
   aExecuteMonitors ::
     Verbosity ->
     -- | Starting time.

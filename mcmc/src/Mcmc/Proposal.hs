@@ -284,6 +284,23 @@ data Order
 
 instance Default Order where def = RandomO
 
+-- Describe the order.
+describeOrder :: Order -> BL.ByteString
+describeOrder RandomO = "The proposals are executed in random order."
+describeOrder SequentialO = "The proposals are executed sequentially."
+describeOrder RandomReversibleO =
+  BL.intercalate
+    "\n"
+    [ describeOrder RandomO,
+      "A reversed copy of the shuffled proposals is appended to ensure reversibility."
+    ]
+describeOrder SequentialReversibleO =
+  BL.intercalate
+    "\n"
+    [ describeOrder SequentialO,
+      "A reversed copy of the sequential proposals is appended to ensure reversibility."
+    ]
+
 -- | In brief, a 'Cycle' is a list of proposals.
 --
 -- The state of the Markov chain will be logged only after all 'Proposal's in
@@ -322,6 +339,16 @@ orderProposals (Cycle xs o) g = case o of
   SequentialReversibleO -> return $ ps ++ reverse ps
   where
     !ps = concat [replicate (fromPWeight $ pWeight p) p | p <- xs]
+
+-- The number of proposals depends on the order.
+getNProposalsPerCycle :: Cycle a -> Int
+getNProposalsPerCycle (Cycle xs o) = case o of
+  RandomO -> once
+  SequentialO -> once
+  RandomReversibleO -> 2 * once
+  SequentialReversibleO -> 2 * once
+  where
+    once = sum $ map (fromPWeight . pWeight) xs
 
 -- | Tune 'Proposal's in the 'Cycle'. See 'tune'.
 tuneCycle :: M.Map (Proposal a) (Double -> Double) -> Cycle a -> Cycle a
@@ -425,6 +452,7 @@ summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> BL.ByteString
 summarizeCycle a c =
   BL.intercalate "\n" $
     [ "Summary of proposal(s) in cycle. " <> mpi <> " proposal(s) are performed per iteration.",
+      describeOrder (ccOrder c),
       proposalHeader,
       proposalHLine
     ]
@@ -440,7 +468,7 @@ summarizeCycle a c =
       ++ [proposalHLine]
   where
     ps = ccProposals c
-    mpi = BB.toLazyByteString $ BB.intDec $ sum $ map (fromPWeight . pWeight) ps
+    mpi = BB.toLazyByteString $ BB.intDec $ getNProposalsPerCycle c
     ar m = acceptanceRate m a
 
 -- | For each key @k@, store the number of accepted and rejected proposals.
