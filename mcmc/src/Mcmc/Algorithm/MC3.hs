@@ -192,12 +192,12 @@ setReciprocalTemperature prf lhf beta a =
   where
     c = fromMHG a
     b' = Exp $ log beta
-    -- Like this, we need twice the amount of computations compared to taking
-    -- the power after calculating the posterior (pr x * lh x) ** b'. However, I
-    -- don't think this is a serious problem.
+    -- We need twice the amount of computations compared to taking the power
+    -- after calculating the posterior (pr x * lh x) ** b'. However, I don't
+    -- think this is a serious problem.
     --
-    -- Also, to minimize computations, avoid modification of the reciprocal
-    -- temperature for the cold chain.
+    -- To minimize computations, it is key to avoid modification of the
+    -- reciprocal temperature for the cold chain.
     prf' = (** b') . prf
     lhf' = (** b') . lhf
     x = state $ link c
@@ -215,10 +215,12 @@ initMHG ::
   IO (MHG a)
 initMHG prf lhf i beta a
   | i < 0 = error "initMHG: Chain index negative."
-  -- Do not temper with the first chain.
+  -- Do not temper with the cold chain.
   | i == 0 = return a
   | otherwise = do
-    -- We have to reset the trace, since it is not set by 'setReciprocalTemperature'.
+    -- We have to push the current link in the trace, since it is not set by
+    -- 'setReciprocalTemperature'. The other links in the trace are still
+    -- pointing to the link of the cold chain, but this has no effect.
       t' <- pushT l t
       return $ MHG $ c {chainId = i, trace = t'}
   where
