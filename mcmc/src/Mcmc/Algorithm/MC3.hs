@@ -390,7 +390,7 @@ mc3Iterate pm a = do
       then do
         let n = V.length $ mc3MHGChains a
             is = [0 .. n - 2]
-            ns = fromNSwaps $ mc3NSwaps $ mc3Settings a
+            ns = fromNSwaps $ mc3NSwaps s
         is' <- shuffle is $ mc3Generator a
         foldM mc3ProposeSwap a (take ns is')
       else return a
@@ -398,7 +398,8 @@ mc3Iterate pm a = do
   mhgs <- case pm of
     Sequential -> V.mapM (aIterate pm) (mc3MHGChains a')
     Parallel ->
-      -- Go via a list, use 'forkIO'.
+      -- See 'Control.Monad.Parallel' of package 'monad-parallel'. Go via a
+      -- list, and use 'forkIO'.
       V.fromList <$> P.mapM (aIterate pm) (V.toList (mc3MHGChains a'))
   let i = mc3Iteration a'
   return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
@@ -410,6 +411,8 @@ tuneBeta ::
   Int ->
   -- Exponent xi of the reciprocal temperature ratio.
   Double ->
+  -- The new reciprocal temperatures are updated incrementally using the
+  -- reciprocal temperature ratios during the fold (see 'mc3AutoTune' below).
   ReciprocalTemperatures ->
   ReciprocalTemperatures
 tuneBeta bsOld i xi bsNew = bsNew U.// [(j, brNew)]
@@ -429,16 +432,14 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     -- 1. Auto tune all chains.
     mhgs' = V.map aAutoTune mhgs
     -- 2. Auto tune temperatures.
-    coldChain = fromMHG $ V.head mhgs
-    coldPrF = priorFunction coldChain
-    coldLhF = likelihoodFunction coldChain
     optimalRate = getOptimalRate PDimensionUnknown
     currentRates = acceptanceRates $ mc3SwapAcceptance a
     -- We assume that the acceptance rate of state swaps between two chains is
     -- roughly proportional to the ratio of the temperatures of the chains.
-    -- Hence, we focus on reciprocal temperature ratios, which is the same.
-    -- Also, by working with ratios in (0,1) of neighboring chains, we ensure
-    -- the monotonicity of the reciprocal temperatures.
+    -- Hence, we focus on temperature ratios, actually reciprocal temperature
+    -- ratios, which is the same. Also, by working with ratios in (0,1) of
+    -- neighboring chains, we ensure the monotonicity of the reciprocal
+    -- temperatures.
     --
     -- The factor (1/2) was determined by a few tests and is otherwise
     -- absolutely arbitrary.
@@ -448,6 +449,9 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     -- Do not change the temperature, and the prior and likelihood functions of
     -- the cold chain.
     bs' = foldl' (\xs j -> tuneBeta bs j (xi j) xs) bs [0 .. n - 2]
+    coldChain = fromMHG $ V.head mhgs'
+    coldPrF = priorFunction coldChain
+    coldLhF = likelihoodFunction coldChain
     mhgs'' =
       V.head mhgs'
         `V.cons` V.zipWith
