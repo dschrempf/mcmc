@@ -14,12 +14,15 @@
 --
 -- Creation date: Mon Nov 23 15:20:33 2020.
 module Mcmc.Algorithm.MC3
-  ( NChains (..),
+  ( -- * Definitions
+    NChains (..),
     SwapPeriod (..),
     NSwaps (..),
     MC3Settings (..),
     MHGChains,
     ReciprocalTemperatures,
+
+    -- * Metropolis-coupled Markov chain Monte Carlo algorithm
     MC3 (..),
     mc3,
     mc3Save,
@@ -129,7 +132,7 @@ fromSavedMC3 pr lh cc mn (SavedMC3 s scs bs i ac g') = do
   g <- loadGen g'
   return $ MC3 s mhgs bs i ac g
 
--- | The MC3 algorithm.
+-- | The Metropolis-coupled Markov chain Monte Carlo (MC3) algorithm.
 --
 -- Also known as parallel tempering.
 --
@@ -167,8 +170,9 @@ instance ToJSON a => Algorithm (MC3 a) where
 
 --  The prior and likelihood values of the current link are updated.
 --
--- NOTE: The trace is not changed! In particular, the prior and likelihood values
--- are not updated for any link of the trace.
+-- NOTE: The trace is not changed! In particular, the prior and likelihood
+-- values are not updated for any link of the trace, and no new link is added to
+-- the trace.
 setReciprocalTemperature ::
   -- Cold prior function.
   PriorFunction a ->
