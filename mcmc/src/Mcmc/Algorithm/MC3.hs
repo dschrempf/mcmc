@@ -340,14 +340,16 @@ swapWith i j xs
     prr' = priorFunction cr xr'
     lhl' = likelihoodFunction cl xl'
     lhr' = likelihoodFunction cr xr'
+    -- Set the new links and the proposed state.
     ll' = Link xl' prl' lhl'
     lr' = Link xr' prr' lhr'
-    -- Set the new links and the proposed state.
     cl' = cl {link = ll'}
     cr' = cr {link = lr'}
     xs' = xs V.// [(i, MHG cl'), (j, MHG cr')]
     -- Compute the Metropolis ratio.
-    q = prl' * prr' * lhl' * lhr' / prl / prr / lhl / lhr
+    nominator = prl' * prr' * lhl' * lhr'
+    denominator = prl * prr * lhl * lhr
+    q = nominator / denominator
 
 mc3ProposeSwap :: MC3 a -> Int -> IO (MC3 a)
 mc3ProposeSwap a i = do
