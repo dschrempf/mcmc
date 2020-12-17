@@ -221,8 +221,8 @@ initMHG prf lhf i beta a
     -- We have to push the current link in the trace, since it is not set by
     -- 'setReciprocalTemperature'. The other links in the trace are still
     -- pointing to the link of the cold chain, but this has no effect.
-      t' <- pushT l t
-      return $ MHG $ c {chainId = i, trace = t'}
+    t' <- pushT l t
+    return $ MHG $ c {chainId = i, trace = t'}
   where
     a' = setReciprocalTemperature prf lhf beta a
     c = fromMHG a'
@@ -351,7 +351,11 @@ swapWith i j xs
     denominator = prl * prr * lhl * lhr
     q = nominator / denominator
 
-mc3ProposeSwap :: MC3 a -> Int -> IO (MC3 a)
+mc3ProposeSwap ::
+  MC3 a ->
+  -- Index of left chain.
+  Int ->
+  IO (MC3 a)
 mc3ProposeSwap a i = do
   -- 1. Sample new state and get the Metropolis ratio.
   let (!y, !r) = swapWith i (i + 1) $ mc3MHGChains a
@@ -376,8 +380,10 @@ mc3Iterate ::
   MC3 a ->
   IO (MC3 a)
 mc3Iterate pm a = do
-  -- 1. Maybe propose swap. A swap has to be proposed first, because the traces
-  -- are automatically updated at step 2.
+  -- 1. Maybe propose swaps.
+  --
+  -- NOTE: Swaps have to be proposed first, because the traces are automatically
+  -- updated at step 2.
   let s = mc3Settings a
   a' <-
     if mc3Iteration a `mod` fromSwapPeriod (mc3SwapPeriod s) == 0
@@ -389,8 +395,6 @@ mc3Iterate pm a = do
         foldM mc3ProposeSwap a (take ns is')
       else return a
   -- 2. Iterate all chains and increment iteration.
-  --
-  -- In any case, the MHG algorithm only gets one capability.
   mhgs <- case pm of
     Sequential -> V.mapM (aIterate pm) (mc3MHGChains a')
     Parallel ->
