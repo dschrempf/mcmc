@@ -20,25 +20,38 @@ source-repository head
   type: git
   location: https://github.com/dschrempf/mcmc
 
+common lib
+  ghc-options: -Wall -Wunused-packages
+  default-language: Haskell2010
+
+common test
+  ghc-options: -Wall -Werror -Wunused-packages
+  default-language: Haskell2010
+
+common bench
+  ghc-options: -Wall -Werror -Wunused-packages
+  default-language: Haskell2010
+
+common exec
+  ghc-options: -Wall -Werror -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
+  default-language: Haskell2010
+
 executable archery
+  import: exec
   main-is: Archery.hs
   other-modules:
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples
-  hs-source-dirs:
-      Archery
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: Archery
   build-depends:
-      aeson
-    , base >=4.7 && <5
-    , log-domain
+      base
     , mcmc
     , mwc-random
     , statistics
-  default-language: Haskell2010
 
 executable dirichlet
+  import: exec
   main-is: Dirichlet.hs
   other-modules:
       Paths_mcmc_examples
@@ -46,20 +59,17 @@ executable dirichlet
       Paths_mcmc_examples
   hs-source-dirs:
       Dirichlet
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
-    , base >=4.7 && <5
+    , base
     , dirichlet
     , lens
-    , log-domain
     , mcmc
     , mwc-random
-    , statistics
     , vector
-  default-language: Haskell2010
 
 executable plh
+  import: exec
   main-is: PhylogeneticLikelihood.hs
   other-modules:
       Paths_mcmc_examples
@@ -67,54 +77,44 @@ executable plh
       Paths_mcmc_examples
   hs-source-dirs:
       PhylogeneticLikelihood
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson
     , algebraic-graphs
-    , base >=4.7 && <5
+    , base
     , log-domain
     , mcmc
     , microlens
     , mwc-random
     , statistics
-  default-language: Haskell2010
 
 executable test-pair
+  import: exec
   main-is: TestPair.hs
   other-modules:
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples
-  hs-source-dirs:
-      TestPair
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: TestPair
   build-depends:
-      aeson
-    , base >=4.7 && <5
+      base
     , lens
     , log-domain
     , mcmc
     , mwc-random
-    , statistics
-  default-language: Haskell2010
 
 executable test-tree
+  import: exec
   main-is: TestTree.hs
   other-modules:
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples
-  hs-source-dirs:
-      TestTree
-  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: TestTree
   build-depends:
       aeson
-    , base >=4.7 && <5
+    , base
     , elynx-tree
     , lens
-    , log-domain
     , mcmc
     , mcmc-tree
     , mwc-random
-    , statistics
-  default-language: Haskell2010

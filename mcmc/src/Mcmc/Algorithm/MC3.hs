@@ -459,6 +459,7 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
           (V.convert $ U.tail bs')
           (V.tail mhgs')
 
+-- TODO: CONTINUE HERE WITH PROOF READING.
 mc3ResetAcceptance :: ToJSON a => MC3 a -> MC3 a
 mc3ResetAcceptance a = a'
   where

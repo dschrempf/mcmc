@@ -17,7 +17,28 @@ extra-source-files:
     ChangeLog.md
     data/bench.tree
 
+source-repository head
+  type: git
+  location: https://github.com/dschrempf/mcmc
+
+common lib
+  ghc-options: -Wall -Wunused-packages
+  default-language: Haskell2010
+
+common test
+  ghc-options: -Wall -Werror -Wunused-packages
+  default-language: Haskell2010
+
+common bench
+  ghc-options: -Wall -Werror -Wunused-packages
+  default-language: Haskell2010
+
+common exec
+  ghc-options: -Wall -Werror -Wunused-packages
+  default-language: Haskell2010
+
 library
+  import: lib
   exposed-modules:
       Mcmc.Tree
   other-modules:
@@ -37,15 +58,12 @@ library
       Paths_mcmc_tree
   autogen-modules:
       Paths_mcmc_tree
-  hs-source-dirs:
-      src
-  ghc-options: -Wall
+  hs-source-dirs: src
   build-depends:
       aeson
     , attoparsec
     , base >=4.7 && <5
     , bytestring
-    , comonad
     , containers
     , deepseq
     , dirichlet
@@ -55,20 +73,17 @@ library
     , math-functions
     , mcmc
     , mwc-random
-    , primitive
     , statistics
     , vector
     , zlib
-  default-language:  Haskell2010
 
 benchmark tree-bench
+  import: bench
   type: exitcode-stdio-1.0
   main-is: Bench.hs
   other-modules:
       Paths_mcmc_tree
-  hs-source-dirs:
-      bench
-  ghc-options: -Wall
+  hs-source-dirs: bench
   build-depends:
       base >=4.7 && <5
     , criterion
@@ -76,4 +91,3 @@ benchmark tree-bench
     , elynx-tree
     , lens
     , mcmc-tree
-  default-language: Haskell2010

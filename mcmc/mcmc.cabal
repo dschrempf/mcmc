@@ -20,15 +20,31 @@ source-repository head
   type: git
   location: https://github.com/dschrempf/mcmc
 
+common lib
+  ghc-options: -Wall -Wunused-packages
+  default-language: Haskell2010
+
+common test
+  ghc-options: -Wall -Werror -Wunused-packages
+  default-language: Haskell2010
+
+common bench
+  ghc-options: -Wall -Werror -Wunused-packages
+  default-language: Haskell2010
+
+common exec
+  ghc-options: -Wall -Werror -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
+  default-language: Haskell2010
+
 library
+  import: lib
   exposed-modules:
       Mcmc
       Mcmc.Algorithm
       Mcmc.Algorithm.Metropolis
       Mcmc.Algorithm.MC3
       Mcmc.Chain.Chain
-      Mcmc.Chain.Link
-      Mcmc.Chain.Save
+      Mcmc.Chain.Link Mcmc.Chain.Save
       Mcmc.Chain.Trace
       Mcmc.Environment
       Mcmc.Mcmc
@@ -52,10 +68,7 @@ library
       Paths_mcmc
   autogen-modules:
       Paths_mcmc
-  hs-source-dirs:
-      src
-  ghc-options: -Wall
-  -- ghc-options: -Wall -Werror
+  hs-source-dirs: src
   build-depends:
       aeson
     , base >=4.7 && <5
@@ -68,11 +81,9 @@ library
     , dirichlet
     , double-conversion
     , log-domain
-    , math-functions
     , microlens
     , mwc-random
     , monad-parallel
-    , parallel
     , pretty-show
     , primitive
     , statistics
@@ -80,18 +91,16 @@ library
     , transformers
     , vector
     , zlib
-  default-language: Haskell2010
 
 test-suite mcmc-test
+  import: test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
       Mcmc.ProposalSpec
       Mcmc.SaveSpec
       Paths_mcmc
-  hs-source-dirs:
-      test
-  ghc-options: -Wall -Werror
+  hs-source-dirs: test
   build-depends:
       QuickCheck
     , base >=4.7 && <5
@@ -103,18 +112,16 @@ test-suite mcmc-test
     , mwc-random
     , statistics
     , vector
-  default-language: Haskell2010
 
 benchmark mcmc-bench
+  import: bench
   type: exitcode-stdio-1.0
   main-is: Bench.hs
   other-modules:
       Normal
       Poisson
       Paths_mcmc
-  hs-source-dirs:
-      bench
-  ghc-options: -Wall -Werror -threaded
+  hs-source-dirs: bench
   build-depends:
       base >=4.7 && <5
     , criterion
@@ -124,4 +131,3 @@ benchmark mcmc-bench
     , mwc-random
     , statistics
     , vector
-  default-language: Haskell2010
