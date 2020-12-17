@@ -27,10 +27,7 @@ class Algorithm a where
   aIteration :: a -> Int
 
   -- | Sample the next state.
-  aIterate ::
-    ParallelizationMode ->
-    a ->
-    IO a
+  aIterate :: ParallelizationMode -> a -> IO a
 
   -- | Auto tune all proposals.
   aAutoTune :: a -> a

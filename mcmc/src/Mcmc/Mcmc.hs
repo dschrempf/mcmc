@@ -270,6 +270,17 @@ mcmc s a = do
   runReaderT (mcmcRun a) e
 
 -- | Continue an MCMC algorithm for the given number of iterations.
+--
+-- Currently, it is only possible to continue MCMC algorithms that have
+-- completed successfully. This restriction is necessary, because for parallel
+-- chains, it is hardly possible to ensure all chains are synchronized when the
+-- process is killed.
+--
+-- See:
+--
+-- - 'Mcmc.Algorithm.Metropolis.mhgLoad'
+--
+-- - 'Mcmc.Algorithm.MC3.mc3Load'
 mcmcContinue :: Algorithm a => Int -> Settings -> a -> IO a
 mcmcContinue dn s = mcmc s'
   where

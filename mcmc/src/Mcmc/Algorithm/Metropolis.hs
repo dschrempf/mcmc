@@ -98,6 +98,8 @@ mhgSave nm (MHG c) = do
   BL.writeFile (mhgFn nm) $ compress $ encode savedChain
 
 -- | Load an MHG algorithm.
+--
+-- See 'Mcmc.Mcmc.mcmcContinue'.
 mhgLoad ::
   FromJSON a =>
   PriorFunction a ->

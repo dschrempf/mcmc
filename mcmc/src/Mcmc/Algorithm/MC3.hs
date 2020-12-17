@@ -287,6 +287,8 @@ mc3Save nm a = do
   BL.writeFile (mc3Fn nm) $ compress $ encode savedMC3
 
 -- | Load an MC3 algorithm.
+--
+-- See 'Mcmc.Mcmc.mcmcContinue'.
 mc3Load ::
   FromJSON a =>
   PriorFunction a ->
