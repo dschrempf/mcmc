@@ -470,6 +470,7 @@ mc3SummarizeCycle a =
          ]
       ++ [ "MC3: Reciprocal temperatures of the chains: " <> BL.intercalate ", " bsB <> ".",
            "MC3: Summary of state swaps. The swap period is " <> swapPeriodB <> ".",
+           "MC3: The state swaps are executed in random order.",
            proposalHeader,
            proposalHLine
          ]
