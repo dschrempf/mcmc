@@ -102,16 +102,12 @@ test-suite mcmc-test
       Paths_mcmc
   hs-source-dirs: test
   build-depends:
-      QuickCheck
-    , base >=4.7 && <5
-    , directory
+      base >=4.7 && <5
     , hspec
-    , hspec-discover
     , log-domain
     , mcmc
     , mwc-random
     , statistics
-    , vector
 
 benchmark mcmc-bench
   import: bench
@@ -129,5 +125,3 @@ benchmark mcmc-bench
     , mcmc
     , microlens
     , mwc-random
-    , statistics
-    , vector

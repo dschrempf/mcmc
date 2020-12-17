@@ -136,6 +136,10 @@ fromSavedMC3 pr lh cc mn (SavedMC3 s scs bs i ac g') = do
 --
 -- Also known as parallel tempering.
 --
+-- Like any other parallel MCMC algorithm, the MC3 algorithm is essentially an
+-- 'Mcmc.Algorithm.Metropolis.MHG' algorithm on the product space of all
+-- parallel chains.
+--
 -- Geyer, C. J., Markov chain monte carlo maximum likelihood, Computing Science
 -- and Statistics, Proceedings of the 23rd Symposium on the Interface, (1991).
 --
@@ -459,7 +463,6 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
           (V.convert $ U.tail bs')
           (V.tail mhgs')
 
--- TODO: CONTINUE HERE WITH PROOF READING.
 mc3ResetAcceptance :: ToJSON a => MC3 a -> MC3 a
 mc3ResetAcceptance a = a'
   where

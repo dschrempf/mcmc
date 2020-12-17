@@ -87,7 +87,6 @@ benchmark tree-bench
   build-depends:
       base >=4.7 && <5
     , criterion
-    , deepseq
     , elynx-tree
     , lens
     , mcmc-tree
