@@ -12,6 +12,11 @@
 -- Portability :  portable
 --
 -- Creation date: Tue May  5 20:11:30 2020.
+--
+-- The Metropolis-Hastings-Green ('MHG') algorithm.
+--
+-- For example, see Geyer, C. J., Introduction to Markov chain Monte Carlo, In
+-- Handbook of Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
 module Mcmc.Algorithm.Metropolis
   ( MHG (..),
     mhg,
@@ -40,10 +45,7 @@ import System.Random.MWC
 import Text.Printf
 import Prelude hiding (cycle)
 
--- | The Metropolis-Hastings-Green (MHG) algorithm.
---
--- For example, see Geyer, C. J., Introduction to Markov chain Monte Carlo, In
--- Handbook of Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
+-- | The MHG algorithm.
 newtype MHG a = MHG {fromMHG :: Chain a}
 
 instance ToJSON a => Algorithm (MHG a) where

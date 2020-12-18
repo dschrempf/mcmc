@@ -26,9 +26,9 @@
 -- An MCMC sampler can be run with 'mcmc', for example using the
 -- Metropolis-Hastings-Green algorithm 'mhg'.
 --
--- Examples:
+-- Usually, it is best to start with an example:
 --
--- - [Accuracy of an
+-- - Basic inference of the [accuracy of an
 --   archer](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples/Archery/Archery.hs)
 --
 -- - [More involved
@@ -66,10 +66,10 @@ module Mcmc
     -- reference, please see the short [encyclopedia of MCMC
     -- methods](https://dschrempf.github.io/coding/2020-11-12-encyclopedia-of-markov-chain-monte-carlo-methods/).
     --
-    -- This library enables composition and mixture of 'Proposal's via the 'Cycle'
-    -- data type. Essentially, a 'Cycle' is a set of 'Proposal's. The chain advances
-    -- after the completion of each 'Cycle', which is called an __iteration__,
-    -- and the iteration counter is increased by one.
+    -- This library enables composition and mixture of 'Proposal's via the
+    -- 'Cycle' data type. Essentially, a 'Cycle' is a set of 'Proposal's. The
+    -- chain advances after the completion of each 'Cycle', which is called an
+    -- __iteration__, and the iteration counter is increased by one.
     --
     -- The 'Proposal's in a 'Cycle' can be executed in the given order or in a
     -- random sequence which allows, for example, specification of a fixed scan
@@ -83,10 +83,10 @@ module Mcmc
     -- Proposals are named according to what they do, i.e., how they change the
     -- state of a Markov chain, and not according to the intrinsically used
     -- probability distributions. For example, 'slideSymmetric' is a sliding
-    -- proposal. Under the hood, it uses the normal distribution with mean zero and
-    -- given variance. The sampled variate is added to the current value of the
-    -- variable (hence, the name slide). The same nomenclature is used by
-    -- RevBayes [1]. The probability distributions and intrinsic properties of a
+    -- proposal. Under the hood, it uses the normal distribution with mean zero
+    -- and given variance. The sampled variate is added to the current value of
+    -- the variable (hence, the name slide). The same nomenclature is used by
+    -- RevBayes [4]. The probability distributions and intrinsic properties of a
     -- specific proposal are specified in detail in the documentation.
     --
     -- The other method, which is used intrinsically, is more systematic, but
@@ -107,10 +107,11 @@ module Mcmc
     -- 'negate'. However, it also allows specification of new proposals with
     -- great ease.
     --
-    -- [1] Höhna, S., Landis, M. J., Heath, T. A., Boussau, B., Lartillot, N., Moore,
-    -- B. R., Huelsenbeck, J. P., …, Revbayes: bayesian phylogenetic inference using
-    -- graphical models and an interactive model-specification language, Systematic
-    -- Biology, 65(4), 726–736 (2016). http://dx.doi.org/10.1093/sysbio/syw021
+    -- @[4]@ Höhna, S., Landis, M. J., Heath, T. A., Boussau, B., Lartillot, N.,
+    -- Moore, B. R., Huelsenbeck, J. P., …, Revbayes: bayesian phylogenetic
+    -- inference using graphical models and an interactive model-specification
+    -- language, Systematic Biology, 65(4), 726–736 (2016).
+    -- http://dx.doi.org/10.1093/sysbio/syw021
     PName (..),
     PWeight (..),
     Proposal,
@@ -132,16 +133,7 @@ module Mcmc
     setOrder,
 
     -- * Settings
-    Settings (..),
-
-    -- ** Data types
-    AnalysisName (..),
-    BurnInSpecification (..),
-    Iterations (..),
-    ExecutionMode (..),
-    ParallelizationMode (..),
-    SaveMode (..),
-    Verbosity (..),
+    module Mcmc.Settings,
 
     -- * Monitor
 
@@ -173,26 +165,12 @@ module Mcmc
     mcmc,
     mcmcContinue,
 
+    -- | See also 'settingsLoad', 'mhgLoad', and 'mc3Load'.
+
     -- * Algorithms
+    module Mcmc.Algorithm.Metropolis,
+    module Mcmc.Algorithm.MC3,
 
-    -- ** Metropolis-Hastings-Green algorithm
-    MHG,
-    mhg,
-
-    -- ** Metropolis-coupled Markov chain Monte Carlo algorithm
-    NChains (..),
-    SwapPeriod (..),
-    NSwaps (..),
-    MC3Settings (..),
-    MC3,
-    mc3,
-
-    -- * Save and load
-    settingsLoad,
-    mhgSave,
-    mhgLoad,
-    mc3Save,
-    mc3Load,
 
     -- * Useful type synonyms
     PriorFunction,

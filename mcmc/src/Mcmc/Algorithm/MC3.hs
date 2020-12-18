@@ -13,6 +13,24 @@
 -- Portability :  portable
 --
 -- Creation date: Mon Nov 23 15:20:33 2020.
+--
+-- The Metropolis-coupled Markov chain Monte Carlo ('MC3') algorithm.
+--
+-- Also known as parallel tempering.
+--
+-- Like any other parallel MCMC algorithm, the 'MC3' algorithm is essentially an
+-- 'Mcmc.Algorithm.Metropolis.MHG' algorithm on the product space of all
+-- parallel chains.
+--
+-- For example, see
+--
+-- - Geyer, C. J., Markov chain monte carlo maximum likelihood, Computing
+--   Science and Statistics, Proceedings of the 23rd Symposium on the Interface,
+--   (1991).
+--
+-- - Altekar, G., Dwarkadas, S., Huelsenbeck, J. P., & Ronquist, F., Parallel
+--   metropolis coupled markov chain monte carlo for bayesian phylogenetic
+--   inference, Bioinformatics, 20(3), 407–415 (2004).
 module Mcmc.Algorithm.MC3
   ( -- * Definitions
     NChains (..),
@@ -132,20 +150,7 @@ fromSavedMC3 pr lh cc mn (SavedMC3 s scs bs i ac g') = do
   g <- loadGen g'
   return $ MC3 s mhgs bs i ac g
 
--- | The Metropolis-coupled Markov chain Monte Carlo (MC3) algorithm.
---
--- Also known as parallel tempering.
---
--- Like any other parallel MCMC algorithm, the MC3 algorithm is essentially an
--- 'Mcmc.Algorithm.Metropolis.MHG' algorithm on the product space of all
--- parallel chains.
---
--- Geyer, C. J., Markov chain monte carlo maximum likelihood, Computing Science
--- and Statistics, Proceedings of the 23rd Symposium on the Interface, (1991).
---
--- Altekar, G., Dwarkadas, S., Huelsenbeck, J. P., & Ronquist, F., Parallel
--- metropolis coupled markov chain monte carlo for bayesian phylogenetic
--- inference, Bioinformatics, 20(3), 407–415 (2004).
+-- | The MC3 algorithm.
 data MC3 a = MC3
   { mc3Settings :: MC3Settings,
     -- | The first chain is the cold chain with temperature 1.0.
@@ -237,16 +242,6 @@ initMHG prf lhf i beta a
 -- the generators have to be split. And also because of the mutable trace.
 
 -- | Initialize an MC3 algorithm with a given number of chains.
---
--- For example, see
---
--- - Geyer, C. J., Markov chain monte carlo maximum likelihood, Computing
---   Science and Statistics, Proceedings of the 23rd Symposium on the Interface,
---   (1991).
---
--- - Altekar, G., Dwarkadas, S., Huelsenbeck, J. P., & Ronquist, F., Parallel
---   metropolis coupled markov chain monte carlo for bayesian phylogenetic
---   inference, Bioinformatics, 20(3), 407–415 (2004).
 --
 -- Call 'error' if:
 --
