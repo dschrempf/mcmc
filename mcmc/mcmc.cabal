@@ -25,15 +25,15 @@ common lib
   default-language: Haskell2010
 
 common test
-  ghc-options: -Wall -Werror -Wunused-packages
+  ghc-options: -Wall -Wunused-packages
   default-language: Haskell2010
 
 common bench
-  ghc-options: -Wall -Werror -Wunused-packages
+  ghc-options: -Wall -Wunused-packages
   default-language: Haskell2010
 
 common exec
-  ghc-options: -Wall -Werror -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
   default-language: Haskell2010
 
 library
