@@ -138,7 +138,11 @@ module Mcmc
     -- * Monitors
 
     -- | A 'Monitor' describes which part of the Markov chain should be logged
-    -- and where. There are three different types:
+    -- and where. Monitor files can directly be loaded into established MCMC
+    -- analysis tools working with tab separated tables (for example,
+    -- [Tracer](http://tree.bio.ed.ac.uk/software/tracer/)).
+    --
+    -- There are three different 'Monitor' types:
     --
     -- ['MonitorStdOut'] Log to standard output.
     --
