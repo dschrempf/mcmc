@@ -135,7 +135,7 @@ module Mcmc
     -- * Settings
     module Mcmc.Settings,
 
-    -- * Monitor
+    -- * Monitors
 
     -- | A 'Monitor' describes which part of the Markov chain should be logged
     -- and where. There are three different types:
@@ -161,7 +161,7 @@ module Mcmc
     -- | Convenience functions for computing priors.
     module Mcmc.Prior,
 
-    -- * Run and continue MCMC samplers
+    -- * MCMC samplers
     mcmc,
     mcmcContinue,
 
