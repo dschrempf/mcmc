@@ -469,8 +469,9 @@ mc3ResetAcceptance a = a'
     -- 1. Reset acceptance of all chains.
     mhgs' = V.map aResetAcceptance (mc3MHGChains a)
     -- 2. Reset acceptance of swaps.
-    ac = mc3SwapAcceptance a
-    a' = a {mc3MHGChains = mhgs', mc3SwapAcceptance = resetA ac}
+    ac' = resetA $ mc3SwapAcceptance a
+    --
+    a' = a {mc3MHGChains = mhgs', mc3SwapAcceptance = ac'}
 
 -- Information in cycle summary:
 --
@@ -489,7 +490,8 @@ mc3SummarizeCycle a =
            | not $ isNaN ar
          ]
       ++ [ "MC3: Reciprocal temperatures of the chains: " <> BL.intercalate ", " bsB <> ".",
-           "MC3: Summary of state swaps. The swap period is " <> swapPeriodB <> ".",
+           "MC3: Summary of state swaps.",
+           "MC3: The swap period is " <> swapPeriodB <> ".",
            "MC3: The state swaps are executed in random order.",
            proposalHeader,
            proposalHLine
@@ -518,8 +520,6 @@ mc3SummarizeCycle a =
     swapAcceptance = mc3SwapAcceptance a
     n = fromNChains $ mc3NChains $ mc3Settings a
 
--- See 'amendEnvironment'.
---
 -- No extra monitors are opened.
 mc3OpenMonitors :: ToJSON a => AnalysisName -> ExecutionMode -> MC3 a -> IO (MC3 a)
 mc3OpenMonitors nm em a = do

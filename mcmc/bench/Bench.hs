@@ -24,7 +24,7 @@ main = do
   defaultMain
     [ bgroup
         "Normal"
-        [ bench "Slide" $ nfIO (normalSlide g),
+        [ bench "Slide" $ nfIO (normalSlideBench g),
           bench "Bactrian" $ nfIO (normalBactrianBench g),
           bench "LargeCycle" $ nfIO (normalLargeCycleBench g)
         ],

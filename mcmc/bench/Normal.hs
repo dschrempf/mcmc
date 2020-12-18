@@ -42,8 +42,8 @@ monStd = monitorStdOut mons 200
 mon :: Monitor Double
 mon = Monitor monStd [] []
 
-normalSlide :: GenIO -> IO ()
-normalSlide g = do
+normalSlideBench :: GenIO -> IO ()
+normalSlideBench g = do
   let s =
         Settings
           (AnalysisName "Normal")

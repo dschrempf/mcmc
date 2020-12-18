@@ -14,53 +14,37 @@
 --
 -- For an introduction to Markov chain Monte Carlo (MCMC) samplers and update
 -- mechanisms using the Metropolis-Hastings-Green algorithm, please see Geyer,
--- C. J., 2011; Introduction to Markov Chain Monte Carlo. In Handbook of Markov
--- Chain Monte Carlo (pp. 45), Chapman \& Hall/CRC.
+-- C. J., (2011), Introduction to Markov Chain Monte Carlo, In Handbook of
+-- Markov Chain Monte Carlo (pp. 45), CRC press.
 --
--- __The import of this module alone should cover most use cases.__
+-- This library focusses on classical Markov chain Monte Carlo algorithms such
+-- as the Metropolis-Hastings-Green [1] algorithm, or population methods
+-- involving parallel chains such as the Metropolic-coupled Markov chain Monte
+-- Carlo [2] algorithm. In particular, sequential Monte Carlo [3] algorithms
+-- following a moving posterior distribution are not provided.
 --
 -- An MCMC sampler can be run with 'mcmc', for example using the
 -- Metropolis-Hastings-Green algorithm 'mhg'.
 --
--- The following example infers the mean deviation of a normally distributed
--- variable. For more involved inferences, please see
--- [mcmc-examples](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples).
+-- Examples:
 --
+-- - [Accuracy of an
+--   archer](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples/Archery/Archery.hs)
 --
--- @
--- import Control.Monad
--- import Mcmc
--- import System.Random.MWC
+-- - [More involved
+--   examples](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples/Archery/Archery.hs)
 --
--- trueMean, trueStdDev :: Double
--- trueMean = 5
--- trueStdDev = 4
+-- __The import of this module alone should cover most use cases.__
 --
--- lh :: LikelihoodFunction Double
--- lh = normal trueMean trueStdDev
+-- @[1]@ Geyer, C. J. (2011), Introduction to markov chain monte carlo, In
+-- Handbook of Markov Chain Monte Carlo (pp. 45), CRC press.
 --
--- cc :: Cycle Double
--- cc = cycleFromList [slideSymmetric 1.0 (PName "Medium") (PWeight 1) Tune]
+-- @[2]@ Geyer, C. J. (1991), Markov chain monte carlo maximum likelihood,
+-- Computing Science and Statistics, Proceedings of the 23rd Symposium on the
+-- Interface.
 --
--- mons :: [MonitorParameter Double]
--- mons = [monitorDouble "mu"]
---
--- monStd :: MonitorStdOut Double
--- monStd = monitorStdOut mons 200
---
--- mon :: Monitor Double
--- mon = Monitor monStd [] []
---
--- runMcmc :: GenIO -> IO (MHG Double)
--- runMcmc g = do
---   let s = Settings
---             (AnalysisName \"Normal\")
---             (BurnInWithAutoTuning 2000 200)
---             20000 Overwrite Sequential
---             NoSave Quiet
---       a = mhg noPrior lh cc mon 0 g
---   mcmc s a
--- @
+-- @[3]@ Sequential monte carlo methods in practice (2001), Editors: Arnaud
+-- Doucet, Nando de Freitas, and Neil Gordon, Springer New York.
 module Mcmc
   ( -- * Proposals
 
