@@ -10,7 +10,7 @@
 --
 -- Creation date: Wed May  6 00:10:11 2020.
 module Normal
-  ( normalSlide,
+  ( normalSlideBench,
     normalBactrianBench,
     normalLargeCycleBench,
     normalMC3,

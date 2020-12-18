@@ -15,7 +15,6 @@ module Mcmc.SaveSpec
 where
 
 import Mcmc
-import Mcmc.Algorithm.Metropolis
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
