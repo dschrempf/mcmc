@@ -5,22 +5,24 @@
 ## Unreleased changes
 
 
-## Unreleased changes; 0.4.0.0
+## 0.4.0.0
 
--   Batch monitors use vectors now!
--   Documentation.
--   Save chain with complete trace always (but with sensible length).
--   Determine necessary trace length at initialization.
--   Use a circular trace with constant memory usage (big change).
 -   Greatly improve documentation.
 -   Major design change: Introduction of the `Algorithm` type class; algorithms
     are data types. See `MHG`.
+-   Metropolic-coupled Markov chain Monte Carlo algorithm (parallel chains).
+-   Optimal acceptance rate depends on dimension of proposal.
+-   Use a circular trace with constant memory usage (big change).
+-   Therefore, batch monitors use vectors now.
+-   Always save chain with complete trace (but with sensible length).
+-   Determine necessary trace length at initialization.
 -   Rename `Item` to `Link`.
 -   Rename `Status` to `Chain` and separate `Settings` and `Environment` from the
     `Chain`.
+-   Many bug fixes.
 
 
-## 0.3.0.0
+## 0.3.0
 
 -   New shorter example/test for dating trees.
 -   `noData` allows running a chain without likelihood function.
