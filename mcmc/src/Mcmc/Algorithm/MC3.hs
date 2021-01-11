@@ -279,7 +279,7 @@ mc3 s pr lh cc mn i0 g
     bs = U.fromList $ take n $ iterate (* 0.92) 1.0
 
 mc3Fn :: AnalysisName -> FilePath
-mc3Fn (AnalysisName nm) = nm ++ ".mc3"
+mc3Fn (AnalysisName nm) = nm ++ ".mcmc.mc3"
 
 -- | Save an MC3 algorithm.
 mc3Save ::

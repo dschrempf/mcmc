@@ -87,7 +87,7 @@ mhg pr lh cc mn i0 g = do
     traceLength = maximum $ 1 : batchMonitorSizes
 
 mhgFn :: AnalysisName -> FilePath
-mhgFn (AnalysisName nm) = nm ++ ".mhg"
+mhgFn (AnalysisName nm) = nm ++ ".mcmc.mhg"
 
 -- | Save an MHG algorithm.
 mhgSave ::

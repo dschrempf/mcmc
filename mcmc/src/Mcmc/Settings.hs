@@ -169,7 +169,7 @@ data Settings = Settings
 $(deriveJSON defaultOptions ''Settings)
 
 settingsFn :: String -> FilePath
-settingsFn n = n ++ ".settings"
+settingsFn n = n ++ ".mcmc.settings"
 
 -- | Save settings to a file determined by the analysis name.
 settingsSave :: Settings -> IO ()
