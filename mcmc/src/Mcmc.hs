@@ -168,13 +168,14 @@ module Mcmc
     -- * MCMC samplers
     mcmc,
     mcmcContinue,
-
     -- | See also 'settingsLoad', 'mhgLoad', and 'mc3Load'.
 
     -- * Algorithms
     module Mcmc.Algorithm.MHG,
     module Mcmc.Algorithm.MC3,
 
+    -- * Marginal likelihood calculation
+    module Mcmc.MarginalLikelihood,
 
     -- * Useful type synonyms
     PriorFunction,
@@ -187,6 +188,7 @@ where
 import Mcmc.Algorithm.MC3
 import Mcmc.Algorithm.MHG
 import Mcmc.Chain.Chain
+import Mcmc.MarginalLikelihood
 import Mcmc.Mcmc
 import Mcmc.Monitor
 import Mcmc.Monitor.Parameter

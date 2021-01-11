@@ -69,13 +69,14 @@ mhg ::
   LikelihoodFunction a ->
   Cycle a ->
   Monitor a ->
-  -- | The initial state in the state space @a@.
+  TraceLength ->
+  -- | Initial state.
   a ->
   -- | A source of randomness. For reproducible runs, make sure to use
   -- generators with the same seed.
   GenIO ->
   IO (MHG a)
-mhg pr lh cc mn i0 g = do
+mhg pr lh cc mn trLen i0 g = do
   -- The trace is a mutable vector and the mutable state needs to be handled by
   -- a monad.
   tr <- replicateT traceLength l0
@@ -84,7 +85,10 @@ mhg pr lh cc mn i0 g = do
     l0 = Link i0 (pr i0) (lh i0)
     ac = emptyA $ ccProposals cc
     batchMonitorSizes = map getMonitorBatchSize $ mBatches mn
-    traceLength = maximum $ 1 : batchMonitorSizes
+    minimumTraceLength = case trLen of
+      TraceAuto -> 1
+      TraceMinimum n -> n
+    traceLength = maximum $ minimumTraceLength : batchMonitorSizes
 
 mhgFn :: AnalysisName -> FilePath
 mhgFn (AnalysisName nm) = nm ++ ".mcmc.mhg"

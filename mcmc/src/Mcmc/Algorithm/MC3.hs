@@ -254,17 +254,19 @@ mc3 ::
   LikelihoodFunction a ->
   Cycle a ->
   Monitor a ->
+  TraceLength ->
+  -- | Initial state.
   a ->
   GenIO ->
   IO (MC3 a)
-mc3 s pr lh cc mn i0 g
+mc3 s pr lh cc mn tr i0 g
   | n < 2 = error "mc3: The number of chains must be two or larger."
   | sp < 1 = error "mc3: The swap period must be strictly positive."
   | sn < 1 || sn > n - 1 = error "mc3: The number of swaps must be in [1, NChains - 1]."
   | otherwise = do
     -- Split random number generators.
     gs <- V.fromList <$> splitGen n g
-    cs <- V.mapM (mhg pr lh cc mn i0) gs
+    cs <- V.mapM (mhg pr lh cc mn tr i0) gs
     hcs <- V.izipWithM (initMHG pr lh) (V.convert bs) cs
     return $ MC3 s hcs bs 0 (emptyA [0 .. n - 2]) g
   where

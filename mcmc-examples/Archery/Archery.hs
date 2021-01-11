@@ -103,6 +103,12 @@ main = do
           Save
           Info
   -- Use the Metropolis-Hastings-Green (MHG) algorithm.
-  a <- mhg pr (lh xs) cc mon 0.01 g
+  a <- mhg pr (lh xs) cc mon TraceAuto 0.01 g
   -- Run the MCMC sampler.
   void $ mcmc s a
+  -- Calculate the marginal likelihood.
+  let ps = NPoints 20
+      bi = BurnInWithAutoTuning 1000 100
+      is = Iterations 4000
+  mps <- marginalLikelihood ps bi bi is pr (lh xs) cc 0.01 g
+  print mps

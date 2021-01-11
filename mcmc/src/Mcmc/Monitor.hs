@@ -14,6 +14,7 @@
 module Mcmc.Monitor
   ( -- * Create monitors
     Monitor (..),
+    noMonitor,
     MonitorStdOut,
     monitorStdOut,
     msHeader,
@@ -63,6 +64,12 @@ data Monitor a = Monitor
     -- writing to files.
     mBatches :: [MonitorBatch a]
   }
+
+-- | Do not monitor parameters.
+--
+-- Monitor prior and likelihood with given period.
+noMonitor :: Int -> Monitor a
+noMonitor n = Monitor (MonitorStdOut [] n) [] []
 
 -- | Monitor to standard output; constructed with 'monitorStdOut'.
 data MonitorStdOut a = MonitorStdOut

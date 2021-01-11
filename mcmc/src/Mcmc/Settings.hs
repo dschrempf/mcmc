@@ -18,6 +18,7 @@ module Mcmc.Settings
     BurnInSpecification (..),
     burnInIterations,
     Iterations (..),
+    TraceLength (..),
     ExecutionMode (..),
     openWithExecutionMode,
     ParallelizationMode (..),
@@ -70,6 +71,15 @@ newtype Iterations = Iterations {fromIterations :: Int}
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''Iterations)
+
+-- | The length of the stored "Mcmc.Chain.Trace".
+data TraceLength
+  = -- | Automatically determine the minimum number of required iterations to
+    -- store.
+    TraceAuto
+  | -- | Store a given minimum number of iterations of the chain. Store more
+    --  iterations if required.
+    TraceMinimum Int
 
 -- | Execution mode.
 data ExecutionMode
@@ -145,8 +155,6 @@ data SaveMode = NoSave | Save
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''SaveMode)
-
--- $(deriveJSON defaultOptions ''CleaningMode)
 
 -- | Not much to say here.
 data Verbosity = Quiet | Warn | Info | Debug

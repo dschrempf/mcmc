@@ -139,7 +139,7 @@ main = do
           NoSave
           Info
   -- Initialize the Metropolis-Hastings-Green algorithm.
-  a <- mhg pr lh cc mon start g
+  a <- mhg pr lh cc mon TraceAuto start g
   -- Run the MCMC sampler.
   _ <- mcmc s a
   putStrLn "Done."

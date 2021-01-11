@@ -199,7 +199,7 @@ main = do
               Save
               Debug
       -- Initialize the Metropolis-Hastings-Green algorithm.
-      a <- mhg pr (lh meanTree stdDevTree) cc mon startingTree g
+      a <- mhg pr (lh meanTree stdDevTree) cc mon TraceAuto startingTree g
       -- Run the MCMC sampler.
       void $ mcmc s a
     ["continue", nStr] -> do

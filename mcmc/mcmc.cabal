@@ -47,6 +47,7 @@ library
       Mcmc.Chain.Link Mcmc.Chain.Save
       Mcmc.Chain.Trace
       Mcmc.Environment
+      Mcmc.MarginalLikelihood
       Mcmc.Mcmc
       Mcmc.Monitor
       Mcmc.Monitor.Log
