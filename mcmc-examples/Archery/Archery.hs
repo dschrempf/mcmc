@@ -108,10 +108,10 @@ main = do
   -- Run the MCMC sampler.
   void $ mcmc s a
   -- Calculate the marginal likelihood.
-  putStrLn "Marginal likelihood estimation."
+  putStrLn "Marginal likelihood estimation using thermodynamic integration."
   let ps = NPoints 41
       bi = BurnInWithAutoTuning 2000 100
       is = Iterations 6000
-  [mps0, mps1] <- marginalLikelihood ps bi bi is pr (lh xs) cc 0.01 g
-  print $ map ln mps0
-  print $ map ln mps1
+  (mps0, mps1) <- marginalLikelihood ps bi bi is pr (lh xs) cc 0.01 g
+  putStrLn $ "Forward: " ++ show (ln mps0)
+  putStrLn $ "Backward: " ++ show (ln mps1)

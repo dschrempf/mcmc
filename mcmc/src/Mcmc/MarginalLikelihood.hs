@@ -42,25 +42,17 @@ newtype NPoints = NPoints {fromNPoints :: Int}
 -- See Figure 1 in Höhna, S., Landis, M. J., & Huelsenbeck, J. P., Parallel
 -- power posterior analyses for fast computation of marginal likelihoods in
 -- phylogenetics (2017). http://dx.doi.org/10.1101/104422.
-getBetas :: NPoints -> [Double]
+getBetas :: NPoints -> [Log Double]
 getBetas x = [f i ** (1.0 / 0.3) | i <- [0 .. k1]]
   where
     k = fromNPoints x
     k1 = pred k
-    f j = fromIntegral j / fromIntegral k1
-
--- -- Even distribution.
--- getBetas :: NPoints -> [Double]
--- getBetas x = [f i | i <- [0 .. k1]]
---   where
---     k = fromNPoints x
---     k1 = pred k
---     f j = fromIntegral j / fromIntegral k1
+    f j = Exp $ log $ fromIntegral j / fromIntegral k1
 
 -- TODO: Check acceptance ratio and warn if low or high.
 goToBeta ::
   ToJSON a =>
-  Double ->
+  Log Double ->
   BurnInSpecification ->
   Iterations ->
   LikelihoodFunction a ->
@@ -73,8 +65,7 @@ goToBeta b bi is lhf a = do
     nm = AnalysisName "marginal-likelihood"
     ss = Settings nm bi is Fail Sequential NoSave Quiet
     -- Amend the likelihood function.
-    b' = Exp $ log b
-    lhf' = (** b') . lhf
+    lhf' = (** b) . lhf
     -- Amend the MHG algorithm.
     ch = fromMHG a
     l = link ch
@@ -90,7 +81,7 @@ goToBeta b bi is lhf a = do
 
 traverseBetas ::
   ToJSON a =>
-  [Double] ->
+  [Log Double] ->
   BurnInSpecification ->
   Iterations ->
   LikelihoodFunction a ->
@@ -139,7 +130,8 @@ marginalLikelihood ::
   -- | Initial state.
   a ->
   GenIO ->
-  IO [[Log Double]]
+  -- TODO: Document return value.
+  IO (Log Double, Log Double)
 marginalLikelihood ps biI biR is prf lhf cc i0 g = do
   [g0, g1] <- splitGen 2 g
   [a0, a1] <-
@@ -152,12 +144,23 @@ marginalLikelihood ps biI biR is prf lhf cc i0 g = do
       [ goToBeta 0.0 biI is lhf a0,
         goToBeta 1.0 biI is lhf a1
       ]
-  P.sequence
-    [ traverseBetas bsForward biR is lhf mhg0,
-      traverseBetas bsBackward biR is lhf mhg1
+  [mps0, mps1] <- P.sequence
+    [ traverseBetas bs0 biR is lhf mhg0,
+      traverseBetas bs1 biR is lhf mhg1
     ]
+  return (triangle mps0 bs0, triangle (reverse mps1) bs0)
   where
     trLen = TraceMinimum $ fromIterations is
     mn = noMonitor 1
-    bsForward = getBetas ps
-    bsBackward = reverse bsForward
+    bs0 = getBetas ps
+    bs1 = reverse bs0
+
+triangle ::
+  -- Y values.
+  [Log Double] ->
+  -- X values.
+  [Log Double] ->
+  -- Integral.
+  Log Double
+triangle (x0 : x1 : xs) (b0 : b1 : bs) = (x0 + x1) / (b1 - b0) + triangle (x1 : xs) (b1 : bs)
+triangle _ _ = 0
