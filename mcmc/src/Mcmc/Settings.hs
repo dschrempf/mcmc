@@ -126,7 +126,7 @@ openWithExecutionMode em fn = do
 -- usually beneficial, even for algorithms involving parallel chains. If the
 -- calculation of the next state is slow, parallel execution may be beneficial.
 --
--- - The "Mcmc.Algorithm.Metropolis" algorithm is inherently sequential.
+-- - The "Mcmc.Algorithm.MHG" algorithm is inherently sequential.
 --
 -- - The "Mcmc.Algorithm.MC3" algorithm works well with parallelization.
 --

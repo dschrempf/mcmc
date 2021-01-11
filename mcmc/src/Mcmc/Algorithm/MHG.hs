@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
--- Module      :  Mcmc.Algorithm.Metropolis
+-- Module      :  Mcmc.Algorithm.MHG
 -- Description :  Metropolis-Hastings-Green algorithm
 -- Copyright   :  (c) Dominik Schrempf 2020
 -- License     :  GPL-3.0-or-later
@@ -17,7 +17,7 @@
 --
 -- For example, see Geyer, C. J., Introduction to Markov chain Monte Carlo, In
 -- Handbook of Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
-module Mcmc.Algorithm.Metropolis
+module Mcmc.Algorithm.MHG
   ( MHG (..),
     mhg,
     mhgSave,

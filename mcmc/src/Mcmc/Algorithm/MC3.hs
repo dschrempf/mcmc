@@ -19,8 +19,8 @@
 -- Also known as parallel tempering.
 --
 -- Like any other parallel MCMC algorithm, the 'MC3' algorithm is essentially an
--- 'Mcmc.Algorithm.Metropolis.MHG' algorithm on the product space of all
--- parallel chains.
+-- 'Mcmc.Algorithm.MHG.MHG' algorithm on the product space of all parallel
+-- chains.
 --
 -- For example, see
 --
@@ -64,7 +64,7 @@ import qualified Data.Vector.Unboxed as U
 import Data.Word
 -- import Debug.Trace hiding (trace)
 import Mcmc.Algorithm
-import Mcmc.Algorithm.Metropolis
+import Mcmc.Algorithm.MHG
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
 import Mcmc.Chain.Save

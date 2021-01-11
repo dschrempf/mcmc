@@ -278,7 +278,7 @@ mcmc s a = do
 --
 -- See:
 --
--- - 'Mcmc.Algorithm.Metropolis.mhgLoad'
+-- - 'Mcmc.Algorithm.MHG.mhgLoad'
 --
 -- - 'Mcmc.Algorithm.MC3.mc3Load'
 mcmcContinue :: Algorithm a => Int -> Settings -> a -> IO a

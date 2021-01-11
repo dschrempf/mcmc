@@ -172,7 +172,7 @@ module Mcmc
     -- | See also 'settingsLoad', 'mhgLoad', and 'mc3Load'.
 
     -- * Algorithms
-    module Mcmc.Algorithm.Metropolis,
+    module Mcmc.Algorithm.MHG,
     module Mcmc.Algorithm.MC3,
 
 
@@ -185,7 +185,7 @@ module Mcmc
 where
 
 import Mcmc.Algorithm.MC3
-import Mcmc.Algorithm.Metropolis
+import Mcmc.Algorithm.MHG
 import Mcmc.Chain.Chain
 import Mcmc.Mcmc
 import Mcmc.Monitor
