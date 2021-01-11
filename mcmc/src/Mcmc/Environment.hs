@@ -45,5 +45,5 @@ initializeEnvironment s = do
       return $ Just h
   return $ Environment s mh t
   where
-    fn = fromAnalysisName (sAnalysisName s) ++ ".log"
+    fn = fromAnalysisName (sAnalysisName s) ++ ".mcmc.log"
     em = sExecutionMode s
