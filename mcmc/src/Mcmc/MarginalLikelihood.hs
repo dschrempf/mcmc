@@ -45,6 +45,15 @@ getBetas x = [f i ** (1.0 / 0.3) | i <- [0 .. k1]]
     k1 = pred k
     f j = fromIntegral j / fromIntegral k1
 
+-- -- Even distribution.
+-- getBetas :: NPoints -> [Double]
+-- getBetas x = [f i | i <- [0 .. k1]]
+--   where
+--     k = fromNPoints x
+--     k1 = pred k
+--     f j = fromIntegral j / fromIntegral k1
+
+-- TODO: Check acceptance ratio and warn if low or high.
 goToBeta ::
   ToJSON a =>
   Double ->
@@ -62,9 +71,17 @@ goToBeta b bi is lhf a = do
     -- Amend the likelihood function.
     b' = Exp $ log b
     lhf' = (** b') . lhf
-    -- Insert the amended likelihood function into the algorithm.
+    -- Amend the MHG algorithm.
     ch = fromMHG a
-    ch' = ch {likelihoodFunction = lhf', iteration = 0}
+    l = link ch
+    ch' =
+      ch
+        { -- Important: Update the likelihood using the new likelihood function.
+          link = l {likelihood = lhf' $ state l},
+          iteration = 0,
+          start = 0,
+          likelihoodFunction = lhf'
+        }
     a' = MHG ch'
 
 traverseBetas ::
@@ -72,7 +89,6 @@ traverseBetas ::
   [Double] ->
   BurnInSpecification ->
   Iterations ->
-  -- Cold likelihood function.
   LikelihoodFunction a ->
   MHG a ->
   -- Posterior probabilities.
@@ -81,7 +97,7 @@ traverseBetas [] _ _ _ _ = return []
 traverseBetas (b : bs) bi is lhf a = do
   -- Go to the next beta.
   a' <- goToBeta b bi is lhf a
-  -- Get the links.
+  -- Extract the links.
   ls <- takeT n $ trace $ fromMHG a'
   -- Calculate the mean posterior probability.
   let mp = VB.sum (VB.map getPosterior ls) / fromIntegral (VB.length ls)
@@ -91,6 +107,10 @@ traverseBetas (b : bs) bi is lhf a = do
   where
     n = fromIterations is
     getPosterior l = prior l * likelihood l
+
+-- TODO: Proper return value; marginal likelihood and confidence interval.
+
+-- TODO: Proper output.
 
 -- | Calculate the marginal likelihood using a path integral or thermodynamic
 -- integration. In particular, /Annealing-Melting Integration/ is used.
@@ -113,9 +133,6 @@ marginalLikelihood ::
   -- | Initial state.
   a ->
   GenIO ->
-  -- TODO: Proper return value.
-  --
-  -- TODO: Confidence interval.
   IO [[Log Double]]
 marginalLikelihood ps biI biR is prf lhf cc i0 g = do
   [g0, g1] <- splitGen 2 g
@@ -134,7 +151,7 @@ marginalLikelihood ps biI biR is prf lhf cc i0 g = do
       traverseBetas bsBackward biR is lhf mhg1
     ]
   where
-    mn = noMonitor 1
     trLen = TraceMinimum $ fromIterations is
+    mn = noMonitor 1
     bsForward = getBetas ps
     bsBackward = reverse bsForward
