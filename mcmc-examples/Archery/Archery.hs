@@ -23,6 +23,7 @@ import Mcmc
 import qualified Statistics.Distribution as S
 import qualified Statistics.Distribution.Exponential as S
 import System.Random.MWC
+import Numeric.Log
 
 -- State space of the Markov chain. The precision of the archer is measured as a
 -- 'Double'.
@@ -45,7 +46,7 @@ distances = replicateM nArrows . S.genContVar (S.exponential muTrue)
 
 -- Uninformative, improper prior for positive precision values.
 pr :: PriorFunction Precision
-pr = positive
+pr = exponential 1.0
 
 -- Likelihood function.
 lh :: [Distance] -> LikelihoodFunction Precision
@@ -107,8 +108,10 @@ main = do
   -- Run the MCMC sampler.
   void $ mcmc s a
   -- Calculate the marginal likelihood.
-  let ps = NPoints 20
-      bi = BurnInWithAutoTuning 1000 100
-      is = Iterations 4000
-  mps <- marginalLikelihood ps bi bi is pr (lh xs) cc 0.01 g
-  print mps
+  putStrLn "Marginal likelihood estimation."
+  let ps = NPoints 41
+      bi = BurnInWithAutoTuning 2000 100
+      is = Iterations 6000
+  [mps0, mps1] <- marginalLikelihood ps bi bi is pr (lh xs) cc 0.01 g
+  print $ map ln mps0
+  print $ map ln mps1

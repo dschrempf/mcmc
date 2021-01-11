@@ -46,6 +46,7 @@ executable archery
   hs-source-dirs: Archery
   build-depends:
       base
+    , log-domain
     , mcmc
     , mwc-random
     , statistics

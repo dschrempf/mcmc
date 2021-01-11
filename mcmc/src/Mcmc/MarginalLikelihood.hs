@@ -15,6 +15,10 @@ module Mcmc.MarginalLikelihood
   )
 where
 
+-- TODO: Stepping stone sampling.
+--
+-- See Xie2010 and Fan2010.
+
 import qualified Control.Monad.Parallel as P
 import Data.Aeson
 import qualified Data.Vector as VB
@@ -112,8 +116,10 @@ traverseBetas (b : bs) bi is lhf a = do
 
 -- TODO: Proper output.
 
--- | Calculate the marginal likelihood using a path integral or thermodynamic
--- integration. In particular, /Annealing-Melting Integration/ is used.
+-- | Calculate the marginal likelihood using a path integral.
+--
+-- Also known as thermodynamic integration. In particular, /Annealing-Melting
+-- Integration/ is used.
 --
 -- See Lartillot, N., & Philippe, H., Computing Bayes Factors Using
 -- Thermodynamic Integration, Systematic Biology, 55(2), 195–207 (2006).
