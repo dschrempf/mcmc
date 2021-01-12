@@ -100,7 +100,6 @@ getPoints x = [f i ** (1.0 / 0.3) | i <- [0 .. k1]]
     k1 = pred k
     f j = Exp $ log $ fromIntegral j / fromIntegral k1
 
--- TODO: Check acceptance ratio and warn if low or high.
 sampleAtPoint ::
   ToJSON a =>
   Point ->
@@ -163,8 +162,6 @@ traversePoints (b : bs) ss lhf a = do
 
 -- TODO: Proper return value; marginal likelihood and confidence interval.
 
--- TODO: Proper output.
-
 mlTIRun ::
   ToJSON a =>
   Points ->
@@ -181,10 +178,9 @@ mlTIRun xs prf lhf cc i0 g = do
   let nm = mlAnalysisName s
       is = mlIterations s
       biI = mlInitialBurnIn s
-      -- TODO: Maybe take the execution mode and verbosity from MLSettings.
-      ssI = Settings nm biI is Fail Sequential NoSave Quiet
       biP = mlPointBurnIn s
-      -- TODO: Maybe take the execution mode and verbosity from MLSettings.
+      -- Be quiet for the sub MCMC runs.
+      ssI = Settings nm biI is Fail Sequential NoSave Quiet
       ssP = Settings nm biP is Fail Sequential NoSave Quiet
       trLen = TraceMinimum $ fromIterations is
       mn = noMonitor 1
