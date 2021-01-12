@@ -13,12 +13,14 @@ cradle:
       component: "mcmc-examples:exe:archery"
     - path: "mcmc-examples/Dirichlet"
       component: "mcmc-examples:exe:dirichlet"
+    - path: "mcmc-examples/Gauss"
+      component: "mcmc-examples:exe:gauss"
+    - path: "mcmc-examples/Pair"
+      component: "mcmc-examples:exe:pair"
     - path: "mcmc-examples/PhylogeneticLikelihood"
       component: "mcmc-examples:exe:plh"
-    - path: "mcmc-examples/TestPair"
-      component: "mcmc-examples:exe:test-pair"
-    - path: "mcmc-examples/TestTree"
-      component: "mcmc-examples:exe:test-tree"
+    - path: "mcmc-examples/Tree"
+      component: "mcmc-examples:exe:tree"
 
     # mcmc-statistics
     - path: "mcmc-statistics/src"

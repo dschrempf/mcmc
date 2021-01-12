@@ -20,7 +20,6 @@ where
 
 import Control.Monad
 import Mcmc
-import Numeric.Log
 import qualified Statistics.Distribution as S
 import qualified Statistics.Distribution.Exponential as S
 import System.Random.MWC
@@ -103,10 +102,10 @@ main = do
           Sequential
           Save
           Info
-  -- -- Use the Metropolis-Hastings-Green (MHG) algorithm.
-  -- a <- mhg pr (lh xs) cc mon TraceAuto 0.01 g
-  -- -- Run the MCMC sampler.
-  -- void $ mcmc s a
+  -- Use the Metropolis-Hastings-Green (MHG) algorithm.
+  a <- mhg pr (lh xs) cc mon TraceAuto 0.01 g
+  -- Run the MCMC sampler.
+  void $ mcmc s a
   -- Marginal likelihood estimation.
   let ss =
         MLSettings

@@ -182,6 +182,9 @@ module Mcmc
     noPrior,
     LikelihoodFunction,
     noLikelihood,
+
+    -- * Useful re-exports
+    module Numeric.Log
   )
 where
 
@@ -200,3 +203,4 @@ import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Simplex
 import Mcmc.Proposal.Slide
 import Mcmc.Settings
+import Numeric.Log hiding (sum)

@@ -237,10 +237,12 @@ mlThermodynamicIntegration s prf lhf cc i0 g = do
         -- We have to calculate the integral here, 'triangle' chokes when the
         -- points are reversed (log domain values cannot handle negative
         -- values).
-        return
-          ( triangle mpsForward bsForward,
-            triangle (reverse mpsBackward) bsForward
-          )
+        let mlForward = triangle mpsForward bsForward
+            mlBackward = triangle (reverse mpsBackward) bsForward
+        logInfoB "Marginal likelihood:"
+        logInfoS $ "Forward: " ++ show mlForward
+        logInfoS $ "Backward " ++ show mlBackward
+        return (mlForward, mlBackward)
     )
     e
   where

@@ -26,7 +26,6 @@ import Data.Maybe
 import Lens.Micro
 import Lens.Micro.Extras
 import Mcmc
-import Numeric.Log
 import Statistics.Distribution hiding (Mean)
 import Statistics.Distribution.Normal
 import System.Environment

@@ -15,7 +15,6 @@ where
 import Control.Lens
 import Control.Monad
 import Mcmc
-import Numeric.Log
 import System.Random.MWC hiding (uniform)
 
 type I = (Double, Double)

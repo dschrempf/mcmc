@@ -69,6 +69,34 @@ executable dirichlet
     , mwc-random
     , vector
 
+executable gauss
+  import: exec
+  main-is: Gauss.hs
+  other-modules:
+      Paths_mcmc_examples
+  autogen-modules:
+      Paths_mcmc_examples
+  hs-source-dirs:
+      Gauss
+  build-depends:
+      base
+    , mcmc
+
+executable pair
+  import: exec
+  main-is: Pair.hs
+  other-modules:
+      Paths_mcmc_examples
+  autogen-modules:
+      Paths_mcmc_examples
+  hs-source-dirs: Pair
+  build-depends:
+      base
+    , lens
+    , log-domain
+    , mcmc
+    , mwc-random
+
 executable plh
   import: exec
   main-is: PhylogeneticLikelihood.hs
@@ -88,29 +116,14 @@ executable plh
     , mwc-random
     , statistics
 
-executable test-pair
+executable tree
   import: exec
-  main-is: TestPair.hs
+  main-is: Tree.hs
   other-modules:
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples
-  hs-source-dirs: TestPair
-  build-depends:
-      base
-    , lens
-    , log-domain
-    , mcmc
-    , mwc-random
-
-executable test-tree
-  import: exec
-  main-is: TestTree.hs
-  other-modules:
-      Paths_mcmc_examples
-  autogen-modules:
-      Paths_mcmc_examples
-  hs-source-dirs: TestTree
+  hs-source-dirs: Tree
   build-depends:
       aeson
     , base
