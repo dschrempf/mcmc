@@ -103,12 +103,11 @@ main = do
           Sequential
           Save
           Info
-  -- Use the Metropolis-Hastings-Green (MHG) algorithm.
-  a <- mhg pr (lh xs) cc mon TraceAuto 0.01 g
-  -- Run the MCMC sampler.
-  void $ mcmc s a
+  -- -- Use the Metropolis-Hastings-Green (MHG) algorithm.
+  -- a <- mhg pr (lh xs) cc mon TraceAuto 0.01 g
+  -- -- Run the MCMC sampler.
+  -- void $ mcmc s a
   -- Marginal likelihood estimation.
-  putStrLn "Marginal likelihood estimation using thermodynamic integration."
   let ss =
         MLSettings
           (AnalysisName "archery-marginal-likelihood")
@@ -117,7 +116,7 @@ main = do
           (BurnInWithAutoTuning 1000 100)
           (Iterations 6000)
           Overwrite
-          Info
+          Debug
   (mps0, mps1) <- mlThermodynamicIntegration ss pr (lh xs) cc 0.01 g
   putStrLn $ "Forward: " ++ show (ln mps0)
   putStrLn $ "Backward: " ++ show (ln mps1)

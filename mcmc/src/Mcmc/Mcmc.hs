@@ -25,11 +25,9 @@ import Control.Monad
 import Control.Monad.IO.Class
 -- import Control.Monad.Trans.RWS.CPS
 import Control.Monad.Trans.Reader
-import Data.Time.Clock
 import Mcmc.Algorithm
 import Mcmc.Environment
 import Mcmc.Logger
-import Mcmc.Monitor.Time
 import Mcmc.Settings
 import System.IO
 import Text.Show.Pretty
@@ -38,12 +36,6 @@ import Prelude hiding (cycle)
 -- The MCMC algorithm has read access to an environment and uses an algorithm
 -- transforming the state @a@.
 type MCMC a = ReaderT (Environment Settings) IO a
-
-mcmcReportTime :: MCMC ()
-mcmcReportTime = do
-  logDebugB "Report time."
-  ti <- reader startingTime
-  logInfoS $ "Starting time of MCMC sampler: " <> renderTime ti
 
 mcmcExecute :: Algorithm a => a -> MCMC a
 mcmcExecute a = do
@@ -188,11 +180,7 @@ mcmcClose a = do
   logInfoB $ aSummarizeCycle a
   logInfoS $ aName a ++ " algorithm finished."
   mcmcSave a
-  ti <- reader startingTime
-  te <- liftIO getCurrentTime
-  let dt = te `diffUTCTime` ti
-  logInfoB $ "Wall clock run time: " <> renderDuration dt <> "."
-  logInfoS $ "End time: " <> renderTime te
+  logInfoEndTime
   a' <- liftIO $ aCloseMonitors a
   h <- reader logHandle
   liftIO $ forM_ h hClose
@@ -206,7 +194,7 @@ mcmcRun a = do
 
   -- Initialize.
   a' <- mcmcInitialize a
-  mcmcReportTime
+  logInfoStartingTime
 
   -- Execute.
   a'' <- mcmcExecute a'

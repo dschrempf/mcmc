@@ -14,7 +14,9 @@
 -- Creation date: Tue Jan 12 09:03:04 2021.
 module Mcmc.Logger
   ( Verbosity (..),
+    HasLock (..),
     HasMaybeLogHandle (..),
+    HasStartingTime (..),
     HasVerbosity (..),
     logOutB,
     logDebugA,
@@ -26,15 +28,20 @@ module Mcmc.Logger
     logInfoA,
     logInfoB,
     logInfoS,
+    logInfoStartingTime,
+    logInfoEndTime,
   )
 where
 
+import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Time.Clock
+import Mcmc.Monitor.Time
 import System.IO
 
 -- | Not much to say here.
@@ -43,9 +50,17 @@ data Verbosity = Quiet | Warn | Info | Debug
 
 $(deriveJSON defaultOptions ''Verbosity)
 
+-- | Types with an output lock for concurrent output.
+class HasLock e where
+  getLock :: e -> MVar ()
+
 -- | Types with logging information.
 class HasMaybeLogHandle e where
   getMaybeLogHandle :: e -> Maybe Handle
+
+-- | Types with starting time.
+class HasStartingTime s where
+  getStartingTime :: s -> UTCTime
 
 -- | Types with verbosity.
 class HasVerbosity s where
@@ -59,53 +74,72 @@ msgPrepare pref msg = BL.intercalate "\n" $ map (BL.append pref) $ BL.lines msg
 
 -- | Write to standard output and maybe to log file.
 logOutB ::
-  HasMaybeLogHandle e =>
+  (HasMaybeLogHandle e, HasLock e) =>
   -- | Prefix.
   BL.ByteString ->
   -- | Message.
   BL.ByteString ->
   Logger e ()
 logOutB pref msg = do
-  liftIO $ BL.putStrLn msg'
+  -- Make sure that concurrent output is not scrambled.
+  lock <- reader getLock
   mh <- reader getMaybeLogHandle
-  case mh of
-    Nothing -> return ()
-    Just h -> liftIO $ BL.hPutStrLn h msg'
+  liftIO $ withMVar lock (\_ -> logOutB' mh)
   where
     msg' = msgPrepare pref msg
+    logOutB' mHandle = do
+      BL.putStrLn msg'
+      case mHandle of
+        Nothing -> return ()
+        Just h -> BL.hPutStrLn h msg'
 
 -- | Perform debug action.
 logDebugA :: (HasMaybeLogHandle e, HasVerbosity e) => Logger e () -> Logger e ()
 logDebugA a = reader getVerbosity >>= \v -> when (v == Debug) a
 
--- | Print debug message.
-logDebugB :: (HasMaybeLogHandle e, HasVerbosity e) => BL.ByteString -> Logger e ()
+-- | Log debug message.
+logDebugB :: (HasLock e, HasMaybeLogHandle e, HasVerbosity e) => BL.ByteString -> Logger e ()
 logDebugB = logDebugA . logOutB "D: "
 
--- | Print debug message.
-logDebugS :: (HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
+-- | Log debug message.
+logDebugS :: (HasLock e, HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
 logDebugS = logDebugB . BL.pack
 
 -- | Perform warning action.
 logWarnA :: (HasMaybeLogHandle e, HasVerbosity e) => Logger e () -> Logger e ()
 logWarnA a = reader getVerbosity >>= \v -> when (v >= Warn) a
 
--- | Print warning message.
-logWarnB :: (HasMaybeLogHandle e, HasVerbosity e) => BL.ByteString -> Logger e ()
+-- | Log warning message.
+logWarnB :: (HasLock e, HasMaybeLogHandle e, HasVerbosity e) => BL.ByteString -> Logger e ()
 logWarnB = logWarnA . logOutB "W: "
 
--- | Print warning message.
-logWarnS :: (HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
+-- | Log warning message.
+logWarnS :: (HasLock e, HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
 logWarnS = logWarnB . BL.pack
 
 -- | Perform info action.
 logInfoA :: (HasMaybeLogHandle e, HasVerbosity e) => Logger e () -> Logger e ()
 logInfoA a = reader getVerbosity >>= \v -> when (v >= Info) a
 
--- | Print info message.
-logInfoB :: (HasMaybeLogHandle e, HasVerbosity e) => BL.ByteString -> Logger e ()
+-- | Log info message.
+logInfoB :: (HasLock e, HasMaybeLogHandle e, HasVerbosity e) => BL.ByteString -> Logger e ()
 logInfoB = logInfoA . logOutB "I: "
 
--- | Print info message.
-logInfoS :: (HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
+-- | Log info message.
+logInfoS :: (HasLock e, HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
 logInfoS = logInfoB . BL.pack
+
+-- | Log starting time.
+logInfoStartingTime :: (HasLock e, HasMaybeLogHandle e, HasStartingTime e, HasVerbosity e) => Logger e ()
+logInfoStartingTime = do
+  ti <- reader getStartingTime
+  logInfoS $ "Starting time: " <> renderTime ti
+
+-- | Log end time.
+logInfoEndTime :: (HasLock e, HasMaybeLogHandle e, HasStartingTime e, HasVerbosity e) => Logger e ()
+logInfoEndTime = do
+  ti <- reader getStartingTime
+  te <- liftIO getCurrentTime
+  let dt = te `diffUTCTime` ti
+  logInfoB $ "Wall clock run time: " <> renderDuration dt <> "."
+  logInfoS $ "End time: " <> renderTime te

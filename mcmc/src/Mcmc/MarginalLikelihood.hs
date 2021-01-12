@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- |
 -- Module      :  Mcmc.MarginalLikelihood
 -- Description :  Calculate the marginal likelihood
@@ -40,6 +42,7 @@ import Mcmc.Settings
 import Numeric.Log
 import System.Random.MWC
 import Text.Printf
+import Text.Show.Pretty
 import Prelude hiding (cycle)
 
 -- Reciprocal temperature value traversed along the path integral.
@@ -212,12 +215,17 @@ mlThermodynamicIntegration s prf lhf cc i0 g = do
   -- Run.
   runReaderT
     ( do
+        logInfoStartingTime
+        logInfoB "Estimate marginal likelihood using thermodynamic integration."
+        logDebugB "The settings are:"
+        logDebugS $ ppShow s
         -- Parallel execution of both path integrals.
         [mpsForward, mpsBackward] <-
           P.sequence
             [ mlTIRun bsForward prf lhf cc i0 g0,
               mlTIRun bsBackward prf lhf cc i0 g1
             ]
+        logInfoEndTime
         -- We have to calculate the integral here, 'triangle' chokes when the
         -- points are reversed (log domain values cannot handle negative
         -- values).

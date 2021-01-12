@@ -15,6 +15,7 @@ module Mcmc.Environment
   )
 where
 
+import Control.Concurrent.MVar
 import Data.Time.Clock
 import Mcmc.Logger
 import Mcmc.Settings
@@ -26,16 +27,24 @@ data Environment s = Environment
     -- | We have to use 'Maybe' here, because we do not want to open any log
     -- file when being 'Quiet'.
     logHandle :: Maybe Handle,
+    -- | MVar blocking output.
+    outLock :: MVar (),
     -- | Used to calculate the ETA.
     startingTime :: UTCTime
   }
-  deriving (Eq, Show)
+  deriving (Eq)
 
 instance HasExecutionMode s => HasExecutionMode (Environment s) where
   getExecutionMode = getExecutionMode . settings
 
+instance HasLock (Environment s) where
+  getLock = outLock
+
 instance HasMaybeLogHandle (Environment s) where
   getMaybeLogHandle = logHandle
+
+instance HasStartingTime (Environment s) where
+  getStartingTime = startingTime
 
 instance HasVerbosity s => HasVerbosity (Environment s) where
   getVerbosity = getVerbosity . settings
@@ -54,7 +63,8 @@ initializeEnvironment s = do
     _ -> do
       h <- openWithExecutionMode em fn
       return $ Just h
-  return $ Environment s mh t
+  lock <- newMVar ()
+  return $ Environment s mh lock t
   where
     fn = fromAnalysisName (getAnalysisName s) ++ ".mcmc.log"
     em = getExecutionMode s
