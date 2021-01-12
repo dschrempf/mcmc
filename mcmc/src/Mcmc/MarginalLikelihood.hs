@@ -64,8 +64,9 @@ goToBeta b bi is lhf a = do
     -- MCMC Settings.
     nm = AnalysisName "marginal-likelihood"
     ss = Settings nm bi is Fail Sequential NoSave Quiet
-    -- Amend the likelihood function.
-    lhf' = (** b) . lhf
+    -- Amend the likelihood function. Don't calculate the likelihood when beta
+    -- is 0.0.
+    lhf' = if b == 0.0 then const 1.0 else (** b) . lhf
     -- Amend the MHG algorithm.
     ch = fromMHG a
     l = link ch
