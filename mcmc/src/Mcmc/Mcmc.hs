@@ -25,11 +25,10 @@ import Control.Monad
 import Control.Monad.IO.Class
 -- import Control.Monad.Trans.RWS.CPS
 import Control.Monad.Trans.Reader
-import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Maybe
 import Data.Time.Clock
 import Mcmc.Algorithm
 import Mcmc.Environment
+import Mcmc.Internal.Logger
 import Mcmc.Monitor.Time
 import Mcmc.Settings
 import System.IO
@@ -40,74 +39,27 @@ import Prelude hiding (cycle)
 -- transforming the state @a@.
 type MCMC a = ReaderT Environment IO a
 
-msgPrepare :: BL.ByteString -> BL.ByteString -> BL.ByteString
-msgPrepare pref msg = BL.intercalate "\n" $ map (BL.append pref) $ BL.lines msg
-
--- Write to standard output and log file.
-mcmcOutB :: BL.ByteString -> BL.ByteString -> MCMC ()
-mcmcOutB pref msg = do
-  h <- fromMaybe (error "mcmcOut: Log handle is missing.") <$> reader logHandle
-  liftIO $ BL.putStrLn msg' >> BL.hPutStrLn h msg'
-  where
-    msg' = msgPrepare pref msg
-
--- -- Perform warning action.
--- mcmcWarnA :: MCMC a () -> MCMC a ()
--- mcmcWarnA a = reader (verbosity . settings) >>= \v -> when (v >= Warn) a
-
--- -- Print warning message.
--- mcmcWarnB :: BL.ByteString -> MCMC a ()
--- mcmcWarnB = mcmcWarnA . mcmcOutB . msgPrepare 'W'
-
--- -- Print warning message.
--- mcmcWarnS :: String -> MCMC a ()
--- mcmcWarnS = mcmcWarnB . BL.pack
-
--- Perform info action.
-mcmcInfoA :: MCMC () -> MCMC ()
-mcmcInfoA a = reader (sVerbosity . settings) >>= \v -> when (v >= Info) a
-
--- Print info message.
-mcmcInfoB :: BL.ByteString -> MCMC ()
-mcmcInfoB = mcmcInfoA . mcmcOutB "I: "
-
--- Print info message.
-mcmcInfoS :: String -> MCMC ()
-mcmcInfoS = mcmcInfoB . BL.pack
-
--- Perform debug action.
-mcmcDebugA :: MCMC () -> MCMC ()
-mcmcDebugA a = reader (sVerbosity . settings) >>= \v -> when (v == Debug) a
-
--- Print debug message.
-mcmcDebugB :: BL.ByteString -> MCMC ()
-mcmcDebugB = mcmcDebugA . mcmcOutB "D: "
-
--- Print debug message.
-mcmcDebugS :: String -> MCMC ()
-mcmcDebugS = mcmcDebugB . BL.pack
-
 mcmcReportTime :: MCMC ()
 mcmcReportTime = do
-  mcmcDebugB "Report time."
+  logDebugB "Report time."
   ti <- reader startingTime
-  mcmcInfoS $ "Starting time of MCMC sampler: " <> renderTime ti
+  logInfoS $ "Starting time of MCMC sampler: " <> renderTime ti
 
 mcmcExecute :: Algorithm a => a -> MCMC a
 mcmcExecute a = do
-  mcmcDebugB "Executing MCMC run."
+  logDebugB "Executing MCMC run."
   s <- reader settings
   a' <- case sExecutionMode s of
     Fail -> mcmcNewRun a
     Overwrite -> mcmcNewRun a
     Continue -> mcmcContinueRun a
-  mcmcDebugB "Executed MCMC run."
+  logDebugB "Executed MCMC run."
   return a'
 
 -- Reset acceptance counts.
 mcmcResetAcceptance :: Algorithm a => a -> MCMC a
 mcmcResetAcceptance a = do
-  mcmcDebugB "Reset acceptance rates."
+  logDebugB "Reset acceptance rates."
   return $ aResetAcceptance a
 
 -- Execute the monitors of the chain.
@@ -119,7 +71,7 @@ mcmcExecuteMonitors a = do
       t0 = startingTime e
       iTotal = burnInIterations (sBurnIn s) + fromIterations (sIterations s)
   mStdLog <- liftIO (aExecuteMonitors vb t0 iTotal a)
-  forM_ mStdLog (mcmcOutB "   ")
+  forM_ mStdLog (logOutB "   ")
 
 mcmcIterate :: Algorithm a => Int -> a -> MCMC a
 mcmcIterate n a
@@ -134,30 +86,30 @@ mcmcIterate n a
 mcmcNewRun :: Algorithm a => a -> MCMC a
 mcmcNewRun a = do
   s <- reader settings
-  mcmcInfoB "Start new MCMC sampler."
-  mcmcInfoB "Initial state."
-  mcmcInfoB $ aStdMonitorHeader a
+  logInfoB "Start new MCMC sampler."
+  logInfoB "Initial state."
+  logInfoB $ aStdMonitorHeader a
   mcmcExecuteMonitors a
-  mcmcInfoB $ aSummarizeCycle a
+  logInfoB $ aSummarizeCycle a
   a' <- mcmcBurnIn a
   a'' <- mcmcResetAcceptance a'
   let i = fromIterations $ sIterations s
-  mcmcInfoS $ "Run chain for " ++ show i ++ " iterations."
-  mcmcInfoB $ aStdMonitorHeader a''
+  logInfoS $ "Run chain for " ++ show i ++ " iterations."
+  logInfoB $ aStdMonitorHeader a''
   mcmcIterate i a''
 
 mcmcContinueRun :: Algorithm a => a -> MCMC a
 mcmcContinueRun a = do
   s <- reader settings
   let iTotal = fromIterations (sIterations s) + burnInIterations (sBurnIn s)
-  mcmcInfoB "Continuation of MCMC sampler."
+  logInfoB "Continuation of MCMC sampler."
   let iCurrent = aIteration a
-  mcmcInfoS $ "Current iteration: " ++ show iCurrent ++ "."
-  mcmcInfoS $ "Total iterations: " ++ show iTotal ++ "."
+  logInfoS $ "Current iteration: " ++ show iCurrent ++ "."
+  logInfoS $ "Total iterations: " ++ show iTotal ++ "."
   let di = iTotal - iCurrent
-  mcmcInfoB $ aSummarizeCycle a
-  mcmcInfoS $ "Run chain for " ++ show di ++ " iterations."
-  mcmcInfoB $ aStdMonitorHeader a
+  logInfoB $ aSummarizeCycle a
+  logInfoS $ "Run chain for " ++ show di ++ " iterations."
+  logInfoB $ aStdMonitorHeader a
   mcmcIterate di a
 
 mcmcBurnIn :: Algorithm a => a -> MCMC a
@@ -165,28 +117,28 @@ mcmcBurnIn a = do
   s <- reader settings
   case sBurnIn s of
     NoBurnIn -> do
-      mcmcInfoS "No burn in."
+      logInfoS "No burn in."
       return a
     BurnInWithoutAutoTuning n -> do
-      mcmcInfoS $ "Burn in for " <> show n <> " iterations."
-      mcmcInfoS "Auto tuning is disabled."
-      mcmcInfoB $ aStdMonitorHeader a
+      logInfoS $ "Burn in for " <> show n <> " iterations."
+      logInfoS "Auto tuning is disabled."
+      logInfoB $ aStdMonitorHeader a
       a' <- mcmcIterate n a
-      mcmcInfoB $ aSummarizeCycle a'
-      mcmcInfoB "Burn in finished."
+      logInfoB $ aSummarizeCycle a'
+      logInfoB "Burn in finished."
       return a'
     BurnInWithAutoTuning n t -> do
-      mcmcInfoS $ "Burn in for " ++ show n ++ " iterations."
-      mcmcInfoS $ "Auto tuning is enabled with a period of " ++ show t ++ "."
-      mcmcInfoB $ aStdMonitorHeader a
+      logInfoS $ "Burn in for " ++ show n ++ " iterations."
+      logInfoS $ "Auto tuning is enabled with a period of " ++ show t ++ "."
+      logInfoB $ aStdMonitorHeader a
       a' <- mcmcBurnInWithAutoTuning n t a
-      mcmcInfoB "Burn in finished."
+      logInfoB "Burn in finished."
       return a'
 
 -- Auto tune the proposals.
 mcmcAutotune :: Algorithm a => a -> MCMC a
 mcmcAutotune a = do
-  mcmcDebugB "Auto tune."
+  logDebugB "Auto tune."
   return $ aAutoTune a
 
 mcmcBurnInWithAutoTuning :: Algorithm a => Int -> Int -> a -> MCMC a
@@ -194,24 +146,24 @@ mcmcBurnInWithAutoTuning b t a
   | b > t = do
     a' <- mcmcResetAcceptance a
     a'' <- mcmcIterate t a'
-    mcmcDebugB $ aSummarizeCycle a''
+    logDebugB $ aSummarizeCycle a''
     a''' <- mcmcAutotune a''
-    mcmcDebugB $ aStdMonitorHeader a''
+    logDebugB $ aStdMonitorHeader a''
     mcmcBurnInWithAutoTuning (b - t) t a'''
   | otherwise = do
     a' <- mcmcResetAcceptance a
     a'' <- mcmcIterate b a'
-    mcmcInfoB $ aSummarizeCycle a''
-    mcmcInfoS $ "Acceptance rates calculated over the last " <> show b <> " iterations."
+    logInfoB $ aSummarizeCycle a''
+    logInfoS $ "Acceptance rates calculated over the last " <> show b <> " iterations."
     return a''
 
 mcmcInitialize :: Algorithm a => a -> MCMC a
 mcmcInitialize a = do
-  mcmcInfoS $ aName a ++ " algorithm."
+  logInfoS $ aName a ++ " algorithm."
   s <- settings <$> ask
-  mcmcDebugB "Opening monitors."
+  logDebugB "Opening monitors."
   a' <- liftIO $ aOpenMonitors (sAnalysisName s) (sExecutionMode s) a
-  mcmcDebugB "Monitors opened."
+  logDebugB "Monitors opened."
   return a'
 
 -- Save the MCMC run.
@@ -219,28 +171,28 @@ mcmcSave :: Algorithm a => a -> MCMC ()
 mcmcSave a = do
   s <- reader settings
   case sSaveMode s of
-    NoSave -> mcmcInfoB "Do not save the MCMC analysis."
+    NoSave -> logInfoB "Do not save the MCMC analysis."
     Save -> do
-      mcmcInfoB "Save settings."
+      logInfoB "Save settings."
       liftIO $ settingsSave s
       let nm = sAnalysisName s
-      mcmcInfoB "Save compressed MCMC analysis."
-      mcmcInfoB "For long traces, or complex objects, this may take a while."
+      logInfoB "Save compressed MCMC analysis."
+      logInfoB "For long traces, or complex objects, this may take a while."
       liftIO $ aSave nm a
-      mcmcInfoB "Markov chain saved."
+      logInfoB "Markov chain saved."
 
 -- Report and finish up.
 mcmcClose :: Algorithm a => a -> MCMC a
 mcmcClose a = do
-  mcmcDebugB "Closing MCMC run."
-  mcmcInfoB $ aSummarizeCycle a
-  mcmcInfoS $ aName a ++ " algorithm finished."
+  logDebugB "Closing MCMC run."
+  logInfoB $ aSummarizeCycle a
+  logInfoS $ aName a ++ " algorithm finished."
   mcmcSave a
   ti <- reader startingTime
   te <- liftIO getCurrentTime
   let dt = te `diffUTCTime` ti
-  mcmcInfoB $ "Wall clock run time: " <> renderDuration dt <> "."
-  mcmcInfoS $ "End time: " <> renderTime te
+  logInfoB $ "Wall clock run time: " <> renderDuration dt <> "."
+  logInfoS $ "End time: " <> renderTime te
   a' <- liftIO $ aCloseMonitors a
   h <- reader logHandle
   liftIO $ forM_ h hClose
@@ -249,8 +201,8 @@ mcmcClose a = do
 -- Initialize the run, execute the run, and close the run.
 mcmcRun :: Algorithm a => a -> MCMC a
 mcmcRun a = do
-  mcmcDebugB "The settings are:"
-  reader settings >>= mcmcDebugS . ppShow
+  logDebugB "The settings are:"
+  reader settings >>= logDebugS . ppShow
 
   -- Initialize.
   a' <- mcmcInitialize a

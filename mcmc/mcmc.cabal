@@ -64,6 +64,7 @@ library
       Mcmc.Settings
   other-modules:
       Mcmc.Internal.ByteString
+      Mcmc.Internal.Logger
       Mcmc.Internal.Random
       Mcmc.Internal.Shuffle
       Paths_mcmc

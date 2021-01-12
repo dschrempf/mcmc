@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DerivingVia #-}
 
 -- |
 -- Module      :  Mcmc.Settings
@@ -36,12 +37,14 @@ where
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Mcmc.Internal.Logger
 import System.Directory
 import System.IO
 
 -- | Analysis name of the MCMC sampler.
 newtype AnalysisName = AnalysisName {fromAnalysisName :: String}
   deriving (Eq, Read, Show)
+  deriving (Monoid, Semigroup) via String
 
 $(deriveJSON defaultOptions ''AnalysisName)
 
@@ -155,12 +158,6 @@ data SaveMode = NoSave | Save
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''SaveMode)
-
--- | Not much to say here.
-data Verbosity = Quiet | Warn | Info | Debug
-  deriving (Eq, Ord, Read, Show)
-
-$(deriveJSON defaultOptions ''Verbosity)
 
 -- | Settings of an MCMC sampler.
 data Settings = Settings

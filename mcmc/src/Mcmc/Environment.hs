@@ -16,6 +16,7 @@ module Mcmc.Environment
 where
 
 import Data.Time.Clock
+import Mcmc.Internal.Logger
 import Mcmc.Settings
 import System.IO
 
@@ -29,6 +30,10 @@ data Environment = Environment
     startingTime :: UTCTime
   }
   deriving (Eq, Show)
+
+instance LogEnv Environment where
+  getMaybeLogHandle = logHandle
+  getVerbosity = sVerbosity . settings
 
 -- | Initialize the environment.
 --
