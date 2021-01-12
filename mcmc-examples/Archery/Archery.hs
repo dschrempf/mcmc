@@ -115,7 +115,7 @@ main = do
           (BurnInWithAutoTuning 1000 100)
           (Iterations 6000)
           Overwrite
-          Debug
+          Info
   (mps0, mps1) <- mlThermodynamicIntegration ss pr (lh xs) cc 0.01 g
-  putStrLn $ "Forward: " ++ show (ln mps0)
-  putStrLn $ "Backward: " ++ show (ln mps1)
+  putStrLn $ "Forward: " ++ show mps0
+  putStrLn $ "Backward: " ++ show mps1

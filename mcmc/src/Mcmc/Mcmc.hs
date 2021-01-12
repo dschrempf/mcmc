@@ -189,7 +189,7 @@ mcmcClose a = do
 -- Initialize the run, execute the run, and close the run.
 mcmcRun :: Algorithm a => a -> MCMC a
 mcmcRun a = do
-  logDebugB "The settings are:"
+  logDebugB "The MCMC settings are:"
   reader settings >>= logDebugS . ppShow
 
   -- Initialize.

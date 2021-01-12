@@ -46,7 +46,6 @@ executable archery
   hs-source-dirs: Archery
   build-depends:
       base
-    , log-domain
     , mcmc
     , mwc-random
     , statistics
@@ -80,7 +79,9 @@ executable gauss
       Gauss
   build-depends:
       base
+    , lens
     , mcmc
+    , mwc-random
 
 executable pair
   import: exec
@@ -93,7 +94,6 @@ executable pair
   build-depends:
       base
     , lens
-    , log-domain
     , mcmc
     , mwc-random
 
@@ -110,7 +110,6 @@ executable plh
       aeson
     , algebraic-graphs
     , base
-    , log-domain
     , mcmc
     , microlens
     , mwc-random

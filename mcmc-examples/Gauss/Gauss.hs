@@ -18,27 +18,59 @@ module Main
   )
 where
 
+import Control.Lens
 import Mcmc
+import System.Random.MWC
 
 -- Variance.
 v :: Double
-v = 1
+v = 0.01
 
 -- Dimension.
 d :: Int
-d = 1
+d = 5
 
--- Sample size.
+-- Sample size per point.
 n :: Int
 n = 1000
 
+-- State space.
 type I = [Double]
 
-ef :: Double -> Double
-ef x = exp (negate $ x * x / (2 * v))
+-- Prior function.
+prf :: PriorFunction I
+prf = product . map (normal 0 1)
 
+-- Gaussian exponential function.
+gef :: Double -> Log Double
+gef x = Exp $ negate $ x * x / (2 * v)
+
+-- Likelihood function.
 lhf :: LikelihoodFunction I
-lhf = product . map (Exp . log . ef)
+lhf = product . map gef
+
+-- Cycle.
+cc :: Cycle I
+cc =
+  cycleFromList
+    [ singular (ix i)
+        @~ slideUniformSymmetric 1.0 (PName $ "x" ++ show i) (PWeight 1) Tune
+      | i <- [0 .. (d -1)]
+    ]
 
 main :: IO ()
-main = undefined
+main = do
+  g <- create
+  let ss =
+        MLSettings
+          (AnalysisName "gauss")
+          (NPoints 512)
+          (BurnInWithAutoTuning 5000 200)
+          (BurnInWithAutoTuning 1000 100)
+          (Iterations n)
+          Overwrite
+          Info
+      i0 = replicate d 0
+  _ <- mlThermodynamicIntegration ss prf lhf cc i0 g
+  putStrLn $ "The correct value is:"  ++ show corVal
+  where corVal = 0.5 * fromIntegral d * (log v - log (1+v))

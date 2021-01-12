@@ -19,10 +19,6 @@ module Mcmc.MarginalLikelihood
   )
 where
 
--- TODO: Stepping stone sampling.
---
--- See Xie2010 and Fan2010.
-
 import Control.Monad
 import Control.Monad.IO.Class
 import qualified Control.Monad.Parallel as P
@@ -47,10 +43,7 @@ import Text.Show.Pretty
 import Prelude hiding (cycle)
 
 -- Reciprocal temperature value traversed along the path integral.
-type Point = Log Double
-
--- List of reciprocal temperature values traversed along the path integral.
-type Points = [Point]
+type Point = Double
 
 -- | The number of points used to approximate the path integral.
 newtype NPoints = NPoints {fromNPoints :: Int}
@@ -93,12 +86,12 @@ type ML a = ReaderT (Environment MLSettings) IO a
 -- Or Figure 1 in Höhna, S., Landis, M. J., & Huelsenbeck, J. P., Parallel power
 -- posterior analyses for fast computation of marginal likelihoods in
 -- phylogenetics (2017). http://dx.doi.org/10.1101/104422
-getPoints :: NPoints -> Points
+getPoints :: NPoints -> [Point]
 getPoints x = [f i ** (1.0 / 0.3) | i <- [0 .. k1]]
   where
     k = fromNPoints x
     k1 = pred k
-    f j = Exp $ log $ fromIntegral j / fromIntegral k1
+    f j = fromIntegral j / fromIntegral k1
 
 sampleAtPoint ::
   ToJSON a =>
@@ -118,11 +111,11 @@ sampleAtPoint b ss lhf a = do
     -- For debugging set a proper analysis name.
     nm = sAnalysisName ss
     getName :: Point -> AnalysisName
-    getName x = nm <> AnalysisName (printf "%.5f" $ exp $ ln x)
+    getName x = nm <> AnalysisName (printf "%.5f" x)
     ss' = ss {sAnalysisName = getName b}
     -- Amend the likelihood function. Don't calculate the likelihood when beta
     -- is 0.0.
-    lhf' = if b == 0.0 then const 1.0 else (** b) . lhf
+    lhf' = if b == 0.0 then const 1.0 else (** Exp (log b)) . lhf
     -- Amend the MHG algorithm.
     ch = fromMHG a
     l = link ch
@@ -138,12 +131,12 @@ sampleAtPoint b ss lhf a = do
 
 traversePoints ::
   ToJSON a =>
-  Points ->
+  [Point] ->
   Settings ->
   LikelihoodFunction a ->
   MHG a ->
-  -- Posterior probabilities.
-  ML [Log Double]
+  -- Mean log likelihood at points.
+  ML [Double]
 traversePoints [] _ _ _ = return []
 traversePoints (b : bs) ss lhf a = do
   -- Go to the next point.
@@ -151,27 +144,29 @@ traversePoints (b : bs) ss lhf a = do
   -- Extract the links.
   ls <- liftIO $ takeT n $ trace $ fromMHG a'
   -- Calculate the mean posterior probability at the point.
-  let mp = getMeanPosterior ls
+  let mp = getMeanPotential ls
   -- Get the mean posterior probabilities of the other points.
   mps <- traversePoints bs ss lhf a'
   return $ mp : mps
   where
     n = fromIterations $ sIterations ss
-    getPosterior x = prior x * likelihood x
-    getMeanPosterior xs = VB.sum (VB.map getPosterior xs) / fromIntegral (VB.length xs)
+    -- The potential U is just the log likelihood. Since we work with log
+    -- likelihood values, we do not need to store them in the log domain.
+    getPotential x = ln $ lhf $ state x
+    getMeanPotential xs = VB.sum (VB.map getPotential xs) / fromIntegral (VB.length xs)
 
 -- TODO: Proper return value; marginal likelihood and confidence interval.
 
 mlTIRun ::
   ToJSON a =>
-  Points ->
+  [Point] ->
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
   a ->
   GenIO ->
-  -- Mean posteriors likelihoods at points.
-  ML [Log Double]
+  -- Mean log likelihood at points.
+  ML [Double]
 mlTIRun xs prf lhf cc i0 g = do
   logDebugB "mlTiRun: Begin."
   s <- reader settings
@@ -212,9 +207,9 @@ mlThermodynamicIntegration ::
   -- | Initial state.
   a ->
   GenIO ->
-  -- | Marginal likelihoods of the path integrals in forward and backward
+  -- | Marginal log likelihoods of the path integrals in forward and backward
   -- direction.
-  IO (Log Double, Log Double)
+  IO (Double, Double)
 mlThermodynamicIntegration s prf lhf cc i0 g = do
   -- Initialize.
   e <- initializeEnvironment s
@@ -225,21 +220,18 @@ mlThermodynamicIntegration s prf lhf cc i0 g = do
     ( do
         logInfoStartingTime
         logInfoB "Estimate marginal likelihood using thermodynamic integration."
-        logDebugB "The settings are:"
+        logDebugB "The marginal likelihood settings are:"
         logDebugS $ ppShow s
         -- Parallel execution of both path integrals.
-        [mpsForward, mpsBackward] <-
+        [mllhsForward, mllhsBackward] <-
           P.sequence
             [ mlTIRun bsForward prf lhf cc i0 g0,
               mlTIRun bsBackward prf lhf cc i0 g1
             ]
         logInfoEndTime
-        -- We have to calculate the integral here, 'triangle' chokes when the
-        -- points are reversed (log domain values cannot handle negative
-        -- values).
-        let mlForward = triangle mpsForward bsForward
-            mlBackward = triangle (reverse mpsBackward) bsForward
-        logInfoB "Marginal likelihood:"
+        let mlForward = triangle bsForward mllhsForward
+            mlBackward = negate $ triangle bsBackward mllhsBackward
+        logInfoB "Marginal log likelihood:"
         logInfoS $ "Forward: " ++ show mlForward
         logInfoS $ "Backward " ++ show mlBackward
         return (mlForward, mlBackward)
@@ -250,16 +242,18 @@ mlThermodynamicIntegration s prf lhf cc i0 g = do
     bsBackward = reverse bsForward
 
 triangle ::
-  -- Y values.
-  [Log Double] ->
   -- X values.
-  Points ->
+  [Point] ->
+  -- Y values.
+  [Double] ->
   -- Integral.
-  Log Double
-triangle (x0 : x1 : xs) (b0 : b1 : bs) = (x0 + x1) / (b1 - b0) + triangle (x1 : xs) (b1 : bs)
-triangle _ _ = 0
+  Double
+triangle xs ys = 0.5 * go xs ys
+  where
+    go (p0 : p1 : ps) (z0 : z1 : zs) = (z0 + z1) * (p1 - p0) + go (p1 : ps) (z1 : zs)
+    go _ _ = 0
 
--- TODO.
+-- TODO: See Xie2010 and Fan2010.
 
 -- | Stub.
 mlSteppingStoneSampling :: IO ()
