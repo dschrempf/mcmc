@@ -19,13 +19,10 @@ module Mcmc.Logger
     HasStartingTime (..),
     HasVerbosity (..),
     logOutB,
-    logDebugA,
     logDebugB,
     logDebugS,
-    logWarnA,
     logWarnB,
     logWarnS,
-    logInfoA,
     logInfoB,
     logInfoS,
     logInfoStartingTime,
@@ -72,6 +69,12 @@ type Logger e a = ReaderT e IO a
 msgPrepare :: BL.ByteString -> BL.ByteString -> BL.ByteString
 msgPrepare pref msg = BL.intercalate "\n" $ map (BL.append pref) $ BL.lines msg
 
+-- Make sure that concurrent output is not scrambled.
+atomicAction :: HasLock e => IO () -> Logger e ()
+atomicAction a = do
+  l <- reader getLock
+  liftIO $ withMVar l (const a)
+
 -- | Write to standard output and maybe to log file.
 logOutB ::
   (HasMaybeLogHandle e, HasLock e) =>
@@ -81,10 +84,8 @@ logOutB ::
   BL.ByteString ->
   Logger e ()
 logOutB pref msg = do
-  -- Make sure that concurrent output is not scrambled.
-  lock <- reader getLock
   mh <- reader getMaybeLogHandle
-  liftIO $ withMVar lock (\_ -> logOutB' mh)
+  atomicAction (logOutB' mh)
   where
     msg' = msgPrepare pref msg
     logOutB' mHandle = do
@@ -93,9 +94,9 @@ logOutB pref msg = do
         Nothing -> return ()
         Just h -> BL.hPutStrLn h msg'
 
--- | Perform debug action.
-logDebugA :: (HasMaybeLogHandle e, HasVerbosity e) => Logger e () -> Logger e ()
-logDebugA a = reader getVerbosity >>= \v -> when (v == Debug) a
+-- Perform debug action.
+logDebugA :: (HasLock e, HasMaybeLogHandle e, HasVerbosity e) => Logger e () -> Logger e ()
+logDebugA a = reader getVerbosity >>= \v -> when (v >= Debug) a
 
 -- | Log debug message.
 logDebugB :: (HasLock e, HasMaybeLogHandle e, HasVerbosity e) => BL.ByteString -> Logger e ()
@@ -105,7 +106,7 @@ logDebugB = logDebugA . logOutB "D: "
 logDebugS :: (HasLock e, HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
 logDebugS = logDebugB . BL.pack
 
--- | Perform warning action.
+-- Perform warning action.
 logWarnA :: (HasMaybeLogHandle e, HasVerbosity e) => Logger e () -> Logger e ()
 logWarnA a = reader getVerbosity >>= \v -> when (v >= Warn) a
 
@@ -117,7 +118,7 @@ logWarnB = logWarnA . logOutB "W: "
 logWarnS :: (HasLock e, HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
 logWarnS = logWarnB . BL.pack
 
--- | Perform info action.
+-- Perform info action.
 logInfoA :: (HasMaybeLogHandle e, HasVerbosity e) => Logger e () -> Logger e ()
 logInfoA a = reader getVerbosity >>= \v -> when (v >= Info) a
 
