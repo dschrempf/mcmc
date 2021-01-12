@@ -28,7 +28,7 @@ import Control.Monad.Trans.Reader
 import Data.Time.Clock
 import Mcmc.Algorithm
 import Mcmc.Environment
-import Mcmc.Internal.Logger
+import Mcmc.Logger
 import Mcmc.Monitor.Time
 import Mcmc.Settings
 import System.IO
@@ -37,7 +37,7 @@ import Prelude hiding (cycle)
 
 -- The MCMC algorithm has read access to an environment and uses an algorithm
 -- transforming the state @a@.
-type MCMC a = ReaderT Environment IO a
+type MCMC a = ReaderT (Environment Settings) IO a
 
 mcmcReportTime :: MCMC ()
 mcmcReportTime = do

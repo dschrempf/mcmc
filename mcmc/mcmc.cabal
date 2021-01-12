@@ -47,6 +47,7 @@ library
       Mcmc.Chain.Link Mcmc.Chain.Save
       Mcmc.Chain.Trace
       Mcmc.Environment
+      Mcmc.Logger
       Mcmc.MarginalLikelihood
       Mcmc.Mcmc
       Mcmc.Monitor
@@ -64,7 +65,6 @@ library
       Mcmc.Settings
   other-modules:
       Mcmc.Internal.ByteString
-      Mcmc.Internal.Logger
       Mcmc.Internal.Random
       Mcmc.Internal.Shuffle
       Paths_mcmc

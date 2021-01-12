@@ -16,11 +16,13 @@
 module Mcmc.Settings
   ( -- * Data types
     AnalysisName (..),
+    HasAnalysisName (..),
     BurnInSpecification (..),
     burnInIterations,
     Iterations (..),
     TraceLength (..),
     ExecutionMode (..),
+    HasExecutionMode (..),
     openWithExecutionMode,
     ParallelizationMode (..),
     SaveMode (..),
@@ -37,7 +39,7 @@ where
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Mcmc.Internal.Logger
+import Mcmc.Logger
 import System.Directory
 import System.IO
 
@@ -47,6 +49,10 @@ newtype AnalysisName = AnalysisName {fromAnalysisName :: String}
   deriving (Monoid, Semigroup) via String
 
 $(deriveJSON defaultOptions ''AnalysisName)
+
+-- | Types with analysis names.
+class HasAnalysisName s where
+  getAnalysisName :: s -> AnalysisName
 
 -- | Burn in specification.
 data BurnInSpecification
@@ -101,6 +107,10 @@ data ExecutionMode
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''ExecutionMode)
+
+-- | Types with execution modes.
+class HasExecutionMode s where
+  getExecutionMode :: s -> ExecutionMode
 
 -- | Open a file honoring the execution mode.
 --
@@ -170,6 +180,15 @@ data Settings = Settings
     sVerbosity :: Verbosity
   }
   deriving (Eq, Show)
+
+instance HasAnalysisName Settings where
+  getAnalysisName = sAnalysisName
+
+instance HasExecutionMode Settings where
+  getExecutionMode = sExecutionMode
+
+instance HasVerbosity Settings where
+  getVerbosity = sVerbosity
 
 $(deriveJSON defaultOptions ''Settings)
 

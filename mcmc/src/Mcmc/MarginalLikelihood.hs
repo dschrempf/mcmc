@@ -12,7 +12,8 @@
 module Mcmc.MarginalLikelihood
   ( NPoints (..),
     MLSettings (..),
-    marginalLikelihood,
+    mlThermodynamicIntegration,
+    mlSteppingStoneSampling,
   )
 where
 
@@ -20,14 +21,18 @@ where
 --
 -- See Xie2010 and Fan2010.
 
+import Control.Monad.IO.Class
 import qualified Control.Monad.Parallel as P
+import Control.Monad.Trans.Reader
 import Data.Aeson
 import qualified Data.Vector as VB
 import Mcmc.Algorithm.MHG
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
+import Mcmc.Environment
 import Mcmc.Internal.Random
+import Mcmc.Logger
 import Mcmc.Mcmc
 import Mcmc.Monitor
 import Mcmc.Proposal
@@ -55,9 +60,22 @@ data MLSettings = MLSettings
     -- | Repetitive burn in at each point on the path.
     mlPointBurnIn :: BurnInSpecification,
     -- | The number of iterations performed at each point.
-    mlIterations :: Iterations
+    mlIterations :: Iterations,
+    mlExecutionMode :: ExecutionMode,
+    mlVerbosity :: Verbosity
   }
   deriving (Eq, Read, Show)
+
+instance HasAnalysisName MLSettings where
+  getAnalysisName = mlAnalysisName
+
+instance HasExecutionMode MLSettings where
+  getExecutionMode = mlExecutionMode
+
+instance HasVerbosity MLSettings where
+  getVerbosity = mlVerbosity
+
+type ML a = ReaderT (Environment MLSettings) IO a
 
 -- Distribute the points according to a skewed beta distribution (more points at
 -- low values). It is inconvenient that the reciprocal temperatures are denoted
@@ -85,15 +103,15 @@ sampleAtPoint ::
   Settings ->
   LikelihoodFunction a ->
   MHG a ->
-  IO (MHG a)
+  ML (MHG a)
 sampleAtPoint b ss lhf a = do
-  mcmc ss' a'
+  liftIO $ mcmc ss' a'
   where
     -- For debugging set a proper analysis name.
     nm = sAnalysisName ss
     getName :: Point -> AnalysisName
     getName x = nm <> AnalysisName (printf "%.5f" $ exp $ ln x)
-    ss' = ss { sAnalysisName = getName b}
+    ss' = ss {sAnalysisName = getName b}
     -- Amend the likelihood function. Don't calculate the likelihood when beta
     -- is 0.0.
     lhf' = if b == 0.0 then const 1.0 else (** b) . lhf
@@ -117,25 +135,54 @@ traversePoints ::
   LikelihoodFunction a ->
   MHG a ->
   -- Posterior probabilities.
-  IO [Log Double]
+  ML [Log Double]
 traversePoints [] _ _ _ = return []
 traversePoints (b : bs) ss lhf a = do
-  -- Go to the next beta.
+  -- Go to the next point.
   a' <- sampleAtPoint b ss lhf a
   -- Extract the links.
-  ls <- takeT n $ trace $ fromMHG a'
-  -- Calculate the mean posterior probability.
-  let mp = VB.sum (VB.map getPosterior ls) / fromIntegral (VB.length ls)
-  -- Get the mean posterior probabilities of the other betas.
+  ls <- liftIO $ takeT n $ trace $ fromMHG a'
+  -- Calculate the mean posterior probability at the point.
+  let mp = getMeanPosterior ls
+  -- Get the mean posterior probabilities of the other points.
   mps <- traversePoints bs ss lhf a'
   return $ mp : mps
   where
     n = fromIterations $ sIterations ss
-    getPosterior l = prior l * likelihood l
+    getPosterior x = prior x * likelihood x
+    getMeanPosterior xs = VB.sum (VB.map getPosterior xs) / fromIntegral (VB.length xs)
 
 -- TODO: Proper return value; marginal likelihood and confidence interval.
 
 -- TODO: Proper output.
+
+mlTIRun ::
+  ToJSON a =>
+  Points ->
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  Cycle a ->
+  a ->
+  GenIO ->
+  -- Mean posteriors likelihoods at points.
+  ML [Log Double]
+mlTIRun xs prf lhf cc i0 g = do
+  s <- reader settings
+  let nm = mlAnalysisName s
+      is = mlIterations s
+      biI = mlInitialBurnIn s
+      -- TODO: Maybe take the execution mode and verbosity from MLSettings.
+      ssI = Settings nm biI is Fail Sequential NoSave Quiet
+      biP = mlPointBurnIn s
+      -- TODO: Maybe take the execution mode and verbosity from MLSettings.
+      ssP = Settings nm biP is Fail Sequential NoSave Quiet
+      trLen = TraceMinimum $ fromIterations is
+      mn = noMonitor 1
+  a0 <- liftIO $ mhg prf lhf cc mn trLen i0 g
+  a1 <- sampleAtPoint x0 ssI lhf a0
+  traversePoints xs ssP lhf a1
+  where
+    x0 = head xs
 
 -- | Calculate the marginal likelihood using a path integral.
 --
@@ -145,7 +192,7 @@ traversePoints (b : bs) ss lhf a = do
 -- See Lartillot, N., & Philippe, H., Computing Bayes Factors Using
 -- Thermodynamic Integration, Systematic Biology, 55(2), 195–207 (2006).
 -- http://dx.doi.org/10.1080/10635150500433722
-marginalLikelihood ::
+mlThermodynamicIntegration ::
   ToJSON a =>
   MLSettings ->
   PriorFunction a ->
@@ -154,37 +201,35 @@ marginalLikelihood ::
   -- | Initial state.
   a ->
   GenIO ->
-  -- TODO: Document return value.
+  -- | Marginal likelihoods of the path integrals in forward and backward
+  -- direction.
   IO (Log Double, Log Double)
-marginalLikelihood env prf lhf cc i0 g = do
+mlThermodynamicIntegration s prf lhf cc i0 g = do
+  -- Initialize.
+  e <- initializeEnvironment s
   [g0, g1] <- splitGen 2 g
-  [a0, a1] <-
-    P.sequence
-      [ mhg prf lhf cc mn trLen i0 g0,
-        mhg prf lhf cc mn trLen i0 g1
-      ]
-  [mhg0, mhg1] <-
-    P.sequence
-      [ sampleAtPoint 0.0 ssI lhf a0,
-        sampleAtPoint 1.0 ssI lhf a1
-      ]
-  [mps0, mps1] <-
-    P.sequence
-      [ traversePoints bs0 ssP lhf mhg0,
-        traversePoints bs1 ssP lhf mhg1
-      ]
-  return (triangle mps0 bs0, triangle (reverse mps1) bs0)
+
+  -- Run.
+  runReaderT
+    ( do
+        -- Parallel execution of both path integrals.
+        [mpsForward, mpsBackward] <-
+          P.sequence
+            [ mlTIRun bsForward prf lhf cc i0 g0,
+              mlTIRun bsBackward prf lhf cc i0 g1
+            ]
+        -- We have to calculate the integral here, 'triangle' chokes when the
+        -- points are reversed (log domain values cannot handle negative
+        -- values).
+        return
+          ( triangle mpsForward bsForward,
+            triangle (reverse mpsBackward) bsForward
+          )
+    )
+    e
   where
-    nm = mlAnalysisName env
-    is = mlIterations env
-    biI = mlInitialBurnIn env
-    ssI = Settings nm biI is Fail Sequential NoSave Quiet
-    biP = mlPointBurnIn env
-    ssP = Settings nm biP is Fail Sequential NoSave Quiet
-    trLen = TraceMinimum $ fromIterations is
-    mn = noMonitor 1
-    bs0 = getPoints $ mlNPoints env
-    bs1 = reverse bs0
+    bsForward = getPoints $ mlNPoints s
+    bsBackward = reverse bsForward
 
 triangle ::
   -- Y values.
@@ -195,3 +240,9 @@ triangle ::
   Log Double
 triangle (x0 : x1 : xs) (b0 : b1 : bs) = (x0 + x1) / (b1 - b0) + triangle (x1 : xs) (b1 : bs)
 triangle _ _ = 0
+
+-- TODO.
+
+-- | Stub.
+mlSteppingStoneSampling :: IO ()
+mlSteppingStoneSampling = undefined

@@ -116,6 +116,8 @@ main = do
           (BurnInWithAutoTuning 4000 100)
           (BurnInWithAutoTuning 1000 100)
           (Iterations 6000)
-  (mps0, mps1) <- marginalLikelihood ss pr (lh xs) cc 0.01 g
+          Overwrite
+          Info
+  (mps0, mps1) <- mlThermodynamicIntegration ss pr (lh xs) cc 0.01 g
   putStrLn $ "Forward: " ++ show (ln mps0)
   putStrLn $ "Backward: " ++ show (ln mps1)

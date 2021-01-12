@@ -12,9 +12,10 @@
 -- Portability :  portable
 --
 -- Creation date: Tue Jan 12 09:03:04 2021.
-module Mcmc.Internal.Logger
+module Mcmc.Logger
   ( Verbosity (..),
-    LogEnv (..),
+    HasMaybeLogHandle (..),
+    HasVerbosity (..),
     logOutB,
     logDebugA,
     logDebugB,
@@ -42,10 +43,13 @@ data Verbosity = Quiet | Warn | Info | Debug
 
 $(deriveJSON defaultOptions ''Verbosity)
 
--- | Environment with logging information.
-class LogEnv e where
+-- | Types with logging information.
+class HasMaybeLogHandle e where
   getMaybeLogHandle :: e -> Maybe Handle
-  getVerbosity :: e -> Verbosity
+
+-- | Types with verbosity.
+class HasVerbosity s where
+  getVerbosity :: s -> Verbosity
 
 -- | Reader transformer used for logging to a file and to standard output.
 type Logger e a = ReaderT e IO a
@@ -55,7 +59,7 @@ msgPrepare pref msg = BL.intercalate "\n" $ map (BL.append pref) $ BL.lines msg
 
 -- | Write to standard output and maybe to log file.
 logOutB ::
-  LogEnv e =>
+  HasMaybeLogHandle e =>
   -- | Prefix.
   BL.ByteString ->
   -- | Message.
@@ -71,37 +75,37 @@ logOutB pref msg = do
     msg' = msgPrepare pref msg
 
 -- | Perform debug action.
-logDebugA :: LogEnv e => Logger e () -> Logger e ()
+logDebugA :: (HasMaybeLogHandle e, HasVerbosity e) => Logger e () -> Logger e ()
 logDebugA a = reader getVerbosity >>= \v -> when (v == Debug) a
 
 -- | Print debug message.
-logDebugB :: LogEnv e => BL.ByteString -> Logger e ()
+logDebugB :: (HasMaybeLogHandle e, HasVerbosity e) => BL.ByteString -> Logger e ()
 logDebugB = logDebugA . logOutB "D: "
 
 -- | Print debug message.
-logDebugS :: LogEnv e => String -> Logger e ()
+logDebugS :: (HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
 logDebugS = logDebugB . BL.pack
 
 -- | Perform warning action.
-logWarnA :: LogEnv e => Logger e () -> Logger e ()
+logWarnA :: (HasMaybeLogHandle e, HasVerbosity e) => Logger e () -> Logger e ()
 logWarnA a = reader getVerbosity >>= \v -> when (v >= Warn) a
 
 -- | Print warning message.
-logWarnB :: LogEnv e => BL.ByteString -> Logger e ()
+logWarnB :: (HasMaybeLogHandle e, HasVerbosity e) => BL.ByteString -> Logger e ()
 logWarnB = logWarnA . logOutB "W: "
 
 -- | Print warning message.
-logWarnS :: LogEnv e => String -> Logger e ()
+logWarnS :: (HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
 logWarnS = logWarnB . BL.pack
 
 -- | Perform info action.
-logInfoA :: LogEnv e => Logger e () -> Logger e ()
+logInfoA :: (HasMaybeLogHandle e, HasVerbosity e) => Logger e () -> Logger e ()
 logInfoA a = reader getVerbosity >>= \v -> when (v >= Info) a
 
 -- | Print info message.
-logInfoB :: LogEnv e => BL.ByteString -> Logger e ()
+logInfoB :: (HasMaybeLogHandle e, HasVerbosity e) => BL.ByteString -> Logger e ()
 logInfoB = logInfoA . logOutB "I: "
 
 -- | Print info message.
-logInfoS :: LogEnv e => String -> Logger e ()
+logInfoS :: (HasMaybeLogHandle e, HasVerbosity e) => String -> Logger e ()
 logInfoS = logInfoB . BL.pack
