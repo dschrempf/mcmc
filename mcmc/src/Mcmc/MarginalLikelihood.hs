@@ -11,6 +11,7 @@
 -- Creation date: Mon Jan 11 16:34:18 2021.
 module Mcmc.MarginalLikelihood
   ( NPoints (..),
+    MLSettings (..),
     marginalLikelihood,
   )
 where
@@ -33,17 +34,30 @@ import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log
 import System.Random.MWC
+import Text.Printf
 import Prelude hiding (cycle)
-
--- | The number of points used to approximate the path integral.
-newtype NPoints = NPoints {fromNPoints :: Int}
-  deriving (Eq, Read, Show)
 
 -- Reciprocal temperature value traversed along the path integral.
 type Point = Log Double
 
 -- List of reciprocal temperature values traversed along the path integral.
 type Points = [Point]
+
+-- | The number of points used to approximate the path integral.
+newtype NPoints = NPoints {fromNPoints :: Int}
+  deriving (Eq, Read, Show)
+
+data MLSettings = MLSettings
+  { mlAnalysisName :: AnalysisName,
+    mlNPoints :: NPoints,
+    -- | Initial burn in at the starting point of the path.
+    mlInitialBurnIn :: BurnInSpecification,
+    -- | Repetitive burn in at each point on the path.
+    mlPointBurnIn :: BurnInSpecification,
+    -- | The number of iterations performed at each point.
+    mlIterations :: Iterations
+  }
+  deriving (Eq, Read, Show)
 
 -- Distribute the points according to a skewed beta distribution (more points at
 -- low values). It is inconvenient that the reciprocal temperatures are denoted
@@ -68,17 +82,18 @@ getPoints x = [f i ** (1.0 / 0.3) | i <- [0 .. k1]]
 sampleAtPoint ::
   ToJSON a =>
   Point ->
-  BurnInSpecification ->
-  Iterations ->
+  Settings ->
   LikelihoodFunction a ->
   MHG a ->
   IO (MHG a)
-sampleAtPoint b bi is lhf a = do
-  mcmc ss a'
+sampleAtPoint b ss lhf a = do
+  mcmc ss' a'
   where
-    -- MCMC Settings.
-    nm = AnalysisName "marginal-likelihood"
-    ss = Settings nm bi is Fail Sequential NoSave Quiet
+    -- For debugging set a proper analysis name.
+    nm = sAnalysisName ss
+    getName :: Point -> AnalysisName
+    getName x = nm <> AnalysisName (printf "%.5f" $ exp $ ln x)
+    ss' = ss { sAnalysisName = getName b}
     -- Amend the likelihood function. Don't calculate the likelihood when beta
     -- is 0.0.
     lhf' = if b == 0.0 then const 1.0 else (** b) . lhf
@@ -97,26 +112,25 @@ sampleAtPoint b bi is lhf a = do
 
 traversePoints ::
   ToJSON a =>
-  [Log Double] ->
-  BurnInSpecification ->
-  Iterations ->
+  Points ->
+  Settings ->
   LikelihoodFunction a ->
   MHG a ->
   -- Posterior probabilities.
   IO [Log Double]
-traversePoints [] _ _ _ _ = return []
-traversePoints (b : bs) bi is lhf a = do
+traversePoints [] _ _ _ = return []
+traversePoints (b : bs) ss lhf a = do
   -- Go to the next beta.
-  a' <- sampleAtPoint b bi is lhf a
+  a' <- sampleAtPoint b ss lhf a
   -- Extract the links.
   ls <- takeT n $ trace $ fromMHG a'
   -- Calculate the mean posterior probability.
   let mp = VB.sum (VB.map getPosterior ls) / fromIntegral (VB.length ls)
   -- Get the mean posterior probabilities of the other betas.
-  mps <- traversePoints bs bi is lhf a'
+  mps <- traversePoints bs ss lhf a'
   return $ mp : mps
   where
-    n = fromIterations is
+    n = fromIterations $ sIterations ss
     getPosterior l = prior l * likelihood l
 
 -- TODO: Proper return value; marginal likelihood and confidence interval.
@@ -133,13 +147,7 @@ traversePoints (b : bs) bi is lhf a = do
 -- http://dx.doi.org/10.1080/10635150500433722
 marginalLikelihood ::
   ToJSON a =>
-  NPoints ->
-  -- | Initial burn in at the starting point of the path.
-  BurnInSpecification ->
-  -- | Repetitive burn in at each point on the path.
-  BurnInSpecification ->
-  -- | The number of iterations performed at each point.
-  Iterations ->
+  MLSettings ->
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
@@ -148,7 +156,7 @@ marginalLikelihood ::
   GenIO ->
   -- TODO: Document return value.
   IO (Log Double, Log Double)
-marginalLikelihood ps biI biR is prf lhf cc i0 g = do
+marginalLikelihood env prf lhf cc i0 g = do
   [g0, g1] <- splitGen 2 g
   [a0, a1] <-
     P.sequence
@@ -157,18 +165,25 @@ marginalLikelihood ps biI biR is prf lhf cc i0 g = do
       ]
   [mhg0, mhg1] <-
     P.sequence
-      [ sampleAtPoint 0.0 biI is lhf a0,
-        sampleAtPoint 1.0 biI is lhf a1
+      [ sampleAtPoint 0.0 ssI lhf a0,
+        sampleAtPoint 1.0 ssI lhf a1
       ]
-  [mps0, mps1] <- P.sequence
-    [ traversePoints bs0 biR is lhf mhg0,
-      traversePoints bs1 biR is lhf mhg1
-    ]
+  [mps0, mps1] <-
+    P.sequence
+      [ traversePoints bs0 ssP lhf mhg0,
+        traversePoints bs1 ssP lhf mhg1
+      ]
   return (triangle mps0 bs0, triangle (reverse mps1) bs0)
   where
+    nm = mlAnalysisName env
+    is = mlIterations env
+    biI = mlInitialBurnIn env
+    ssI = Settings nm biI is Fail Sequential NoSave Quiet
+    biP = mlPointBurnIn env
+    ssP = Settings nm biP is Fail Sequential NoSave Quiet
     trLen = TraceMinimum $ fromIterations is
     mn = noMonitor 1
-    bs0 = getPoints ps
+    bs0 = getPoints $ mlNPoints env
     bs1 = reverse bs0
 
 triangle ::

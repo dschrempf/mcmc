@@ -20,10 +20,10 @@ where
 
 import Control.Monad
 import Mcmc
+import Numeric.Log
 import qualified Statistics.Distribution as S
 import qualified Statistics.Distribution.Exponential as S
 import System.Random.MWC
-import Numeric.Log
 
 -- State space of the Markov chain. The precision of the archer is measured as a
 -- 'Double'.
@@ -107,11 +107,15 @@ main = do
   a <- mhg pr (lh xs) cc mon TraceAuto 0.01 g
   -- Run the MCMC sampler.
   void $ mcmc s a
-  -- Calculate the marginal likelihood.
+  -- Marginal likelihood estimation.
   putStrLn "Marginal likelihood estimation using thermodynamic integration."
-  let ps = NPoints 41
-      bi = BurnInWithAutoTuning 2000 100
-      is = Iterations 6000
-  (mps0, mps1) <- marginalLikelihood ps bi bi is pr (lh xs) cc 0.01 g
+  let ss =
+        MLSettings
+          (AnalysisName "archery-marginal-likelihood")
+          (NPoints 41)
+          (BurnInWithAutoTuning 4000 100)
+          (BurnInWithAutoTuning 1000 100)
+          (Iterations 6000)
+  (mps0, mps1) <- marginalLikelihood ss pr (lh xs) cc 0.01 g
   putStrLn $ "Forward: " ++ show (ln mps0)
   putStrLn $ "Backward: " ++ show (ln mps1)
