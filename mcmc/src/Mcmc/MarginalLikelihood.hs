@@ -39,26 +39,41 @@ import Prelude hiding (cycle)
 newtype NPoints = NPoints {fromNPoints :: Int}
   deriving (Eq, Read, Show)
 
--- See Figure 1 in Höhna, S., Landis, M. J., & Huelsenbeck, J. P., Parallel
--- power posterior analyses for fast computation of marginal likelihoods in
--- phylogenetics (2017). http://dx.doi.org/10.1101/104422.
-getBetas :: NPoints -> [Log Double]
-getBetas x = [f i ** (1.0 / 0.3) | i <- [0 .. k1]]
+-- Reciprocal temperature value traversed along the path integral.
+type Point = Log Double
+
+-- List of reciprocal temperature values traversed along the path integral.
+type Points = [Point]
+
+-- Distribute the points according to a skewed beta distribution (more points at
+-- low values). It is inconvenient that the reciprocal temperatures are denoted
+-- as beta, and we also use the beta distribution :). Don't mix them up!
+--
+-- See discussion in Xie, W., Lewis, P. O., Fan, Y., Kuo, L., & Chen, M.,
+-- Improving marginal likelihood estimation for bayesian phylogenetic model
+-- selection, Systematic Biology, 60(2), 150–160 (2010).
+-- http://dx.doi.org/10.1093/sysbio/syq085
+--
+-- Or Figure 1 in Höhna, S., Landis, M. J., & Huelsenbeck, J. P., Parallel power
+-- posterior analyses for fast computation of marginal likelihoods in
+-- phylogenetics (2017). http://dx.doi.org/10.1101/104422
+getPoints :: NPoints -> Points
+getPoints x = [f i ** (1.0 / 0.3) | i <- [0 .. k1]]
   where
     k = fromNPoints x
     k1 = pred k
     f j = Exp $ log $ fromIntegral j / fromIntegral k1
 
 -- TODO: Check acceptance ratio and warn if low or high.
-goToBeta ::
+sampleAtPoint ::
   ToJSON a =>
-  Log Double ->
+  Point ->
   BurnInSpecification ->
   Iterations ->
   LikelihoodFunction a ->
   MHG a ->
   IO (MHG a)
-goToBeta b bi is lhf a = do
+sampleAtPoint b bi is lhf a = do
   mcmc ss a'
   where
     -- MCMC Settings.
@@ -80,7 +95,7 @@ goToBeta b bi is lhf a = do
         }
     a' = MHG ch'
 
-traverseBetas ::
+traversePoints ::
   ToJSON a =>
   [Log Double] ->
   BurnInSpecification ->
@@ -89,16 +104,16 @@ traverseBetas ::
   MHG a ->
   -- Posterior probabilities.
   IO [Log Double]
-traverseBetas [] _ _ _ _ = return []
-traverseBetas (b : bs) bi is lhf a = do
+traversePoints [] _ _ _ _ = return []
+traversePoints (b : bs) bi is lhf a = do
   -- Go to the next beta.
-  a' <- goToBeta b bi is lhf a
+  a' <- sampleAtPoint b bi is lhf a
   -- Extract the links.
   ls <- takeT n $ trace $ fromMHG a'
   -- Calculate the mean posterior probability.
   let mp = VB.sum (VB.map getPosterior ls) / fromIntegral (VB.length ls)
   -- Get the mean posterior probabilities of the other betas.
-  mps <- traverseBetas bs bi is lhf a'
+  mps <- traversePoints bs bi is lhf a'
   return $ mp : mps
   where
     n = fromIterations is
@@ -142,25 +157,25 @@ marginalLikelihood ps biI biR is prf lhf cc i0 g = do
       ]
   [mhg0, mhg1] <-
     P.sequence
-      [ goToBeta 0.0 biI is lhf a0,
-        goToBeta 1.0 biI is lhf a1
+      [ sampleAtPoint 0.0 biI is lhf a0,
+        sampleAtPoint 1.0 biI is lhf a1
       ]
   [mps0, mps1] <- P.sequence
-    [ traverseBetas bs0 biR is lhf mhg0,
-      traverseBetas bs1 biR is lhf mhg1
+    [ traversePoints bs0 biR is lhf mhg0,
+      traversePoints bs1 biR is lhf mhg1
     ]
   return (triangle mps0 bs0, triangle (reverse mps1) bs0)
   where
     trLen = TraceMinimum $ fromIterations is
     mn = noMonitor 1
-    bs0 = getBetas ps
+    bs0 = getPoints ps
     bs1 = reverse bs0
 
 triangle ::
   -- Y values.
   [Log Double] ->
   -- X values.
-  [Log Double] ->
+  Points ->
   -- Integral.
   Log Double
 triangle (x0 : x1 : xs) (b0 : b1 : bs) = (x0 + x1) / (b1 - b0) + triangle (x1 : xs) (b1 : bs)
