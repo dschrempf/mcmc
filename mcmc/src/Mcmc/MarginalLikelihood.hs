@@ -23,6 +23,7 @@ where
 --
 -- See Xie2010 and Fan2010.
 
+import Control.Monad
 import Control.Monad.IO.Class
 import qualified Control.Monad.Parallel as P
 import Control.Monad.Trans.Reader
@@ -39,7 +40,7 @@ import Mcmc.Mcmc
 import Mcmc.Monitor
 import Mcmc.Proposal
 import Mcmc.Settings
-import Numeric.Log
+import Numeric.Log hiding (sum)
 import System.Random.MWC
 import Text.Printf
 import Text.Show.Pretty
@@ -108,7 +109,12 @@ sampleAtPoint ::
   MHG a ->
   ML (MHG a)
 sampleAtPoint b ss lhf a = do
-  liftIO $ mcmc ss' a'
+  a'' <- liftIO $ mcmc ss' a'
+  let ar = acceptanceRates $ acceptance $ fromMHG a''
+      meanAr = sum ar / fromIntegral (length ar)
+  when (meanAr <= 0.1) $ logWarnB "Overall acceptance rate is below 0.1."
+  when (meanAr >= 0.9) $ logWarnB "Overall acceptance rate is above 0.9."
+  return a''
   where
     -- For debugging set a proper analysis name.
     nm = sAnalysisName ss
@@ -170,6 +176,7 @@ mlTIRun ::
   -- Mean posteriors likelihoods at points.
   ML [Log Double]
 mlTIRun xs prf lhf cc i0 g = do
+  logDebugB "mlTiRun: Begin."
   s <- reader settings
   let nm = mlAnalysisName s
       is = mlIterations s
@@ -181,9 +188,14 @@ mlTIRun xs prf lhf cc i0 g = do
       ssP = Settings nm biP is Fail Sequential NoSave Quiet
       trLen = TraceMinimum $ fromIterations is
       mn = noMonitor 1
+  logDebugB "mlTiRun: Initialize MHG algorithm."
   a0 <- liftIO $ mhg prf lhf cc mn trLen i0 g
+  logDebugB "mlTiRun: Sample first point."
   a1 <- sampleAtPoint x0 ssI lhf a0
-  traversePoints xs ssP lhf a1
+  logDebugB "mlTiRun: Traverse points."
+  r <- traversePoints xs ssP lhf a1
+  logDebugB "mlTiRun: Done."
+  return r
   where
     x0 = head xs
 
