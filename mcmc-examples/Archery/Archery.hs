@@ -110,12 +110,11 @@ main = do
   let ss =
         MLSettings
           (AnalysisName "archery-marginal-likelihood")
+          SteppingStoneSampling
           (NPoints 41)
           (BurnInWithAutoTuning 4000 100)
           (BurnInWithAutoTuning 1000 100)
           (Iterations 6000)
           Overwrite
           Info
-  (mps0, mps1) <- mlThermodynamicIntegration ss pr (lh xs) cc 0.01 g
-  putStrLn $ "Forward: " ++ show mps0
-  putStrLn $ "Backward: " ++ show mps1
+  void $ marginalLikelihood ss pr (lh xs) cc 0.01 g

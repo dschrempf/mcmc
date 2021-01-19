@@ -32,7 +32,7 @@ d = 1
 
 -- Sample size per point.
 n :: Int
-n = 1000
+n = 2000
 
 -- State space.
 type I = [Double]
@@ -64,6 +64,7 @@ main = do
   let ss =
         MLSettings
           (AnalysisName "gauss")
+          SteppingStoneSampling
           (NPoints 512)
           (BurnInWithAutoTuning 5000 200)
           (BurnInWithAutoTuning 1000 100)
@@ -71,6 +72,6 @@ main = do
           Overwrite
           Info
       i0 = replicate d 0
-  _ <- mlThermodynamicIntegration ss prf lhf cc i0 g
+  _ <- marginalLikelihood ss prf lhf cc i0 g
   putStrLn $ "The correct value is: "  ++ show corVal
   where corVal = 0.5 * fromIntegral d * (log v - log (1+v))
