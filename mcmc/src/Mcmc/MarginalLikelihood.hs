@@ -25,6 +25,7 @@ import qualified Control.Monad.Parallel as P
 import Control.Monad.Trans.Reader
 import Data.Aeson
 import qualified Data.Vector as VB
+import qualified Data.Vector.Unboxed as VU
 import Mcmc.Algorithm.MHG
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
@@ -105,7 +106,7 @@ sampleAtPoint ::
   LikelihoodFunction a ->
   MHG a ->
   ML (MHG a)
-sampleAtPoint b ss lhf a = do
+sampleAtPoint x ss lhf a = do
   a'' <- liftIO $ mcmc ss' a'
   let ar = acceptanceRates $ acceptance $ fromMHG a''
       meanAr = sum ar / fromIntegral (length ar)
@@ -116,11 +117,11 @@ sampleAtPoint b ss lhf a = do
     -- For debugging set a proper analysis name.
     nm = sAnalysisName ss
     getName :: Point -> AnalysisName
-    getName x = nm <> AnalysisName (printf "%.5f" x)
-    ss' = ss {sAnalysisName = getName b}
-    -- Amend the likelihood function. Don't calculate the likelihood when beta
-    -- is 0.0.
-    lhf' = if b == 0.0 then const 1.0 else (** Exp (log b)) . lhf
+    getName y = nm <> AnalysisName (printf "%.5f" y)
+    ss' = ss {sAnalysisName = getName x}
+    -- Amend the likelihood function. Don't calculate the likelihood when the
+    -- point is 0.0.
+    lhf' = if x == 0.0 then const 1.0 else (** Exp (log x)) . lhf
     -- Amend the MHG algorithm.
     ch = fromMHG a
     l = link ch
@@ -140,27 +141,21 @@ traversePoints ::
   Settings ->
   LikelihoodFunction a ->
   MHG a ->
-  -- Mean log likelihood at points.
-  ML [Double]
+  -- For each point a vector of obtained likelihoods.
+  ML [VU.Vector (Log Double)]
 traversePoints [] _ _ _ = return []
 traversePoints (b : bs) ss lhf a = do
-  -- Go to the next point.
+  -- Sample the next point.
   a' <- sampleAtPoint b ss lhf a
-  -- Extract the links.
+  -- Get the links samples at this point.
   ls <- liftIO $ takeT n $ trace $ fromMHG a'
-  -- Calculate the mean posterior probability at the point.
-  let mp = getMeanPotential ls
-  -- Get the mean posterior probabilities of the other points.
-  mps <- traversePoints bs ss lhf a'
-  return $ mp : mps
+  -- Extract the likelihoods.
+  let lhs = VU.convert $ VB.map (lhf . state) ls
+  -- Sample the other points.
+  lhss <- traversePoints bs ss lhf a'
+  return $ lhs : lhss
   where
     n = fromIterations $ sIterations ss
-    -- The potential U is just the log likelihood. Since we work with log
-    -- likelihood values, we do not need to store them in the log domain.
-    getPotential x = ln $ lhf $ state x
-    getMeanPotential xs = VB.sum (VB.map getPotential xs) / fromIntegral (VB.length xs)
-
--- TODO: Proper return value; marginal likelihood and confidence interval.
 
 mlTIRun ::
   ToJSON a =>
@@ -170,7 +165,7 @@ mlTIRun ::
   Cycle a ->
   a ->
   GenIO ->
-  -- Mean log likelihood at points.
+  -- Mean log likelihoods at points.
   ML [Double]
 mlTIRun xs prf lhf cc i0 g = do
   logDebugB "mlTiRun: Begin."
@@ -189,11 +184,16 @@ mlTIRun xs prf lhf cc i0 g = do
   logDebugB "mlTiRun: Sample first point."
   a1 <- sampleAtPoint x0 ssI lhf a0
   logDebugB "mlTiRun: Traverse points."
-  r <- traversePoints xs ssP lhf a1
-  logDebugB "mlTiRun: Done."
-  return r
+  lhss <- traversePoints xs ssP lhf a1
+  logDebugB "mlTiRun: Calculate mean log likelihoods."
+  -- It is important to average across the log likelihoods here (and not the
+  -- likelihoods). I am not exactly sure why this is.
+  let meanLogLhs = map (\x -> VU.sum (VU.map ln x) / fromIntegral (VU.length x)) lhss
+  return meanLogLhs
   where
     x0 = head xs
+
+-- TODO: Confidence interval.
 
 -- | Calculate the marginal likelihood using a path integral.
 --
@@ -246,6 +246,7 @@ mlThermodynamicIntegration s prf lhf cc i0 g = do
     bsForward = getPoints $ mlNPoints s
     bsBackward = reverse bsForward
 
+-- Use lists since the number of points is expected to be low.
 triangle ::
   -- X values.
   [Point] ->
