@@ -87,7 +87,7 @@ spec = do
         g2' <- R.save $ generator r'
         g2 `shouldBe` g2'
 
--- -- TODO.
+-- -- TODO: 'mhContinue'.
 -- describe "mhContinue"
 --   $ it "mh 200 + mhContinue 200 == mh 400"
 --   $ do

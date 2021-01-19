@@ -175,7 +175,7 @@ traversePoints (b : bs) ss lhf a = do
   ls <- liftIO $ takeT n $ trace $ fromMHG a'
   -- Extract the likelihoods.
   --
-  -- TODO: This could be sped up by mapping (** -b) on the power likelihoods.
+  -- NOTE: This could be sped up by mapping (** -b) on the power likelihoods.
   let lhs = VU.convert $ VB.map (lhf . state) ls
   -- Sample the other points.
   lhss <- traversePoints bs ss lhf a'
@@ -325,8 +325,6 @@ sssWrapper s prf lhf cc i0 g = do
     bsForward = getPoints $ mlNPoints s
     bsForward' = init bsForward
 
--- TODO: Confidence interval.
-
 marginalLikelihood ::
   ToJSON a =>
   MLSettings ->
@@ -353,6 +351,8 @@ marginalLikelihood s prf lhf cc i0 g = do
           ThermodynamicIntegration -> tiWrapper s prf lhf cc i0 g
           SteppingStoneSampling -> sssWrapper s prf lhf cc i0 g
         logInfoS $ "Marginal log likelihood: " ++ show (ln val)
+        -- TODO: Simulation variance.
+        logInfoS "The simulation variance is not yet available."
         return val
     )
     e
