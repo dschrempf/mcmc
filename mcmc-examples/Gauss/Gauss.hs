@@ -28,7 +28,7 @@ v = 0.01
 
 -- Dimension.
 d :: Int
-d = 5
+d = 1
 
 -- Sample size per point.
 n :: Int
@@ -72,5 +72,5 @@ main = do
           Info
       i0 = replicate d 0
   _ <- mlThermodynamicIntegration ss prf lhf cc i0 g
-  putStrLn $ "The correct value is:"  ++ show corVal
+  putStrLn $ "The correct value is: "  ++ show corVal
   where corVal = 0.5 * fromIntegral d * (log v - log (1+v))

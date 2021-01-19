@@ -74,9 +74,14 @@ instance HasVerbosity MLSettings where
 
 type ML a = ReaderT (Environment MLSettings) IO a
 
--- Distribute the points according to a skewed beta distribution (more points at
--- low values). It is inconvenient that the reciprocal temperatures are denoted
--- as beta, and we also use the beta distribution :). Don't mix them up!
+-- See 'getPoints'. Alpha=0.3 is the standard choice.
+alpha :: Double
+alpha = 0.3
+
+-- Distribute the points according to a skewed beta distribution with given
+-- 'alpha' value. If alpha is below 1.0, more points at lower values, which is
+-- desired. It is inconvenient that the reciprocal temperatures are denoted as
+-- beta, and we also use the beta distribution :). Don't mix them up!
 --
 -- See discussion in Xie, W., Lewis, P. O., Fan, Y., Kuo, L., & Chen, M.,
 -- Improving marginal likelihood estimation for bayesian phylogenetic model
@@ -87,7 +92,7 @@ type ML a = ReaderT (Environment MLSettings) IO a
 -- posterior analyses for fast computation of marginal likelihoods in
 -- phylogenetics (2017). http://dx.doi.org/10.1101/104422
 getPoints :: NPoints -> [Point]
-getPoints x = [f i ** (1.0 / 0.3) | i <- [0 .. k1]]
+getPoints x = [f i ** (1.0 / alpha) | i <- [0 .. k1]]
   where
     k = fromNPoints x
     k1 = pred k
@@ -232,8 +237,8 @@ mlThermodynamicIntegration s prf lhf cc i0 g = do
         let mlForward = triangle bsForward mllhsForward
             mlBackward = negate $ triangle bsBackward mllhsBackward
         logInfoB "Marginal log likelihood:"
-        logInfoS $ "Forward: " ++ show mlForward
-        logInfoS $ "Backward " ++ show mlBackward
+        logInfoS $ "Forward:  " ++ show mlForward
+        logInfoS $ "Backward: " ++ show mlBackward
         return (mlForward, mlBackward)
     )
     e
