@@ -4,6 +4,9 @@
 
 ## Unreleased changes
 
+-   Marginal likelihood estimation using thermodynamic integration or stepping
+    stone sampling.
+
 
 ## 0.4.0.0
 
