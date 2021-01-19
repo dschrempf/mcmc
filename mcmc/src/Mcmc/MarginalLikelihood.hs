@@ -234,8 +234,8 @@ mlThermodynamicIntegration s prf lhf cc i0 g = do
               mlTIRun bsBackward prf lhf cc i0 g1
             ]
         logInfoEndTime
-        let mlForward = triangle bsForward mllhsForward
-            mlBackward = negate $ triangle bsBackward mllhsBackward
+        let mlForward = integrateSimpsonTriangle bsForward mllhsForward
+            mlBackward = negate $ integrateSimpsonTriangle bsBackward mllhsBackward
         logInfoB "Marginal log likelihood:"
         logInfoS $ "Forward:  " ++ show mlForward
         logInfoS $ "Backward: " ++ show mlBackward
@@ -247,14 +247,14 @@ mlThermodynamicIntegration s prf lhf cc i0 g = do
     bsBackward = reverse bsForward
 
 -- Use lists since the number of points is expected to be low.
-triangle ::
+integrateSimpsonTriangle ::
   -- X values.
   [Point] ->
   -- Y values.
   [Double] ->
   -- Integral.
   Double
-triangle xs ys = 0.5 * go xs ys
+integrateSimpsonTriangle xs ys = 0.5 * go xs ys
   where
     go (p0 : p1 : ps) (z0 : z1 : zs) = (z0 + z1) * (p1 - p0) + go (p1 : ps) (z1 : zs)
     go _ _ = 0
