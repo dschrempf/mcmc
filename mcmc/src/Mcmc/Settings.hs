@@ -82,12 +82,14 @@ newtype Iterations = Iterations {fromIterations :: Int}
 $(deriveJSON defaultOptions ''Iterations)
 
 -- | The length of the stored "Mcmc.Chain.Trace".
+--
+-- Be careful, this setting determines the memory requirement of the MCMC chain.
 data TraceLength
-  = -- | Automatically determine the minimum number of required iterations to
-    -- store.
+  = -- | Automatically determine the length of the trace. The value is
+    -- determined by the 'Mcmc.Monitor.MonitorBatch' with largest batch size.
     TraceAuto
   | -- | Store a given minimum number of iterations of the chain. Store more
-    --  iterations if required.
+    --  iterations if required (see 'TraceAuto').
     TraceMinimum Int
 
 -- | Execution mode.

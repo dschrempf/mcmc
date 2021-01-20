@@ -48,13 +48,11 @@ mcmcExecute a = do
   logDebugB "Executed MCMC run."
   return a'
 
--- Reset acceptance counts.
 mcmcResetAcceptance :: Algorithm a => a -> MCMC a
 mcmcResetAcceptance a = do
   logDebugB "Reset acceptance rates."
   return $ aResetAcceptance a
 
--- Execute the monitors of the chain.
 mcmcExecuteMonitors :: Algorithm a => a -> MCMC ()
 mcmcExecuteMonitors a = do
   e <- ask
