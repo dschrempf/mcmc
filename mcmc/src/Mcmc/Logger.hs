@@ -18,6 +18,7 @@ module Mcmc.Logger
     HasMaybeLogHandle (..),
     HasStartingTime (..),
     HasVerbosity (..),
+    Logger,
     logOutB,
     logDebugB,
     logDebugS,
