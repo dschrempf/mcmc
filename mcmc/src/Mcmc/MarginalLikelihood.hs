@@ -73,6 +73,7 @@ data MLAlgorithm
     SteppingStoneSampling
   deriving (Eq, Read, Show)
 
+-- | Settings of the marginal likelihood estimation.
 data MLSettings = MLSettings
   { mlAnalysisName :: AnalysisName,
     mlAlgorithm :: MLAlgorithm,
@@ -325,6 +326,7 @@ sssWrapper s prf lhf cc i0 g = do
     bsForward = getPoints $ mlNPoints s
     bsForward' = init bsForward
 
+-- | Estimate the marginal likelihood.
 marginalLikelihood ::
   ToJSON a =>
   MLSettings ->
