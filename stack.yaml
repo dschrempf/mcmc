@@ -84,3 +84,8 @@ extra-deps:
 
 # # LLVM.
 # ghc-options: {"$everything": -O2 -fllvm}
+
+nix:
+  add-gc-roots: true
+  packages:
+    - zlib
