@@ -27,6 +27,7 @@ module Mcmc.Proposal
     Tune (..),
     createProposal,
     tuningParamMin,
+    tuningParamMax,
     tune,
     getOptimalRate,
     proposalHeader,
@@ -224,9 +225,18 @@ createProposal ::
 createProposal r f d n w Tune = Proposal n r d w (f 1.0) (Just $ Tuner 1.0 f)
 createProposal r f d n w NoTune = Proposal n r d w (f 1.0) Nothing
 
--- | Minimal tuning parameter; subject to change.
+-- | Minimal tuning parameter; @1e-12@, subject to change.
+--
+-- >>> tuningParamMin
+-- 1e-5
 tuningParamMin :: Double
-tuningParamMin = 1e-12
+tuningParamMin = 1e-5
+
+-- | Maximal tuning parameter; @1e12@, subject to change.
+-- >>> tuningParamMax
+-- 1e5
+tuningParamMax :: Double
+tuningParamMax = 1e5
 
 -- | Tune a 'Proposal'.
 --
@@ -239,9 +249,10 @@ tuningParamMin = 1e-12
 tune :: (Double -> Double) -> Proposal a -> Maybe (Proposal a)
 tune f m = do
   (Tuner t g) <- pTuner m
-  -- Ensure that the tuning parameter is strictly positive.
+  -- Ensure that the tuning parameter is strictly positive and well bounded.
   let t' = max tuningParamMin (f t)
-  return $ m {pSimple = g t', pTuner = Just $ Tuner t' g}
+      t'' = min tuningParamMax t'
+  return $ m {pSimple = g t'', pTuner = Just $ Tuner t'' g}
 
 -- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double
@@ -376,7 +387,7 @@ autoTuneCycle a = tuneCycle (M.mapWithKey tuningF $ acceptanceRates a)
   where
     tuningF proposal currentRate currentTuningParam =
       let optimalRate = getOptimalRate (pDimension proposal)
-       in exp (currentRate - optimalRate) * currentTuningParam
+       in exp (2 * (currentRate - optimalRate)) * currentTuningParam
 
 renderRow ::
   BL.ByteString ->
@@ -429,7 +440,7 @@ summarizeProposal ::
   PDimension ->
   Maybe (Int, Int, Double) ->
   BL.ByteString
-summarizeProposal name description weight tuningParam dimension r =
+summarizeProposal name description weight tuningParam dimension ar =
   renderRow
     (BL.pack $ fromPName name)
     (BL.pack $ fromPDescription description)
@@ -442,16 +453,27 @@ summarizeProposal name description weight tuningParam dimension r =
     manualAdjustmentStr
   where
     weightStr = BB.toLazyByteString $ BB.intDec $ fromPWeight weight
-    nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) r
-    nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) r
-    acceptRate = BL.fromStrict $ maybe "" (BC.toFixed 2 . (^. _3)) r
+    nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) ar
+    nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) ar
+    acceptRate = BL.fromStrict $ maybe "" (BC.toFixed 2 . (^. _3)) ar
     optimalRate = BL.fromStrict $ BC.toFixed 2 $ getOptimalRate dimension
     tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) tuningParam
-    check v
-      | v < rateMin = "rate too low"
-      | v > rateMax = "rate too high"
-      | otherwise = ""
-    manualAdjustmentStr = BL.fromStrict $ maybe "" (check . (^. _3)) r
+    checkRate rate
+      | rate < rateMin = Just "rate too low"
+      | rate > rateMax = Just "rate too high"
+      | otherwise = Nothing
+    checkTuningParam tp
+      | tp <= (1.1 * tuningParamMin) = Just "tuning parameter too low"
+      | tp >= (0.9 * tuningParamMax) = Just "tuning parameter too high"
+      | otherwise = Nothing
+    tps = checkTuningParam =<< tuningParam
+    ars = (checkRate . (^. _3)) =<< ar
+    manualAdjustmentStr =
+      let
+       in case (ars, tps) of
+            (Nothing, Nothing) -> ""
+            (Just s, _) -> s
+            (_, Just s) -> s
 
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance rates.
 summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> BL.ByteString
