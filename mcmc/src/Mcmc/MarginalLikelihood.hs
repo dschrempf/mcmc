@@ -24,7 +24,8 @@ import Control.Monad.IO.Class
 import qualified Control.Monad.Parallel as P
 import Control.Monad.Trans.Reader
 import Data.Aeson
-import Data.List
+import Data.List hiding (cycle)
+import qualified Data.Map.Strict as M
 import qualified Data.Vector as VB
 import qualified Data.Vector.Unboxed as VU
 import Mcmc.Algorithm.MHG
@@ -132,11 +133,15 @@ sampleAtPoint ::
   MHG a ->
   ML (MHG a)
 sampleAtPoint x ss lhf a = do
+  logDebugS $ "Sample point " <> show x <> "."
   a'' <- liftIO $ mcmc ss' a'
-  let ar = acceptanceRates $ acceptance $ fromMHG a''
-      meanAr = sum ar / fromIntegral (length ar)
-  when (meanAr <= 0.1) $ logWarnB "Overall acceptance rate is below 0.1."
-  when (meanAr >= 0.9) $ logWarnB "Overall acceptance rate is above 0.9."
+  let
+    ch'' = fromMHG a''
+    ac = acceptance ch''
+    ar = acceptanceRates ac
+  -- logDebugB $ summarizeCycle ac $ cycle ch''
+  unless (M.null $ M.filter (<= 0.1) ar) $ do logWarnB "Some acceptance rates are below 0.1."
+  unless (M.null $ M.filter (>= 0.9) ar) $ logWarnB "Some acceptance rates are above 0.9."
   return a''
   where
     -- For debugging set a proper analysis name.
@@ -170,7 +175,6 @@ traversePoints ::
   ML [VU.Vector (Log Double)]
 traversePoints [] _ _ _ = return []
 traversePoints (b : bs) ss lhf a = do
-  -- Sample the next point.
   a' <- sampleAtPoint b ss lhf a
   -- Get the links samples at this point.
   ls <- liftIO $ takeT n $ trace $ fromMHG a'
@@ -190,25 +194,28 @@ mlRun ::
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
+  Monitor a ->
   a ->
   GenIO ->
   -- For each point a vector of likelihoods stored in log domain.
   ML [VU.Vector (Log Double)]
-mlRun xs prf lhf cc i0 g = do
+mlRun xs prf lhf cc mn i0 g = do
   logDebugB "mlRun: Begin."
   s <- reader settings
   let nm = mlAnalysisName s
       is = mlIterations s
       biI = mlInitialBurnIn s
       biP = mlPointBurnIn s
-      -- Be quiet for the sub MCMC runs.
-      ssI = Settings nm biI is Fail Sequential NoSave Quiet
-      ssP = Settings nm biP is Fail Sequential NoSave Quiet
+      -- TODO!
+      ssI = Settings nm biI is Overwrite Sequential NoSave Info
+      ssP = Settings nm biP is Overwrite Sequential NoSave Info
+      -- -- Be quiet for the sub MCMC runs.
+      -- ssI = Settings nm biI is Fail Sequential NoSave Debug
+      -- ssP = Settings nm biP is Fail Sequential NoSave Debug
       trLen = TraceMinimum $ fromIterations is
-      mn = noMonitor 1
   logDebugB "mlRun: Initialize MHG algorithm."
   a0 <- liftIO $ mhg prf lhf cc mn trLen i0 g
-  logDebugB "mlRun: Sample first point with initial burn in settings."
+  logDebugS $ "mlRun: Sample first point " <> show x0 <> " with initial burn in settings."
   a1 <- sampleAtPoint x0 ssI lhf a0
   logDebugB "mlRun: Traverse points."
   traversePoints xs ssP lhf a1
@@ -234,19 +241,20 @@ tiWrapper ::
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
+  Monitor a ->
   a ->
   GenIO ->
   -- Marginal likelihood in log domain.
   ML (Log Double)
-tiWrapper s prf lhf cc i0 g = do
+tiWrapper s prf lhf cc mn i0 g = do
   logInfoB "Path integral (thermodynamic integration)."
   [g0, g1] <- splitGen 2 g
 
   -- Parallel execution of both path integrals.
   [lhssForward, lhssBackward] <-
     P.sequence
-      [ mlRun bsForward prf lhf cc i0 g0,
-        mlRun bsBackward prf lhf cc i0 g1
+      [ mlRun bsForward prf lhf cc mn i0 g0,
+        mlRun bsBackward prf lhf cc mn i0 g1
       ]
   logInfoEndTime
 
@@ -280,15 +288,16 @@ sssCalculateMarginalLikelihood xs lhss = product $ zipWith3 f xs (tail xs) lhss
         n1 = recip $ fromIntegral $ VU.length lhs
         dbeta = bk - bkm1
         lhsPowered = VU.map (`pow'` dbeta) lhs
-    -- -- Numerical stability by factoring out lhMax. But no observed
-    -- -- improvement towards the standard version.
-    --
-    -- f bkm1 bk lhs = n1 * pow' lhMax dbeta * VU.sum lhsNormedPowered
-    --   where n1 = recip $ fromIntegral $ VU.length lhs
-    --         lhMax = VU.maximum lhs
-    --         dbeta = bk - bkm1
-    --         lhsNormed = VU.map (/lhMax) lhs
-    --         lhsNormedPowered = VU.map (`pow'` dbeta) lhsNormed
+
+-- -- Numerical stability by factoring out lhMax. But no observed
+-- -- improvement towards the standard version.
+--
+-- f bkm1 bk lhs = n1 * pow' lhMax dbeta * VU.sum lhsNormedPowered
+--   where n1 = recip $ fromIntegral $ VU.length lhs
+--         lhMax = VU.maximum lhs
+--         dbeta = bk - bkm1
+--         lhsNormed = VU.map (/lhMax) lhs
+--         lhsNormedPowered = VU.map (`pow'` dbeta) lhsNormed
 
 -- -- Computation of the log of the marginal likelihood. According to the paper,
 -- -- this estimator is biased and I did not observe any improvements compared
@@ -312,14 +321,15 @@ sssWrapper ::
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
+  Monitor a ->
   a ->
   GenIO ->
   -- Marginal likelihood in log domain.
   ML (Log Double)
-sssWrapper s prf lhf cc i0 g = do
+sssWrapper s prf lhf cc mn i0 g = do
   logInfoB "Stepping stone sampling."
   -- The last point does not need to be sampled.
-  logLhss <- mlRun bsForward' prf lhf cc i0 g
+  logLhss <- mlRun bsForward' prf lhf cc mn i0 g
   logDebugB "sssWrapper: Calculate marginal likelihood."
   return $ sssCalculateMarginalLikelihood bsForward logLhss
   where
@@ -333,12 +343,15 @@ marginalLikelihood ::
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
+  Monitor a ->
   -- | Initial state.
   a ->
+  -- | A source of randomness. For reproducible runs, make sure to use
+  -- generators with the same seed.
   GenIO ->
   -- | Estimated marginal likelihood stored in log domain.
   IO (Log Double)
-marginalLikelihood s prf lhf cc i0 g = do
+marginalLikelihood s prf lhf cc mn i0 g = do
   -- Initialize.
   e <- initializeEnvironment s
 
@@ -350,8 +363,8 @@ marginalLikelihood s prf lhf cc i0 g = do
         logDebugB "The marginal likelihood settings are:"
         logDebugS $ ppShow s
         val <- case mlAlgorithm s of
-          ThermodynamicIntegration -> tiWrapper s prf lhf cc i0 g
-          SteppingStoneSampling -> sssWrapper s prf lhf cc i0 g
+          ThermodynamicIntegration -> tiWrapper s prf lhf cc mn i0 g
+          SteppingStoneSampling -> sssWrapper s prf lhf cc mn i0 g
         logInfoS $ "Marginal log likelihood: " ++ show (ln val)
         -- TODO: Simulation variance.
         logInfoS "The simulation variance is not yet available."

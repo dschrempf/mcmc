@@ -117,4 +117,4 @@ main = do
           (Iterations 6000)
           Overwrite
           Info
-  void $ marginalLikelihood ss pr (lh xs) cc 0.01 g
+  void $ marginalLikelihood ss pr (lh xs) cc (noMonitor 1000) 0.01 g
