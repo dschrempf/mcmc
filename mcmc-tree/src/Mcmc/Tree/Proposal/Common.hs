@@ -14,43 +14,15 @@ module Mcmc.Tree.Proposal.Common
   )
 where
 
+import Control.Monad
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.TruncatedNormal
 import System.Random.MWC
 
--- -- | A very specific function that samples a delta value from the truncated
--- -- normal distribution with given bounds [a,b] and also computes the required
--- -- factor of the Metropolis-Hastings-Green proposal ratio.
--- --
--- -- NO JACOBIAN IS COMPUTED, because we do not know how the proposal will be used.
--- truncatedNormalSample ::
---   -- Standard deviation.
---   Double ->
---   -- Tuning parameter.
---   Double ->
---   -- Left bound.
---   Double ->
---   -- Right bound.
---   Double ->
---   GenIO ->
---   IO (Double, Log Double)
--- truncatedNormalSample s t a b g = do
---   let s' = t * s
---       d = either error id $ truncatedNormalDistr 0 s' a b
---   u <- genContinuous d g
---   -- Compute Metropolis-Hastings-Green factor.
---   let a' = a - u
---       b' = b - u
---       d' = either error id $ truncatedNormalDistr 0 s' a' b'
---       qXY = Exp $ logDensity d u
---       qYX = Exp $ logDensity d' (- u)
---   -- NO JACOBIAN IS COMPUTED.
---   return (u, qYX / qXY)
-
 -- | A very specific function that samples a delta value from the truncated
 -- normal distribution with given bounds [a,b] and also computes the required
--- factor of the Metropolis-Hastings-Green proposal ratio.
+-- factor of the Metropolis-Hastings-Green (MHG) proposal ratio.
 --
 -- NO JACOBIAN IS COMPUTED, because we do not know how the proposal will be used.
 truncatedNormalSample ::
@@ -65,13 +37,23 @@ truncatedNormalSample ::
   -- | Right bound.
   Double ->
   GenIO ->
+  -- | (NewValue, MHGRatioWithoutJacobian)
   IO (Double, Log Double)
 truncatedNormalSample m s t a b g = do
   let s' = t * s
-      d = either error id $ truncatedNormalDistr m s' a b
+      d = truncatedNormalDistr m s' a b
   u <- genContinuous d g
+  let err = error $
+        "truncatedNormalSample: Value "
+          <> show u
+          <> " out of bounds ["
+          <> show a
+          <> ","
+          <> show b
+          <> "]."
+  when (a > u || b < u) err
   -- Compute Metropolis-Hastings-Green factor.
-  let d' = either error id $ truncatedNormalDistr u s' a b
+  let d' = truncatedNormalDistr u s' a b
       qXY = Exp $ logDensity d u
       qYX = Exp $ logDensity d' m
   -- NO JACOBIAN IS COMPUTED.

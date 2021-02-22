@@ -60,14 +60,12 @@ truncatedNormalDistr ::
   Double ->
   -- | Upper bound.
   Double ->
-  Either String TruncatedNormalDistribution
+  TruncatedNormalDistribution
 truncatedNormalDistr m s a b
-  | s <= 0 =
-    Left "truncatedNormalDistr: Standard deviation must be positive."
-  | a >= b =
-    Left "truncatedNormalDistr: Lower bound is equal or larger upper bound."
+  | s <= 0 = error "truncatedNormalDistr: Standard deviation must be positive."
+  | a >= b = error "truncatedNormalDistr: Lower bound is equal or larger upper bound."
   | a > m || b < m =
-    Left $
+    error $
       "truncatedNormalDistr: Mean "
         ++ show m
         ++ " is out of bounds ("
@@ -75,7 +73,7 @@ truncatedNormalDistr m s a b
         ++ ","
         ++ show b
         ++ ")."
-  | otherwise = Right $ TND m s a b phi2Alpha (phi2 beta - phi2Alpha)
+  | otherwise = TND m s a b phi2Alpha (phi2 beta - phi2Alpha)
   where
     alpha = (a - m) / s
     beta = (b - m) / s

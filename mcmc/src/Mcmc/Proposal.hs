@@ -26,6 +26,7 @@ module Mcmc.Proposal
     Tuner (tParam, tFunc),
     Tune (..),
     createProposal,
+    tuningParamMin,
     tune,
     getOptimalRate,
     proposalHeader,
@@ -223,13 +224,18 @@ createProposal ::
 createProposal r f d n w Tune = Proposal n r d w (f 1.0) (Just $ Tuner 1.0 f)
 createProposal r f d n w NoTune = Proposal n r d w (f 1.0) Nothing
 
--- Minimal tuning parameter; subject to change.
+-- | Minimal tuning parameter; subject to change.
 tuningParamMin :: Double
 tuningParamMin = 1e-12
 
--- | Tune a 'Proposal'. Return 'Nothing' if 'Proposal' is not tuneable. The size
---   of the proposal is proportional to the tuning parameter. Negative tuning
---   parameters are not allowed.
+-- | Tune a 'Proposal'.
+--
+-- The size of the proposal is proportional to the tuning parameter which has a
+-- positive lower bound of 'tuningParamMin'.
+--
+-- The tuning function maps the current tuning parameter to a new one.
+--
+-- Return 'Nothing' if 'Proposal' is not tuneable.
 tune :: (Double -> Double) -> Proposal a -> Maybe (Proposal a)
 tune f m = do
   (Tuner t g) <- pTuner m

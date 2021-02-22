@@ -67,10 +67,11 @@ slideNodeAtUltrametricSimple pth s t tr g
   where
     trPos = goPathUnsafe pth $ fromTree tr
     focus = current trPos
+    parent = current $ goParentUnsafe trPos
     children = forest focus
     hNode = fromHeight $ nodeHeight $ label focus
     hChild = fromHeight $ maximum $ map (nodeHeight . label) children
-    hParent = fromHeight $ nodeHeight $ label $ current $ goParentUnsafe trPos
+    hParent = fromHeight $ nodeHeight $ label parent
 
 -- | Slide node (for ultrametric trees).
 --
@@ -164,7 +165,7 @@ scaleSubTreeAtUltrametricSimple ::
   Double ->
   ProposalSimple (HeightTree a)
 scaleSubTreeAtUltrametricSimple n pth ds t tr g
-  | null ts = error "scaleSubTreeAtUltrametricSimple: Cannot scale sub tree of leaf."
+  | null children = error "scaleSubTreeAtUltrametricSimple: Cannot scale sub tree of leaf."
   | otherwise = do
     -- The determinant of the Jacobian is not included.
     (hNode', q) <- truncatedNormalSample hNode ds t 0 hParent g
@@ -176,9 +177,10 @@ scaleSubTreeAtUltrametricSimple n pth ds t tr g
   where
     trPos = goPathUnsafe pth $ fromTree tr
     focus = current trPos
-    ts = forest focus
+    parent = current $ goParentUnsafe trPos
+    children = forest focus
     hNode = fromHeight $ nodeHeight $ label focus
-    hParent = fromHeight $ nodeHeight $ label $ current $ goParentUnsafe trPos
+    hParent = fromHeight $ nodeHeight $ label parent
 
 -- | Scale the node heights of the sub tree at given path.
 --
