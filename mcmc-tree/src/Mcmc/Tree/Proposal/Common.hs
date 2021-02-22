@@ -43,14 +43,9 @@ truncatedNormalSample m s t a b g = do
   let s' = t * s
       d = truncatedNormalDistr m s' a b
   u <- genContinuous d g
-  let err = error $
-        "truncatedNormalSample: Value "
-          <> show u
-          <> " out of bounds ["
-          <> show a
-          <> ","
-          <> show b
-          <> "]."
+  let msg1 = "Value " <> show u <> " out of bounds [" <> show a <> "," <> show b <> "]."
+      msg2 = "Mean, sd, and tuneparam: " <> show m <> " " <> show s <> " " <> show t <> "."
+      err = error $ "truncatedNormalSample: " <> msg1 <> "\n" <> msg2
   when (a > u || b < u) err
   -- Compute Metropolis-Hastings-Green factor.
   let d' = truncatedNormalDistr u s' a b

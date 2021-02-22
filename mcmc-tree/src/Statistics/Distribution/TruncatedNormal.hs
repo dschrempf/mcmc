@@ -63,7 +63,13 @@ truncatedNormalDistr ::
   TruncatedNormalDistribution
 truncatedNormalDistr m s a b
   | s <= 0 = error "truncatedNormalDistr: Standard deviation must be positive."
-  | a >= b = error "truncatedNormalDistr: Lower bound is equal or larger upper bound."
+  | a >= b =
+    error $
+      "truncatedNormalDistr: Lower bound "
+        <> show a
+        <> " is equal or larger upper bound "
+        <> show b
+        <> "."
   | a > m || b < m =
     error $
       "truncatedNormalDistr: Mean "
