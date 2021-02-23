@@ -14,12 +14,14 @@
 module Mcmc.Monitor
   ( -- * Create monitors
     Monitor (..),
-    noMonitor,
+    Period,
+    simpleMonitor,
     MonitorStdOut,
     monitorStdOut,
     msHeader,
     MonitorFile,
     monitorFile,
+    BatchSize,
     MonitorBatch,
     monitorBatch,
     getMonitorBatchSize,
@@ -65,27 +67,31 @@ data Monitor a = Monitor
     mBatches :: [MonitorBatch a]
   }
 
+-- | Type synonym indicating monitor period.
+type Period = Int
+
 -- | Do not monitor parameters.
 --
 -- Monitor prior and likelihood with given period.
-noMonitor :: Int -> Monitor a
-noMonitor n = Monitor (MonitorStdOut [] n) [] []
+simpleMonitor :: Period -> Monitor a
+simpleMonitor p
+  | p < 1 = error "simpleMonitor: Monitor period must be 1 or larger."
+  | otherwise =
+    Monitor (MonitorStdOut [] p) [] []
 
 -- | Monitor to standard output; constructed with 'monitorStdOut'.
 data MonitorStdOut a = MonitorStdOut
   { msParams :: [MonitorParameter a],
-    msPeriod :: Int
+    msPeriod :: Period
   }
 
 -- | Monitor to standard output.
 monitorStdOut ::
-  -- | Instructions about which parameters to log.
   [MonitorParameter a] ->
-  -- | Logging period.
-  Int ->
+  Period ->
   MonitorStdOut a
 monitorStdOut ps p
-  | p < 1 = error "monitorStdOut: Monitor period has to be 1 or larger."
+  | p < 1 = error "monitorStdOut: Monitor period must be 1 or larger."
   | otherwise = MonitorStdOut ps p
 
 msIWidth :: Int
@@ -158,20 +164,18 @@ data MonitorFile a = MonitorFile
   { mfName :: String,
     mfHandle :: Maybe Handle,
     mfParams :: [MonitorParameter a],
-    mfPeriod :: Int
+    mfPeriod :: Period
   }
 
 -- | Monitor parameters to a file.
 monitorFile ::
   -- | Name; used as part of the file name.
   String ->
-  -- | Instructions about which parameters to log.
   [MonitorParameter a] ->
-  -- | Logging period.
-  Int ->
+  Period ->
   MonitorFile a
 monitorFile n ps p
-  | p < 1 = error "monitorFile: Monitor period has to be 1 or larger."
+  | p < 1 = error "monitorFile: Monitor period must be 1 or larger."
   | otherwise = MonitorFile n Nothing ps p
 
 mfRenderRow :: [BL.ByteString] -> BL.ByteString
@@ -223,6 +227,9 @@ mfClose m = case mfHandle m of
   Just h -> hClose h
   Nothing -> error $ "mfClose: File was not opened for monitor " <> mfName m <> "."
 
+-- | Type synonym indicating batch size.
+type BatchSize = Int
+
 -- | Batch monitor to a file.
 --
 -- Calculate summary statistics over the last given number of iterations (batch
@@ -231,26 +238,24 @@ data MonitorBatch a = MonitorBatch
   { mbName :: String,
     mbHandle :: Maybe Handle,
     mbParams :: [MonitorParameterBatch a],
-    mbSize :: Int
+    mbSize :: BatchSize
   }
 
 -- | Batch monitor parameters to a file, see 'MonitorBatch'.
 monitorBatch ::
   -- | Name; used as part of the file name.
   String ->
-  -- | Instructions about how to calculate the summary statistics.
   [MonitorParameterBatch a] ->
-  -- | Batch size.
-  Int ->
+  BatchSize ->
   MonitorBatch a
-monitorBatch n ps p
-  | p < 2 = error "monitorBatch: Batch size has to be 2 or larger."
-  | otherwise = MonitorBatch n Nothing ps p
+monitorBatch n ps b
+  | b < 2 = error "monitorBatch: Batch size must be 2 or larger."
+  | otherwise = MonitorBatch n Nothing ps b
 
 -- | Batch monitor size.
 --
 -- Useful to determine the trace length.
-getMonitorBatchSize :: MonitorBatch a -> Int
+getMonitorBatchSize :: MonitorBatch a -> BatchSize
 getMonitorBatchSize = mbSize
 
 mbOpen :: String -> String -> ExecutionMode -> MonitorBatch a -> IO (MonitorBatch a)
@@ -329,7 +334,6 @@ mOpen pre suf em (Monitor s fs bs) = do
 -- | Execute monitors; print status information to files and return text to be
 -- printed to standard output and log file.
 mExec ::
-  -- | Verbosity
   Verbosity ->
   -- | Iteration.
   Int ->
@@ -337,11 +341,9 @@ mExec ::
   Int ->
   -- | Starting time.
   UTCTime ->
-  -- | Trace of Markov chain.
   Trace a ->
   -- | Total number of iterations; to calculate ETA.
   Int ->
-  -- | The monitor.
   Monitor a ->
   IO (Maybe BL.ByteString)
 mExec v i ss st xs j (Monitor s fs bs) = do
