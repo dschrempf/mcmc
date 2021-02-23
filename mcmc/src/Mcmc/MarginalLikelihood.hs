@@ -336,8 +336,8 @@ sssWrapper ::
   ML (Log Double)
 sssWrapper s prf lhf cc mn i0 g = do
   logInfoB "Stepping stone sampling."
-  -- The last point does not need to be sampled.
   logLhss <- mlRun k bsForward' prf lhf cc mn i0 g
+  logInfoB "The last point does not need to be sampled with stepping stone sampling."
   logDebugB "sssWrapper: Calculate marginal likelihood."
   return $ sssCalculateMarginalLikelihood bsForward logLhss
   where
