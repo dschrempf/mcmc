@@ -139,10 +139,9 @@ sampleAtPoint ::
 sampleAtPoint x ss lhf a = do
   logDebugS $ "Sample point " <> show x <> "."
   a'' <- liftIO $ mcmc ss' a'
-  let
-    ch'' = fromMHG a''
-    ac = acceptance ch''
-    ar = acceptanceRates ac
+  let ch'' = fromMHG a''
+      ac = acceptance ch''
+      ar = acceptanceRates ac
   -- logDebugB $ summarizeCycle ac $ cycle ch''
   unless (M.null $ M.filter (<= 0.1) ar) $ do logWarnB "Some acceptance rates are below 0.1."
   unless (M.null $ M.filter (>= 0.9) ar) $ logWarnB "Some acceptance rates are above 0.9."
@@ -150,8 +149,9 @@ sampleAtPoint x ss lhf a = do
   where
     -- For debugging set a proper analysis name.
     nm = sAnalysisName ss
+    -- TODO: Put logs into analysis folder.
     getName :: Point -> AnalysisName
-    getName y = nm <> AnalysisName (printf "%.5f" y)
+    getName y = nm <> AnalysisName (printf ".point%.5f" y)
     ss' = ss {sAnalysisName = getName x}
     -- Amend the likelihood function. Don't calculate the likelihood when the
     -- point is 0.0.
@@ -171,14 +171,18 @@ sampleAtPoint x ss lhf a = do
 
 traversePoints ::
   ToJSON a =>
+  -- Current point.
+  Int ->
+  NPoints ->
   [Point] ->
   Settings ->
   LikelihoodFunction a ->
   MHG a ->
   -- For each point a vector of obtained likelihoods stored in the log domain.
   ML [VU.Vector (Log Double)]
-traversePoints [] _ _ _ = return []
-traversePoints (b : bs) ss lhf a = do
+traversePoints _ _ [] _ _ _ = return []
+traversePoints i k (b : bs) ss lhf a = do
+  logInfoS $ "Point " <> show i <> " of " <> show k' <> ": " <> show b <> "."
   a' <- sampleAtPoint b ss lhf a
   -- Get the links samples at this point.
   ls <- liftIO $ takeT n $ trace $ fromMHG a'
@@ -187,13 +191,15 @@ traversePoints (b : bs) ss lhf a = do
   -- NOTE: This could be sped up by mapping (** -b) on the power likelihoods.
   let lhs = VU.convert $ VB.map (lhf . state) ls
   -- Sample the other points.
-  lhss <- traversePoints bs ss lhf a'
+  lhss <- traversePoints (i + 1) k bs ss lhf a'
   return $ lhs : lhss
   where
     n = fromIterations $ sIterations ss
+    (NPoints k') = k
 
 mlRun ::
   ToJSON a =>
+  NPoints ->
   [Point] ->
   PriorFunction a ->
   LikelihoodFunction a ->
@@ -203,7 +209,7 @@ mlRun ::
   GenIO ->
   -- For each point a vector of likelihoods stored in log domain.
   ML [VU.Vector (Log Double)]
-mlRun xs prf lhf cc mn i0 g = do
+mlRun k xs prf lhf cc mn i0 g = do
   logDebugB "mlRun: Begin."
   s <- reader settings
   let nm = mlAnalysisName s
@@ -219,7 +225,7 @@ mlRun xs prf lhf cc mn i0 g = do
   logDebugS $ "mlRun: Sample first point " <> show x0 <> " with initial burn in settings."
   a1 <- sampleAtPoint x0 ssI lhf a0
   logDebugB "mlRun: Traverse points."
-  traversePoints xs ssP lhf a1
+  traversePoints 1 k xs ssP lhf a1
   where
     x0 = head xs
 
@@ -254,8 +260,8 @@ tiWrapper s prf lhf cc mn i0 g = do
   -- Parallel execution of both path integrals.
   [lhssForward, lhssBackward] <-
     P.sequence
-      [ mlRun bsForward prf lhf cc mn i0 g0,
-        mlRun bsBackward prf lhf cc mn i0 g1
+      [ mlRun k bsForward prf lhf cc mn i0 g0,
+        mlRun k bsBackward prf lhf cc mn i0 g1
       ]
   logInfoEndTime
 
@@ -271,7 +277,8 @@ tiWrapper s prf lhf cc mn i0 g = do
   logDebugS $ "tiWrapper: The mean is: " ++ show mean
   return $ Exp mean
   where
-    bsForward = getPoints $ mlNPoints s
+    k = mlNPoints s
+    bsForward = getPoints k
     bsBackward = reverse bsForward
 
 -- Helper function to exponentiate log domain values with a double value.
@@ -330,11 +337,12 @@ sssWrapper ::
 sssWrapper s prf lhf cc mn i0 g = do
   logInfoB "Stepping stone sampling."
   -- The last point does not need to be sampled.
-  logLhss <- mlRun bsForward' prf lhf cc mn i0 g
+  logLhss <- mlRun k bsForward' prf lhf cc mn i0 g
   logDebugB "sssWrapper: Calculate marginal likelihood."
   return $ sssCalculateMarginalLikelihood bsForward logLhss
   where
-    bsForward = getPoints $ mlNPoints s
+    k = mlNPoints s
+    bsForward = getPoints k
     bsForward' = init bsForward
 
 -- | Estimate the marginal likelihood.
