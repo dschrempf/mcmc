@@ -67,6 +67,7 @@ main = do
           Overwrite
           Sequential
           NoSave
+          LogStdOutAndFile
           Info
   -- Metropolis-Hastings-Green algorithm.
   a <- mhg pr lh cc mon TraceAuto (1, 1) g

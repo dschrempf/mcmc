@@ -101,6 +101,7 @@ main = do
           Overwrite
           Sequential
           Save
+          LogStdOutAndFile
           Info
   -- Use the Metropolis-Hastings-Green (MHG) algorithm.
   a <- mhg pr (lh xs) cc mon TraceAuto 0.01 g
@@ -116,5 +117,6 @@ main = do
           (BurnInWithAutoTuning 1000 100)
           (Iterations 6000)
           Overwrite
+          LogStdOutAndFile
           Info
   void $ marginalLikelihood ss pr (lh xs) cc (noMonitor 1000) 0.01 g

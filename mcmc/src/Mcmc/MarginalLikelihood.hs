@@ -86,6 +86,7 @@ data MLSettings = MLSettings
     -- | The number of iterations performed at each point.
     mlIterations :: Iterations,
     mlExecutionMode :: ExecutionMode,
+    mlLogMode :: LogMode,
     mlVerbosity :: Verbosity
   }
   deriving (Eq, Read, Show)
@@ -95,6 +96,9 @@ instance HasAnalysisName MLSettings where
 
 instance HasExecutionMode MLSettings where
   getExecutionMode = mlExecutionMode
+
+instance HasLogMode MLSettings where
+  getLogMode = mlLogMode
 
 instance HasVerbosity MLSettings where
   getVerbosity = mlVerbosity
@@ -207,8 +211,8 @@ mlRun xs prf lhf cc mn i0 g = do
       biI = mlInitialBurnIn s
       biP = mlPointBurnIn s
       -- TODO!
-      ssI = Settings nm biI is Overwrite Sequential NoSave Info
-      ssP = Settings nm biP is Overwrite Sequential NoSave Info
+      ssI = Settings nm biI is Overwrite Sequential NoSave LogFileOnly Info
+      ssP = Settings nm biP is Overwrite Sequential NoSave LogFileOnly Info
       -- -- Be quiet for the sub MCMC runs.
       -- ssI = Settings nm biI is Fail Sequential NoSave Debug
       -- ssP = Settings nm biP is Fail Sequential NoSave Debug

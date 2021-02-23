@@ -1,6 +1,6 @@
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DerivingVia #-}
 
 -- |
 -- Module      :  Mcmc.Settings
@@ -26,6 +26,7 @@ module Mcmc.Settings
     openWithExecutionMode,
     ParallelizationMode (..),
     SaveMode (..),
+    LogMode (..),
     Verbosity (..),
 
     -- * Settings
@@ -165,8 +166,14 @@ data ParallelizationMode
 
 $(deriveJSON defaultOptions ''ParallelizationMode)
 
--- | Should the MCMC run be saved at the end of the run?
-data SaveMode = NoSave | Save
+-- | Define information stored on disk.
+data SaveMode
+  = -- | Do not save the MCMC analysis. The analysis can not be continued.
+    NoSave
+  | -- | Save the MCMC analysis so that it can be continued. This can be slow,
+    -- if the trace is long, or if the states are large objects. See
+    -- 'TraceLength'.
+    Save
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''SaveMode)
@@ -179,6 +186,7 @@ data Settings = Settings
     sExecutionMode :: ExecutionMode,
     sParallelizationMode :: ParallelizationMode,
     sSaveMode :: SaveMode,
+    sLogMode :: LogMode,
     sVerbosity :: Verbosity
   }
   deriving (Eq, Show)
@@ -188,6 +196,9 @@ instance HasAnalysisName Settings where
 
 instance HasExecutionMode Settings where
   getExecutionMode = sExecutionMode
+
+instance HasLogMode Settings where
+  getLogMode = sLogMode
 
 instance HasVerbosity Settings where
   getVerbosity = sVerbosity
@@ -243,7 +254,7 @@ settingsCheck ::
   -- | Current iteration.
   Int ->
   IO ()
-settingsCheck s@(Settings nm bi i em _ _ _) iCurrent
+settingsCheck s@(Settings nm bi i em _ _ _ _) iCurrent
   | null (fromAnalysisName nm) = serr "Analysis name is the empty string."
   | burnInIterations bi < 0 = serr "Number of burn in iterations is negative."
   | not $ burnInAutoTuningPeriodValid bi = serr "Auto tuning period is zero or negative."

@@ -70,6 +70,7 @@ main = do
           (BurnInWithAutoTuning 1000 100)
           (Iterations n)
           Overwrite
+          LogStdOutAndFile
           Info
       i0 = replicate d 0
   _ <- marginalLikelihood ss prf lhf cc (noMonitor 1000) i0 g

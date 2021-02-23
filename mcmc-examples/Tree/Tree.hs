@@ -130,6 +130,7 @@ main = do
           Overwrite
           Sequential
           NoSave
+          LogStdOutAndFile
           Info
   -- Metropolis-Hastings-Green algorithm.
   a <- mhg pr noLikelihood cc' (mon t) TraceAuto (I t r) g

@@ -180,8 +180,8 @@ mcmcClose a = do
   mcmcSave a
   logInfoEndTime
   a' <- liftIO $ aCloseMonitors a
-  h <- reader logHandle
-  liftIO $ forM_ h hClose
+  e <- ask
+  liftIO $ closeEnvironment e
   return a'
 
 -- Initialize the run, execute the run, and close the run.
