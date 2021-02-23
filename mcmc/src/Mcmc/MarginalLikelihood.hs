@@ -137,7 +137,6 @@ sampleAtPoint ::
   MHG a ->
   ML (MHG a)
 sampleAtPoint x ss lhf a = do
-  logDebugS $ "Sample point " <> show x <> "."
   a'' <- liftIO $ mcmc ss' a'
   let ch'' = fromMHG a''
       ac = acceptance ch''
@@ -222,7 +221,7 @@ mlRun k xs prf lhf cc mn i0 g = do
       trLen = TraceMinimum $ fromIterations is
   logDebugB "mlRun: Initialize MHG algorithm."
   a0 <- liftIO $ mhg prf lhf cc mn trLen i0 g
-  logDebugS $ "mlRun: Sample first point " <> show x0 <> " with initial burn in settings."
+  logDebugS $ "mlRun: Perform initial burn in at first point " <> show x0 <> "."
   a1 <- sampleAtPoint x0 ssI lhf a0
   logDebugB "mlRun: Traverse points."
   traversePoints 1 k xs ssP lhf a1
