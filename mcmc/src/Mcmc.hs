@@ -117,6 +117,7 @@ module Mcmc
     Proposal,
     (@~),
     Tune (..),
+    module Mcmc.Proposal.Types,
     scale,
     scaleUnbiased,
     scaleContrarily,
@@ -185,7 +186,7 @@ module Mcmc
     noLikelihood,
 
     -- * Useful re-exports
-    module Numeric.Log
+    module Numeric.Log,
   )
 where
 
@@ -203,5 +204,6 @@ import Mcmc.Proposal.Bactrian
 import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Simplex
 import Mcmc.Proposal.Slide
+import Mcmc.Proposal.Types
 import Mcmc.Settings
 import Numeric.Log hiding (sum)

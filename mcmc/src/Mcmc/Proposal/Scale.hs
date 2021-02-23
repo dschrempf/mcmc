@@ -20,12 +20,13 @@ where
 
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
+import Mcmc.Proposal.Types
 import Numeric.Log
 import Statistics.Distribution.Gamma
 
 -- The actual proposal with tuning parameter. The tuning parameter does not
 -- change the mean.
-scaleSimple :: Double -> Double -> Double -> ProposalSimple Double
+scaleSimple :: Shape -> Scale -> TuningParameter -> ProposalSimple Double
 scaleSimple k th t =
   genericContinuous
     (gammaDistr (k / t) (th * t))
@@ -37,10 +38,8 @@ scaleSimple k th t =
 
 -- | Multiplicative proposal with gamma distributed kernel.
 scale ::
-  -- | Shape.
-  Double ->
-  -- | Scale.
-  Double ->
+  Shape ->
+  Scale ->
   PName ->
   PWeight ->
   Tune ->
@@ -54,8 +53,7 @@ scale k th = createProposal description (scaleSimple k th) (PDimension 1)
 -- The scale of the gamma distribution is set to (shape)^{-1}, so that the mean
 -- of the gamma distribution is 1.0.
 scaleUnbiased ::
-  -- | Shape.
-  Double ->
+  Shape ->
   PName ->
   PWeight ->
   Tune ->
@@ -64,7 +62,7 @@ scaleUnbiased k = createProposal description (scaleSimple k (1 / k)) (PDimension
   where
     description = PDescription $ "Scale unbiased; shape: " ++ show k
 
-scaleContrarilySimple :: Double -> Double -> Double -> ProposalSimple (Double, Double)
+scaleContrarilySimple :: Shape -> Scale -> TuningParameter -> ProposalSimple (Double, Double)
 scaleContrarilySimple k th t =
   genericContinuous
     (gammaDistr (k / t) (th * t))
@@ -80,10 +78,8 @@ scaleContrarilySimple k th t =
 -- The two values are scaled contrarily so that their product stays constant.
 -- Contrary proposals are useful when parameters are confounded.
 scaleContrarily ::
-  -- | Shape.
-  Double ->
-  -- | Scale.
-  Double ->
+  Shape ->
+  Scale ->
   PName ->
   PWeight ->
   Tune ->

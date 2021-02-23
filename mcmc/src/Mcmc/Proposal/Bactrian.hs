@@ -12,21 +12,26 @@
 --
 -- See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
 module Mcmc.Proposal.Bactrian
-  ( slideBactrian,
+  ( SpikeParameter,
+    slideBactrian,
     scaleBactrian,
   )
 where
 
 import Mcmc.Proposal
+import Mcmc.Proposal.Types
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
 import System.Random.MWC
 import System.Random.MWC.Distributions
 
+-- | Type synonym indicating the spike parameter.
+type SpikeParameter = Double
+
 genBactrian ::
-  Double ->
-  Double ->
+  SpikeParameter ->
+  StandardDeviation ->
   GenIO ->
   IO Double
 genBactrian m s g = do
@@ -37,7 +42,7 @@ genBactrian m s g = do
   b <- bernoulli 0.5 g
   return $ if b then x else - x
 
-logDensityBactrian :: Double -> Double -> Double -> Log Double
+logDensityBactrian :: SpikeParameter -> StandardDeviation  -> Double -> Log Double
 logDensityBactrian m s x = Exp $ log $ kernel1 + kernel2
   where
     mn = m * s
@@ -48,8 +53,8 @@ logDensityBactrian m s x = Exp $ log $ kernel1 + kernel2
     kernel2 = density dist2 x
 
 bactrianAdditive ::
-  Double ->
-  Double ->
+  SpikeParameter ->
+  StandardDeviation  ->
   Double ->
   GenIO ->
   IO (Double, Log Double, Log Double)
@@ -59,9 +64,9 @@ bactrianAdditive m s x g = do
 
 -- bactrianSimple lens spike stdDev tune forwardOp backwardOp
 bactrianAdditiveSimple ::
-  Double ->
-  Double ->
-  Double ->
+  SpikeParameter ->
+  StandardDeviation  ->
+  TuningParameter  ->
   ProposalSimple Double
 bactrianAdditiveSimple m s t
   | m < 0 = error "bactrianAdditiveSimple: Spike parameter negative."
@@ -81,15 +86,10 @@ bactrianAdditiveSimple m s t
 --
 -- See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
 slideBactrian ::
-  -- | Spike parameter \(m\).
-  Double ->
-  -- | Standard deviation \(s\).
-  Double ->
-  -- | Name.
+  SpikeParameter ->
+  StandardDeviation ->
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal Double
 slideBactrian m s = createProposal description (bactrianAdditiveSimple m s) (PDimension 1)
@@ -106,8 +106,8 @@ fInv :: Double -> Double
 fInv dx = recip (1 - dx) - 1
 
 bactrianMult ::
-  Double ->
-  Double ->
+  SpikeParameter ->
+  StandardDeviation  ->
   Double ->
   GenIO ->
   IO (Double, Log Double, Log Double)
@@ -119,7 +119,7 @@ bactrianMult m s x g = do
       jac = Exp $ log $ recip u
   return (x * u, qYX / qXY, jac)
 
-bactrianMultSimple :: Double -> Double -> Double -> ProposalSimple Double
+bactrianMultSimple :: SpikeParameter -> StandardDeviation  -> TuningParameter  -> ProposalSimple Double
 bactrianMultSimple m s t
   | m < 0 = error "bactrianMultSimple: Spike parameter negative."
   | m >= 1 = error "bactrianMultSimple: Spike parameter 1.0 or larger."
@@ -129,15 +129,10 @@ bactrianMultSimple m s t
 -- | Multiplicative proposal with kernel similar to the silhouette of a Bactrian
 -- camel. See 'slideBactrian'.
 scaleBactrian ::
-  -- | Spike parameter.
-  Double ->
-  -- | Standard deviation.
-  Double ->
-  -- | Name.
+  SpikeParameter ->
+  StandardDeviation ->
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal Double
 scaleBactrian m s = createProposal description (bactrianMultSimple m s) (PDimension 1)

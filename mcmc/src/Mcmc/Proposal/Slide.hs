@@ -21,25 +21,21 @@ where
 
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
+import Mcmc.Proposal.Types
 import Statistics.Distribution.Normal
 import Statistics.Distribution.Uniform
 
 -- The actual proposal with tuning parameter.
-slideSimple :: Double -> Double -> Double -> ProposalSimple Double
+slideSimple :: Mean -> StandardDeviation -> TuningParameter -> ProposalSimple Double
 slideSimple m s t =
   genericContinuous (normalDistr m (s * t)) (+) (Just negate) Nothing
 
 -- | Additive proposal with normally distributed kernel.
 slide ::
-  -- | Mean.
-  Double ->
-  -- | Standard deviation.
-  Double ->
-  -- | Name.
+  Mean ->
+  StandardDeviation ->
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal Double
 slide m s = createProposal description (slideSimple m s) (PDimension 1)
@@ -47,7 +43,7 @@ slide m s = createProposal description (slideSimple m s) (PDimension 1)
     description = PDescription $ "Slide; mean: " ++ show m ++ ", sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
-slideSymmetricSimple :: Double -> Double -> ProposalSimple Double
+slideSymmetricSimple :: StandardDeviation -> TuningParameter -> ProposalSimple Double
 slideSymmetricSimple s t =
   genericContinuous (normalDistr 0.0 (s * t)) (+) Nothing Nothing
 
@@ -55,13 +51,9 @@ slideSymmetricSimple s t =
 -- proposal is very fast, because the Metropolis-Hastings-Green ratio does not
 -- include calculation of the forwards and backwards kernels.
 slideSymmetric ::
-  -- | Standard deviation.
-  Double ->
-  -- | Name.
+  StandardDeviation ->
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal Double
 slideSymmetric s = createProposal description (slideSymmetricSimple s) (PDimension 1)
@@ -69,7 +61,7 @@ slideSymmetric s = createProposal description (slideSymmetricSimple s) (PDimensi
     description = PDescription $ "Slide symmetric; sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
-slideUniformSimple :: Double -> Double -> ProposalSimple Double
+slideUniformSimple :: Size -> TuningParameter -> ProposalSimple Double
 slideUniformSimple d t =
   genericContinuous (uniformDistr (- t * d) (t * d)) (+) Nothing Nothing
 
@@ -77,13 +69,9 @@ slideUniformSimple d t =
 -- proposal is very fast, because the Metropolis-Hastings-Green ratio does not
 -- include calculation of the forwards and backwards kernels.
 slideUniformSymmetric ::
-  -- | Delta.
-  Double ->
-  -- | Name.
+  Size ->
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal Double
 slideUniformSymmetric d = createProposal description (slideUniformSimple d) (PDimension 1)
@@ -93,7 +81,11 @@ slideUniformSymmetric d = createProposal description (slideUniformSimple d) (PDi
 contra :: (Double, Double) -> Double -> (Double, Double)
 contra (x, y) u = (x + u, y - u)
 
-slideContrarilySimple :: Double -> Double -> Double -> ProposalSimple (Double, Double)
+slideContrarilySimple ::
+  Mean ->
+  StandardDeviation ->
+  TuningParameter ->
+  ProposalSimple (Double, Double)
 slideContrarilySimple m s t =
   genericContinuous (normalDistr m (s * t)) contra (Just negate) Nothing
 
@@ -102,15 +94,10 @@ slideContrarilySimple m s t =
 -- The two values are slid contrarily so that their sum stays constant. Contrary
 -- proposals are useful when parameters are confounded.
 slideContrarily ::
-  -- | Mean.
-  Double ->
-  -- | Standard deviation.
-  Double ->
-  -- | Name.
+  Mean ->
+  StandardDeviation ->
   PName ->
-  -- | Weight.
   PWeight ->
-  -- | Enable tuning.
   Tune ->
   Proposal (Double, Double)
 slideContrarily m s = createProposal description (slideContrarilySimple m s) (PDimension 2)

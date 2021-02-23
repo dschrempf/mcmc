@@ -27,6 +27,7 @@ import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.Vector.Unboxed as V
 import Mcmc.Proposal
+import Mcmc.Proposal.Types
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Beta
@@ -77,11 +78,11 @@ simplexFromVector v
 -- | Create the uniform element of the K-dimensional simplex.
 --
 -- Set all values to \(1/D\).
-simplexUniform :: Int -> Simplex
+simplexUniform :: Dimension -> Simplex
 simplexUniform k = either error id $ simplexFromVector $ V.replicate k (1.0 / fromIntegral k)
 
 -- Tuning function is inverted (high alpha means small steps).
-getTuningFunction :: Double -> (Double -> Double)
+getTuningFunction :: TuningParameter -> (TuningParameter -> TuningParameter)
 getTuningFunction t = (/ t'')
   where
     -- Start with small steps.
@@ -98,7 +99,7 @@ getTuningFunction t = (/ t'')
 -- The values determining the proposal size have been set using an example
 -- analysis. They are good values for this analysis, but may fail for other
 -- analyses.
-dirichletSimple :: Double -> ProposalSimple Simplex
+dirichletSimple :: TuningParameter -> ProposalSimple Simplex
 dirichletSimple t (SimplexUnsafe xs) g = do
   -- If @t@ is high and above 1.0, the parameter vector will be low, and the
   -- variance will be high. If @t@ is low and below 1.0, the parameter vector
@@ -147,7 +148,7 @@ dirichlet = createProposal (PDescription "Dirichlet") dirichletSimple
 -- analyses.
 --
 -- See also the 'dirichlet' proposal.
-betaSimple :: Int -> Double -> ProposalSimple Simplex
+betaSimple :: Dimension -> TuningParameter -> ProposalSimple Simplex
 betaSimple i t (SimplexUnsafe xs) g = do
   -- Shape parameters of beta distribution. Do not assume that the sum of the
   -- elements of 'xs' is 1.0, because then repeated proposals let the sum of the
@@ -203,7 +204,7 @@ betaSimple i t (SimplexUnsafe xs) g = do
 --
 -- This proposal has been assigned a dimension of 2. See the discussion at
 -- 'PDimension'.
-beta :: Int -> PName -> PWeight -> Tune -> Proposal Simplex
+beta :: Dimension -> PName -> PWeight -> Tune -> Proposal Simplex
 beta i = createProposal description (betaSimple i) (PDimension 2)
   where
     description = PDescription $ "Beta; coordinate: " ++ show i
