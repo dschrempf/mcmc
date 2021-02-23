@@ -344,8 +344,7 @@ marginalLikelihood ::
   LikelihoodFunction a ->
   Cycle a ->
   Monitor a ->
-  -- | Initial state.
-  a ->
+  InitialState a ->
   -- | A source of randomness. For reproducible runs, make sure to use
   -- generators with the same seed.
   GenIO ->

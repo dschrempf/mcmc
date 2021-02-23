@@ -255,8 +255,7 @@ mc3 ::
   Cycle a ->
   Monitor a ->
   TraceLength ->
-  -- | Initial state.
-  a ->
+  InitialState a ->
   GenIO ->
   IO (MC3 a)
 mc3 s pr lh cc mn tr i0 g

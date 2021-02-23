@@ -70,10 +70,7 @@ mhg ::
   Cycle a ->
   Monitor a ->
   TraceLength ->
-  -- | Initial state.
-  a ->
-  -- | A source of randomness. For reproducible runs, make sure to use
-  -- generators with the same seed.
+  InitialState a ->
   GenIO ->
   IO (MHG a)
 mhg pr lh cc mn trLen i0 g = do

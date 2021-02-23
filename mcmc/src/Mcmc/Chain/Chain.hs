@@ -14,6 +14,7 @@ module Mcmc.Chain.Chain
     noPrior,
     LikelihoodFunction,
     noLikelihood,
+    InitialState,
     Chain (..),
   )
 where
@@ -30,19 +31,22 @@ import Numeric.Log
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
 
--- | Prior function.
+-- | Type synonym to indicate the prior function.
 type PriorFunction a = a -> Log Double
 
 -- | Flat prior function. Useful for testing and debugging.
 noPrior :: PriorFunction a
 noPrior = const 1.0
 
--- | Likelihood function.
+-- | Type synonym to indicate the likelihood function.
 type LikelihoodFunction a = a -> Log Double
 
 -- | Flat likelihood function. Useful for testing and debugging.
 noLikelihood :: LikelihoodFunction a
 noLikelihood = const 1.0
+
+-- | Type synonym to indicate the initial state.
+type InitialState a = a
 
 -- | The chain contains all information to run an MCMC sampler.
 --
