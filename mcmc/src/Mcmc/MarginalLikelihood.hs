@@ -210,12 +210,9 @@ mlRun xs prf lhf cc mn i0 g = do
       is = mlIterations s
       biI = mlInitialBurnIn s
       biP = mlPointBurnIn s
-      -- TODO!
-      ssI = Settings nm biI is Overwrite Sequential NoSave LogFileOnly Info
+      -- TODO: Adequate verbosity for the sub MCMC runs.
+      ssI = Settings nm biI (Iterations 0) Overwrite Sequential NoSave LogFileOnly Info
       ssP = Settings nm biP is Overwrite Sequential NoSave LogFileOnly Info
-      -- -- Be quiet for the sub MCMC runs.
-      -- ssI = Settings nm biI is Fail Sequential NoSave Debug
-      -- ssP = Settings nm biP is Fail Sequential NoSave Debug
       trLen = TraceMinimum $ fromIterations is
   logDebugB "mlRun: Initialize MHG algorithm."
   a0 <- liftIO $ mhg prf lhf cc mn trLen i0 g
