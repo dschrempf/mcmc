@@ -26,8 +26,9 @@ module Mcmc.Proposal
     Tuner (tParam, tFunc),
     Tune (..),
     createProposal,
-    tuningParamMin,
-    tuningParamMax,
+    TuningParameter,
+    tuningParameterMin,
+    tuningParameterMax,
     tune,
     getOptimalRate,
     proposalHeader,
@@ -192,8 +193,8 @@ convertProposalSimple l s = s'
 
 -- | Tune the acceptance rate of a 'Proposal'; see 'tune', or 'autoTuneCycle'.
 data Tuner a = Tuner
-  { tParam :: Double,
-    tFunc :: Double -> ProposalSimple a
+  { tParam :: TuningParameter,
+    tFunc :: TuningParameter -> ProposalSimple a
   }
 
 convertTuner :: Lens' b a -> Tuner a -> Tuner b
@@ -205,6 +206,9 @@ convertTuner l (Tuner p f) = Tuner p f'
 data Tune = Tune | NoTune
   deriving (Show, Eq)
 
+-- | Type synonym indicating a tuning parameter.
+type TuningParameter = Double
+
 -- | Create a tuneable proposal.
 createProposal ::
   -- | Description of the proposal type and parameters.
@@ -212,7 +216,7 @@ createProposal ::
   -- | Function creating a simple proposal for a given tuning parameter. The
   -- larger the tuning parameter, the larger the proposal (and the lower the
   -- expected acceptance rate), and vice versa.
-  (Double -> ProposalSimple a) ->
+  (TuningParameter -> ProposalSimple a) ->
   -- | Dimension.
   PDimension ->
   -- | Name.
@@ -227,31 +231,31 @@ createProposal r f d n w NoTune = Proposal n r d w (f 1.0) Nothing
 
 -- | Minimal tuning parameter; @1e-12@, subject to change.
 --
--- >>> tuningParamMin
+-- >>> tuningParameterMin
 -- 1e-5
-tuningParamMin :: Double
-tuningParamMin = 1e-5
+tuningParameterMin :: TuningParameter
+tuningParameterMin = 1e-5
 
 -- | Maximal tuning parameter; @1e12@, subject to change.
--- >>> tuningParamMax
+-- >>> tuningParameterMax
 -- 1e5
-tuningParamMax :: Double
-tuningParamMax = 1e5
+tuningParameterMax :: TuningParameter
+tuningParameterMax = 1e5
 
 -- | Tune a 'Proposal'.
 --
 -- The size of the proposal is proportional to the tuning parameter which has a
--- positive lower bound of 'tuningParamMin'.
+-- positive lower bound of 'tuningParameterMin'.
 --
 -- The tuning function maps the current tuning parameter to a new one.
 --
 -- Return 'Nothing' if 'Proposal' is not tuneable.
-tune :: (Double -> Double) -> Proposal a -> Maybe (Proposal a)
+tune :: (TuningParameter -> TuningParameter) -> Proposal a -> Maybe (Proposal a)
 tune f m = do
   (Tuner t g) <- pTuner m
   -- Ensure that the tuning parameter is strictly positive and well bounded.
-  let t' = max tuningParamMin (f t)
-      t'' = min tuningParamMax t'
+  let t' = max tuningParameterMin (f t)
+      t'' = min tuningParameterMax t'
   return $ m {pSimple = g t'', pTuner = Just $ Tuner t'' g}
 
 -- | See 'PDimension'.
@@ -368,7 +372,7 @@ getNProposalsPerCycle (Cycle xs o) = case o of
     once = sum $ map (fromPWeight . pWeight) xs
 
 -- | Tune 'Proposal's in the 'Cycle'. See 'tune'.
-tuneCycle :: M.Map (Proposal a) (Double -> Double) -> Cycle a -> Cycle a
+tuneCycle :: M.Map (Proposal a) (TuningParameter -> TuningParameter) -> Cycle a -> Cycle a
 tuneCycle m c =
   if sort (M.keys m) == sort ps
     then c {ccProposals = map tuneF ps}
@@ -435,12 +439,11 @@ summarizeProposal ::
   PName ->
   PDescription ->
   PWeight ->
-  -- Tuning parameter.
-  Maybe Double ->
+  Maybe TuningParameter ->
   PDimension ->
   Maybe (Int, Int, Double) ->
   BL.ByteString
-summarizeProposal name description weight tuningParam dimension ar =
+summarizeProposal name description weight tuningParameter dimension ar =
   renderRow
     (BL.pack $ fromPName name)
     (BL.pack $ fromPDescription description)
@@ -457,16 +460,16 @@ summarizeProposal name description weight tuningParam dimension ar =
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) ar
     acceptRate = BL.fromStrict $ maybe "" (BC.toFixed 2 . (^. _3)) ar
     optimalRate = BL.fromStrict $ BC.toFixed 2 $ getOptimalRate dimension
-    tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) tuningParam
+    tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) tuningParameter
     checkRate rate
       | rate < rateMin = Just "rate too low"
       | rate > rateMax = Just "rate too high"
       | otherwise = Nothing
     checkTuningParam tp
-      | tp <= (1.1 * tuningParamMin) = Just "tuning parameter too low"
-      | tp >= (0.9 * tuningParamMax) = Just "tuning parameter too high"
+      | tp <= (1.1 * tuningParameterMin) = Just "tuning parameter too low"
+      | tp >= (0.9 * tuningParameterMax) = Just "tuning parameter too high"
       | otherwise = Nothing
-    tps = checkTuningParam =<< tuningParam
+    tps = checkTuningParam =<< tuningParameter
     ars = (checkRate . (^. _3)) =<< ar
     manualAdjustmentStr =
       let

@@ -18,7 +18,6 @@ import Mcmc
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
-import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
 import qualified System.Random.MWC as R
@@ -62,8 +61,9 @@ spec = do
                 Overwrite
                 Sequential
                 NoSave
+                LogStdOutOnly
                 Quiet
-        c <- fromMHG <$> mhg noPrior lh proposals mon 0 gen
+        c <- fromMHG <$> mhg noPrior lh proposals mon TraceAuto 0 gen
         savedChain <- toSavedChain c
         c' <- fromSavedChain noPrior lh proposals mon savedChain
         putStrLn "@load . save@ should be @id@."

@@ -13,11 +13,11 @@
 --
 -- Creation date: Tue Jan 12 09:03:04 2021.
 module Mcmc.Logger
-  ( Verbosity (..),
+  ( LogMode (..),
+    Verbosity (..),
     HasLock (..),
     HasLogHandles (..),
     HasStartingTime (..),
-    LogMode (..),
     HasLogMode (..),
     HasVerbosity (..),
     Logger,
@@ -44,6 +44,16 @@ import Data.Time.Clock
 import Mcmc.Monitor.Time
 import System.IO
 
+-- TODO: Combine LogMode and Verbosity to:
+--
+-- data Verbosity = Quiet | Warn LogMode | Info LogMode | Debug LogMode
+
+-- | Define where the log output should be directed to.
+data LogMode = LogStdOutAndFile | LogStdOutOnly | LogFileOnly
+  deriving (Eq, Read, Show)
+
+$(deriveJSON defaultOptions ''LogMode)
+
 -- | Not much to say here.
 data Verbosity = Quiet | Warn | Info | Debug
   deriving (Eq, Ord, Read, Show)
@@ -61,12 +71,6 @@ class HasLogHandles e where
 -- | Types with starting time.
 class HasStartingTime s where
   getStartingTime :: s -> UTCTime
-
--- | Define where the log output should be directed to.
-data LogMode = LogStdOutAndFile | LogStdOutOnly | LogFileOnly
-  deriving (Eq, Read, Show)
-
-$(deriveJSON defaultOptions ''LogMode)
 
 class HasLogMode s where
   getLogMode :: s -> LogMode

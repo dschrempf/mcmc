@@ -53,7 +53,7 @@ data SavedChain a = SavedChain
     savedTrace :: C.Stack VB.Vector (Link a),
     savedAcceptance :: Acceptance Int,
     savedSeed :: VU.Vector Word32,
-    savedTuningParameters :: [Maybe Double]
+    savedTuningParameters :: [Maybe TuningParameter]
   }
   deriving (Eq, Read, Show)
 

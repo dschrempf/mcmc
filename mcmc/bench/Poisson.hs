@@ -75,6 +75,7 @@ poissonBench g = do
           Overwrite
           Sequential
           NoSave
+          LogStdOutOnly
           Quiet
-  a <- mhg noPrior lh proposals mon initial g
+  a <- mhg noPrior lh proposals mon TraceAuto initial g
   void $ mcmc s a
