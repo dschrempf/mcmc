@@ -119,4 +119,4 @@ main = do
           Overwrite
           LogStdOutAndFile
           Info
-  void $ marginalLikelihood ss pr (lh xs) cc (noMonitor 1000) 0.01 g
+  void $ marginalLikelihood ss pr (lh xs) cc (simpleMonitor 1000) 0.01 g

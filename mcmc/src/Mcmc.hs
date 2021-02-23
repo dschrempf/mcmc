@@ -157,7 +157,7 @@ module Mcmc
     monitorFile,
     MonitorBatch,
     monitorBatch,
-    noMonitor,
+    simpleMonitor,
     module Mcmc.Monitor.Parameter,
     module Mcmc.Monitor.ParameterBatch,
 
