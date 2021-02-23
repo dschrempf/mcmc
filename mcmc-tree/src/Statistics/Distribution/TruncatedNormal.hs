@@ -17,7 +17,9 @@
 -- from that of a normally distributed random variable by bounding the random
 -- variable from either below or above (or both).
 module Statistics.Distribution.TruncatedNormal
-  ( TruncatedNormalDistribution,
+  ( LowerBoundary,
+    UpperBoundary,
+    TruncatedNormalDistribution,
 
     -- * Constructors
     truncatedNormalDistr,
@@ -26,18 +28,25 @@ where
 
 import Data.Data
 import GHC.Generics
+import Mcmc.Statistics.Types
 import Numeric.MathFunctions.Constants
 import Numeric.SpecFunctions
 import qualified Statistics.Distribution as D
+
+-- | Type synonym indicating the lower boundary.
+type LowerBoundary = Double
+
+-- | Type synonym indicating the upper boundary.
+type UpperBoundary = Double
 
 -- | The truncated normal distribution.
 --
 -- See https://en.wikipedia.org/wiki/Truncated_normal_distribution.
 data TruncatedNormalDistribution = TND
-  { mean :: {-# UNPACK #-} !Double,
-    stdDev :: {-# UNPACK #-} !Double,
-    lowerB :: {-# UNPACK #-} !Double,
-    upperB :: {-# UNPACK #-} !Double,
+  { mean :: {-# UNPACK #-} !Mean,
+    stdDev :: {-# UNPACK #-} !StandardDeviation,
+    lowerB :: {-# UNPACK #-} !LowerBoundary,
+    upperB :: {-# UNPACK #-} !UpperBoundary,
     tndPhi2Alpha :: {-# UNPACK #-} !Double,
     tndDenom :: {-# UNPACK #-} !Double
   }
@@ -52,14 +61,10 @@ instance D.ContDistr TruncatedNormalDistribution where
 
 -- | Create a truncated normal distribution from parameters.
 truncatedNormalDistr ::
-  -- | Mean of distribution.
-  Double ->
-  -- | Standard deviation of distribution.
-  Double ->
-  -- | Lower bound.
-  Double ->
-  -- | Upper bound.
-  Double ->
+  Mean ->
+  StandardDeviation ->
+  LowerBoundary ->
+  UpperBoundary ->
   TruncatedNormalDistribution
 truncatedNormalDistr m s a b
   | s <= 0 = error "truncatedNormalDistr: Standard deviation must be positive."

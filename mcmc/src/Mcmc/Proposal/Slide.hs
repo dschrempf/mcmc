@@ -21,7 +21,7 @@ where
 
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
-import Mcmc.Proposal.Types
+import Mcmc.Statistics.Types
 import Statistics.Distribution.Normal
 import Statistics.Distribution.Uniform
 

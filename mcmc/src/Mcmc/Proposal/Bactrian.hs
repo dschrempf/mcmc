@@ -19,7 +19,7 @@ module Mcmc.Proposal.Bactrian
 where
 
 import Mcmc.Proposal
-import Mcmc.Proposal.Types
+import Mcmc.Statistics.Types
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal

@@ -37,9 +37,6 @@ type Node = Int
 -- Branch length.
 type Length = Double
 
--- Mean.
-type Mean = Double
-
 -- Standard deviation.
 type StdDev = Double
 

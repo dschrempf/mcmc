@@ -27,7 +27,7 @@ import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.Vector.Unboxed as V
 import Mcmc.Proposal
-import Mcmc.Proposal.Types
+import Mcmc.Statistics.Types
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Beta

@@ -1,5 +1,5 @@
 -- |
--- Module      :  Mcmc.Proposal.Types
+-- Module      :  Mcmc.Statistics.Types
 -- Description :  Type synonyms
 -- Copyright   :  (c) 2021 Dominik Schrempf
 -- License     :  GPL-3.0-or-later
@@ -9,7 +9,7 @@
 -- Portability :  portable
 --
 -- Creation date: Tue Feb 23 14:51:06 2021.
-module Mcmc.Proposal.Types
+module Mcmc.Statistics.Types
   ( Mean,
     StandardDeviation,
     Shape,

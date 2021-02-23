@@ -20,7 +20,7 @@ where
 
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
-import Mcmc.Proposal.Types
+import Mcmc.Statistics.Types
 import Numeric.Log
 import Statistics.Distribution.Gamma
 

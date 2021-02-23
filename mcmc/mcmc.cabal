@@ -63,6 +63,7 @@ library
       Mcmc.Proposal.Slide
       Mcmc.Proposal.Simplex
       Mcmc.Settings
+      Mcmc.Statistics.Types
   other-modules:
       Mcmc.Internal.ByteString
       Mcmc.Internal.Random

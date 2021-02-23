@@ -43,15 +43,14 @@ import Mcmc.Tree.Import ()
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Proposal.Common
 import Mcmc.Tree.Types
+import Mcmc.Statistics.Types
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
 slideNodeAtUltrametricSimple ::
   Path ->
-  -- Standard deviation.
-  Double ->
-  -- Tuning parameter.
-  Double ->
+  StandardDeviation ->
+  TuningParameter ->
   ProposalSimple (HeightTree a)
 slideNodeAtUltrametricSimple pth s t tr g
   | null children = error "slideNodeAtUltrametricSimple: Cannot slide leaf."
@@ -96,8 +95,7 @@ slideNodeAtUltrametricSimple pth s t tr g
 -- - The path leads to a leaf.
 slideNodeAtUltrametric ::
   Path ->
-  -- | Standard deviation.
-  Double ->
+  StandardDeviation ->
   PName ->
   PWeight ->
   Tune ->
@@ -117,8 +115,7 @@ slideNodeAtUltrametric pth ds =
 -- Do not slide the root nor the leaves.
 slideNodesUltrametric ::
   Tree e a ->
-  -- | Standard deviation.
-  Double ->
+  StandardDeviation ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
@@ -159,10 +156,8 @@ scaleSubTreeAtUltrametricSimple ::
   -- Number of inner nodes.
   Int ->
   Path ->
-  -- Standard deviation.
-  Double ->
-  -- Tuning parameter.
-  Double ->
+  StandardDeviation ->
+  TuningParameter ->
   ProposalSimple (HeightTree a)
 scaleSubTreeAtUltrametricSimple n pth ds t tr g
   | null children = error "scaleSubTreeAtUltrametricSimple: Cannot scale sub tree of leaf."
@@ -201,8 +196,7 @@ scaleSubTreeAtUltrametric ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e a ->
   Path ->
-  -- | Standard deviation.
-  Double ->
+  StandardDeviation ->
   PName ->
   PWeight ->
   Tune ->
@@ -223,8 +217,7 @@ scaleSubTreeAtUltrametric tr pth sd =
 -- Do not scale the root nor the leaves.
 scaleSubTreesUltrametric ::
   Tree e a ->
-  -- | Standard deviation.
-  Double ->
+  StandardDeviation ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
@@ -245,8 +238,8 @@ scaleSubTreesUltrametric tr s n w t =
 -- See 'pulleyTruncatedNormalSample'. However, we have to honor more constraints
 -- in the ultrametric case.
 pulleyUltrametricTruncatedNormalSample ::
-  Double ->
-  Double ->
+  StandardDeviation ->
+  TuningParameter ->
   HeightTree a ->
   GenIO ->
   IO (Double, Log Double)
@@ -277,8 +270,8 @@ pulleyUltrametricSimple ::
   Int ->
   -- Number of inner nodes of right tree.
   Int ->
-  Double ->
-  Double ->
+  StandardDeviation ->
+  TuningParameter ->
   ProposalSimple (HeightTree a)
 pulleyUltrametricSimple nL nR s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyUltrametricTruncatedNormalSample s t tr g
@@ -319,8 +312,7 @@ pulleyUltrametricSimple _ _ _ _ _ _ = error "pulleyUltrametricSimple: Node is no
 pulleyUltrametric ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e a ->
-  -- | Standard deviation.
-  Double ->
+  StandardDeviation ->
   PName ->
   PWeight ->
   Tune ->

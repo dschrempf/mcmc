@@ -29,6 +29,7 @@ import Mcmc.Proposal.Scale
 import Mcmc.Tree.Import ()
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Proposal.Common
+import Mcmc.Statistics.Types
 import Mcmc.Tree.Types
 import Numeric.Log hiding (sum)
 import Statistics.Distribution.Gamma
@@ -43,8 +44,7 @@ import System.Random.MWC
 --
 -- See 'scaleUnbiased'.
 scaleBranch ::
-  -- | Shape.
-  Double ->
+  Shape ->
   PName ->
   PWeight ->
   Tune ->
@@ -57,8 +57,7 @@ scaleBranch s n w t = (branchL . lengthUnsafeL) @~ scaleUnbiased s n w t
 scaleBranches ::
   Tree e a ->
   HandleStem ->
-  -- | Shape.
-  Double ->
+  Shape ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
@@ -89,8 +88,8 @@ scaleTreeJacobian n _ u = Exp $ fromIntegral (n - 2) * log u
 scaleTreeSimple ::
   -- Number of branches.
   Int ->
-  Double ->
-  Double ->
+  Shape ->
+  TuningParameter ->
   ProposalSimple (Tree Length a)
 scaleTreeSimple n k t =
   genericContinuous
@@ -110,8 +109,7 @@ scaleTreeSimple n k t =
 scaleTree ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e b ->
-  -- | Shape.
-  Double ->
+  Shape ->
   PName ->
   PWeight ->
   Tune ->
@@ -129,8 +127,7 @@ scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
 scaleSubTrees ::
   Tree e a ->
   HandleRoot ->
-  -- | Shape.
-  Double ->
+  Shape ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
@@ -152,7 +149,7 @@ scaleSubTrees tr rt s n w t =
 -- See 'truncatedNormalSample'. U is added to the left branch. I.e., if u is
 -- positive, the left branch is elongated.
 pulleyTruncatedNormalSample ::
-  Double -> Double -> Tree Length a -> GenIO -> IO (Double, Log Double)
+  StandardDeviation -> TuningParameter -> Tree Length a -> GenIO -> IO (Double, Log Double)
 pulleyTruncatedNormalSample s t (Node _ _ [l, r])
   | brL <= 0 =
     error $
@@ -168,7 +165,7 @@ pulleyTruncatedNormalSample s t (Node _ _ [l, r])
     b = fromLength brR
 pulleyTruncatedNormalSample _ _ _ = error "pulleyTruncatedNormalSample: Node is not bifurcating."
 
-pulleySimple :: Double -> Double -> ProposalSimple (Tree Length a)
+pulleySimple :: StandardDeviation -> TuningParameter -> ProposalSimple (Tree Length a)
 pulleySimple s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyTruncatedNormalSample s t tr g
   let tr' =
@@ -193,8 +190,7 @@ pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
 --
 -- - The node is not bifurcating.
 pulley ::
-  -- | Standard deviation.
-  Double ->
+  StandardDeviation ->
   PName ->
   PWeight ->
   Tune ->

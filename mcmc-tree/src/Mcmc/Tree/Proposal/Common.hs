@@ -15,8 +15,10 @@ module Mcmc.Tree.Proposal.Common
 where
 
 import Control.Monad
+import Mcmc.Proposal
+import Mcmc.Statistics.Types
 import Numeric.Log
-import Statistics.Distribution
+import Statistics.Distribution hiding (Mean)
 import Statistics.Distribution.TruncatedNormal
 import System.Random.MWC
 
@@ -26,16 +28,11 @@ import System.Random.MWC
 --
 -- NO JACOBIAN IS COMPUTED, because we do not know how the proposal will be used.
 truncatedNormalSample ::
-  -- | Mean.
-  Double ->
-  -- | Standard deviation.
-  Double ->
-  -- | Tuning parameter.
-  Double ->
-  -- | Left bound.
-  Double ->
-  -- | Right bound.
-  Double ->
+  Mean ->
+  StandardDeviation ->
+  TuningParameter ->
+  LowerBoundary ->
+  UpperBoundary ->
   GenIO ->
   -- | (NewValue, MHGRatioWithoutJacobian)
   IO (Double, Log Double)
