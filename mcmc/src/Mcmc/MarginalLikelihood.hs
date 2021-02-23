@@ -141,7 +141,8 @@ sampleAtPoint x ss lhf a = do
   let ch'' = fromMHG a''
       ac = acceptance ch''
       ar = acceptanceRates ac
-  -- logDebugB $ summarizeCycle ac $ cycle ch''
+  logDebugB "sampleAtPoint: Summarize cycle."
+  logDebugB $ summarizeCycle ac $ cycle ch''
   unless (M.null $ M.filter (<= 0.1) ar) $ do logWarnB "Some acceptance rates are below 0.1."
   unless (M.null $ M.filter (>= 0.9) ar) $ logWarnB "Some acceptance rates are above 0.9."
   return a''
@@ -367,7 +368,7 @@ marginalLikelihood s prf lhf cc mn i0 g = do
     ( do
         logInfoStartingTime
         logInfoB "Estimate marginal likelihood."
-        logDebugB "The marginal likelihood settings are:"
+        logDebugB "marginalLikelihood: The marginal likelihood settings are:"
         logDebugS $ ppShow s
         val <- case mlAlgorithm s of
           ThermodynamicIntegration -> tiWrapper s prf lhf cc mn i0 g
