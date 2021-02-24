@@ -40,6 +40,7 @@ import Mcmc.Monitor
 import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
+import System.Directory
 import System.Random.MWC
 import Text.Printf
 import Text.Show.Pretty
@@ -149,9 +150,8 @@ sampleAtPoint x ss lhf a = do
   where
     -- For debugging set a proper analysis name.
     nm = sAnalysisName ss
-    -- TODO: Put logs into analysis folder.
     getName :: Point -> AnalysisName
-    getName y = nm <> AnalysisName (printf ".point%.5f" y)
+    getName y = nm <> AnalysisName ( "/" <> printf "point%.8f" y)
     ss' = ss {sAnalysisName = getName x}
     -- Amend the likelihood function. Don't calculate the likelihood when the
     -- point is 0.0.
@@ -201,6 +201,8 @@ mlRun ::
   ToJSON a =>
   NPoints ->
   [Point] ->
+  ExecutionMode ->
+  Verbosity ->
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
@@ -209,16 +211,19 @@ mlRun ::
   GenIO ->
   -- For each point a vector of likelihoods stored in log domain.
   ML [VU.Vector (Log Double)]
-mlRun k xs prf lhf cc mn i0 g = do
+mlRun k xs em vb prf lhf cc mn i0 g = do
   logDebugB "mlRun: Begin."
   s <- reader settings
   let nm = mlAnalysisName s
       is = mlIterations s
       biI = mlInitialBurnIn s
       biP = mlPointBurnIn s
-      -- TODO: Adequate verbosity for the sub MCMC runs.
-      ssI = Settings nm biI (Iterations 0) Overwrite Sequential NoSave LogFileOnly Info
-      ssP = Settings nm biP is Overwrite Sequential NoSave LogFileOnly Info
+      -- Only log sub MCMC samplers when debugging.
+      vb' = case vb of
+        Debug -> Debug
+        _ -> Quiet
+      ssI = Settings nm biI (Iterations 0) em Sequential NoSave LogFileOnly vb'
+      ssP = Settings nm biP is em Sequential NoSave LogFileOnly vb'
       trLen = TraceMinimum $ fromIterations is
   logDebugB "mlRun: Initialize MHG algorithm."
   a0 <- liftIO $ mhg prf lhf cc mn trLen i0 g
@@ -260,8 +265,8 @@ tiWrapper s prf lhf cc mn i0 g = do
   -- Parallel execution of both path integrals.
   [lhssForward, lhssBackward] <-
     P.sequence
-      [ mlRun k bsForward prf lhf cc mn i0 g0,
-        mlRun k bsBackward prf lhf cc mn i0 g1
+      [ mlRun k bsForward em vb prf lhf cc mn i0 g0,
+        mlRun k bsBackward em vb prf lhf cc mn i0 g1
       ]
   logInfoEndTime
 
@@ -280,6 +285,8 @@ tiWrapper s prf lhf cc mn i0 g = do
     k = mlNPoints s
     bsForward = getPoints k
     bsBackward = reverse bsForward
+    em = mlExecutionMode s
+    vb = mlVerbosity s
 
 -- Helper function to exponentiate log domain values with a double value.
 pow' :: Log Double -> Double -> Log Double
@@ -336,7 +343,7 @@ sssWrapper ::
   ML (Log Double)
 sssWrapper s prf lhf cc mn i0 g = do
   logInfoB "Stepping stone sampling."
-  logLhss <- mlRun k bsForward' prf lhf cc mn i0 g
+  logLhss <- mlRun k bsForward' em vb prf lhf cc mn i0 g
   logInfoB "The last point does not need to be sampled with stepping stone sampling."
   logDebugB "sssWrapper: Calculate marginal likelihood."
   return $ sssCalculateMarginalLikelihood bsForward logLhss
@@ -344,6 +351,8 @@ sssWrapper s prf lhf cc mn i0 g = do
     k = mlNPoints s
     bsForward = getPoints k
     bsForward' = init bsForward
+    em = mlExecutionMode s
+    vb = mlVerbosity s
 
 -- | Estimate the marginal likelihood.
 marginalLikelihood ::
@@ -362,6 +371,10 @@ marginalLikelihood ::
 marginalLikelihood s prf lhf cc mn i0 g = do
   -- Initialize.
   e <- initializeEnvironment s
+
+  when (mlVerbosity s == Debug) $ do
+    let n = fromAnalysisName $ mlAnalysisName s
+    createDirectoryIfMissing True n
 
   -- Run.
   runReaderT
