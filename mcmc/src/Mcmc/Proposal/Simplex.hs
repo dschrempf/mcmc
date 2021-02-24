@@ -79,6 +79,7 @@ simplexFromVector v
 --
 -- Set all values to \(1/D\).
 simplexUniform :: Dimension -> Simplex
+--                 Should never fail.
 simplexUniform k = either error id $ simplexFromVector $ V.replicate k (1.0 / fromIntegral k)
 
 -- Tuning function is inverted (high alpha means small steps).

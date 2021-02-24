@@ -39,11 +39,11 @@ import Control.Lens hiding (children)
 import Data.Bifunctor
 import ELynx.Tree
 import Mcmc.Proposal
+import Mcmc.Statistics.Types
 import Mcmc.Tree.Import ()
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Proposal.Common
 import Mcmc.Tree.Types
-import Mcmc.Statistics.Types
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
@@ -94,17 +94,19 @@ slideNodeAtUltrametricSimple pth s t tr g
 --
 -- - The path leads to a leaf.
 slideNodeAtUltrametric ::
+  -- | The topology of the tree is used to check the path.
+  Tree e a ->
   Path ->
   StandardDeviation ->
   PName ->
   PWeight ->
   Tune ->
-  Proposal (HeightTree a)
-slideNodeAtUltrametric pth ds =
-  createProposal
-    description
-    (slideNodeAtUltrametricSimple pth ds)
-    (PDimension 1)
+  Proposal (HeightTree b)
+slideNodeAtUltrametric tr pth ds
+  | null pth = error "slideNodeAtUltrametric: Path is empty."
+  | not $ isValidPath tr pth = error $ "slideNodeAtUltrametric: Path is invalid: " <> show pth <> "."
+  | isLeafPath tr pth = error $ "slideNodeAtUltrametric: Path leads to a leaf: " <> show pth <> "."
+  | otherwise = createProposal description (slideNodeAtUltrametricSimple pth ds) (PDimension 1)
   where
     description = PDescription $ "Slide node ultrametric; sd: " ++ show ds
 
@@ -122,13 +124,12 @@ slideNodesUltrametric ::
   Tune ->
   [Proposal (HeightTree b)]
 slideNodesUltrametric tr s n w t =
-  [ slideNodeAtUltrametric pth s (name lb) w t
+  [ slideNodeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
-      let focus = tr ^. subTreeAtUnsafeL pth,
       -- Do not slide the root.
       not (null pth),
       -- Do not slide the leaves.
-      not $ null $ forest focus
+      not (isLeafPath tr pth)
   ]
   where
     name lb = n <> PName (" node " ++ show lb)
@@ -201,11 +202,15 @@ scaleSubTreeAtUltrametric ::
   PWeight ->
   Tune ->
   Proposal (HeightTree b)
-scaleSubTreeAtUltrametric tr pth sd =
-  createProposal
-    description
-    (scaleSubTreeAtUltrametricSimple n pth sd)
-    (PDimension n)
+scaleSubTreeAtUltrametric tr pth sd
+  | null pth = error "scaleSubTreeAtUltrametric: Path is empty."
+  | not $ isValidPath tr pth = error $ "scaleSubTreeAtUltrametric: Path is invalid: " <> show pth <> "."
+  | isLeafPath tr pth = error $ "scaleSubTreeAtUltrametric: Path leads to a leaf: " <> show pth <> "."
+  | otherwise =
+    createProposal
+      description
+      (scaleSubTreeAtUltrametricSimple n pth sd)
+      (PDimension n)
   where
     description = PDescription $ "Scale subtree ultrametrc; sd: " ++ show sd
     n = nInnerNodes $ current $ goPathUnsafe pth $ fromTree tr
