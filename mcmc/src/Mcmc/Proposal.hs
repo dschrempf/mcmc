@@ -234,15 +234,15 @@ createProposal r f d n w NoTune = Proposal n r d w (f 1.0) Nothing
 -- | Minimal tuning parameter; @1e-12@, subject to change.
 --
 -- >>> tuningParameterMin
--- 1e-4
+-- 1e-3
 tuningParameterMin :: TuningParameter
-tuningParameterMin = 1e-4
+tuningParameterMin = 1e-3
 
 -- | Maximal tuning parameter; @1e12@, subject to change.
 -- >>> tuningParameterMax
--- 1e4
+-- 1e3
 tuningParameterMax :: TuningParameter
-tuningParameterMax = 1e4
+tuningParameterMax = 1e3
 
 -- | Tune a 'Proposal'.
 --
