@@ -21,7 +21,7 @@ import qualified Data.Set as S
 import ELynx.Tree
 
 -- Test if the root node of the given tree is an ancestor of the given leaves.
-isAncestor :: Ord a => [a] -> Tree e a -> Bool
+isAncestor :: Ord a => S.Set a -> Tree e a -> Bool
 --                      True if an x of xs is not in the collection of leaves.
 --                False      if an x of xs is not in the collection of leaves. -> OK.
 isAncestor xs t = not $ any (`S.notMember` lvs) xs
@@ -29,26 +29,33 @@ isAncestor xs t = not $ any (`S.notMember` lvs) xs
     lvs = S.fromList $ leaves t
 
 -- Test if the root node of the given tree is the MRCA of the given leaves.
-isMrca :: Ord a => [a] -> Tree e a -> Bool
+isMrca :: Ord a => S.Set a -> Tree e a -> Bool
 --                                    True if any daughter forest is an ancestor.
 --                               False     if any daughter forest is an ancestor. -> OK.
 isMrca xs t = isAncestor xs t && not (any (isAncestor xs) (forest t))
 
--- | Get the path to the MRCA of the given list of node labels on the given
--- tree.
+-- | Get the path to the MRCA of the given list of leaves on the given tree.
 --
--- Assume that the leaves are unique.
+-- Return 'Left' if:
+--
+-- The leaves of the tree contain duplicates.
+--
+-- The list of leaves contains duplicates.
+--
+-- The MRCA cannot be found.
 mrca :: (Ord a, Show a) => [a] -> Tree e a -> Either String Path
-mrca xs = fmap tail . go 0
+mrca xs tr
+  | duplicateLeaves tr = Left "mrca: Tree contains duplicate leaves."
+  | S.size ss /= length xs = Left $ "mrca: List of leaves contains duplicates: " <> show xs <> "."
+  | otherwise = tail <$> go 0 tr
   where
+    ss = S.fromList xs
     go i t
-      | isMrca xs t = Right [i]
+      | isMrca ss t = Right [i]
       --                                    One path will be (Right p).
-      | isAncestor xs t = Right $ i : head (rights [go j t' | (j, t') <- zip [0 ..] (forest t)])
-      | otherwise = Left $ "Could not get MRCA for: " <> show xs
+      | isAncestor ss t = Right $ i : head (rights [go j t' | (j, t') <- zip [0 ..] (forest t)])
+      | otherwise = Left $ "Could not get MRCA for: " <> show xs <> "."
 
--- | See 'mrca'.
---
--- Call 'error' if the MRCA is not found on the tree.
+-- | See 'mrca' but call 'error'.
 mrcaUnsafe :: (Ord a, Show a) => [a] -> Tree e a -> Path
 mrcaUnsafe xs = either error id . mrca xs
