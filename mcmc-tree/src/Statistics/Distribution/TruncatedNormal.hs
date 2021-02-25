@@ -17,9 +17,7 @@
 -- from that of a normally distributed random variable by bounding the random
 -- variable from either below or above (or both).
 module Statistics.Distribution.TruncatedNormal
-  ( LowerBoundary,
-    UpperBoundary,
-    TruncatedNormalDistribution,
+  ( TruncatedNormalDistribution,
 
     -- * Constructors
     truncatedNormalDistr,
@@ -32,12 +30,6 @@ import Mcmc.Statistics.Types
 import Numeric.MathFunctions.Constants
 import Numeric.SpecFunctions
 import qualified Statistics.Distribution as D
-
--- | Type synonym indicating the lower boundary.
-type LowerBoundary = Double
-
--- | Type synonym indicating the upper boundary.
-type UpperBoundary = Double
 
 -- | The truncated normal distribution.
 --

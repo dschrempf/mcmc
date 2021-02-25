@@ -17,6 +17,8 @@ module Mcmc.Statistics.Types
     Scale,
     Dimension,
     Size,
+    LowerBoundary,
+    UpperBoundary,
   )
 where
 
@@ -42,3 +44,9 @@ type Dimension = Int
 --
 -- For example, the interval of the uniform distribution.
 type Size = Double
+
+-- | Type synonym indicating the lower boundary.
+type LowerBoundary = Double
+
+-- | Type synonym indicating the upper boundary.
+type UpperBoundary = Double
