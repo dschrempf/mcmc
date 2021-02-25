@@ -19,7 +19,6 @@ where
 import Control.Monad
 import Lens.Micro
 import Mcmc
-import Numeric.Log hiding (sum)
 import System.Random.MWC
 
 type I = (Double, Double)
