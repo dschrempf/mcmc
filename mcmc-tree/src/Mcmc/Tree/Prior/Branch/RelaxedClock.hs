@@ -1,5 +1,5 @@
 -- |
--- Module      :  Mcmc.Tree.Prior.RelaxedClock
+-- Module      :  Mcmc.Tree.Prior.Branch.RelaxedClock
 -- Description :  Relaxed clock models
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
@@ -9,7 +9,7 @@
 -- Portability :  portable
 --
 -- Creation date: Thu Sep 10 13:53:10 2020.
-module Mcmc.Tree.Prior.RelaxedClock
+module Mcmc.Tree.Prior.Branch.RelaxedClock
   ( gammaDirichlet,
     uncorrelatedGamma,
     uncorrelatedLogNormal,

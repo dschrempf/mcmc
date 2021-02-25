@@ -48,8 +48,10 @@ library
       Mcmc.Tree.Mrca
       Mcmc.Tree.Prior.BirthDeath
       Mcmc.Tree.Prior.Branch
-      Mcmc.Tree.Prior.Node
-      Mcmc.Tree.Prior.RelaxedClock
+      Mcmc.Tree.Prior.Branch.RelaxedClock
+      Mcmc.Tree.Prior.Node.Calibration
+      Mcmc.Tree.Prior.Node.Common
+      Mcmc.Tree.Prior.Node.Constraint
       Mcmc.Tree.Proposal.Common
       Mcmc.Tree.Proposal.Ultrametric
       Mcmc.Tree.Proposal.Unconstrained
