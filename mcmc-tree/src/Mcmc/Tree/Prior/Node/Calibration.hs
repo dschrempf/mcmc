@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 -- |
 -- Module      :  Mcmc.Tree.Prior.Node.Calibration
 -- Description :  Relative node order constraints and node calibrations
@@ -21,12 +23,18 @@ module Mcmc.Tree.Prior.Node.Calibration
     -- * Calibrations
     Calibration (..),
     calibration,
+    loadCalibrations,
     calibrateHardUnsafe,
     calibrateSoftUnsafe,
+    calibrateUnsafe,
   )
 where
 
+import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Csv hiding (Name)
+import qualified Data.Vector as V
 import ELynx.Tree
+import GHC.Generics
 import Mcmc.Chain.Chain
 import Mcmc.Statistics.Types
 import Mcmc.Tree.Mrca
@@ -85,13 +93,13 @@ instance Show Interval where
   show (Interval a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
 
 -- | Specify a lower and an upper bound.
-properInterval :: Double -> Double -> Interval
+properInterval :: LowerBoundary -> UpperBoundary -> Interval
 properInterval a b
   | a < b = Interval (nonNegative a) (positive b)
   | otherwise = error "properInterval: Left bound equal or larger right bound."
 
 -- | Specify a lower bound only. The upper bound is set to infinity.
-lowerBoundOnly :: Double -> Interval
+lowerBoundOnly :: LowerBoundary -> Interval
 lowerBoundOnly a = Interval (nonNegative a) Infinity
 
 -- | Transform an interval by applying a multiplicative change.
@@ -124,7 +132,7 @@ h >* Positive b = h > b
 --
 -- ensures that the root node is older than @YOUNG@, and younger than @OLD@.
 data Calibration = Calibration
-  { calibrationName :: String,
+  { calibrationName :: Name,
     calibrationNode :: Path,
     calibrationInterval :: Interval
   }
@@ -138,16 +146,64 @@ data Calibration = Calibration
 calibration ::
   (Ord a, Show a) =>
   Tree e a ->
-  -- | Name.
-  String ->
+  Name ->
   -- | The most recent common ancestor of the given leaves is the calibrated node.
   [a] ->
   Interval ->
   Calibration
 calibration t n xs = Calibration n p
   where
-    err msg = error $ "calibration: " ++ n ++ ": " ++ msg
+    err msg = error $ "calibration: " ++ show n ++ ": " ++ msg
     p = either err id $ mrca xs t
+
+-- XXX: Maybe use a vector (but we may just fold over it then a list is fine).
+--
+-- type Calibrations = [Calibration]
+
+data CalibrationData = CalibrationData String String String Double (Maybe Double)
+  deriving (Generic, Show)
+
+instance FromRecord CalibrationData
+
+calibrationDataToCalibration :: Tree e Name -> CalibrationData -> Calibration
+calibrationDataToCalibration t (CalibrationData n a b l mr) = calibration t n' [a', b'] i
+  where
+    n' = Name $ BL.pack n
+    a' = Name $ BL.pack a
+    b' = Name $ BL.pack b
+    i = case mr of
+      Nothing -> lowerBoundOnly l
+      Just r -> properInterval l r
+
+-- | Load calibrations from file.
+--
+-- The calibration file is a comma separated values (CSV) file with rows of the
+-- following format:
+--
+-- @
+-- CalibrationName,LeafA,LeafB,LowerBoundary,UpperBoundary
+-- @
+--
+-- The calibrated node is uniquely defined as the most recent common ancestor
+-- (MRCA) of @LeafA@ and @LeafB@. The UpperBoundary can be omitted.
+--
+-- The following line defines a calibration with a lower boundary only:
+--
+-- @
+-- Primates,Human,Chimpanzees,1e6,
+-- @
+--
+-- Call 'error' if
+--
+-- - The file contains errors.
+--
+-- - An MRCA cannot be found.
+loadCalibrations :: Tree e Name -> FilePath -> IO (V.Vector Calibration)
+loadCalibrations t f = do
+  d <- BL.readFile f
+  let mr = decode NoHeader d :: Either String (V.Vector CalibrationData)
+      cds = either error id mr
+  return $ V.map (calibrationDataToCalibration t) cds
 
 -- | Calibrate height of a node with given path using the uniform distribution.
 --
@@ -155,6 +211,8 @@ calibration t n xs = Calibration n p
 --
 -- For reasons of computational efficiency, the path is not checked for
 -- validity. Please do so beforehand using 'calibration'.
+--
+-- Call 'error' if the path is invalid.
 calibrateHardUnsafe ::
   HasHeight a =>
   Calibration ->
@@ -182,6 +240,8 @@ calibrateHardUnsafe c t
 --
 -- For reasons of computational efficiency, the path is not checked for
 -- validity. Please do so beforehand using 'calibration'.
+--
+-- Call 'error' if the path is invalid.
 calibrateSoftUnsafe ::
   HasHeight a =>
   StandardDeviation ->
@@ -199,3 +259,28 @@ calibrateSoftUnsafe s c t
     d = normalDistr 0 s
     (Interval a b) = calibrationInterval c
     p = calibrationNode c
+
+-- XXX: Here, we may have to extract the heights first and then check them. Or
+-- go through all nodes and check if there is a calibration.
+
+-- | Calibrate nodes of a tree using 'calibrateSoftUnsafe'.
+--
+-- Calculate the calibration prior for a given vector of calibrations, the
+-- absolute height of the tree, and the tree with relative heights.
+--
+-- Calibrations can be created using 'calibration' or 'loadCalibrations'. The
+-- reason is that finding the nodes on the tree is a slow process not to be
+-- repeated at each proposal.
+--
+-- Call 'error' if a path is invalid.
+calibrateUnsafe ::
+  HasHeight a =>
+  StandardDeviation ->
+  V.Vector Calibration ->
+  Double ->
+  PriorFunction (Tree e a)
+calibrateUnsafe sd cs h t = V.product $ V.map f cs
+  where
+    f (Calibration n x i) =
+      let i' = transformInterval (recip h) i
+       in calibrateSoftUnsafe sd (Calibration n x i') t
