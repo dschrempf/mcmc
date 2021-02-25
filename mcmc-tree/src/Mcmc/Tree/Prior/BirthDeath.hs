@@ -10,7 +10,10 @@
 --
 -- Creation date: Tue Aug  4 20:37:11 2020.
 module Mcmc.Tree.Prior.BirthDeath
-  ( birthDeath,
+  ( BirthRate,
+    DeathRate,
+    SamplingRate,
+    birthDeath,
   )
 where
 
@@ -18,8 +21,18 @@ where
 -- compared the results to RevBayes, see below.
 
 import ELynx.Tree
+import Mcmc.Chain.Chain
 import Mcmc.Tree.Types
 import Numeric.Log
+
+-- | Type synonym to indicate a birth rate.
+type BirthRate = Double
+
+-- | Type synonym to indicate a death rate.
+type DeathRate = Double
+
+-- | Type synonym to indicate a sampling rate.
+type SamplingRate = Double
 
 -- Compute probabilities D and E at the top of the branch.
 --
@@ -36,11 +49,11 @@ import Numeric.Log
 -- (7.283127121752474e-2,0.9305035687810801)
 computeDE ::
   -- Lambda.
-  Double ->
+  BirthRate ->
   -- Mu.
-  Double ->
+  DeathRate ->
   -- Rho.
-  Double ->
+  SamplingRate ->
   -- Branch length.
   Double ->
   -- E at bottom of branch. Storage in log domain not necessary.
@@ -62,11 +75,11 @@ computeDE la mu rho dt e0 = (nomD / denom / denom, nomE / denom)
 -- Compute probabilities D and E at the top of the branch for la ~= mu.
 computeDENearCritical ::
   -- Lambda.
-  Double ->
+  BirthRate ->
   -- Mu.
-  Double ->
+  DeathRate ->
   -- Rho.
-  Double ->
+  SamplingRate ->
   -- Branch length.
   Double ->
   -- E at bottom of branch. Storage in log domain not necessary.
@@ -118,14 +131,10 @@ epsNearCritical = 1e-6
 birthDeath ::
   -- | Handle the stem?
   HandleStem ->
-  -- | Birth rate.
-  Double ->
-  -- | Death rate.
-  Double ->
-  -- | Sampling rate.
-  Double ->
-  Tree Length a ->
-  Log Double
+  BirthRate ->
+  DeathRate ->
+  SamplingRate ->
+  PriorFunction (Tree Length a)
 birthDeath WithStem la mu rho t
   | la < 0.0 = error "birthDeath: Birth rate is negative."
   | mu < 0.0 = error "birthDeath: Death rate is negative."
@@ -140,13 +149,10 @@ birthDeath WithoutStem _ _ _ _ =
 
 birthDeathWith ::
   -- Computation of D and E. Set to normal or near critical formula.
-  (Double -> Double -> Double -> Double -> Double -> (Double, Double)) ->
-  -- Birth rate.
-  Double ->
-  -- Death rate.
-  Double ->
-  -- Sampling rate.
-  Double ->
+  (BirthRate -> DeathRate -> SamplingRate -> Double -> Double -> (Double, Double)) ->
+  BirthRate ->
+  DeathRate ->
+  SamplingRate ->
   Tree Length a ->
   (Log Double, Double)
 -- First case of the boundary conditions given after Eq. [4].
