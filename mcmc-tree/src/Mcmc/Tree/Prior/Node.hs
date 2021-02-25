@@ -36,6 +36,8 @@ where
 import Control.Lens
 import Data.List
 import ELynx.Tree
+import Mcmc.Chain.Chain
+import Mcmc.Statistics.Types
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Mrca
 import Mcmc.Tree.Types
@@ -76,9 +78,7 @@ getHeightFromNodeUnsafe p t = t ^. subTreeAtUnsafeL p . labelL . hasHeightL
 -- - The younger node is a direct ancestor of the old node.
 --
 -- - The older node is a direct ancestor of the young node.
-validateConstraint ::
-  Constraint ->
-  Either String Constraint
+validateConstraint :: Constraint -> Either String Constraint
 validateConstraint c
   | y `isPrefixOf` o = Left $ getErrMsg "Younger node is direct ancestor of older node (?)."
   | o `isPrefixOf` y = Left $ getErrMsg "No need to constrain older node which is direct ancestor of younger node."
@@ -125,8 +125,7 @@ constraint t n ys os =
 constrainHardUnsafe ::
   HasHeight a =>
   Constraint ->
-  Tree e a ->
-  Log Double
+  PriorFunction (Tree e a)
 constrainHardUnsafe c t
   | getHeightFromNodeUnsafe y t < getHeightFromNodeUnsafe o t = 1
   | otherwise = 0
@@ -147,11 +146,9 @@ constrainHardUnsafe c t
 -- validity. Please do so beforehand using 'constraint' or 'validateConstraint'.
 constrainSoftUnsafe ::
   HasHeight a =>
-  -- | Standard deviation of one sided normal distribution.
-  Double ->
+  StandardDeviation ->
   Constraint ->
-  Tree e a ->
-  Log Double
+  PriorFunction (Tree e a)
 constrainSoftUnsafe s c t
   | hY < hO = 1
   | otherwise = Exp $ logDensity d (hY - hO) - logDensity d 0
@@ -283,8 +280,7 @@ calibration t n xs = Calibration n p
 calibrateHardUnsafe ::
   HasHeight a =>
   Calibration ->
-  Tree e a ->
-  Log Double
+  PriorFunction (Tree e a)
 calibrateHardUnsafe c t
   | h <= a' = 0
   | h >* b = 0
@@ -310,11 +306,9 @@ calibrateHardUnsafe c t
 -- validity. Please do so beforehand using 'calibration'.
 calibrateSoftUnsafe ::
   HasHeight a =>
-  -- | Standard deviation of one sided normal distributions.
-  Double ->
+  StandardDeviation  ->
   Calibration ->
-  Tree e a ->
-  Log Double
+  PriorFunction (Tree e a)
 calibrateSoftUnsafe s c t
   | h <= a' = Exp $ logDensity d (a' - h) - logDensity d 0
   | h >* b = case b of

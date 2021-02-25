@@ -18,7 +18,7 @@ module Mcmc.Tree.Prior.Branch
 where
 
 import ELynx.Tree
-import Mcmc
+import Mcmc.Chain.Chain
 import Mcmc.Tree.Types
 
 -- | Branch wise prior with given prior function.
