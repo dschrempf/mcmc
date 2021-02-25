@@ -21,7 +21,9 @@ where
 
 import qualified Data.Vector.Unboxed as V
 import ELynx.Tree
+import Mcmc.Chain.Chain
 import Mcmc.Prior
+import Mcmc.Statistics.Types
 import Mcmc.Tree.Prior.Branch
 import Mcmc.Tree.Types
 import Numeric.Log hiding (sum)
@@ -73,7 +75,7 @@ gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmet
 --
 -- The rates are distributed according to a gamma distribution with given shape
 -- and scale.
-uncorrelatedGamma :: HandleStem -> Double -> Double -> Tree Length a -> Log Double
+uncorrelatedGamma :: HandleStem -> Shape -> Scale -> PriorFunction (Tree Length a)
 uncorrelatedGamma s k th = branchesWith s (gamma k th)
 
 -- A variant of the log normal distribution. See Yang 2006, equation (7.23).
@@ -91,7 +93,7 @@ logNormal mu var r = Exp $ negate t - e
 -- mean and variance.
 --
 -- See Computational Molecular Evolution (Yang, 2006), Section 7.4.
-uncorrelatedLogNormal :: HandleStem -> Double -> Double -> Tree Length a -> Log Double
+uncorrelatedLogNormal :: HandleStem -> Mean -> Variance -> PriorFunction (Tree Length a)
 uncorrelatedLogNormal s mu var = branchesWith s (logNormal mu var)
 
 -- | Auto-correlated white noise model.
@@ -104,7 +106,7 @@ uncorrelatedLogNormal s mu var = branchesWith s (logNormal mu var)
 -- branches.
 --
 -- Gives unexpected results if the topologies do not match.
-whiteNoise :: HandleStem -> Double -> Tree Length a -> Tree Length a -> Log Double
+whiteNoise :: HandleStem -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
 whiteNoise WithStem v t r = gamma k (1 / k) (fromLength $ branch r) * whiteNoise WithoutStem v t r
   where
     k = fromLength (branch t) / v

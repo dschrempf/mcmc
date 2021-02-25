@@ -12,6 +12,7 @@
 module Mcmc.Statistics.Types
   ( Mean,
     StandardDeviation,
+    Variance,
     Shape,
     Scale,
     Dimension,
@@ -24,6 +25,9 @@ type Mean = Double
 
 -- | Type synonym indicating the standard deviation of a distribution.
 type StandardDeviation = Double
+
+-- | Type synonym indicating the variance of a distribution.
+type Variance = Double
 
 -- | Type synonym indicating the shape of a distribution.
 type Shape = Double

@@ -22,14 +22,14 @@ import Mcmc.Chain.Chain
 import Mcmc.Tree.Types
 
 -- | Branch wise prior with given prior function.
-branchesWith :: HandleStem -> PriorFunction e -> PriorFunction (Tree e a)
-branchesWith WithStem f = product . map f . branches
-branchesWith WithoutStem f = product . map f . tail . branches
+branchesWith :: HandleStem -> PriorFunction Double -> PriorFunction (Tree Length a)
+branchesWith WithStem f = product . map (f . fromLength) . branches
+branchesWith WithoutStem f = product . map (f . fromLength) . tail . branches
 
 -- | See 'branchesWith'.
 --
 -- Evaluate the sub trees up to given layer in parallel. Useful if tree is
 -- large, or if the branch prior distribution takes time to evaluate.
-parBranchesWith :: Int -> HandleStem -> PriorFunction e -> PriorFunction (Tree e a)
-parBranchesWith n WithStem f = parBranchFoldMap n f (*)
-parBranchesWith n WithoutStem f = product . map (parBranchFoldMap (n -1) f (*)) . forest
+parBranchesWith :: Int -> HandleStem -> PriorFunction Double -> PriorFunction (Tree Length a)
+parBranchesWith n WithStem f = parBranchFoldMap n (f . fromLength) (*)
+parBranchesWith n WithoutStem f = product . map (parBranchFoldMap (n -1) (f . fromLength) (*)) . forest
