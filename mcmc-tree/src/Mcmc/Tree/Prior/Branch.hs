@@ -9,6 +9,8 @@
 -- Portability :  portable
 --
 -- Creation date: Mon Jul 27 10:49:11 2020.
+--
+-- Branch wise priors.
 module Mcmc.Tree.Prior.Branch
   ( branchesWith,
     parBranchesWith,
@@ -16,29 +18,18 @@ module Mcmc.Tree.Prior.Branch
 where
 
 import ELynx.Tree
+import Mcmc
 import Mcmc.Tree.Types
-import Numeric.Log
 
--- | Branch length prior with given distribution.
-branchesWith ::
-  HandleStem ->
-  -- | Branch prior distribution.
-  (Double -> Log Double) ->
-  Tree Length a ->
-  Log Double
-branchesWith WithStem f = product . map (f . fromLength) . branches
-branchesWith WithoutStem f = product . map (f . fromLength) . tail . branches
+-- | Branch wise prior with given prior function.
+branchesWith :: HandleStem -> PriorFunction e -> PriorFunction (Tree e a)
+branchesWith WithStem f = product . map f . branches
+branchesWith WithoutStem f = product . map f . tail . branches
 
 -- | See 'branchesWith'.
 --
--- Evaluate the sub trees up to given layer in Useful if tree is large, or if
--- the branch prior distribution takes time to evaluate.
-parBranchesWith ::
-  Int ->
-  HandleStem ->
-  (Double -> Log Double) ->
-  Tree Length a ->
-  Log Double
-parBranchesWith n WithStem f = parBranchFoldMap n (f . fromLength) (*)
-parBranchesWith n WithoutStem f =
-  product . map (parBranchFoldMap (n -1) (f . fromLength) (*)) . forest
+-- Evaluate the sub trees up to given layer in parallel. Useful if tree is
+-- large, or if the branch prior distribution takes time to evaluate.
+parBranchesWith :: Int -> HandleStem -> PriorFunction e -> PriorFunction (Tree e a)
+parBranchesWith n WithStem f = parBranchFoldMap n f (*)
+parBranchesWith n WithoutStem f = product . map (parBranchFoldMap (n -1) f (*)) . forest
