@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
@@ -151,7 +152,7 @@ sampleAtPoint x ss lhf a = do
     -- For debugging set a proper analysis name.
     nm = sAnalysisName ss
     getName :: Point -> AnalysisName
-    getName y = nm <> AnalysisName ( "/" <> printf "point%.8f" y)
+    getName y = nm <> AnalysisName ("/" <> printf "point%.8f" y)
     ss' = ss {sAnalysisName = getName x}
     -- Amend the likelihood function. Don't calculate the likelihood when the
     -- point is 0.0.
@@ -189,7 +190,11 @@ traversePoints i k (b : bs) ss lhf a = do
   -- Extract the likelihoods.
   --
   -- NOTE: This could be sped up by mapping (** -b) on the power likelihoods.
-  let lhs = VU.convert $ VB.map (lhf . state) ls
+  --
+  -- NOTE: This bang is an important one, because if the lhs are not strictly
+  -- calculated here, the complete MCMC runs are dragged along before doing so
+  -- resulting in a severe memory leak.
+  let !lhs = VU.convert $ VB.map (lhf . state) ls
   -- Sample the other points.
   lhss <- traversePoints (i + 1) k bs ss lhf a'
   return $ lhs : lhss
