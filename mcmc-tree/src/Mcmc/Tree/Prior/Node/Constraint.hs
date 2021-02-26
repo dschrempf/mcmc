@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 -- |
 -- Module      :  Mcmc.Tree.Prior.Node.Constraint
 -- Description :  Relative node order constraints and node calibrations
@@ -13,14 +15,19 @@ module Mcmc.Tree.Prior.Node.Constraint
   ( -- * Constraints
     Constraint (..),
     constraint,
-    validateConstraint,
+    loadConstraints,
     constrainHardUnsafe,
     constrainSoftUnsafe,
+    constrainUnsafe,
   )
 where
 
+import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Csv hiding (Name)
 import Data.List
+import qualified Data.Vector as V
 import ELynx.Tree
+import GHC.Generics
 import Mcmc.Chain.Chain
 import Mcmc.Statistics.Types
 import Mcmc.Tree.Mrca
@@ -41,7 +48,7 @@ import Statistics.Distribution.Normal
 -- ensures that the node with path @YOUNGER@ is younger than the node with path
 -- @OLDER@.
 data Constraint = Constraint
-  { constraintName :: String,
+  { constraintName :: Name,
     -- | Path to younger node (closer to the leaves).
     constraintYoungNode :: Path,
     -- | Path to older node (closer to the root).
@@ -49,7 +56,7 @@ data Constraint = Constraint
   }
   deriving (Eq, Read, Show)
 
--- | Check if a constraint is valid.
+-- Check if a constraint is valid.
 --
 -- Return 'Left' if:
 --
@@ -62,9 +69,10 @@ validateConstraint c
   | o `isPrefixOf` y = Left $ getErrMsg "No need to constrain older node which is direct ancestor of younger node."
   | otherwise = Right c
   where
+    n = constraintName c
     y = constraintYoungNode c
     o = constraintOldNode c
-    getErrMsg msg = "validateConstraint: " ++ constraintName c ++ ": " ++ msg
+    getErrMsg msg = "validateConstraint: " ++ show n ++ ": " ++ msg
 
 -- | Create and validate a constraint.
 --
@@ -78,8 +86,7 @@ validateConstraint c
 constraint ::
   (Ord a, Show a) =>
   Tree e a ->
-  -- | Name.
-  String ->
+  Name ->
   -- | The most recent common ancestor of the given leaves is the younger node.
   [a] ->
   -- | The most recent common ancestor of the given leave is the older node.
@@ -90,9 +97,56 @@ constraint t n ys os =
     validateConstraint $
       Constraint n y o
   where
-    err msg = error $ "constraint: " ++ n ++ ": " ++ msg
+    err msg = error $ "constraint: " ++ show n ++ ": " ++ msg
     y = either err id $ mrca ys t
     o = either err id $ mrca os t
+
+-- XXX: Maybe use a vector (but we may just fold over it then a list is fine).
+--
+-- type Constraints = [Constraint]
+
+data ConstraintData = ConstraintData String String String String String
+  deriving (Generic, Show)
+
+instance FromRecord ConstraintData
+
+constraintDataToConstraint :: Tree e Name -> ConstraintData -> Constraint
+constraintDataToConstraint t (ConstraintData n yL yR oL oR) =
+  constraint t (f n) [f yL, f yR] [f oL, f oR]
+  where
+    f = Name . BL.pack
+
+-- | Load constraints from file.
+--
+-- The constraint file is a comma separated values (CSV) file with rows of the
+-- following format:
+--
+-- @
+-- ConstraintName,YoungLeafA,YoungLeafB,OldLeafA,OldLeafB
+-- @
+--
+-- The young and old nodes are uniquely defined as the most recent common
+-- ancestors (MRCA) @YoungLeafA@ and @YoungLeafB@, as well as @OldLeafA@ and
+-- @OldLeafB@.
+--
+-- The following line defines a constraint where the ancestor of leaves A and B
+-- is younger than the ancestor of leaves C and D:
+--
+-- @
+-- ExampleConstraint,A,B,C,D
+-- @
+--
+-- Call 'error' if
+--
+-- - The file contains errors.
+--
+-- - An MRCA cannot be found.
+loadConstraints :: Tree e Name -> FilePath -> IO (V.Vector Constraint)
+loadConstraints t f = do
+  d <- BL.readFile f
+  let mr = decode NoHeader d :: Either String (V.Vector ConstraintData)
+      cds = either error id mr
+  return $ V.map (constraintDataToConstraint t) cds
 
 -- | Hard constrain order of nodes with given paths.
 --
@@ -136,3 +190,25 @@ constrainSoftUnsafe s c t
     d = normalDistr 0 s
     y = constraintYoungNode c
     o = constraintOldNode c
+
+-- XXX: Here, we may have to extract the heights first and then check them. Or
+-- go through all nodes and check if there is a calibration.
+
+-- | Constrain nodes of a tree using 'constrainSoftUnsafe'.
+--
+-- Calculate the constraint prior for a given vector of constraints, and a
+-- tree with relative heights.
+--
+-- Constraints can be created using 'constraint' or 'loadConstraints'. The
+-- reason is that finding the nodes on the tree is a slow process not to be
+-- repeated at each proposal.
+--
+-- Call 'error' if a path is invalid.
+constrainUnsafe ::
+  HasHeight a =>
+  StandardDeviation ->
+  V.Vector Constraint ->
+  PriorFunction (Tree e a)
+constrainUnsafe sd cs t = V.product $ V.map f cs
+  where
+    f x = constrainSoftUnsafe sd x t
