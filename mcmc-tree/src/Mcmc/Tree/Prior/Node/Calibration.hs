@@ -132,7 +132,7 @@ h >* Positive b = h > b
 --
 -- ensures that the root node is older than @YOUNG@, and younger than @OLD@.
 data Calibration = Calibration
-  { calibrationName :: Name,
+  { calibrationName :: String,
     calibrationNode :: Path,
     calibrationInterval :: Interval
   }
@@ -146,14 +146,15 @@ data Calibration = Calibration
 calibration ::
   (Ord a, Show a) =>
   Tree e a ->
-  Name ->
+  -- | Name.
+  String ->
   -- | The most recent common ancestor of the given leaves is the calibrated node.
   [a] ->
   Interval ->
   Calibration
 calibration t n xs = Calibration n p
   where
-    err msg = error $ "calibration: " ++ show n ++ ": " ++ msg
+    err msg = error $ "calibration: " ++ n ++ ": " ++ msg
     p = either err id $ mrca xs t
 
 -- XXX: Maybe use a vector (but we may just fold over it then a list is fine).
@@ -166,9 +167,8 @@ data CalibrationData = CalibrationData String String String Double (Maybe Double
 instance FromRecord CalibrationData
 
 calibrationDataToCalibration :: Tree e Name -> CalibrationData -> Calibration
-calibrationDataToCalibration t (CalibrationData n a b l mr) = calibration t n' [a', b'] i
+calibrationDataToCalibration t (CalibrationData n a b l mr) = calibration t n [a', b'] i
   where
-    n' = Name $ BL.pack n
     a' = Name $ BL.pack a
     b' = Name $ BL.pack b
     i = case mr of

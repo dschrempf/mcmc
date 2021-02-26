@@ -48,7 +48,7 @@ import Statistics.Distribution.Normal
 -- ensures that the node with path @YOUNGER@ is younger than the node with path
 -- @OLDER@.
 data Constraint = Constraint
-  { constraintName :: Name,
+  { constraintName :: String,
     -- | Path to younger node (closer to the leaves).
     constraintYoungNode :: Path,
     -- | Path to older node (closer to the root).
@@ -86,7 +86,8 @@ validateConstraint c
 constraint ::
   (Ord a, Show a) =>
   Tree e a ->
-  Name ->
+  -- | Name.
+  String ->
   -- | The most recent common ancestor of the given leaves is the younger node.
   [a] ->
   -- | The most recent common ancestor of the given leave is the older node.
@@ -112,7 +113,7 @@ instance FromRecord ConstraintData
 
 constraintDataToConstraint :: Tree e Name -> ConstraintData -> Constraint
 constraintDataToConstraint t (ConstraintData n yL yR oL oR) =
-  constraint t (f n) [f yL, f yR] [f oL, f oR]
+  constraint t n [f yL, f yR] [f oL, f oR]
   where
     f = Name . BL.pack
 
@@ -153,7 +154,7 @@ loadConstraints t f = do
 -- A truncated, improper uniform distribution is used.
 --
 -- For reasons of computational efficiency, the paths are not checked for
--- validity. Please do so beforehand using 'constraint' or 'validateConstraint'.
+-- validity. Please do so beforehand using 'constraint'.
 constrainHardUnsafe ::
   HasHeight a =>
   Constraint ->
@@ -175,7 +176,7 @@ constrainHardUnsafe c t
 -- distribution also ensures that the first derivative is continuous.
 --
 -- For reasons of computational efficiency, the paths are not checked for
--- validity. Please do so beforehand using 'constraint' or 'validateConstraint'.
+-- validity. Please do so beforehand using 'constraint'.
 constrainSoftUnsafe ::
   HasHeight a =>
   StandardDeviation ->

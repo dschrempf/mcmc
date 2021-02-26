@@ -72,6 +72,7 @@ class HasLogHandles e where
 class HasStartingTime s where
   getStartingTime :: s -> UTCTime
 
+-- | Types with a log mode.
 class HasLogMode s where
   getLogMode :: s -> LogMode
 
