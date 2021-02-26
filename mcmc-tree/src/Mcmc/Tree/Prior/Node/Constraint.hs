@@ -22,6 +22,7 @@ module Mcmc.Tree.Prior.Node.Constraint
   )
 where
 
+import Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Csv hiding (Name)
 import Data.List
@@ -147,6 +148,7 @@ loadConstraints t f = do
   d <- BL.readFile f
   let mr = decode NoHeader d :: Either String (V.Vector ConstraintData)
       cds = either error id mr
+  when (V.null cds) $ error $ "loadConstraints: No constraints found in file: " <> f <> "."
   return $ V.map (constraintDataToConstraint t) cds
 
 -- | Hard constrain order of nodes with given paths.

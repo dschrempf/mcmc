@@ -30,6 +30,7 @@ module Mcmc.Tree.Prior.Node.Calibration
   )
 where
 
+import Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Csv hiding (Name)
 import qualified Data.Vector as V
@@ -203,6 +204,7 @@ loadCalibrations t f = do
   d <- BL.readFile f
   let mr = decode NoHeader d :: Either String (V.Vector CalibrationData)
       cds = either error id mr
+  when (V.null cds) $ error $ "loadCalibrations: No calibrations found in file: " <> f <> "."
   return $ V.map (calibrationDataToCalibration t) cds
 
 -- | Calibrate height of a node with given path using the uniform distribution.
