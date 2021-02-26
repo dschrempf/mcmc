@@ -19,9 +19,12 @@ module Mcmc.Chain.Chain
   )
 where
 
--- Note: It is not necessary to add another type @b@ to store supplementary
+-- NOTE: It is not necessary to add another type @b@ to store supplementary
 -- information about the chain. The information can just be stored in @a@
 -- equally well.
+
+-- TODO: First class parameters. Make a type class for parameter types (name,
+-- lens, proposals, monitors).
 
 import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
