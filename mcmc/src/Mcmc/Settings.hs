@@ -64,15 +64,32 @@ data BurnInSpecification
   | -- | Burn in for a given number of iterations. Enable auto tuning with a
     -- given period.
     BurnInWithAutoTuning Int Int
+  | -- | Burn in with the given list of auto tuning periods.
+    --
+    -- For example, @BurnInWithCustomAutoTuning [100,200]@ performs 300
+    -- iterations with two auto tuning steps. One after 100 iterations, the
+    -- second one after 200 more iterations.
+    --
+    -- Usually it is useful to auto tune more frequently in the beginning of the
+    -- MCMC run.
+    BurnInWithCustomAutoTuning [Int]
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''BurnInSpecification)
+
+-- Check if the burn in specification is valid.
+burnInValid :: BurnInSpecification -> Bool
+burnInValid NoBurnIn = True
+burnInValid (BurnInWithoutAutoTuning n) = n > 0
+burnInValid (BurnInWithAutoTuning n t) = n > 0 && t > 0
+burnInValid (BurnInWithCustomAutoTuning xs) = not (null xs) && all (> 0) xs
 
 -- | Get the number of burn in iterations.
 burnInIterations :: BurnInSpecification -> Int
 burnInIterations NoBurnIn = 0
 burnInIterations (BurnInWithoutAutoTuning n) = n
 burnInIterations (BurnInWithAutoTuning n _) = n
+burnInIterations (BurnInWithCustomAutoTuning xs) = sum xs
 
 -- | Number of normal iterations after burn in.
 --
@@ -257,7 +274,7 @@ settingsCheck ::
 settingsCheck s@(Settings nm bi i em _ _ _ _) iCurrent
   | null (fromAnalysisName nm) = serr "Analysis name is the empty string."
   | burnInIterations bi < 0 = serr "Number of burn in iterations is negative."
-  | not $ burnInAutoTuningPeriodValid bi = serr "Auto tuning period is zero or negative."
+  | not $ burnInValid bi = serr $ "Burn in setting invalid: " <> show bi
   | fromIterations i < 0 = serr "Number of iterations is negative."
   | burnInIterations bi + fromIterations i - iCurrent < 0 =
     serr "Current iteration is larger than the total number of iterations."
@@ -268,6 +285,3 @@ settingsCheck s@(Settings nm bi i em _ _ _ _) iCurrent
   | otherwise = return ()
   where
     serr = settingsError s iCurrent
-    burnInAutoTuningPeriodValid :: BurnInSpecification -> Bool
-    burnInAutoTuningPeriodValid (BurnInWithAutoTuning _ t) = t > 0
-    burnInAutoTuningPeriodValid _ = True
