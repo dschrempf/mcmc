@@ -122,7 +122,9 @@ mcmcBurnIn a = do
       logInfoS $ "Auto tuning is enabled with a period of " ++ show t ++ "."
       logInfoB $ aStdMonitorHeader a
       let (m, r) = n `divMod` t
-          xs = replicate m t <> [r]
+          -- Don't add if 0. Because then we auto tune without acceptance counts
+          -- and get NaNs.
+          xs = replicate m t <> [r | r > 0]
       a' <- mcmcBurnInWithAutoTuning xs a
       logInfoB "Burn in finished."
       return a'
@@ -226,15 +228,15 @@ mcmc s a = do
 -- Currently, it is only possible to continue MCMC algorithms that have
 -- completed successfully. This restriction is necessary, because for parallel
 -- chains, it is hardly possible to ensure all chains are synchronized when the
--- process is killed.
+-- process is killed or fails.
 --
 -- See:
 --
 -- - 'Mcmc.Algorithm.MHG.mhgLoad'
 --
 -- - 'Mcmc.Algorithm.MC3.mc3Load'
-mcmcContinue :: Algorithm a => Int -> Settings -> a -> IO a
+mcmcContinue :: Algorithm a => Iterations -> Settings -> a -> IO a
 mcmcContinue dn s = mcmc s'
   where
-    n' = Iterations $ fromIterations (sIterations s) + dn
+    n' = Iterations $ fromIterations (sIterations s) + fromIterations dn
     s' = s {sIterations = n', sExecutionMode = Continue}
