@@ -28,6 +28,7 @@ module Mcmc.Logger
     logWarnS,
     logInfoB,
     logInfoS,
+    logInfoHeader,
     logInfoStartingTime,
     logInfoEndTime,
   )
@@ -43,6 +44,8 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Time.Clock
 import Mcmc.Monitor.Time
 import System.IO
+import Paths_mcmc (version)
+import Data.Version (showVersion)
 
 -- TODO: Combine LogMode and Verbosity to:
 --
@@ -141,6 +144,15 @@ logInfoB = logInfoA . logOutB "I: "
 -- | Log info message.
 logInfoS :: (HasLock e, HasLogHandles e, HasVerbosity e) => String -> Logger e ()
 logInfoS = logInfoB . BL.pack
+
+-- | Log info header.
+logInfoHeader :: (HasLock e, HasLogHandles e, HasVerbosity e) => Logger e ()
+logInfoHeader = do
+  logInfoS (replicate 70 '-')
+  logInfoS ("MCMC sampler; version " ++ showVersion version <> ".")
+  logInfoS "Developed by: Dominik Schrempf."
+  logInfoS "License: GPL-3.0-or-later."
+  logInfoS (replicate 70 '-')
 
 -- | Log starting time.
 logInfoStartingTime :: (HasLock e, HasLogHandles e, HasStartingTime e, HasVerbosity e) => Logger e ()

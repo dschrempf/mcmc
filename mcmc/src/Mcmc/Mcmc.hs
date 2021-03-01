@@ -202,6 +202,7 @@ mcmcRun a = do
   reader settings >>= logDebugS . ppShow
 
   -- Initialize.
+  logInfoHeader
   a' <- mcmcInitialize a
   logInfoStartingTime
 
