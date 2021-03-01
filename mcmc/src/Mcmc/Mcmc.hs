@@ -148,14 +148,14 @@ mcmcBurnInWithAutoTuning [x] a = do
   a'' <- mcmcAutotune a'
   logInfoB $ aSummarizeCycle a''
   logInfoS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
-  mcmcResetAcceptance a
+  mcmcResetAcceptance a''
 mcmcBurnInWithAutoTuning (x:xs) a = do
   a' <- mcmcIterate x a
   a'' <- mcmcAutotune a'
   logDebugB $ aSummarizeCycle a''
   logDebugS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   logDebugB $ aStdMonitorHeader a''
-  a''' <- mcmcResetAcceptance a
+  a''' <- mcmcResetAcceptance a''
   mcmcBurnInWithAutoTuning xs a'''
 
 mcmcInitialize :: Algorithm a => a -> MCMC a
