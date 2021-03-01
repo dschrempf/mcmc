@@ -146,9 +146,17 @@ fromSavedMC3 ::
   SavedMC3 a ->
   IO (MC3 a)
 fromSavedMC3 pr lh cc mn (SavedMC3 s scs bs i ac g') = do
-  mhgs <- V.mapM (fmap MHG . fromSavedChain pr lh cc mn) scs
+  mhgs <-
+    V.fromList
+      <$> sequence
+        [ MHG <$> fromSavedChain pf lf cc mn sc
+          | (sc, pf, lf) <- zip3 (V.toList scs) prs lhs
+        ]
   g <- loadGen g'
   return $ MC3 s mhgs bs i ac g
+  where
+    prs = map (heatFunction pr) $ U.toList bs
+    lhs = map (heatFunction lh) $ U.toList bs
 
 -- | The MC3 algorithm.
 data MC3 a = MC3
@@ -177,6 +185,20 @@ instance ToJSON a => Algorithm (MC3 a) where
   aCloseMonitors = mc3CloseMonitors
   aSave = mc3Save
 
+heatFunction ::
+  -- Cold Function.
+  (a -> Log Double) ->
+  -- Reciprocal temperature.
+  Double ->
+  -- The heated prior or likelihood function
+  (a -> Log Double)
+heatFunction f b
+  | b <= 0 = error "heatFunction: Reciprocal temperature is zero or negative."
+  | b == 1.0 = f
+  | otherwise = (** b') . f
+  where
+    b' = Exp $ log b
+
 --  The prior and likelihood values of the current link are updated.
 --
 -- NOTE: The trace is not changed! In particular, the prior and likelihood
@@ -191,7 +213,7 @@ setReciprocalTemperature ::
   Double ->
   MHG a ->
   MHG a
-setReciprocalTemperature prf lhf beta a =
+setReciprocalTemperature prf lhf b a =
   MHG $
     c
       { priorFunction = prf',
@@ -200,15 +222,14 @@ setReciprocalTemperature prf lhf beta a =
       }
   where
     c = fromMHG a
-    b' = Exp $ log beta
     -- We need twice the amount of computations compared to taking the power
     -- after calculating the posterior (pr x * lh x) ** b'. However, I don't
     -- think this is a serious problem.
     --
     -- To minimize computations, it is key to avoid modification of the
     -- reciprocal temperature for the cold chain.
-    prf' = (** b') . prf
-    lhf' = (** b') . lhf
+    prf' = heatFunction prf b
+    lhf' = heatFunction lhf b
     x = state $ link c
 
 initMHG ::

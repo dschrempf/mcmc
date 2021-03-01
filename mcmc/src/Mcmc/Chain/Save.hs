@@ -1,13 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
--- |
--- Module      :  Mcmc.Chain.Save
--- Description :  Save and load a Markov chain
--- Copyright   :  (c) Dominik Schrempf, 2020
--- License     :  GPL-3.0-or-later
---
-
 -- Maintainer  :  dominik.schrempf@gmail.com
 -- Stability   :  unstable
 -- Portability :  portable
@@ -17,6 +10,12 @@
 -- Save and load chains. It is easy to save and restore the current state and
 -- likelihood (or the trace), but it is not feasible to store all the proposals
 -- and so on, so they have to be provided again when continuing a run.
+
+-- |
+-- Module      :  Mcmc.Chain.Save
+-- Description :  Save and load a Markov chain
+-- Copyright   :  (c) Dominik Schrempf, 2020
+-- License     :  GPL-3.0-or-later
 module Mcmc.Chain.Save
   ( SavedChain (..),
     toSavedChain,
@@ -30,6 +29,7 @@ import Data.Aeson.TH
 import Data.List hiding (cycle)
 import qualified Data.Map as M
 import Data.Maybe
+import qualified Data.Stack.Circular as C
 import qualified Data.Vector as VB
 import qualified Data.Vector.Unboxed as VU
 import Data.Word
@@ -40,14 +40,12 @@ import Mcmc.Internal.Random
 import Mcmc.Monitor
 import Mcmc.Proposal
 import Prelude hiding (cycle)
-import qualified Data.Stack.Circular as C
 
 -- | Storable values of a Markov chain.
 --
 -- See 'toSavedChain'.
 data SavedChain a = SavedChain
-  {
-    savedId :: Int,
+  { savedId :: Int,
     savedLink :: Link a,
     savedIteration :: Int,
     savedTrace :: C.Stack VB.Vector (Link a),
@@ -87,13 +85,19 @@ fromSavedChain ::
   IO (Chain a)
 fromSavedChain pr lh cc mn (SavedChain ci it i tr ac' g' ts)
   | pr (state it) /= prior it =
-    error "fromSave: Provided prior function does not match the saved prior."
+    let msg =
+          unlines
+            [ "fromSave: Provided prior function does not match the saved prior.",
+              "fromSave: Current prior:" <> show (prior it) <> ".",
+              "fromSave: Given prior:" <> show (pr $ state it) <> "."
+            ]
+     in error msg
   | lh (state it) /= likelihood it =
     error "fromSave: Provided likelihood function does not match the saved likelihood."
   | otherwise = do
-      g <- loadGen g'
-      tr' <- thawT tr
-      return $ Chain ci it i tr' ac g i pr lh cc' mn
+    g <- loadGen g'
+    tr' <- thawT tr
+    return $ Chain ci it i tr' ac g i pr lh cc' mn
   where
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
     getTuningF mt = case mt of
