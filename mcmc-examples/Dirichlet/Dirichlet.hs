@@ -132,7 +132,7 @@ main = do
       s =
         Settings
           (AnalysisName "dirichlet")
-          (BurnInWithCustomAutoTuning [100,200,300,400,500,500,500])
+          (BurnInWithCustomAutoTuning [100,100,200,300,400,500,500,500,500])
           (Iterations 30000)
           Overwrite
           Sequential
