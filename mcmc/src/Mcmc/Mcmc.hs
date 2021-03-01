@@ -198,11 +198,13 @@ mcmcClose a = do
 -- Initialize the run, execute the run, and close the run.
 mcmcRun :: Algorithm a => a -> MCMC a
 mcmcRun a = do
+  logInfoHeader
+
+  -- Debug settings.
   logDebugB "The MCMC settings are:"
   reader settings >>= logDebugS . ppShow
 
   -- Initialize.
-  logInfoHeader
   a' <- mcmcInitialize a
   logInfoStartingTime
 
