@@ -132,13 +132,13 @@ main = do
       s =
         Settings
           (AnalysisName "dirichlet")
-          (BurnInWithAutoTuning 3000 100)
+          (BurnInWithCustomAutoTuning [100,200,300,400,500,500,500])
           (Iterations 30000)
           Overwrite
           Sequential
           NoSave
           LogStdOutAndFile
-          Info
+          Debug
   -- Initialize the Metropolis-Hastings-Green algorithm.
   a <- mhg pr lh cc mon TraceAuto start g
   -- Run the MCMC sampler.
