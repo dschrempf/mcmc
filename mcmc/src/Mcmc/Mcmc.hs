@@ -23,7 +23,6 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
--- import Control.Monad.Trans.RWS.CPS
 import Control.Monad.Trans.Reader
 import Mcmc.Algorithm
 import Mcmc.Environment

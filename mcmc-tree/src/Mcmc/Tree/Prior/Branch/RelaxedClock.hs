@@ -10,10 +10,16 @@
 --
 -- Creation date: Thu Sep 10 13:53:10 2020.
 module Mcmc.Tree.Prior.Branch.RelaxedClock
-  ( gammaDirichlet,
+  ( -- * Models combining relaxed molecular clocks
+    gammaDirichlet,
+
+    -- * Uncorrelated models
     uncorrelatedGamma,
     uncorrelatedLogNormal,
     whiteNoise,
+
+    -- * Auto-correlated models
+    autocorrelatedLogNormal,
   )
 where
 
@@ -65,7 +71,7 @@ import Statistics.Distribution.Dirichlet
 -- - The \(\alpha\) parameter is negative or zero.
 --
 -- - The number of partitions is smaller than two.
-gammaDirichlet :: Double -> Double -> Double -> Double -> V.Vector Double -> Log Double
+gammaDirichlet :: Double -> Double -> Double -> Double -> PriorFunction (V.Vector Double)
 gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmetric ddSym xs
   where
     muPrior = gamma alphaMu betaMu muMean
@@ -79,8 +85,8 @@ uncorrelatedGamma :: HandleStem -> Shape -> Scale -> PriorFunction (Tree Length 
 uncorrelatedGamma s k th = branchesWith s (gamma k th)
 
 -- A variant of the log normal distribution. See Yang 2006, equation (7.23).
-logNormal :: Double -> Double -> Double -> Log Double
-logNormal mu var r = Exp $ negate t - e
+logNormal' :: Mean -> Variance -> Double -> Log Double
+logNormal' mu var r = Exp $ negate t - e
   where
     t = m_ln_sqrt_2_pi + log (r * sqrt var)
     a = recip $ 2 * var
@@ -94,20 +100,73 @@ logNormal mu var r = Exp $ negate t - e
 --
 -- See Computational Molecular Evolution (Yang, 2006), Section 7.4.
 uncorrelatedLogNormal :: HandleStem -> Mean -> Variance -> PriorFunction (Tree Length a)
-uncorrelatedLogNormal s mu var = branchesWith s (logNormal mu var)
+uncorrelatedLogNormal s mu var = branchesWith s (logNormal' mu var)
 
--- | Auto-correlated white noise model.
+-- | White noise model.
 --
 -- The rates are distributed according to a white noise process with given
--- variance.
+-- variance. This is equivalent to the branch lengths measured in expected
+-- number of substitutions per unit time being distributed according to a gamma
+-- distribution with mean 1 and the given variance.
 --
--- The time tree normalized to height 1.0 has to be given because long branches
--- are expected to have a distribution of rates with a lower variance than short
--- branches.
+-- See Lepage, T., Bryant, D., Philippe, H., & Lartillot, N., A general
+-- comparison of relaxed molecular clock models, Molecular Biology and
+-- Evolution, 24(12), 2669–2680 (2007). http://dx.doi.org/10.1093/molbev/msm193
 --
--- Gives unexpected results if the topologies do not match.
+-- NOTE: The time tree has to be given because the branch length measured in
+-- expected number of substitutions per unit time has to be calculated. Long
+-- branches measured in time are expected to have a distribution of rates with
+-- lower variance than short branches.
+--
+-- For example,
+-- @
+-- prior = whiteNoise variance timeTree rateTree
+-- @
+--
+-- NOTE: The name white noise implies that the process is uncorrelated, but the
+-- prefix is still kept to maintain consistency with the other names.
+--
+-- NOTE: Assume that the topologies of the time and rate trees match.
 whiteNoise :: HandleStem -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
-whiteNoise WithStem v t r = gamma k (1 / k) (fromLength $ branch r) * whiteNoise WithoutStem v t r
+whiteNoise WithStem v t r =
+  gamma k (1 / k) (fromLength $ branch r) * whiteNoise WithoutStem v t r
   where
     k = fromLength (branch t) / v
-whiteNoise WithoutStem v t r = product $ zipWith (whiteNoise WithStem v) (forest t) (forest r)
+whiteNoise WithoutStem v t r =
+  product $ zipWith (whiteNoise WithStem v) (forest t) (forest r)
+
+-- | Auto-correlated log normal model.
+--
+-- Let \(R\) be the rate of the parent branch, and \(\mu\) and \(\sigma^2\) be
+-- two given values roughly denoting mean and variance. Further, let \(t\) be
+-- the length of the current branch measured in unit time. Then, the rate of the
+-- current branch \(r\) is distributed according to a normal distribution with
+-- mean \(\log{R} - \sigma^2 t/2) and variance \(\sigma^2t\).
+--
+-- The correction term is needed to ensure that the mean stays constant. See
+-- Computational Molecular Evolution (Yang, 2006), Section 7.4.3.
+--
+-- NOTE: The time tree has to be given because long branches are expected to
+-- have a distribution of rates with higher variance than short branches. This
+-- is the opposite property compared to the white noise process ('whiteNoise').
+--
+-- For example,
+-- @
+-- prior = autocorrelatedLogNormal initialRate variance timeTree rateTree
+-- @
+--
+-- NOTE: Assume that the topologies of the time and rate trees match.
+autocorrelatedLogNormal ::
+  HandleStem ->
+  Mean ->
+  Variance ->
+  Tree Length a ->
+  PriorFunction (Tree Length a)
+autocorrelatedLogNormal WithStem mu var tTr rTr =
+  logNormal' mu var' r * autocorrelatedLogNormal WithoutStem r var tTr rTr
+  where
+    t = fromLength (branch tTr)
+    r = fromLength (branch rTr)
+    var' = t * var
+autocorrelatedLogNormal WithoutStem mu var tTr rTr =
+  product $ zipWith (autocorrelatedLogNormal WithStem mu var) (forest tTr) (forest rTr)
