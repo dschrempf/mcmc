@@ -135,6 +135,28 @@ whiteNoise WithStem v t r =
 whiteNoise WithoutStem v t r =
   product $ zipWith (whiteNoise WithStem v) (forest t) (forest r)
 
+-- | TODO: Auto-correlated gamma model.
+
+-- How are the parameters defined? I guess the mean of the parent branch is used
+-- as the mean for the child. But mean = shape * scale. So which other parameter
+-- do we choose? I guess the shape. I have to check with Gergely though (or
+-- RevBayes?).
+
+-- autocorrelatedGamma ::
+--   HandleStem ->
+--   Shape ->
+--   Scale ->
+--   Tree Length a ->
+--   PriorFunction (Tree Length a)
+-- autocorrelatedGamma WithStem mu var tTr rTr =
+--   logNormal' mu var' r * autocorrelatedLogNormal WithoutStem r var tTr rTr
+--   where
+--     t = fromLength (branch tTr)
+--     r = fromLength (branch rTr)
+--     var' = t * var
+-- autocorrelatedGamma WithoutStem mu var tTr rTr =
+--   product $ zipWith (autocorrelatedLogNormal WithStem mu var) (forest tTr) (forest rTr)
+
 -- | Auto-correlated log normal model.
 --
 -- Let \(R\) be the rate of the parent branch, and \(\mu\) and \(\sigma^2\) be
