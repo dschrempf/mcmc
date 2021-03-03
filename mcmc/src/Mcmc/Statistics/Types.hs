@@ -1,6 +1,6 @@
 -- |
 -- Module      :  Mcmc.Statistics.Types
--- Description :  Type synonyms
+-- Description :  Types indicating properties of distributions
 -- Copyright   :  (c) 2021 Dominik Schrempf
 -- License     :  GPL-3.0-or-later
 --
@@ -15,6 +15,7 @@ module Mcmc.Statistics.Types
     Variance,
     Shape,
     Scale,
+    Rate,
     Dimension,
     Size,
     LowerBoundary,
@@ -22,31 +23,34 @@ module Mcmc.Statistics.Types
   )
 where
 
--- | Type synonym indicating the mean of a distribution.
+-- | Mean of a distribution.
 type Mean = Double
 
--- | Type synonym indicating the standard deviation of a distribution.
+-- | Standard deviation of a distribution.
 type StandardDeviation = Double
 
--- | Type synonym indicating the variance of a distribution.
+-- | Variance of a distribution.
 type Variance = Double
 
--- | Type synonym indicating the shape of a distribution.
+-- | Shape of a distribution.
 type Shape = Double
 
--- | Type synonym indicating the scale of a distribution.
+-- | Scale of a distribution.
 type Scale = Double
 
--- | Type synonym indicating the dimension of a distribution.
+-- | Rate of a distribution.
+type Rate = Double
+
+-- | Dimension of a distribution.
 type Dimension = Int
 
--- | Type synonym indicating the size of a distribution.
+-- | Size of a distribution.
 --
--- For example, the interval of the uniform distribution.
+-- For example, the size of the interval of the uniform distribution.
 type Size = Double
 
--- | Type synonym indicating the lower boundary.
+-- | Lower boundary of a distribution.
 type LowerBoundary = Double
 
--- | Type synonym indicating the upper boundary.
+-- | Upper boundary of a distribution.
 type UpperBoundary = Double

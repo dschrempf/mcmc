@@ -161,10 +161,9 @@ module Mcmc
     module Mcmc.Monitor.Parameter,
     module Mcmc.Monitor.ParameterBatch,
 
-    -- * Prior distributions
-
-    -- | Convenience functions for computing priors.
+    -- * Prior and likelihood functions
     module Mcmc.Prior,
+    module Mcmc.Likelihood,
 
     -- * MCMC samplers
     mcmc,
@@ -178,21 +177,18 @@ module Mcmc
     -- * Marginal likelihood calculation
     module Mcmc.MarginalLikelihood,
 
-    -- * Useful type synonyms
-    PriorFunction,
-    noPrior,
-    LikelihoodFunction,
-    noLikelihood,
+    -- * Useful types
+    module Mcmc.Statistics.Types,
 
     -- * Useful re-exports
     module Numeric.Log,
-    module Mcmc.Statistics.Types,
   )
 where
 
 import Mcmc.Algorithm.MC3
 import Mcmc.Algorithm.MHG
 import Mcmc.Chain.Chain
+import Mcmc.Likelihood
 import Mcmc.MarginalLikelihood
 import Mcmc.Mcmc
 import Mcmc.Monitor
@@ -205,5 +201,5 @@ import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Simplex
 import Mcmc.Proposal.Slide
 import Mcmc.Settings
-import Numeric.Log hiding (sum)
 import Mcmc.Statistics.Types
+import Numeric.Log hiding (sum)

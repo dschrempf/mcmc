@@ -67,7 +67,7 @@ data Monitor a = Monitor
     mBatches :: [MonitorBatch a]
   }
 
--- | Type synonym indicating monitor period.
+-- | Monitor period.
 type Period = Int
 
 -- | Do not monitor parameters.
@@ -227,7 +227,7 @@ mfClose m = case mfHandle m of
   Just h -> hClose h
   Nothing -> error $ "mfClose: File was not opened for monitor " <> mfName m <> "."
 
--- | Type synonym indicating batch size.
+-- | Batch size.
 type BatchSize = Int
 
 -- | Batch monitor to a file.

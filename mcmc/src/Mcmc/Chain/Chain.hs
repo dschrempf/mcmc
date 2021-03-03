@@ -28,25 +28,12 @@ where
 
 import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
+import Mcmc.Likelihood
 import Mcmc.Monitor
+import Mcmc.Prior
 import Mcmc.Proposal
-import Numeric.Log
 import System.Random.MWC hiding (save)
 import Prelude hiding (cycle)
-
--- | Type synonym to indicate the prior function.
-type PriorFunction a = a -> Log Double
-
--- | Flat prior function. Useful for testing and debugging.
-noPrior :: PriorFunction a
-noPrior = const 1.0
-
--- | Type synonym to indicate the likelihood function.
-type LikelihoodFunction a = a -> Log Double
-
--- | Flat likelihood function. Useful for testing and debugging.
-noLikelihood :: LikelihoodFunction a
-noLikelihood = const 1.0
 
 -- | Type synonym to indicate the initial state.
 type InitialState a = a
@@ -67,6 +54,7 @@ type InitialState a = a
 -- The 'Mcmc.Environment.Environment' of the chain is not stored externally.
 data Chain a = Chain
   { -- Variables; saved.
+
     -- | Chain index; useful if more chains are run.
     chainId :: Int,
     -- | The current 'Link' of the chain combines the current state and the

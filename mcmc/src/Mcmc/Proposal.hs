@@ -208,7 +208,7 @@ convertTuner l (Tuner p f) = Tuner p f'
 data Tune = Tune | NoTune
   deriving (Show, Eq)
 
--- | Type synonym indicating a tuning parameter.
+-- | Tuning parameter.
 type TuningParameter = Double
 
 -- | Create a tuneable proposal.

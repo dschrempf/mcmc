@@ -2,7 +2,7 @@
 
 -- |
 -- Module      :  Prior
--- Description :  Convenience functions for computing priors
+-- Description :  Types and convenience functions for computing priors
 -- Copyright   :  (c) Dominik Schrempf, 2020
 -- License     :  GPL-3.0-or-later
 --
@@ -12,7 +12,10 @@
 --
 -- Creation date: Thu Jul 23 13:26:14 2020.
 module Mcmc.Prior
-  ( -- * Improper priors
+  ( PriorFunction,
+    noPrior,
+
+    -- * Improper priors
     largerThan,
     positive,
     lowerThan,
@@ -21,6 +24,8 @@ module Mcmc.Prior
     -- * Continuous priors
     exponential,
     gamma,
+    gammaShapeScaleToMeanVariance,
+    gammaMeanVarianceToShapeScale,
     normal,
     uniform,
 
@@ -34,6 +39,7 @@ where
 
 import Control.Monad
 import Data.Maybe (fromMaybe)
+import Mcmc.Statistics.Types
 import Numeric.Log
 import qualified Statistics.Distribution as S
 import qualified Statistics.Distribution.Exponential as S
@@ -41,79 +47,82 @@ import qualified Statistics.Distribution.Gamma as S
 import qualified Statistics.Distribution.Normal as S
 import qualified Statistics.Distribution.Poisson as S
 
+-- | Prior function.
+type PriorFunction a = a -> Log Double
+
+-- | Flat prior function. Useful for testing and debugging.
+noPrior :: PriorFunction a
+noPrior = const 1.0
+
 -- | Improper uniform prior; strictly larger than a given value.
-largerThan :: Double -> Double -> Log Double
+largerThan :: LowerBoundary -> PriorFunction Double
 largerThan a x
   | x <= a = 0
   | otherwise = 1
 
 -- | Improper uniform prior; strictly larger than zero.
-positive :: Double -> Log Double
+positive :: PriorFunction Double
 positive = largerThan 0
 
 -- | Improper uniform prior; strictly lower than a given value.
-lowerThan :: Double -> Double -> Log Double
+lowerThan :: UpperBoundary -> PriorFunction Double
 lowerThan b x
   | x >= b = 0
   | otherwise = 1
 
 -- | Improper uniform prior; strictly lower than zero.
-negative :: Double -> Log Double
+negative :: PriorFunction Double
 negative = lowerThan 0
 
 -- | Exponential distributed prior.
-exponential ::
-  -- | Rate.
-  Double ->
-  Double ->
-  Log Double
+exponential :: Rate -> PriorFunction Double
 exponential l x = Exp $ S.logDensity d x
   where
     d = S.exponential l
 
 -- | Gamma distributed prior.
-gamma ::
-  -- | Shape.
-  Double ->
-  -- | Scale.
-  Double ->
-  Double ->
-  Log Double
+gamma :: Shape -> Scale -> PriorFunction Double
 gamma k t x = Exp $ S.logDensity d x
   where
     d = S.gammaDistr k t
 
+-- The mean and variance of the gamma distribution are
+--
+-- m = k*t
+--
+-- v = k*t*t
+--
+-- Hence, the shape and scale are
+--
+-- k = m^2/v
+--
+-- t = v/m
+
+-- | Calculate mean and variance of the gamma distribution given the shape and
+-- the scale.
+gammaShapeScaleToMeanVariance :: Shape -> Scale -> (Mean, Variance)
+gammaShapeScaleToMeanVariance k t = let m = k * t in (m, m * t)
+
+-- | Calculate shape and scale of the gamma distribution given the mean and
+-- the variance.
+gammaMeanVarianceToShapeScale :: Mean -> Variance -> (Shape, Scale)
+gammaMeanVarianceToShapeScale m v = (m * m / v, v / m)
+
 -- | Normal distributed prior.
-normal ::
-  -- | Mean.
-  Double ->
-  -- | Standard deviation.
-  Double ->
-  Double ->
-  Log Double
+normal :: Mean -> StandardDeviation -> PriorFunction Double
 normal m s x = Exp $ S.logDensity d x
   where
     d = S.normalDistr m s
 
 -- | Uniform prior on [a, b].
-uniform ::
-  -- | Lower bound a.
-  Double ->
-  -- | Upper bound b.
-  Double ->
-  Double ->
-  Log Double
+uniform :: LowerBoundary -> UpperBoundary -> PriorFunction Double
 uniform a b x
   | x <= a = 0
   | x >= b = 0
   | otherwise = Exp 0
 
 -- | Poisson distributed prior.
-poisson ::
-  -- | Rate.
-  Double ->
-  Int ->
-  Log Double
+poisson :: Rate -> PriorFunction Int
 poisson l x = Exp $ S.logProbability d x
   where
     d = S.poisson l
