@@ -17,7 +17,7 @@ where
 import Control.Monad
 import Mcmc.Proposal
 import Mcmc.Statistics.Types
-import Numeric.Log
+import Numeric.Log hiding (sum)
 import Statistics.Distribution hiding (Mean)
 import Statistics.Distribution.TruncatedNormal
 import System.Random.MWC

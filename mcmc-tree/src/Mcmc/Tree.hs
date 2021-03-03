@@ -27,6 +27,7 @@ module Mcmc.Tree
     module Mcmc.Tree.Prior.Node.Constraint,
 
     -- * Proposals
+    module Mcmc.Tree.Proposal.Contrary,
     module Mcmc.Tree.Proposal.Unconstrained,
     module Mcmc.Tree.Proposal.Ultrametric,
 
@@ -45,6 +46,7 @@ import Mcmc.Tree.Prior.Branch
 import Mcmc.Tree.Prior.Branch.RelaxedClock
 import Mcmc.Tree.Prior.Node.Calibration
 import Mcmc.Tree.Prior.Node.Constraint
+import Mcmc.Tree.Proposal.Contrary
 import Mcmc.Tree.Proposal.Ultrametric
 import Mcmc.Tree.Proposal.Unconstrained
 import Mcmc.Tree.Types

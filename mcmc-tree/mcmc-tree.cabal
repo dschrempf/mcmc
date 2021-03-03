@@ -53,6 +53,7 @@ library
       Mcmc.Tree.Prior.Node.Common
       Mcmc.Tree.Prior.Node.Constraint
       Mcmc.Tree.Proposal.Common
+      Mcmc.Tree.Proposal.Contrary
       Mcmc.Tree.Proposal.Ultrametric
       Mcmc.Tree.Proposal.Unconstrained
       Mcmc.Tree.Types

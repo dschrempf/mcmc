@@ -27,11 +27,16 @@
 --
 -- For proposals on unconstrained trees, see "Mcmc.Tree.Proposal.Unconstrained".
 module Mcmc.Tree.Proposal.Ultrametric
-  ( slideNodeAtUltrametric,
+  ( -- * Proposals
+    slideNodeAtUltrametric,
     slideNodesUltrametric,
     scaleSubTreeAtUltrametric,
     scaleSubTreesUltrametric,
     pulleyUltrametric,
+
+    -- * Helper functions
+    nInnerNodes,
+    scaleTreeF,
   )
 where
 
@@ -55,13 +60,13 @@ slideNodeAtUltrametricSimple ::
 slideNodeAtUltrametricSimple pth s t tr g
   | null children = error "slideNodeAtUltrametricSimple: Cannot slide leaf."
   | otherwise = do
-    -- The absolute value of the determinant of the Jacobian is 1.0.
     (hNode', q) <- truncatedNormalSample hNode s t hChild hParent g
     let setNodeHeight x =
           x & labelL . nodeHeightL
             -- I think toHeightUnsafe could be used here, since we trust
             -- 'truncatedNormalSample'.
             .~ toHeight "slideNodeAtUltrametricSimple" hNode'
+    -- The absolute value of the determinant of the Jacobian is 1.0.
     return (toTree $ modifyTree setNodeHeight trPos, q, 1.0)
   where
     trPos = goPathUnsafe pth $ fromTree tr
@@ -83,9 +88,6 @@ slideNodeAtUltrametricSimple pth s t tr g
 -- A normal distribution truncated at the heights of the parent node and the
 -- closest child node is used.
 --
--- A zipper with given 'Path' has to be used for this proposal, because we need
--- access to the parent.
---
 -- Call 'error' if:
 --
 -- - The path is invalid.
@@ -95,7 +97,11 @@ slideNodeAtUltrametricSimple pth s t tr g
 -- - The path leads to a leaf.
 slideNodeAtUltrametric ::
   -- | The topology of the tree is used to check the path.
+  --
+  -- TODO: Use ELynx.Topology here.
   Tree e a ->
+  -- | A zipper with given 'Path' has to be used for this proposal, because we
+  -- need access to the parent.
   Path ->
   StandardDeviation ->
   PName ->
@@ -134,25 +140,6 @@ slideNodesUltrametric tr s n w t =
   where
     name lb = n <> PName (" node " ++ show lb)
 
--- Calculate the number of inner nodes.
-nInnerNodes :: Tree e a -> Int
-nInnerNodes (Node _ _ []) = 0
-nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
-
-scaleTreeF ::
-  -- New root node height.
-  Double ->
-  -- Scaling factor for other nodes. The scaling factor for inner node heights
-  -- is also given, since it is calculated anyways by the calling functions.
-  Double ->
-  HeightTree a ->
-  HeightTree a
-scaleTreeF h xi (Node _ lb ts) =
-  Node () (lb & nodeHeightL .~ h') $ map (second $ nodeHeightL *~ xi') ts
-  where
-    xi' = toHeight "scaleSubTreeF:xi" xi
-    h' = toHeight "scaleSubTreeF:h" h
-
 scaleSubTreeAtUltrametricSimple ::
   -- Number of inner nodes.
   Int ->
@@ -160,11 +147,10 @@ scaleSubTreeAtUltrametricSimple ::
   StandardDeviation ->
   TuningParameter ->
   ProposalSimple (HeightTree a)
-scaleSubTreeAtUltrametricSimple n pth ds t tr g
-  | null children = error "scaleSubTreeAtUltrametricSimple: Cannot scale sub tree of leaf."
+scaleSubTreeAtUltrametricSimple n pth sd t tr g
+  | null children = error "scaleSubTreeAtUltrametricSimple: Sub tree is a leaf."
   | otherwise = do
-    -- The determinant of the Jacobian is not included.
-    (hNode', q) <- truncatedNormalSample hNode ds t 0 hParent g
+    (hNode', q) <- truncatedNormalSample hNode sd t 0 hParent g
     -- Scaling factor (xi, not x_i).
     let xi = hNode' / hNode
         -- (-1) because the root height has an additive change.
@@ -183,9 +169,6 @@ scaleSubTreeAtUltrametricSimple n pth ds t tr g
 -- A normal distribution truncated at the height of the parent node and the
 -- leaves is used to determine the new height of the sub tree.
 --
--- A zipper with given 'Path' has to be used for this proposal, because we need
--- access to the parent.
---
 -- Call 'error' if:
 --
 -- - The path is invalid.
@@ -195,7 +178,11 @@ scaleSubTreeAtUltrametricSimple n pth ds t tr g
 -- - The path leads to a leaf.
 scaleSubTreeAtUltrametric ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
+  --
+  -- TODO: Use ELynx.Topology here.
   Tree e a ->
+  -- | A zipper with given 'Path' has to be used for this proposal, because we need
+  -- access to the parent.
   Path ->
   StandardDeviation ->
   PName ->
@@ -212,7 +199,7 @@ scaleSubTreeAtUltrametric tr pth sd
       (scaleSubTreeAtUltrametricSimple n pth sd)
       (PDimension n)
   where
-    description = PDescription $ "Scale subtree ultrametrc; sd: " ++ show sd
+    description = PDescription $ "Scale sub tree ultrametrc; sd: " ++ show sd
     n = nInnerNodes $ current $ goPathUnsafe pth $ fromTree tr
 
 -- | Scale the sub trees of a given tree.
@@ -316,6 +303,8 @@ pulleyUltrametricSimple _ _ _ _ _ _ = error "pulleyUltrametricSimple: Node is no
 -- - Right sub tree is a leaf.
 pulleyUltrametric ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
+  --
+  -- TODO: Use ELynx.Topology here.
   Tree e a ->
   StandardDeviation ->
   PName ->
@@ -331,3 +320,23 @@ pulleyUltrametric (Node _ _ [l, r]) d
     nL = nInnerNodes l
     nR = nInnerNodes r
 pulleyUltrametric _ _ = error "pulleyUltrametric: Node is not bifurcating."
+
+-- | Calculate the number of inner nodes.
+nInnerNodes :: Tree e a -> Int
+nInnerNodes (Node _ _ []) = 0
+nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
+
+-- | A very specific function scaling an ultrametric tree.
+scaleTreeF ::
+  -- | New root node height.
+  Double ->
+  -- | Scaling factor for other nodes. The scaling factor for inner node heights
+  -- is also given, since it is calculated anyways by the calling functions.
+  Double ->
+  HeightTree a ->
+  HeightTree a
+scaleTreeF h xi (Node _ lb ts) =
+  Node () (lb & nodeHeightL .~ h') $ map (second $ nodeHeightL *~ xi') ts
+  where
+    xi' = toHeight "scaleSubTreeF:xi" xi
+    h' = toHeight "scaleSubTreeF:h" h
