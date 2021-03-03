@@ -11,6 +11,7 @@
 -- Creation date: Wed Mar  3 13:19:54 2021.
 module Mcmc.Tree.Proposal.Contrary
   ( scaleSubTreeAtContrarily,
+    scaleSubTreesContrarily,
   )
 where
 
@@ -134,3 +135,27 @@ scaleSubTreeAtContrarily tr pth sd
     -- XXX: The number of nodes and branches could be calculated in one go.
     nNodes = nInnerNodes subtree
     nBranches = length subtree
+
+-- | Scale the sub trees of the given trees constrarily.
+--
+-- See 'scaleSubTreeAtContrarily'.
+--
+-- Do not scale the root nor the leaves.
+scaleSubTreesContrarily ::
+  Tree e a ->
+  StandardDeviation ->
+  PName ->
+  PWeight ->
+  Tune ->
+  [Proposal (HeightTree b, Tree Length c)]
+scaleSubTreesContrarily tr s n w t =
+  [ scaleSubTreeAtContrarily tr pth s (name lb) w t
+    | (pth, lb) <- itoList $ identify tr,
+      let focus = tr ^. subTreeAtUnsafeL pth,
+      -- Do not scale the root.
+      not $ null pth,
+      -- Do not scale the leaves.
+      not $ null $ forest focus
+  ]
+  where
+    name lb = n <> PName (" node " ++ show lb)
