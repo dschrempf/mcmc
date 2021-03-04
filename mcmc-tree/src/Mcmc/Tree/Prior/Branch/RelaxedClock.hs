@@ -9,6 +9,16 @@
 -- Portability :  portable
 --
 -- Creation date: Thu Sep 10 13:53:10 2020.
+--
+-- Comparison of molecular clock models:
+--
+-- - Lepage, T., Bryant, D., Philippe, H., & Lartillot, N., A general comparison
+--   of relaxed molecular clock models, Molecular Biology and Evolution, 24(12),
+--   2669–2680 (2007). http://dx.doi.org/10.1093/molbev/msm193.
+--
+-- - Ho, S. Y. W., & Duchêne, S., Molecular-clock methods for estimating
+--   evolutionary rates and timescales, Molecular Ecology, 23(24), 5947–5965
+--   (2014). http://dx.doi.org/10.1111/mec.12953.
 module Mcmc.Tree.Prior.Branch.RelaxedClock
   ( -- * Models combining relaxed molecular clocks
     gammaDirichlet,
@@ -19,11 +29,10 @@ module Mcmc.Tree.Prior.Branch.RelaxedClock
     whiteNoise,
 
     -- * Auto-correlated models
+    autocorrelatedGamma,
     autocorrelatedLogNormal,
   )
 where
-
--- TODO: Auto correlated UGAM model: https://doi.org/10.1111/mec.12953.
 
 import qualified Data.Vector.Unboxed as V
 import ELynx.Tree
@@ -71,7 +80,7 @@ import Statistics.Distribution.Dirichlet
 -- - The \(\alpha\) parameter is negative or zero.
 --
 -- - The number of partitions is smaller than two.
-gammaDirichlet :: Double -> Double -> Double -> Double -> PriorFunction (V.Vector Double)
+gammaDirichlet :: Shape -> Scale -> Double -> Mean -> PriorFunction (V.Vector Double)
 gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmetric ddSym xs
   where
     muPrior = gamma alphaMu betaMu muMean
@@ -79,10 +88,16 @@ gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmet
 
 -- | Uncorrelated gamma model.
 --
--- The rates are distributed according to a gamma distribution with given shape
--- and scale.
-uncorrelatedGamma :: HandleStem -> Shape -> Scale -> PriorFunction (Tree Length a)
-uncorrelatedGamma s k th = branchesWith s (gamma k th)
+-- The rates are distributed according to a gamma distribution with given mean
+-- and variance.
+--
+-- NOTE: For convenience, the mean and variance are used as parameters for this
+-- relaxed molecular clock model. They are used to calculate the shape and the
+-- scale of the underlying gamma distribution.
+uncorrelatedGamma :: HandleStem -> Mean -> Variance -> PriorFunction (Tree Length a)
+uncorrelatedGamma s m v = branchesWith s (gamma k th)
+  where
+    (k, th) = gammaMeanVarianceToShapeScale m v
 
 -- A variant of the log normal distribution. See Yang 2006, equation (7.23).
 logNormal' :: Mean -> Variance -> Double -> Log Double
@@ -109,10 +124,6 @@ uncorrelatedLogNormal s mu var = branchesWith s (logNormal' mu var)
 -- number of substitutions per unit time being distributed according to a gamma
 -- distribution with mean 1 and the given variance.
 --
--- See Lepage, T., Bryant, D., Philippe, H., & Lartillot, N., A general
--- comparison of relaxed molecular clock models, Molecular Biology and
--- Evolution, 24(12), 2669–2680 (2007). http://dx.doi.org/10.1093/molbev/msm193
---
 -- NOTE: The time tree has to be given because the branch length measured in
 -- expected number of substitutions per unit time has to be calculated. Long
 -- branches measured in time are expected to have a distribution of rates with
@@ -127,35 +138,55 @@ uncorrelatedLogNormal s mu var = branchesWith s (logNormal' mu var)
 -- prefix is still kept to maintain consistency with the other names.
 --
 -- NOTE: Assume that the topologies of the time and rate trees match.
+--
+-- Lepage, T., Bryant, D., Philippe, H., & Lartillot, N., A general comparison
+-- of relaxed molecular clock models, Molecular Biology and Evolution, 24(12),
+-- 2669–2680 (2007). http://dx.doi.org/10.1093/molbev/msm193
 whiteNoise :: HandleStem -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
 whiteNoise WithStem v t r =
-  gamma k (1 / k) (fromLength $ branch r) * whiteNoise WithoutStem v t r
+  -- This is correct. The mean of b=tr is t, the variance of b is
+  -- Var(tr) = t^2Var(r) = t^2 v/t = vt, as required in Lepage, 2006.
+  gamma k (recip k) (fromLength $ branch r) * whiteNoise WithoutStem v t r
   where
     k = fromLength (branch t) / v
 whiteNoise WithoutStem v t r =
   product $ zipWith (whiteNoise WithStem v) (forest t) (forest r)
 
--- | TODO: Auto-correlated gamma model.
-
--- How are the parameters defined? I guess the mean of the parent branch is used
--- as the mean for the child. But mean = shape * scale. So which other parameter
--- do we choose? I guess the shape. I have to check with Gergely though (or
--- RevBayes?).
-
--- autocorrelatedGamma ::
---   HandleStem ->
---   Shape ->
---   Scale ->
---   Tree Length a ->
---   PriorFunction (Tree Length a)
--- autocorrelatedGamma WithStem mu var tTr rTr =
---   logNormal' mu var' r * autocorrelatedLogNormal WithoutStem r var tTr rTr
---   where
---     t = fromLength (branch tTr)
---     r = fromLength (branch rTr)
---     var' = t * var
--- autocorrelatedGamma WithoutStem mu var tTr rTr =
---   product $ zipWith (autocorrelatedLogNormal WithStem mu var) (forest tTr) (forest rTr)
+-- | Auto-correlated gamma model.
+--
+-- Each branch length is distributed according to a gamma distribution. If the
+-- parent branch exists, set the mean of the gamma distribution to the parent
+-- branch length. Otherwise, use the given initial mean. The variance of the
+-- gamma distribution is set to the given variance multiplied with the branch
+-- length measured in unit time (see note below).
+--
+-- NOTE: For convenience, the mean and variance are used as parameters for this
+-- relaxed molecular clock model. They are used to calculate the shape and the
+-- scale of the underlying gamma distribution.
+-- For example,
+--
+-- NOTE: The time tree has to be given because long branches are expected to
+-- have a distribution of rates with higher variance than short branches. This
+-- is the opposite property compared to the white noise process ('whiteNoise').
+--
+-- @
+-- prior = autocorrelatedGamma initialMean variance timeTree rateTree
+-- @
+autocorrelatedGamma ::
+  HandleStem ->
+  Mean ->
+  Variance ->
+  Tree Length a ->
+  PriorFunction (Tree Length a)
+autocorrelatedGamma WithStem mu var tTr rTr =
+  gamma shape scale r * autocorrelatedGamma WithoutStem r var tTr rTr
+  where
+    t = fromLength (branch tTr)
+    r = fromLength (branch rTr)
+    var' = t * var
+    (shape, scale) = gammaMeanVarianceToShapeScale mu var'
+autocorrelatedGamma WithoutStem mu var tTr rTr =
+  product $ zipWith (autocorrelatedGamma WithStem mu var) (forest tTr) (forest rTr)
 
 -- | Auto-correlated log normal model.
 --
