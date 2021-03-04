@@ -129,7 +129,7 @@ mcmcBurnIn a = do
       return a'
     BurnInWithCustomAutoTuning xs -> do
       logInfoS $ "Burn in for " ++ show (sum xs) ++ " iterations."
-      logInfoS $ "Custom auto tuning is enabled with a periods " ++ show xs ++ "."
+      logInfoS $ "Custom auto tuning is enabled with periods " ++ show xs ++ "."
       logInfoB $ aStdMonitorHeader a
       a' <- mcmcBurnInWithAutoTuning xs a
       logInfoB "Burn in finished."
