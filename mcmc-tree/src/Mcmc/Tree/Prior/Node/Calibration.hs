@@ -33,6 +33,7 @@ where
 import Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Csv hiding (Name)
+import Data.List
 import qualified Data.Vector as V
 import ELynx.Tree
 import GHC.Generics
@@ -176,7 +177,7 @@ calibrationDataToCalibration t (CalibrationData n a b l mr) = calibration t n [a
       Nothing -> lowerBoundOnly l
       Just r -> properInterval l r
 
--- | Load calibrations from file.
+-- | Load and validate calibrations from file.
 --
 -- The calibration file is a comma separated values (CSV) file with rows of the
 -- following format:
@@ -199,13 +200,25 @@ calibrationDataToCalibration t (CalibrationData n a b l mr) = calibration t n [a
 -- - The file contains errors.
 --
 -- - An MRCA cannot be found.
+--
+-- - Redundant or conflicting calibrations are found (i.e., multiple
+--   calibrations affect single nodes).
 loadCalibrations :: Tree e Name -> FilePath -> IO (V.Vector Calibration)
 loadCalibrations t f = do
   d <- BL.readFile f
   let mr = decode NoHeader d :: Either String (V.Vector CalibrationData)
       cds = either error id mr
   when (V.null cds) $ error $ "loadCalibrations: No calibrations found in file: " <> f <> "."
-  return $ V.map (calibrationDataToCalibration t) cds
+  let cals = V.map (calibrationDataToCalibration t) cds
+  -- Check for redundant or conflicting calibrations.
+  let pthsAll = V.map calibrationNode cals
+      -- Have to go via lists here.
+      pthsUnique = V.fromList $ nub $ V.toList pthsAll
+  -- XXX: Calibrations could also be removed. But then, which one should be
+  -- removed?
+  when (V.length pthsAll /= V.length pthsUnique) $
+    error "loadCalibrations: Redundant and/or conflicting calibrations."
+  return cals
 
 -- | Calibrate height of a node with given path using the uniform distribution.
 --

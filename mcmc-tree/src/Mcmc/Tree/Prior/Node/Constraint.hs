@@ -57,18 +57,61 @@ data Constraint = Constraint
   }
   deriving (Eq, Read, Show)
 
+-- Is the left node an ancestor of the right node?
+isAncestor :: Eq a => [a] -> [a] -> Bool
+isAncestor = isPrefixOf
+
+-- Is the left node a descdant of the right node?
+isDescendant :: Eq a => [a] -> [a] -> Bool
+isDescendant = flip isPrefixOf
+
+-- Relationship of two nodes.
+data Relationship
+  = Equal
+  | -- Same as RightIsDescendentOfLeft.
+    LeftIsAncestorOfRight
+  | -- Same as RightIsAncestorOfLeft.
+    LeftIsDescendantOfRight
+  | Unrelated
+  deriving (Eq, Show, Read)
+
+-- Fast function avoiding two consecutive uses of `isPrefixOf`.
+--
+-- Are the two nodes direct descent of each other? Basically check both:
+-- 'isAncestor' and 'isDescendent'.
+areDirectDescendants :: Eq a => [a] -> [a] -> Relationship
+areDirectDescendants [] [] = Equal
+areDirectDescendants (x : xs) (y : ys)
+  | x == y = areDirectDescendants xs ys
+  | otherwise = Unrelated
+areDirectDescendants (_ : _) [] = LeftIsDescendantOfRight
+areDirectDescendants [] (_ : _) = LeftIsAncestorOfRight
+
 -- Check if a constraint is valid.
+--
+-- See also 'validateConstraints' and 'validateConstraintVector' which perform
+-- checks on a multiple possibly redundant or conflicting constraints.
 --
 -- Return 'Left' if:
 --
 -- - The younger node is a direct ancestor of the old node.
 --
 -- - The older node is a direct ancestor of the young node.
+--
+-- NOTE: Any node is a direct ancestor of itself, and so, bogus constraints
+-- including the same node twice are also filtered out.
 validateConstraint :: Constraint -> Either String Constraint
-validateConstraint c
-  | y `isPrefixOf` o = Left $ getErrMsg "Younger node is direct ancestor of older node (?)."
-  | o `isPrefixOf` y = Left $ getErrMsg "No need to constrain older node which is direct ancestor of younger node."
-  | otherwise = Right c
+validateConstraint c = case areDirectDescendants y o of
+  Equal ->
+    Left $
+      getErrMsg "Bogus constraint; both nodes are equal (?)."
+  LeftIsAncestorOfRight ->
+    Left $
+      getErrMsg "Bogus constraint; younger node is direct ancestor of older node (?)."
+  LeftIsDescendantOfRight ->
+    Left $
+      getErrMsg "Redundant constraint; old node is direct ancestors of young node."
+  Unrelated -> Right c
   where
     n = constraintName c
     y = constraintYoungNode c
@@ -118,7 +161,62 @@ constraintDataToConstraint t (ConstraintData n yL yR oL oR) =
   where
     f = Name . BL.pack
 
--- | Load constraints from file.
+-- Given a left constraint, another right constraint can be:
+data Property
+  = RightIsRedundant Constraint Constraint
+  | RightIsConflicting Constraint Constraint
+  | RightIsFine Constraint Constraint
+  deriving (Eq, Show, Read)
+
+isFine :: Property -> Bool
+isFine (RightIsFine _ _) = True
+isFine _ = False
+
+describeProp :: Property -> String
+describeProp (RightIsRedundant l r) =
+  "Constraint " <> constraintName r <> " is redundant given constraint " <> constraintName l <> "."
+describeProp (RightIsConflicting l r) =
+  "Constraint " <> constraintName r <> " conflicts with constraint " <> constraintName l <> "."
+describeProp (RightIsFine l r) =
+  "Constraints " <> constraintName l <> " and " <> constraintName r <> " are fine."
+
+-- Given the left constraint, check if the right constraint is redundant or
+-- conflicting.
+--
+-- See also 'validateConstraint' which performs checks on single constraints.
+--
+-- This validation includes a complicated list of tests checking for
+-- redundancies or conflicts between two constraints.
+--
+-- Let D(x,y) be true iff x is a descendant of y (see 'isDescendent').
+--
+-- Let A(x,y) be true iff x is an ancestor of y (see 'isAncestor').
+--
+-- Given the left constraint a < b, the right constraint c < d is
+--
+-- - redundant iff: D(c,a) AND A(d,b)
+--
+-- - conflicting iff: A(c,b) AND D(d,a)
+--
+-- - otherwise fine.
+--
+-- Did I miss any other tests?
+--
+validateConstraints :: Constraint -> Constraint -> Property
+validateConstraints l@(Constraint _ a b) r@(Constraint _ c d)
+  | (c `isDescendant` a) && (d `isAncestor` b) = RightIsRedundant l r
+  | (c `isAncestor` b) && (d `isDescendant` a) = RightIsConflicting l r
+  | otherwise = RightIsFine l r
+
+-- Pairwise comparison with 'validateConstraints'.
+validateConstraintVector :: V.Vector Constraint -> V.Vector Property
+validateConstraintVector xs = do
+  l <- xs
+  r <- xs
+  guard (l /= r)
+  return $ validateConstraints l r
+
+-- | Load and validate constraints from file.
 --
 -- The constraint file is a comma separated values (CSV) file with rows of the
 -- following format:
@@ -143,13 +241,22 @@ constraintDataToConstraint t (ConstraintData n yL yR oL oR) =
 -- - The file contains errors.
 --
 -- - An MRCA cannot be found.
+--
+-- - Redundant or conflicting constraints are found.
 loadConstraints :: Tree e Name -> FilePath -> IO (V.Vector Constraint)
 loadConstraints t f = do
   d <- BL.readFile f
   let mr = decode NoHeader d :: Either String (V.Vector ConstraintData)
       cds = either error id mr
   when (V.null cds) $ error $ "loadConstraints: No constraints found in file: " <> f <> "."
-  return $ V.map (constraintDataToConstraint t) cds
+  let cons = V.map (constraintDataToConstraint t) cds
+  -- Check for conflicting constraints.
+  let badCons = V.filter (not . isFine) $ validateConstraintVector cons
+  if V.null badCons
+    then return cons
+    else do
+      V.sequence_ $ V.map (putStrLn . describeProp) badCons
+      error "loadConstraints: Constraints are erroneous (see above)."
 
 -- | Hard constrain order of nodes with given paths.
 --
