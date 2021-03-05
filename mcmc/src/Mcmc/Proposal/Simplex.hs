@@ -137,7 +137,7 @@ dirichletSimple t (SimplexUnsafe xs) g = do
 -- The proposal dimension, which is the dimension of the simplex, is used to
 -- determine the optimal acceptance rate.
 --
--- For high dimensional simplices, this proposal may have low acceptance ratios.
+-- For high dimensional simplices, this proposal may have low acceptance rates.
 -- In this case, please see the coordinate wise 'beta' proposal.
 dirichlet :: PDimension -> PName -> PWeight -> Tune -> Proposal Simplex
 dirichlet = createProposal (PDescription "Dirichlet") dirichletSimple

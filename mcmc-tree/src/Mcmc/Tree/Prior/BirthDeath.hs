@@ -116,10 +116,10 @@ epsNearCritical = 1e-6
 -- If the stem is not handled ('WithoutStem'), the prior conditions on the most
 -- recent common ancestor (MRCA).
 --
--- NOTE: The prior DOES NOT CALCULATE the multiplicative combinatorial factor
--- relating the number of oriented labeled trees to the number of labeled trees
--- without orientation. This is an issue if the prior is calculated for trees
--- with different topologies!
+-- NOTE: The prior __does not calculate the multiplicative combinatorial
+-- factor__ relating the number of oriented labeled trees to the number of
+-- labeled trees without orientation. This is an issue if the prior is
+-- calculated for trees with different topologies!
 --
 -- Call 'error' if
 --
