@@ -32,7 +32,7 @@ instance FunctorWithIndex [Int] (Tree e) where
   {-# INLINE imap #-}
 
 instance FoldableWithIndex [Int] (Tree e) where
-  ifoldMap f (Node _ lb ts) = f [] lb `mappend` ifoldMap (\i -> ifoldMap (f . (:) i)) ts
+  ifoldMap f (Node _ lb ts) = f [] lb <> ifoldMap (\i -> ifoldMap (f . (:) i)) ts
   {-# INLINE ifoldMap #-}
 
 instance TraversableWithIndex [Int] (Tree e) where

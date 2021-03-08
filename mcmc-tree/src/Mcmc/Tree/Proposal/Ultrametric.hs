@@ -65,7 +65,7 @@ slideNodeAtUltrametricSimple pth s t tr g
           x & labelL . nodeHeightL
             -- I think toHeightUnsafe could be used here, since we trust
             -- 'truncatedNormalSample'.
-            .~ (either (error . mappend "slideNodeAtUltrametricSimple: ") id . toHeight)
+            .~ (either (error . (<>) "slideNodeAtUltrametricSimple: ") id . toHeight)
               hNode'
     -- The absolute value of the determinant of the Jacobian is 1.0.
     return (toTree $ modifyTree setNodeHeight trPos, q, 1.0)
@@ -339,5 +339,5 @@ scaleTreeF ::
 scaleTreeF h xi (Node _ lb ts) =
   Node () (lb & nodeHeightL .~ h') $ map (second $ nodeHeightL *~ xi') ts
   where
-    xi' = either (error . mappend "scaleSubTreeF:xi: ") id $ toHeight xi
-    h' = either (error . mappend "scaleSubTreeF:h: ") id $ toHeight h
+    xi' = either (error . (<>) "scaleSubTreeF:xi: ") id $ toHeight xi
+    h' = either (error . (<>) "scaleSubTreeF:h: ") id $ toHeight h
