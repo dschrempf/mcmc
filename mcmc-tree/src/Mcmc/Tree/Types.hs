@@ -27,7 +27,6 @@ module Mcmc.Tree.Types
     HasHeight (..),
     toHeight,
     toHeightUnsafe,
-    checkHeight,
     HeightLabel (..),
     nodeHeightL,
     nodeNameL,
@@ -41,9 +40,10 @@ where
 
 import Control.DeepSeq
 import Control.Lens
-import Data.Monoid
 import Data.Aeson
 import Data.Aeson.TH
+import Data.List
+import Data.Monoid
 import ELynx.Tree
 import GHC.Generics
 
@@ -76,18 +76,14 @@ newtype Height = Height {fromHeight :: Double}
 $(deriveJSON defaultOptions ''Height)
 
 -- | If negative, call 'error' with given calling function name.
-toHeight :: String -> Double -> Height
-toHeight s x
-  | x < 0 = error $ s ++ ": Height is negative: " ++ show x ++ "."
-  | otherwise = Height x
+toHeight :: Double -> Either String Height
+toHeight x
+  | x < 0 = Left $ "Height is negative: " ++ show x ++ "."
+  | otherwise = Right $ Height x
 
 -- | Do not check if value is negative.
 toHeightUnsafe :: Double -> Height
 toHeightUnsafe = Height
-
--- | If negative, call 'error' with given calling function name.
-checkHeight :: String -> Height -> Height
-checkHeight s = toHeight s . fromHeight
 
 -- | A data type with measurable and modifiable values.
 class HasHeight a where
@@ -128,20 +124,33 @@ type HeightTree a = Tree () (HeightLabel a)
 
 -- | Calculate node heights for a given tree.
 --
--- __Assumes the tree is ultrametric__ because the height of leaves is set to
--- zero. If the tree is not ultrametric, the node heights cannot be obtained and
--- the height tree has to be instantiated manually.
---
 -- The __length of the stem is lost__.
 --
--- This function has not been optimized yet. The run time is @O(n^2)@ where @n@ is
--- the number of inner nodes.
-toHeightTreeUltrametric :: Tree Length a -> HeightTree a
-toHeightTreeUltrametric t@(Node _ lb ts) =
-  Node
-    ()
-    (HeightLabel (toHeight "toHeightTreeUltrametric" $ fromLength $ rootHeight t) lb)
-    (map toHeightTreeUltrametric ts)
+-- This function is expensive and has not been optimized yet. The run time is
+-- @O(n^2)@ where @n@ is the number of inner nodes.
+--
+-- Return 'Left' if:
+--
+-- - The tree is not ultrametric. The height of leaves is set to zero. If the
+--   tree is not ultrametric, the node heights are not defined and the height
+--   tree has to be instantiated manually.
+toHeightTreeUltrametric :: Tree Length a -> Either String (HeightTree a)
+-- A leaf.
+toHeightTreeUltrametric t
+  | ultrametric t = Right $ toHeightTreeUltrametric' t
+  | otherwise = Left "toHeightTreeUltrametric: Tree is not ultrametric."
+
+-- Assume the tree is ultrametric.
+toHeightTreeUltrametric' :: Tree Length a -> HeightTree a
+toHeightTreeUltrametric' t@(Node _ lb ts) =
+    Node
+      ()
+      (HeightLabel (toHeight' $ fromLength $ rootHeight t) lb)
+      (map toHeightTreeUltrametric' ts)
+  where
+    -- Specifically use 'error' here.
+    err s = error $ "toHeightTreeUltrametric': " <> s <> " Please contact maintainer."
+    toHeight' = either err id . toHeight
 
 -- | Remove information about node height from node label.
 fromHeightTree :: HeightTree a -> Tree Length a
@@ -150,5 +159,10 @@ fromHeightTree t = go (nodeHeight $ label t) t
     go hParent (Node () lb ts) =
       let hNode = nodeHeight lb
           nNode = nodeName lb
-       in Node (toLength "fromHeightTree" $ fromHeight $ hParent - hNode)
-          nNode $ map (go hNode) ts
+       in Node
+            (toLength' $ fromHeight $ hParent - hNode)
+            nNode
+            $ map (go hNode) ts
+    -- Specifically use 'error' here.
+    err s = error $ "fromHeightTree: " <> s <> " Please contact maintainer."
+    toLength' = either err id . toLength
