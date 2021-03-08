@@ -144,12 +144,8 @@ toHeightTreeUltrametric' :: Tree Length a -> HeightTree a
 toHeightTreeUltrametric' t@(Node _ lb ts) =
     Node
       ()
-      (HeightLabel (toHeight' $ fromLength $ rootHeight t) lb)
+      (HeightLabel (toHeightUnsafe $ fromLength $ rootHeight t) lb)
       (map toHeightTreeUltrametric' ts)
-  where
-    -- Specifically use 'error' here.
-    err msg = error $ "toHeightTreeUltrametric': " <> msg <> " Please contact maintainer."
-    toHeight' = either err id . toHeight
 
 -- | Remove information about node height from node label.
 fromHeightTree :: HeightTree a -> Tree Length a
@@ -159,9 +155,6 @@ fromHeightTree t = go (nodeHeight $ label t) t
       let hNode = nodeHeight lb
           nNode = nodeName lb
        in Node
-            (toLength' $ fromHeight $ hParent - hNode)
+            (toLengthUnsafe $ fromHeight $ hParent - hNode)
             nNode
             $ map (go hNode) ts
-    -- Specifically use 'error' here.
-    err s = error $ "fromHeightTree: " <> s <> " Please contact maintainer."
-    toLength' = either err id . toLength
