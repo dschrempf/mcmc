@@ -116,8 +116,9 @@ main = do
         normalizeHeight $
           either error id $
             phyloToLengthTree $
-              parseNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,(d:2.0,e:2.0):1.0):0.0;"
-      t = toHeightTreeUltrametric r
+              either error id $
+                parseOneNewick Standard "(((a:1.0,b:1.0):1.0,c:2.0):1.0,(d:2.0,e:2.0):1.0):0.0;"
+      t = either error id $ toHeightTreeUltrametric r
       cc' = cc t
   print r
   print t

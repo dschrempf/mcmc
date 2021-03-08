@@ -42,7 +42,6 @@ import Control.DeepSeq
 import Control.Lens
 import Data.Aeson
 import Data.Aeson.TH
-import Data.List
 import Data.Monoid
 import ELynx.Tree
 import GHC.Generics
@@ -78,7 +77,7 @@ $(deriveJSON defaultOptions ''Height)
 -- | If negative, call 'error' with given calling function name.
 toHeight :: Double -> Either String Height
 toHeight x
-  | x < 0 = Left $ "Height is negative: " ++ show x ++ "."
+  | x < 0 = Left $ "toHeight: Height is negative: " ++ show x ++ "."
   | otherwise = Right $ Height x
 
 -- | Do not check if value is negative.
@@ -149,7 +148,7 @@ toHeightTreeUltrametric' t@(Node _ lb ts) =
       (map toHeightTreeUltrametric' ts)
   where
     -- Specifically use 'error' here.
-    err s = error $ "toHeightTreeUltrametric': " <> s <> " Please contact maintainer."
+    err msg = error $ "toHeightTreeUltrametric': " <> msg <> " Please contact maintainer."
     toHeight' = either err id . toHeight
 
 -- | Remove information about node height from node label.
