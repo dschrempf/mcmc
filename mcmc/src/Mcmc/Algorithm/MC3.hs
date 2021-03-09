@@ -298,7 +298,7 @@ mc3 s pr lh cc mn tr i0 g
     --
     -- NOTE: Have to 'take n' elements, because vectors are not as lazy as
     -- lists.
-    bs = U.fromList $ take n $ iterate (* 0.92) 1.0
+    bs = U.fromList $ take n $ iterate (* 0.97) 1.0
 
 mc3Fn :: AnalysisName -> FilePath
 mc3Fn (AnalysisName nm) = nm ++ ".mcmc.mc3"
