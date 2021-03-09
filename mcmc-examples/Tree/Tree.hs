@@ -124,7 +124,7 @@ main = do
   let mcmcS =
         Settings
           (AnalysisName "test-tree")
-          (BurnInWithAutoTuning 2000 100)
+          (BurnInWithCustomAutoTuning [100, 110 .. 500])
           (Iterations 20000)
           Overwrite
           Sequential
