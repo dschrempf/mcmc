@@ -63,9 +63,8 @@ slideNodeAtUltrametricSimple pth s t tr g
     (hNode', q) <- truncatedNormalSample hNode s t hChild hParent g
     let setNodeHeight x =
           x & labelL . nodeHeightL
-            -- I think toHeightUnsafe could be used here, since we trust
-            -- 'truncatedNormalSample'.
-            .~ (either (error . (<>) "slideNodeAtUltrametricSimple: ") id . toHeight)
+            -- We trust 'truncatedNormalSample'.
+            .~ toHeightUnsafe
               hNode'
     -- The absolute value of the determinant of the Jacobian is 1.0.
     return (toTree $ modifyTree setNodeHeight trPos, q, 1.0)
