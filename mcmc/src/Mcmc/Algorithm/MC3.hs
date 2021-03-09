@@ -421,7 +421,7 @@ mc3Iterate pm a = do
     Parallel ->
       -- See 'Control.Monad.Parallel' of package 'monad-parallel'. Go via a
       -- list, and use 'forkIO'.
-      V.fromList <$> P.mapM (aIterate pm) (V.toList (mc3MHGChains a'))
+      V.fromList <$> P.mapM (aIterate pm) (V.toList $ mc3MHGChains a')
   let i = mc3Iteration a'
   return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
 
@@ -454,7 +454,7 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     mhgs' = V.map aAutoTune mhgs
     -- 2. Auto tune temperatures.
     optimalRate = getOptimalRate PDimensionUnknown
-    currentRates = acceptanceRates $ mc3SwapAcceptance a
+    mCurrentRates = acceptanceRates $ mc3SwapAcceptance a
     -- We assume that the acceptance rate of state swaps between two chains is
     -- roughly proportional to the ratio of the temperatures of the chains.
     -- Hence, we focus on temperature ratios, actually reciprocal temperature
@@ -464,7 +464,9 @@ mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
     --
     -- The factor (1/2) was determined by a few tests and is otherwise
     -- absolutely arbitrary.
-    xi i = exp $ (/ 2) $ (currentRates M.! i) - optimalRate
+    xi i = case mCurrentRates M.! i of
+      Nothing -> 1.0
+      Just currentRate -> exp $ (/ 2) $ currentRate - optimalRate
     bs = mc3ReciprocalTemperatures a
     n = fromNChains $ mc3NChains $ mc3Settings a
     -- Do not change the temperature, and the prior and likelihood functions of
@@ -503,9 +505,12 @@ mc3SummarizeCycle a =
     [ "MC3: Cycle of cold chain.",
       coldMHGCycleSummary
     ]
-      ++ [ "MC3: Average acceptance rate across all chains: " <> BL.fromStrict (BC.toFixed 2 ar)
-           | not $ isNaN ar
-         ]
+      ++ case mAr of
+        Nothing -> []
+        Just ar ->
+          [ "MC3: Average acceptance rate across all chains: "
+              <> BL.fromStrict (BC.toFixed 2 ar)
+          ]
       ++ [ "MC3: Reciprocal temperatures of the chains: " <> BL.intercalate ", " bsB <> ".",
            "MC3: Summary of state swaps.",
            "MC3: The swap period is " <> swapPeriodB <> ".",
@@ -527,9 +532,12 @@ mc3SummarizeCycle a =
     mhgs = mc3MHGChains a
     coldMHGCycleSummary = aSummarizeCycle $ V.head mhgs
     cs = V.map fromMHG mhgs
-    as = V.map (acceptanceRates . acceptance) cs
-    vAr = V.map (\m -> sum m / fromIntegral (length m)) as
-    ar = V.sum vAr / fromIntegral (V.length vAr)
+    -- Acceptance rates may be 'Nothing' when no proposals have been undertaken.
+    -- The 'sequence' operations pull the 'Nothing's out of the inner
+    -- structures.
+    as = sequence $ V.map (sequence . acceptanceRates . acceptance) cs
+    mVecAr = V.map (\mp -> sum mp / fromIntegral (length mp)) <$> as
+    mAr = (\vec -> V.sum vec / fromIntegral (V.length vec)) <$> mVecAr
     bs = mc3ReciprocalTemperatures a
     bsB = map (BL.fromStrict . BC.toFixed 2) $ U.toList bs
     swapPeriod = fromSwapPeriod $ mc3SwapPeriod $ mc3Settings a

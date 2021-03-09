@@ -391,9 +391,11 @@ tuneCycle m c =
 autoTuneCycle :: Acceptance (Proposal a) -> Cycle a -> Cycle a
 autoTuneCycle a = tuneCycle (M.mapWithKey tuningF $ acceptanceRates a)
   where
-    tuningF proposal currentRate currentTuningParam =
-      let optimalRate = getOptimalRate (pDimension proposal)
-       in exp (2 * (currentRate - optimalRate)) * currentTuningParam
+    tuningF proposal mCurrentRate currentTuningParam = case mCurrentRate of
+      Nothing -> currentTuningParam
+      Just currentRate ->
+        let optimalRate = getOptimalRate (pDimension proposal)
+         in exp (2 * (currentRate - optimalRate)) * currentTuningParam
 
 renderRow ::
   BL.ByteString ->
@@ -456,6 +458,9 @@ transformKeysA :: (Ord k1, Ord k2) => [k1] -> [k2] -> Acceptance k1 -> Acceptanc
 transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
 
 -- | Acceptance counts and rate for a specific proposal.
+--
+-- Return 'Nothing' if no proposals have been accepted or rejected (division by
+-- zero).
 acceptanceRate :: Ord k => k -> Acceptance k -> Maybe (Int, Int, Double)
 acceptanceRate k a = case fromAcceptance a M.!? k of
   Just (0, 0) -> Nothing
@@ -463,8 +468,18 @@ acceptanceRate k a = case fromAcceptance a M.!? k of
   Nothing -> error "acceptanceRate: Key not found in map."
 
 -- | Acceptance rates for all proposals.
-acceptanceRates :: Acceptance k -> M.Map k Double
-acceptanceRates = M.map (\(as, rs) -> fromIntegral as / fromIntegral (as + rs)) . fromAcceptance
+--
+-- Set rate to 'Nothing' if no proposals have been accepted or rejected
+-- (division by zero).
+acceptanceRates :: Acceptance k -> M.Map k (Maybe Double)
+acceptanceRates =
+  M.map
+    ( \(as, rs) ->
+        if as + rs == 0
+          then Nothing
+          else Just $ fromIntegral as / fromIntegral (as + rs)
+    )
+    . fromAcceptance
 
 -- | Header of proposal summaries.
 proposalHeader :: BL.ByteString

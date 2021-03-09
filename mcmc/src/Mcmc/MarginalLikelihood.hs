@@ -142,11 +142,14 @@ sampleAtPoint x ss lhf a = do
   a'' <- liftIO $ mcmc ss' a'
   let ch'' = fromMHG a''
       ac = acceptance ch''
-      ar = acceptanceRates ac
+      mAr = sequence $ acceptanceRates ac
   logDebugB "sampleAtPoint: Summarize cycle."
   logDebugB $ summarizeCycle ac $ cycle ch''
-  unless (M.null $ M.filter (<= 0.1) ar) $ do logWarnB "Some acceptance rates are below 0.1."
-  unless (M.null $ M.filter (>= 0.9) ar) $ logWarnB "Some acceptance rates are above 0.9."
+  case mAr of
+    Nothing -> logWarnB "Some acceptance rates are unavailable. The tuning period may be too small."
+    Just ar -> do
+      unless (M.null $ M.filter (<= 0.1) ar) $ logWarnB "Some acceptance rates are below 0.1."
+      unless (M.null $ M.filter (>= 0.9) ar) $ logWarnB "Some acceptance rates are above 0.9."
   return a''
   where
     -- For debugging set a proper analysis name.
