@@ -77,6 +77,8 @@ import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
+-- import Debug.Trace hiding (trace)
+
 -- | Total number of parallel chains.
 --
 -- Must be two or larger.
@@ -378,14 +380,28 @@ mc3ProposeSwap ::
   Int ->
   IO (MC3 a)
 mc3ProposeSwap a i = do
-  let
-    cs = mc3MHGChains a
+  let cs = mc3MHGChains a
+  -- -- Debug.
+  -- prL = prior $ link $ fromMHG $ cs V.! i
+  -- prR = prior $ link $ fromMHG $ cs V.! (i+1)
+  -- lhL = likelihood $ link $ fromMHG $ cs V.! i
+  -- lhR = likelihood $ link $ fromMHG $ cs V.! (i+1)
   -- 1. Sample new state and get the Metropolis ratio.
   let (!y, !r) = swapWith i (i + 1) cs
   -- 2. Accept or reject.
   accept <- mhgAccept r g
   if accept
     then do
+      -- -- Debug.
+      -- traceIO $ "Swap accepted: " <> show i <> " <-> " <> show (i+1)
+      -- let prL' = prior $ link $ fromMHG $ y V.! i
+      --     prR' = prior $ link $ fromMHG $ y V.! (i+1)
+      --     lhL' = likelihood $ link $ fromMHG $ y V.! i
+      --     lhR' = likelihood $ link $ fromMHG $ y V.! (i+1)
+      -- traceIO $ "Log priors (left, right, before swap): " <> show (ln prL) <> " " <> show (ln prR)
+      -- traceIO $ "Log priors (left, right, after swap): " <> show (ln prL') <> " " <> show (ln prR')
+      -- traceIO $ "Log likelihoods (left, right, before swap): " <> show (ln lhL) <> " " <> show (ln lhR)
+      -- traceIO $ "Log likelihood (left, right, after swap): " <> show (ln lhL') <> " " <> show (ln lhR')
       let !ac' = pushA i True (mc3SwapAcceptance a)
       return $ a {mc3MHGChains = y, mc3SwapAcceptance = ac'}
     else do
@@ -396,7 +412,8 @@ mc3ProposeSwap a i = do
 
 -- TODO: Splimix. 'mc3Iterate' is actually not parallel, but concurrent because
 -- of the IO constraint. Use pure parallel code when we have a pure generator.
--- However, we have honor the mutable traces.
+--
+-- However, we to have honor the mutable traces.
 mc3Iterate ::
   ToJSON a =>
   ParallelizationMode ->
