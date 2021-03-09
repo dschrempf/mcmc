@@ -88,9 +88,7 @@ monPs t =
   ]
     ++ [ getBranchR pth >$< monitorDouble ("R Branch" ++ show lb)
          | (pth, lb) <- itoList $ identify t,
-           let s = t ^. subTreeAtUnsafeL pth,
-           -- Path does not lead to a leaf.
-           not $ null $ forest s
+           not $ null pth
        ]
 
 -- Monitor to standard output.
