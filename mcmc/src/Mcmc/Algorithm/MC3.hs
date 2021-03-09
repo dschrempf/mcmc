@@ -213,7 +213,7 @@ setReciprocalTemperature ::
   Double ->
   MHG a ->
   MHG a
-setReciprocalTemperature prf lhf b a =
+setReciprocalTemperature coldPrf coldLhf b a =
   MHG $
     c
       { priorFunction = prf',
@@ -228,8 +228,8 @@ setReciprocalTemperature prf lhf b a =
     --
     -- To minimize computations, it is key to avoid modification of the
     -- reciprocal temperature for the cold chain.
-    prf' = heatFunction prf b
-    lhf' = heatFunction lhf b
+    prf' = heatFunction coldPrf b
+    lhf' = heatFunction coldLhf b
     x = state $ link c
 
 initMHG ::
@@ -378,8 +378,10 @@ mc3ProposeSwap ::
   Int ->
   IO (MC3 a)
 mc3ProposeSwap a i = do
+  let
+    cs = mc3MHGChains a
   -- 1. Sample new state and get the Metropolis ratio.
-  let (!y, !r) = swapWith i (i + 1) $ mc3MHGChains a
+  let (!y, !r) = swapWith i (i + 1) cs
   -- 2. Accept or reject.
   accept <- mhgAccept r g
   if accept
