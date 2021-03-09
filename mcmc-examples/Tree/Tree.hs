@@ -53,7 +53,7 @@ psT t =
   map (ultrametricTree @~) $
     pulleyUltrametric t 0.1 n (PWeight 5) Tune :
     slideNodesUltrametric t 0.1 n (PWeight 1) Tune
-      ++ scaleSubTreesUltrametric t 100 n (PWeight 1) Tune
+      ++ scaleSubTreesUltrametric t 0.1 n (PWeight 1) Tune
   where
     n = PName "Ultrametric tree"
 
