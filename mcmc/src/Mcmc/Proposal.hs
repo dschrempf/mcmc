@@ -37,7 +37,7 @@ module Mcmc.Proposal
     Cycle (ccProposals),
     cycleFromList,
     setOrder,
-    orderProposals,
+    prepareProposals,
     tuneCycle,
     autoTuneCycle,
 
@@ -352,8 +352,8 @@ setOrder :: Order -> Cycle a -> Cycle a
 setOrder o c = c {ccOrder = o}
 
 -- | Replicate 'Proposal's according to their weights and possibly shuffle them.
-orderProposals :: Cycle a -> GenIO -> IO [Proposal a]
-orderProposals (Cycle xs o) g = case o of
+prepareProposals :: Cycle a -> GenIO -> IO [Proposal a]
+prepareProposals (Cycle xs o) g = case o of
   RandomO -> shuffle ps g
   SequentialO -> return ps
   RandomReversibleO -> do

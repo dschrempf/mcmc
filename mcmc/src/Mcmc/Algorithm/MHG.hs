@@ -195,7 +195,7 @@ mhgPush (MHG c) = do
 -- running parallel chains such as 'MC3'.
 mhgIterate :: ParallelizationMode -> MHG a -> IO (MHG a)
 mhgIterate _ a = do
-  ps <- orderProposals cc g
+  ps <- prepareProposals cc g
   a' <- foldM mhgPropose a ps
   mhgPush a'
   where
