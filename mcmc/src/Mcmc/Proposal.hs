@@ -23,7 +23,7 @@ module Mcmc.Proposal
     Proposal (..),
     (@~),
     ProposalSimple,
-    Tuner (tParam, tFunc),
+    Tuner (..),
     Tune (..),
     createProposal,
     TuningParameter,
