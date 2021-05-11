@@ -30,14 +30,14 @@ c = cycleFromList [p1, p2]
 
 spec :: Spec
 spec =
-  describe "orderProposals" $
+  describe "prepareProposals" $
     it "returns the correct number of proposals in a cycle" $
       do
         g <- create
-        l1 <- length <$> orderProposals c g
+        l1 <- length <$> prepareProposals c g
         l1 `shouldBe` 4
-        l2 <- length <$> orderProposals (setOrder RandomReversibleO c) g
+        l2 <- length <$> prepareProposals (setOrder RandomReversibleO c) g
         l2 `shouldBe` 8
-        o3 <- orderProposals (setOrder SequentialReversibleO c) g
+        o3 <- prepareProposals (setOrder SequentialReversibleO c) g
         length o3 `shouldBe` 8
         o3 == [p1, p2, p2, p2, p2, p2, p2, p1] `shouldBe` True
