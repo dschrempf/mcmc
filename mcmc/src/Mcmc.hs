@@ -76,9 +76,13 @@ module Mcmc
     -- Gibbs sampler, or a random sequence scan Gibbs sampler, respectively. See
     -- 'Order'.
     --
-    -- Note that it is of utter importance that the given 'Cycle' enables
-    -- traversal of the complete state space. Otherwise, the Markov chain will
-    -- not converge to the correct stationary posterior distribution.
+    -- Notes:
+    -- - It is important that the given 'Cycle' enables traversal of the
+    --   complete state space. Otherwise, the Markov chain will not converge to
+    --   the correct stationary posterior distribution.
+    -- - Be careful when assigning proposals because acceptance ratios may have
+    --   to be amended using Jacobians. Please see an [example involving a pair
+    --   of numbers](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Pair/Pair.hs).
     --
     -- Proposals are named according to what they do, i.e., how they change the
     -- state of a Markov chain, and not according to the intrinsically used
@@ -116,6 +120,7 @@ module Mcmc
     PWeight (..),
     Proposal,
     (@~),
+    liftProposal,
     Tune (..),
     scale,
     scaleUnbiased,

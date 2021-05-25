@@ -93,9 +93,9 @@ executable pair
   hs-source-dirs: Pair
   build-depends:
       base
+    , lens
     , mcmc
     , mwc-random
-    , statistics
 
 executable plh
   import: exec

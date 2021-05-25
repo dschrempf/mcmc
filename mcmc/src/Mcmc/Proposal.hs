@@ -22,6 +22,7 @@ module Mcmc.Proposal
     PDimension (..),
     Proposal (..),
     (@~),
+    liftProposal,
     ProposalSimple,
     Tuner (..),
     Tune (..),
@@ -155,7 +156,13 @@ instance Eq (Proposal a) where
 instance Ord (Proposal a) where
   compare = compare `on` (\p -> (pDescription p, pName p, pWeight p))
 
--- | Convert a proposal from one data type to another using a lens.
+-- | A type synonym for a function calculating the absolute value of the
+-- determinant of the Jacobian matrix (i.e., the /Jacobian/) of a proposal.
+type JacobianFunction a = a -> Log Double
+
+-- | Lift a proposal from one data type to another.
+--
+-- Assume the Jacobian is 1.0 (but see 'liftProposal').
 --
 -- For example:
 --
@@ -163,7 +170,17 @@ instance Ord (Proposal a) where
 -- scaleFirstEntryOfTuple = _1 @~ scale
 -- @
 (@~) :: Lens' b a -> Proposal a -> Proposal b
-(@~) l (Proposal n r d w s t) = Proposal n r d w (convertProposalSimple l s) (convertTuner l <$> t)
+(@~) = liftProposal (const 1.0)
+
+
+-- | Lift a proposal from one data type to another.
+--
+-- A function to calculate the Jacobian has to be provided (but see '(@~)').
+--
+-- For further reference, please see the [example
+-- @Pair@](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Pair/Pair.hs).
+liftProposal :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
+liftProposal jf l (Proposal n r d w s t) = Proposal n r d w (convertProposalSimple jf l s) (convertTuner jf l <$> t)
 
 -- | Simple proposal without tuning information.
 --
@@ -186,12 +203,16 @@ instance Ord (Proposal a) where
 -- determinant of the Jacobian matrix differs from 1.0.
 type ProposalSimple a = a -> GenIO -> IO (a, Log Double, Log Double)
 
-convertProposalSimple :: Lens' b a -> ProposalSimple a -> ProposalSimple b
-convertProposalSimple l s = s'
+convertProposalSimple :: JacobianFunction b -> Lens' b a -> ProposalSimple a -> ProposalSimple b
+convertProposalSimple jf l s = s'
   where
-    s' v g = do
-      (x', r, j) <- s (v ^. l) g
-      return (set l x' v, r, j)
+    s' y g = do
+      (x', r, j) <- s (y ^. l) g
+      let y' = set l x' y
+          jxy = jf y
+          jyx = jf y'
+          j' = j * jyx / jxy
+      return (y', r, j')
 
 -- | Tune the acceptance rate of a 'Proposal'; see 'tune', or 'autoTuneCycle'.
 data Tuner a = Tuner
@@ -199,10 +220,10 @@ data Tuner a = Tuner
     tFunc :: TuningParameter -> ProposalSimple a
   }
 
-convertTuner :: Lens' b a -> Tuner a -> Tuner b
-convertTuner l (Tuner p f) = Tuner p f'
+convertTuner :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
+convertTuner jf l (Tuner p f) = Tuner p f'
   where
-    f' x = convertProposalSimple l $ f x
+    f' x = convertProposalSimple jf l $ f x
 
 -- | Tune the proposal?
 data Tune = Tune | NoTune

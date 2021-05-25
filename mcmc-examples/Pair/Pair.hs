@@ -8,8 +8,8 @@
 -- Stability   :  unstable
 -- Portability :  portable
 --
--- This example module is more involved and contains custom proposals with
--- custom Jacobians. We sample the posterior distribution of a variable \(z \sim
+-- This example module is more involved and contains proposals with custom
+-- Jacobians. We sample the posterior distribution of a variable \(z \sim
 -- \mbox{Exp}(1.0)\) separated into a sum \(z=x+y\), with \(x,y > 0\). The
 -- sampler propose new values for \(x\) and \(y\).
 module Main
@@ -17,11 +17,9 @@ module Main
   )
 where
 
+import Control.Lens
 import Control.Monad
 import Mcmc
-import Mcmc.Proposal
-import Statistics.Distribution
-import Statistics.Distribution.Normal
 import System.Random.MWC hiding (uniform)
 
 -- The state is composed of a tuple of two variables x and y.
@@ -32,9 +30,10 @@ analysisName = AnalysisName "Pair"
 
 -- Improper prior for positive values.
 pr :: I -> Log Double
-pr (x, y) = largerThan 0.0001 x * largerThan 0.0001 y
+pr (x, y) = largerThan 0.00001 x * largerThan 0.00001 y
 
--- Likelihood function.
+-- The likelihood function only acts on the sum of x and y, so we will need a
+-- custom Jacobian in our proposals.
 lh :: I -> Log Double
 lh (x, y) = exponential 1.0 (x + y)
 
@@ -42,101 +41,22 @@ lh (x, y) = exponential 1.0 (x + y)
 start :: I
 start = (1.1, 1.1)
 
--- Additive proposals with a custom Jacobian.
-psX :: TuningParameter -> ProposalSimple I
-psX t (x, y) g = do
-  let d = normalDistr 0 t
-  u <- genContinuous d g
-  let x' = x + u
-      qXY = Exp $ logDensity d u
-      qYX = Exp $ logDensity d (negate u)
-      r = abs $ (x + y) / (x + y + u)
-      j = Exp $ log r
-  return ((x', y), qYX / qXY, j)
-
-psY :: TuningParameter -> ProposalSimple I
-psY t (x, y) g = do
-  let d = normalDistr 0 t
-  u <- genContinuous d g
-  let y' = y + u
-      qXY = Exp $ logDensity d u
-      qYX = Exp $ logDensity d (negate u)
-      r = abs $ (x + y) / (x + y + u)
-      j = Exp $ log r
-  return ((x, y'), qYX / qXY, j)
-
-prX :: Proposal I
-prX =
-  Proposal
-    (PName "x")
-    (PDescription "prX")
-    (PDimension 1)
-    (PWeight 1)
-    (psX 1)
-    (Just $ Tuner 1.0 psX)
-
-prY :: Proposal I
-prY =
-  Proposal
-    (PName "y")
-    (PDescription "prY")
-    (PDimension 1)
-    (PWeight 1)
-    (psY 1)
-    (Just $ Tuner 1.0 psY)
-
--- -- The equivalent multiplicative proposals are commented out.
-
--- psX :: TuningParameter -> ProposalSimple I
--- psX t (x, y) g = do
---   let d = gammaDistr (recip t) t
---   u <- genContinuous d g
---   let x' = x * u
---       qXY = Exp $ logDensity d u
---       qYX = Exp $ logDensity d (recip u)
---       r = abs $ recip u * (x + y) / (x' + y)
---       j = Exp $ log r
---   return ((x', y), qYX / qXY, j)
-
--- psY :: TuningParameter -> ProposalSimple I
--- psY t (x, y) g = do
---   let d = gammaDistr (recip t) t
---   u <- genContinuous d g
---   let y' = y * u
---       qXY = Exp $ logDensity d u
---       qYX = Exp $ logDensity d (recip u)
---       r = abs $ recip u * (x + y) / (x + y')
---       j = Exp $ log r
---   return ((x, y'), qYX / qXY, j)
-
--- prX :: Proposal I
--- prX =
---   Proposal
---     (PName "x")
---     (PDescription "prX mult")
---     (PDimension 1)
---     (PWeight 1)
---     (psX 1)
---     (Just $ Tuner 1.0 psX)
-
--- prY :: Proposal I
--- prY =
---   Proposal
---     (PName "y")
---     (PDescription "prY mult")
---     (PDimension 1)
---     (PWeight 1)
---     (psY 1)
---     (Just $ Tuner 1.0 psY)
+-- The Jacobian function required
+jacobian :: I -> Log Double
+jacobian = Exp . log . recip . uncurry (+)
 
 -- The proposal cycle consists of one proposal only. A uniform distribution is used to
 -- slide the precision of the archer.
 cc :: Cycle I
 cc =
   cycleFromList
-    [ prY
-    , prX
-    , slideContrarily 0 1.0 (PName "x y") (PWeight 1) Tune
+    [
+      -- The proposals require a custom Jacobian.
+      liftProposal jacobian _1 (scaleUnbiased 1.0 (PName "x") (PWeight 1) Tune),
+      liftProposal jacobian _2 (scaleUnbiased 1.0 (PName "y") (PWeight 1) Tune),
+      -- Sliding the pair contrarily will not change z, and so, no Jacobian is
+      -- required. When using 'scaleContrarily', a custom Jacobian is required.
+      slideContrarily 0 0.5 (PName "x y") (PWeight 20) Tune
     ]
 
 -- Monitor the precision of the archer.
@@ -171,10 +91,10 @@ main = do
           Sequential
           NoSave
           LogStdOutAndFile
-          Debug
+          Info
   -- Metropolis-Hastings-Green algorithm.
   a <- mhg pr lh cc mon TraceAuto start g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
   -- let mc3S = MC3Settings 3 1
-  -- a <- mc3 mc3S pr lh cc mon (1, 1) g
+  -- a <- mc3 mc3S pr lh cc mon start g
   void $ mcmc mcmcS a
