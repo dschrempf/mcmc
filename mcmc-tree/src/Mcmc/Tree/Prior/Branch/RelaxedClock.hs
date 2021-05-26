@@ -34,6 +34,7 @@ module Mcmc.Tree.Prior.Branch.RelaxedClock
   )
 where
 
+import Data.Maybe
 import qualified Data.Vector.Unboxed as V
 import ELynx.Tree
 import Mcmc.Chain.Chain
@@ -94,8 +95,8 @@ gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmet
 -- NOTE: For convenience, the mean and variance are used as parameters for this
 -- relaxed molecular clock model. They are used to calculate the shape and the
 -- scale of the underlying gamma distribution.
-uncorrelatedGamma :: HandleStem -> Mean -> Variance -> PriorFunction (Tree Length a)
-uncorrelatedGamma s m v = branchesWith s (gamma k th)
+uncorrelatedGamma :: HandleDepth -> Mean -> Variance -> PriorFunction (Tree Length a)
+uncorrelatedGamma hd m v = branchesWith hd (gamma k th . fromLength)
   where
     (k, th) = gammaMeanVarianceToShapeScale m v
 
@@ -114,8 +115,8 @@ logNormal' mu var r = Exp $ negate t - e
 -- mean and variance.
 --
 -- See Computational Molecular Evolution (Yang, 2006), Section 7.4.
-uncorrelatedLogNormal :: HandleStem -> Mean -> Variance -> PriorFunction (Tree Length a)
-uncorrelatedLogNormal s mu var = branchesWith s (logNormal' mu var)
+uncorrelatedLogNormal :: HandleDepth -> Mean -> Variance -> PriorFunction (Tree Length a)
+uncorrelatedLogNormal hd mu var = branchesWith hd (logNormal' mu var . fromLength)
 
 -- | White noise model.
 --
@@ -137,20 +138,30 @@ uncorrelatedLogNormal s mu var = branchesWith s (logNormal' mu var)
 -- NOTE: The name white noise implies that the process is uncorrelated, but the
 -- prefix is still kept to maintain consistency with the other names.
 --
--- NOTE: Assume that the topologies of the time and rate trees match.
---
 -- Lepage, T., Bryant, D., Philippe, H., & Lartillot, N., A general comparison
 -- of relaxed molecular clock models, Molecular Biology and Evolution, 24(12),
 -- 2669–2680 (2007). http://dx.doi.org/10.1093/molbev/msm193
-whiteNoise :: HandleStem -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
-whiteNoise WithStem v t r =
-  -- This is correct. The mean of b=tr is t, the variance of b is
-  -- Var(tr) = t^2Var(r) = t^2 v/t = vt, as required in Lepage, 2006.
-  gamma k (recip k) (fromLength $ branch r) * whiteNoise WithoutStem v t r
+--
+-- Call 'error' if the topologies of the time and rate trees do not match.
+whiteNoise :: HandleDepth -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
+whiteNoise hd v tTr rTr = branchesWith hd f zTr
   where
-    k = fromLength (branch t) / v
-whiteNoise WithoutStem v t r =
-  product $ zipWith (whiteNoise WithStem v) (forest t) (forest r)
+    zTr =
+      fromMaybe
+        (error "whiteNoise: Topologies of time and rate trees do not match.")
+        (zipTrees tTr rTr)
+    -- This is correct. The mean of b=tr is t, the variance of b is
+    -- Var(tr) = t^2Var(r) = t^2 v/t = vt, as required in Lepage, 2006.
+    f (t, r) = let k = fromLength t / v in gamma k (recip k) (fromLength r)
+-- whiteNoise :: HandleDepth -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
+-- whiteNoise WithStem v t r =
+--   -- This is correct. The mean of b=tr is t, the variance of b is
+--   -- Var(tr) = t^2Var(r) = t^2 v/t = vt, as required in Lepage, 2006.
+--   gamma k (recip k) (fromLength $ branch r) * whiteNoise WithoutStem v t r
+--   where
+--     k = fromLength (branch t) / v
+-- whiteNoise WithoutStem v t r =
+--   product $ zipWith (whiteNoise WithStem v) (forest t) (forest r)
 
 -- | Auto-correlated gamma model.
 --
@@ -172,21 +183,33 @@ whiteNoise WithoutStem v t r =
 -- @
 -- prior = autocorrelatedGamma initialMean variance timeTree rateTree
 -- @
+--
+-- Call 'error' if the topologies of the time and rate trees do not match.
 autocorrelatedGamma ::
-  HandleStem ->
+  HandleDepth ->
   Mean ->
   Variance ->
   Tree Length a ->
   PriorFunction (Tree Length a)
-autocorrelatedGamma WithStem mu var tTr rTr =
-  gamma shape scale r * autocorrelatedGamma WithoutStem r var tTr rTr
+autocorrelatedGamma hd mu var tTr rTr = branchesWith hd f zTr
   where
-    t = fromLength (branch tTr)
-    r = fromLength (branch rTr)
-    var' = t * var
-    (shape, scale) = gammaMeanVarianceToShapeScale mu var'
-autocorrelatedGamma WithoutStem mu var tTr rTr =
-  product $ zipWith (autocorrelatedGamma WithStem mu var) (forest tTr) (forest rTr)
+    zTr =
+      fromMaybe
+        (error "autocorrelatedGamma: Topologies of time and rate trees do not match.")
+        (zipTrees tTr rTr)
+    f (t, r) =
+      let var' = fromLength t * var
+          (shape, scale) = gammaMeanVarianceToShapeScale mu var'
+       in gamma shape scale $ fromLength r
+-- autocorrelatedGamma WithStem mu var tTr rTr =
+--   gamma shape scale r * autocorrelatedGamma WithoutStem r var tTr rTr
+--   where
+--     t = fromLength (branch tTr)
+--     r = fromLength (branch rTr)
+--     var' = t * var
+--     (shape, scale) = gammaMeanVarianceToShapeScale mu var'
+-- autocorrelatedGamma WithoutStem mu var tTr rTr =
+--   product $ zipWith (autocorrelatedGamma WithStem mu var) (forest tTr) (forest rTr)
 
 -- | Auto-correlated log normal model.
 --
@@ -208,18 +231,25 @@ autocorrelatedGamma WithoutStem mu var tTr rTr =
 -- prior = autocorrelatedLogNormal initialRate variance timeTree rateTree
 -- @
 --
--- NOTE: Assume that the topologies of the time and rate trees match.
+-- Call 'error' if the topologies of the time and rate trees do not match.
 autocorrelatedLogNormal ::
-  HandleStem ->
+  HandleDepth ->
   Mean ->
   Variance ->
   Tree Length a ->
   PriorFunction (Tree Length a)
-autocorrelatedLogNormal WithStem mu var tTr rTr =
-  logNormal' mu var' r * autocorrelatedLogNormal WithoutStem r var tTr rTr
+autocorrelatedLogNormal hd mu var tTr rTr = branchesWith hd f zTr
   where
-    t = fromLength (branch tTr)
-    r = fromLength (branch rTr)
-    var' = t * var
-autocorrelatedLogNormal WithoutStem mu var tTr rTr =
-  product $ zipWith (autocorrelatedLogNormal WithStem mu var) (forest tTr) (forest rTr)
+    zTr =
+      fromMaybe
+        (error "autocorrelatedLogNormal: Topologies of time and rate trees do not match.")
+        (zipTrees tTr rTr)
+    f (t, r) = let var' = fromLength t * var in logNormal' mu var' $ fromLength r
+-- autocorrelatedLogNormal WithStem mu var tTr rTr =
+--   logNormal' mu var' r * autocorrelatedLogNormal WithoutStem r var tTr rTr
+--   where
+--     t = fromLength (branch tTr)
+--     r = fromLength (branch rTr)
+--     var' = t * var
+-- autocorrelatedLogNormal WithoutStem mu var tTr rTr =
+--   product $ zipWith (autocorrelatedLogNormal WithStem mu var) (forest tTr) (forest rTr)

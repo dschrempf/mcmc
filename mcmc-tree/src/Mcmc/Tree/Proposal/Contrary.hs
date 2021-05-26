@@ -111,8 +111,6 @@ scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
 -- - The path leads to a leaf.
 scaleSubTreeAtContrarily ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
-  --
-  -- TODO: Use ELynx.Topology here.
   Tree e a ->
   Path ->
   StandardDeviation ->

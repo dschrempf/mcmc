@@ -13,6 +13,7 @@ module Mcmc.Tree.Prior.BirthDeath
   ( BirthRate,
     DeathRate,
     SamplingRate,
+    ConditionOn (..),
     birthDeath,
   )
 where
@@ -22,7 +23,6 @@ where
 
 import ELynx.Tree
 import Mcmc.Chain.Chain
-import Mcmc.Tree.Types
 import Numeric.Log
 
 -- | Type synonym to indicate a birth rate.
@@ -105,16 +105,17 @@ epsNearCritical = 1e-6
 -- TODO: Condition on time of origin and the number of taxa (or MRCA and the
 -- number of taxa).
 
+-- | Condition on the time of origin or the time of the most recent common
+-- ancestor (MRCA).
+--
+-- If 'ConditionOnTimeOfOrigin' is used, the stem needs to be strictly positive.
+data ConditionOn = ConditionOnTimeOfOrigin | ConditionOnTimeOfMrca
+
 -- | Birth and death prior for bifurcating trees.
 --
 -- See Stadler, T., Mammalian phylogeny reveals recent diversification rate
 -- shifts, Proceedings of the National Academy of Sciences, 108(15), 6187–6192
 -- (2011). http://dx.doi.org/10.1073/pnas.1016876108.
---
--- If the stem is handled ('WithStem'), the prior conditions on the time of origin.
---
--- If the stem is not handled ('WithoutStem'), the prior conditions on the most
--- recent common ancestor (MRCA).
 --
 -- NOTE: The prior __does not calculate the multiplicative combinatorial
 -- factor__ relating the number of oriented labeled trees to the number of
@@ -129,22 +130,21 @@ epsNearCritical = 1e-6
 --
 -- - The tree is not bifurcating.
 birthDeath ::
-  -- | Handle the stem?
-  HandleStem ->
+  ConditionOn ->
   BirthRate ->
   DeathRate ->
   SamplingRate ->
   PriorFunction (Tree Length a)
-birthDeath WithStem la mu rho t
+birthDeath ConditionOnTimeOfOrigin la mu rho t
   | la < 0.0 = error "birthDeath: Birth rate is negative."
   | mu < 0.0 = error "birthDeath: Death rate is negative."
   | rho <= 0.0 = error "birthDeath: Sampling rate is zero or negative."
   | rho > 1.0 = error "birthDeath: Sampling rate is larger than 1.0."
   | epsNearCritical > abs (la - mu) = fst $ birthDeathWith computeDENearCritical la mu rho t
   | otherwise = fst $ birthDeathWith computeDE la mu rho t
-birthDeath WithoutStem la mu rho (Node _ _ [l, r]) =
-  birthDeath WithStem la mu rho l * birthDeath WithStem la mu rho r
-birthDeath WithoutStem _ _ _ _ =
+birthDeath ConditionOnTimeOfMrca la mu rho (Node _ _ [l, r]) =
+  birthDeath ConditionOnTimeOfOrigin la mu rho l * birthDeath ConditionOnTimeOfOrigin la mu rho r
+birthDeath ConditionOnTimeOfMrca _ _ _ _ =
   error "birthDeath: Tree is not bifurcating."
 
 birthDeathWith ::

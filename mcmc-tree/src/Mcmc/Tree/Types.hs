@@ -19,8 +19,10 @@
 -- Type synonyms to improve code readability.
 module Mcmc.Tree.Types
   ( -- ** Miscellaneous
-    HandleStem (..),
-    HandleRoot (..),
+    HandleDepth,
+    allDepths,
+    withoutRoot,
+    withoutStem,
 
     -- ** Heights
     Height (fromHeight),
@@ -46,17 +48,45 @@ import Data.Monoid
 import ELynx.Tree
 import GHC.Generics
 
--- | Should the stem be handled?
---
--- For example, should the stem be considered when calculating the Jacobian
--- during execution of a proposal, or the branch-wise prior?
-data HandleStem = WithStem | WithoutStem
+-- -- | When traversing the branches of a tree, should the stem be handled?
+-- --
+-- -- For example, should the stem be considered when calculating a branch-wise
+-- -- prior?
+-- data HandleStem = WithStem | WithoutStem
 
--- | Should the root be handled?
+-- -- | Should the root be handled?
+-- --
+-- -- For example, when scaling all sub trees, should the complete tree including
+-- -- the stem also be scaled?
+-- data HandleRoot = WithRoot | WithoutRoot
+
+-- | When creating proposals, which depths should be handled?
 --
--- For example, when scaling all sub trees, should the complete tree including
--- the stem also be scaled?
-data HandleRoot = WithRoot | WithoutRoot
+-- For example, see 'withoutRoot'.
+type HandleDepth = Int -> Bool
+
+-- | Handle all depths.
+--
+-- In particular:
+--
+-- - Include the stem, if handling branches.
+--
+-- - Include the root node, if handling nodes.
+allDepths :: HandleDepth
+allDepths = const True
+
+-- | Exclude the root.
+--
+-- @
+-- withoutRoot = (>0)
+-- @
+withoutRoot :: HandleDepth
+withoutRoot = (>0)
+
+-- | Exclude the stem.
+withoutStem :: HandleDepth
+withoutStem = withoutRoot
+
 
 -- -- | Should the leaves be handled?
 -- data HandleLeaves = WithLeaves | WithoutLeaves

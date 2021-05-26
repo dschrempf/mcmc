@@ -56,20 +56,19 @@ scaleBranch s n w t = (branchL . lengthUnsafeL) @~ scaleUnbiased s n w t
 -- See 'scaleBranch'.
 scaleBranches ::
   Tree e a ->
-  HandleStem ->
+  HandleDepth ->
   Shape ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
   Tune ->
   [Proposal (Tree Length b)]
-scaleBranches tr st s n w t =
+scaleBranches tr hd s n w t =
   [ subTreeAtUnsafeL pth
       @~ scaleBranch s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
-      case st of
-        WithoutStem -> not (null pth)
-        WithStem -> True
+      -- Filter depths.
+      hd $ length pth
   ]
   where
     name lb = n <> PName (" branch " ++ show lb)
@@ -108,8 +107,6 @@ scaleTreeSimple n k t =
 -- (including the stem) are unconstrained and strictly positive.
 scaleTree ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
-  --
-  -- TODO: Use ELynx.Topology here.
   Tree e b ->
   Shape ->
   PName ->
@@ -128,21 +125,20 @@ scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
 -- Do not scale leaves.
 scaleSubTrees ::
   Tree e a ->
-  HandleRoot ->
+  HandleDepth  ->
   Shape ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
   Tune ->
   [Proposal (Tree Length b)]
-scaleSubTrees tr rt s n w t =
+scaleSubTrees tr hd s n w t =
   [ subTreeAtUnsafeL pth
       @~ scaleTree focus s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
-      case rt of
-        WithoutRoot -> not $ null pth
-        WithRoot -> True,
+      -- Filter depths.
+      hd (length pth),
       -- Do not scale the leaves, because 'scaleBranch' is faster.
       not $ null $ forest focus
   ]

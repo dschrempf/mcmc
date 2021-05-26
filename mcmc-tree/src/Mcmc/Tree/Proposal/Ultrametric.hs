@@ -97,8 +97,6 @@ slideNodeAtUltrametricSimple pth s t tr g
 -- - The path leads to a leaf.
 slideNodeAtUltrametric ::
   -- | The topology of the tree is used to check the path.
-  --
-  -- TODO: Use ELynx.Topology here.
   Tree e a ->
   -- | A zipper with given 'Path' has to be used for this proposal, because we
   -- need access to the parent.
@@ -166,8 +164,9 @@ scaleSubTreeAtUltrametricSimple n pth sd t tr g
 
 -- | Scale the node heights of the sub tree at given path.
 --
--- A normal distribution truncated at the height of the parent node and the
--- leaves is used to determine the new height of the sub tree.
+-- A normal distribution with mean at the current node height, and truncated at
+-- the height of the parent node and the leaves is used to determine the new
+-- height of the sub tree.
 --
 -- Call 'error' if:
 --
@@ -178,8 +177,6 @@ scaleSubTreeAtUltrametricSimple n pth sd t tr g
 -- - The path leads to a leaf.
 scaleSubTreeAtUltrametric ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
-  --
-  -- TODO: Use ELynx.Topology here.
   Tree e a ->
   -- | A zipper with given 'Path' has to be used for this proposal, because we need
   -- access to the parent.
@@ -303,8 +300,6 @@ pulleyUltrametricSimple _ _ _ _ _ _ = error "pulleyUltrametricSimple: Node is no
 -- - Right sub tree is a leaf.
 pulleyUltrametric ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
-  --
-  -- TODO: Use ELynx.Topology here.
   Tree e a ->
   StandardDeviation ->
   PName ->

@@ -43,8 +43,8 @@ instance FromJSON I
 pr :: PriorFunction I
 pr (I t r) =
   product'
-    [ birthDeath WithoutStem 2.0 2.0 0.1 $ fromHeightTree t,
-      branchesWith WithoutStem (exponential 1.0) r
+    [ birthDeath ConditionOnTimeOfMrca 2.0 2.0 0.1 $ fromHeightTree t,
+      branchesWith withoutStem (exponential 1.0 . fromLength) r
     ]
 
 -- Proposals on the ultrametric tree.
@@ -62,8 +62,8 @@ psR :: Tree e a -> [Proposal I]
 psR t =
   map (unconstrainedTree @~) $
     pulley 0.1 n (PWeight 5) Tune :
-    scaleBranches t WithoutStem 0.1 n (PWeight 1) Tune
-      ++ scaleSubTrees t WithoutRoot 100 n (PWeight 1) Tune
+    scaleBranches t withoutStem 0.1 n (PWeight 1) Tune
+      ++ scaleSubTrees t withoutRoot 100 n (PWeight 1) Tune
   where
     n = PName "Unconstrained tree"
 
