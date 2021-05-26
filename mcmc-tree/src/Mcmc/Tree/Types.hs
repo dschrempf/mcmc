@@ -87,7 +87,6 @@ withoutRoot = (>0)
 withoutStem :: HandleDepth
 withoutStem = withoutRoot
 
-
 -- -- | Should the leaves be handled?
 -- data HandleLeaves = WithLeaves | WithoutLeaves
 

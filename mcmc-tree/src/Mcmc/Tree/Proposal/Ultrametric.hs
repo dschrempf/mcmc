@@ -121,19 +121,22 @@ slideNodeAtUltrametric tr pth ds
 -- Do not slide the root nor the leaves.
 slideNodesUltrametric ::
   Tree e a ->
+  HandleDepth ->
   StandardDeviation ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
   Tune ->
   [Proposal (HeightTree b)]
-slideNodesUltrametric tr s n w t =
+slideNodesUltrametric tr hd s n w t =
   [ slideNodeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       -- Do not slide the root.
       not (null pth),
       -- Do not slide the leaves.
-      not (isLeafPath tr pth)
+      not (isLeafPath tr pth),
+      -- Filter other depths.
+      hd $ length pth
   ]
   where
     name lb = n <> PName (" node " ++ show lb)
@@ -206,20 +209,23 @@ scaleSubTreeAtUltrametric tr pth sd
 -- Do not scale the root nor the leaves.
 scaleSubTreesUltrametric ::
   Tree e a ->
+  HandleDepth ->
   StandardDeviation ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
   Tune ->
   [Proposal (HeightTree b)]
-scaleSubTreesUltrametric tr s n w t =
+scaleSubTreesUltrametric tr hd s n w t =
   [ scaleSubTreeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
       -- Do not scale the root.
       not $ null pth,
       -- Do not scale the leaves.
-      not $ null $ forest focus
+      not $ null $ forest focus,
+      -- Filter other depths.
+      hd $ length pth
   ]
   where
     name lb = n <> PName (" node " ++ show lb)

@@ -21,8 +21,10 @@ module Mcmc.Proposal
     PWeight (..),
     PDimension (..),
     Proposal (..),
+    JacobianFunction,
     (@~),
     liftProposal,
+    liftProposalWith,
     ProposalSimple,
     Tuner (..),
     Tune (..),
@@ -162,7 +164,7 @@ type JacobianFunction a = a -> Log Double
 
 -- | Lift a proposal from one data type to another.
 --
--- Assume the Jacobian is 1.0 (but see 'liftProposal').
+-- Assume the Jacobian is 1.0 (see also 'liftProposal' and 'liftProposalWith').
 --
 -- For example:
 --
@@ -170,17 +172,23 @@ type JacobianFunction a = a -> Log Double
 -- scaleFirstEntryOfTuple = _1 @~ scale
 -- @
 (@~) :: Lens' b a -> Proposal a -> Proposal b
-(@~) = liftProposal (const 1.0)
-
+(@~) = liftProposal
 
 -- | Lift a proposal from one data type to another.
 --
--- A function to calculate the Jacobian has to be provided (but see '(@~)').
+-- Assume the Jacobian is 1.0 (see also '(@~)' and 'liftProposalWith').
+liftProposal :: Lens' b a -> Proposal a -> Proposal b
+liftProposal = liftProposalWith (const 1.0)
+
+-- | Lift a proposal from one data type to another.
+--
+-- A function to calculate the Jacobian has to be provided (see also
+-- 'liftProposal').
 --
 -- For further reference, please see the [example
 -- @Pair@](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Pair/Pair.hs).
-liftProposal :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
-liftProposal jf l (Proposal n r d w s t) = Proposal n r d w (convertProposalSimple jf l s) (convertTuner jf l <$> t)
+liftProposalWith :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
+liftProposalWith jf l (Proposal n r d w s t) = Proposal n r d w (convertProposalSimple jf l s) (convertTuner jf l <$> t)
 
 -- | Simple proposal without tuning information.
 --

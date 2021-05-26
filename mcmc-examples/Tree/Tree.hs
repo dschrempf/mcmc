@@ -26,8 +26,8 @@ import Mcmc.Tree
 import System.Random.MWC hiding (uniform)
 
 data I = I
-  { _ultrametricTree :: HeightTree Name,
-    _unconstrainedTree :: Tree Length Name
+  { _timeTree :: HeightTree Name,
+    _rateTree :: Tree Length Name
   }
   deriving (Generic)
 
@@ -47,35 +47,49 @@ pr (I t r) =
       branchesWith withoutStem (exponential 1.0 . fromLength) r
     ]
 
+-- The branches leading to the root are split. This Jacobian is necessary to
+-- have unbiased proposals on the branches leading to the root.
+jacobianRootBranch :: JacobianFunction I
+jacobianRootBranch (I tTr rTr) = Exp $ log $ recip $ t1 * r1 + t2 * r2
+  where
+    (t1, t2) = case tTr of
+      Node _ _ [l, r] -> (fromHeight $ nodeHeight $ label l, fromHeight $ nodeHeight $ label r)
+      _ -> error "jacobianRootBranch: Time tree is not bifurcating."
+    (r1, r2) = case rTr of
+      Node _ _ [l, r] -> (fromLength $ branch l, fromLength $ branch r)
+      _ -> error "jacobianRootBranch: Rate tree is not bifurcating."
+
 -- Proposals on the ultrametric tree.
 psT :: Tree e a -> [Proposal I]
-psT t =
-  map (ultrametricTree @~) $
-    pulleyUltrametric t 0.1 n (PWeight 5) Tune :
-    slideNodesUltrametric t 0.1 n (PWeight 1) Tune
-      ++ scaleSubTreesUltrametric t 0.1 n (PWeight 1) Tune
+psT t = map (liftProposalWith jacobianRootBranch timeTree) psWithJacobian
+        ++ map (liftProposal timeTree) psWithoutJacobian
   where
     n = PName "Ultrametric tree"
+    w = PWeight 1
+    ps hd = slideNodesUltrametric t hd 0.1 n w Tune ++ scaleSubTreesUltrametric t hd 0.1 n w Tune
+    psWithJacobian = pulleyUltrametric t 0.1 n (PWeight 5) Tune : ps (== 1)
+    psWithoutJacobian = ps (>1)
 
 -- Proposals on the unconstrained tree.
 psR :: Tree e a -> [Proposal I]
-psR t =
-  map (unconstrainedTree @~) $
-    pulley 0.1 n (PWeight 5) Tune :
-    scaleBranches t withoutStem 0.1 n (PWeight 1) Tune
-      ++ scaleSubTrees t withoutRoot 100 n (PWeight 1) Tune
+psR t = map (liftProposalWith jacobianRootBranch rateTree) psWithJacobian
+        ++ map (liftProposal rateTree) psWithoutJacobian
   where
     n = PName "Unconstrained tree"
+    w = PWeight 1
+    ps hd = scaleBranches t hd 0.1 n (PWeight 1) Tune ++ scaleSubTrees t hd 100 n (PWeight 1) Tune
+    psWithJacobian = pulley 0.1 n (PWeight 5) Tune : ps (== 1)
+    psWithoutJacobian = ps (> 1)
 
 cc :: Tree e a -> Cycle I
 cc t = cycleFromList $ psT t ++ psR t
 
 -- Get the height of the node at path. Useful to have a look at calibrated nodes.
 getNodeHeightT :: Path -> I -> Double
-getNodeHeightT p x = fromHeight $ nodeHeight $ label $ x ^. ultrametricTree . subTreeAtUnsafeL p
+getNodeHeightT p x = fromHeight $ nodeHeight $ label $ x ^. timeTree . subTreeAtUnsafeL p
 
 getBranchR :: Path -> I -> Double
-getBranchR p x = fromLength $ branch $ x ^. unconstrainedTree . subTreeAtUnsafeL p
+getBranchR p x = fromLength $ branch $ x ^. rateTree . subTreeAtUnsafeL p
 
 -- Monitor the height of all nodes.
 monPs :: Tree e a -> [MonitorParameter I]
@@ -99,10 +113,10 @@ monFile :: Tree e a -> MonitorFile I
 monFile t = monitorFile "" (monPs t) 5
 
 monTreeT :: MonitorFile I
-monTreeT = monitorFile "ultrametric" [fromHeightTree . _ultrametricTree >$< monitorTree "Tree"] 5
+monTreeT = monitorFile "ultrametric" [fromHeightTree . _timeTree >$< monitorTree "Tree"] 5
 
 monTreeR :: MonitorFile I
-monTreeR = monitorFile "unconstrained" [_unconstrainedTree >$< monitorTree "Tree"] 5
+monTreeR = monitorFile "unconstrained" [_rateTree >$< monitorTree "Tree"] 5
 
 -- Combine the monitors.
 mon :: Tree e a -> Monitor I

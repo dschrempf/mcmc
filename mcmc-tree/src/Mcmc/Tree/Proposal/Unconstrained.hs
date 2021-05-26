@@ -137,10 +137,10 @@ scaleSubTrees tr hd s n w t =
       @~ scaleTree focus s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
-      -- Filter depths.
-      hd (length pth),
       -- Do not scale the leaves, because 'scaleBranch' is faster.
-      not $ null $ forest focus
+      not $ null $ forest focus,
+      -- Filter other depths.
+      hd $ length pth
   ]
   where name lb = n <> PName (" node " ++ show lb)
 
