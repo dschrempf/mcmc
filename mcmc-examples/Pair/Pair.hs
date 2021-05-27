@@ -55,7 +55,7 @@ cc =
       liftProposalWith jacobian _1 (scaleUnbiased 1.0 (PName "x") (PWeight 1) Tune),
       liftProposalWith jacobian _2 (scaleUnbiased 1.0 (PName "y") (PWeight 1) Tune),
       -- Sliding the pair contrarily will not change z, and so, no Jacobian is
-      -- required. When using 'scaleContrarily', a custom Jacobian is required.
+      -- required. If 'scaleContrarily' is used, a custom Jacobian is required.
       slideContrarily 0 0.5 (PName "x y") (PWeight 20) Tune
     ]
 
