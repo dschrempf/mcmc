@@ -24,6 +24,7 @@ module Mcmc.Prior
     -- * Continuous priors
     exponential,
     gamma,
+    gammaMeanOne,
     gammaShapeScaleToMeanVariance,
     gammaMeanVarianceToShapeScale,
     normal,
@@ -76,15 +77,21 @@ negative = lowerThan 0
 
 -- | Exponential distributed prior.
 exponential :: Rate -> PriorFunction Double
-exponential l x = Exp $ S.logDensity d x
+exponential l = Exp . S.logDensity d
   where
     d = S.exponential l
 
 -- | Gamma distributed prior.
 gamma :: Shape -> Scale -> PriorFunction Double
-gamma k t x = Exp $ S.logDensity d x
+gamma k t = Exp . S.logDensity d
   where
     d = S.gammaDistr k t
+
+-- | Gamma disstributed prior with given shape and mean 1.0.
+gammaMeanOne :: Shape -> PriorFunction Double
+gammaMeanOne k = Exp . S.logDensity d
+  where
+    d = S.gammaDistr k (recip k)
 
 -- The mean and variance of the gamma distribution are
 --
@@ -110,7 +117,7 @@ gammaMeanVarianceToShapeScale m v = (m * m / v, v / m)
 
 -- | Normal distributed prior.
 normal :: Mean -> StandardDeviation -> PriorFunction Double
-normal m s x = Exp $ S.logDensity d x
+normal m s = Exp . S.logDensity d
   where
     d = S.normalDistr m s
 
@@ -123,7 +130,7 @@ uniform a b x
 
 -- | Poisson distributed prior.
 poisson :: Rate -> PriorFunction Int
-poisson l x = Exp $ S.logProbability d x
+poisson l = Exp . S.logProbability d
   where
     d = S.poisson l
 
