@@ -17,12 +17,30 @@ where
 import ELynx.Tree
 import Mcmc
 import Mcmc.Proposal
+import Statistics.Distribution
+import Statistics.Distribution.Gamma
 
-scaleBothBranchesSimple :: TuningParameter -> ProposalSimple (Tree Length a)
-scaleBothBranchesSimple t x g = undefined
+mult' :: Double -> Length -> Length
+mult' u = toLengthUnsafe . (* u) . fromLength
+
+scaleBothBranchesSimple :: Shape -> TuningParameter -> ProposalSimple (Tree Length a)
+scaleBothBranchesSimple k t (Node cb cl [Node lb ll ls, Node rb rl rs]) g = do
+  u <- genContVar d g
+  let x' = Node cb cl [Node (mult' u lb) ll ls, Node (mult' u rb) rl rs]
+      u1 = recip u
+      qXY = Exp $ logDensity d u
+      qYX = Exp $ logDensity d u1
+      j = Exp $ log u1
+  return (x', qYX / qXY, j)
+  where
+    d = gammaDistr (k / t) (recip k * t)
+scaleBothBranchesSimple _ _ _ _ = error "scaleBothBranchesSimple: Tree is not bifurcating."
 
 -- | Scale both daughter branches of the root.
-scaleBothBranches :: PName -> PWeight -> Tune -> Proposal (Tree Length a)
-scaleBothBranches = createProposal dscr scaleBothBranchesSimple dim
-  where dscr = PDescription "Scale daugther branches of root"
-        dim = PDimension 1
+--
+-- Assume those branches are constrained (not two free variables).
+scaleBothBranches :: Shape -> PName -> PWeight -> Tune -> Proposal (Tree Length a)
+scaleBothBranches k = createProposal dscr (scaleBothBranchesSimple k) dim
+  where
+    dscr = PDescription "Scale daugther branches of root"
+    dim = PDimension 1

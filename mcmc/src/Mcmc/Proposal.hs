@@ -168,6 +168,10 @@ instance Ord (Proposal a) where
 -- Part of the MHG acceptance ratio.
 --
 -- See also 'Jacobian'.
+--
+-- NOTE: Actually the 'Jacobian' should be part of the 'KernelRatio'. However,
+-- it is more declarative to have them separate. It is a constant reminder: Is
+-- the Jacobian modifier different from 1.0?
 type KernelRatio = Log Double
 
 -- | Absolute value of the determinant of the Jacobian matrix.
@@ -215,9 +219,8 @@ liftProposalWith jf l (Proposal n r d w s t) = Proposal n r d w (convertProposal
 -- given some source of randomness.
 --
 -- In order to calculate the Metropolis-Hastings-Green ratio, we need to know
--- the ratio of the backward to forward kernels (i.e., the probability masses or
--- probability densities) and the absolute value of the determinant of the
--- Jacobian matrix.
+-- the ratio of the backward to forward kernels (the 'KernelRatio' or the
+-- probability masses or probability densities) and the 'Jacobian'.
 --
 -- For unbiased proposals, these values are 1.0 such that
 --

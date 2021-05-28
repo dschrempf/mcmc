@@ -9,9 +9,11 @@
 -- Portability :  portable
 --
 -- This example module is more involved and contains proposals with custom
--- Jacobians. We sample the posterior distribution of a variable \(z \sim
--- \mbox{Exp}(1.0)\) separated into a sum \(z=x+y\), with \(x,y > 0\). The
--- sampler propose new values for \(x\) and \(y\).
+-- Jacobians.
+--
+-- We sample the posterior distribution of a variable \(z \sim \mbox{Exp}(1.0)\)
+-- separated into a sum \(z=x+y\), with \(x,y > 0\). The sampler propose new
+-- values for \(x\) and \(y\).
 module Main
   ( main,
   )
@@ -28,12 +30,14 @@ type I = (Double, Double)
 analysisName :: AnalysisName
 analysisName = AnalysisName "Pair"
 
--- Improper prior for positive values.
+-- Improper prior for positive values of x and y. We set a bound strictly larger
+-- than 0 because otherwise, numerical problems occur when the chain traverses
+-- values very close to zero.
 pr :: PriorFunction I
 pr (x, y) = largerThan 0.00001 x * largerThan 0.00001 y
 
--- The likelihood function only acts on the sum of x and y, so we will need a
--- custom Jacobian in our proposals.
+-- Likelihood function only acts on the sum of x and y, so we will need a custom
+-- Jacobian in our proposals.
 lh :: LikelihoodFunction I
 lh (x, y) = exponential 1.0 (x + y)
 
@@ -41,12 +45,10 @@ lh (x, y) = exponential 1.0 (x + y)
 start :: I
 start = (1.1, 1.1)
 
--- The Jacobian function required
+-- Jacobian function. A lengthy derivation is required to find this function.
 jacobian :: JacobianFunction I
 jacobian = Exp . log . recip . uncurry (+)
 
--- The proposal cycle consists of one proposal only. A uniform distribution is used to
--- slide the precision of the archer.
 cc :: Cycle I
 cc =
   cycleFromList
@@ -54,12 +56,12 @@ cc =
       -- The proposals require a custom Jacobian.
       liftProposalWith jacobian _1 (scaleUnbiased 1.0 (PName "x") (PWeight 1) Tune),
       liftProposalWith jacobian _2 (scaleUnbiased 1.0 (PName "y") (PWeight 1) Tune),
-      -- Sliding the pair contrarily will not change z, and so, no Jacobian is
-      -- required. If 'scaleContrarily' is used, a custom Jacobian is required.
+      -- Sliding the pair contrarily will not change the sum z, and so, no
+      -- Jacobian is required (or the Jacobian will be 1.0). If
+      -- 'scaleContrarily' is used, a custom Jacobian is required.
       slideContrarily 0 0.5 (PName "x y") (PWeight 20) Tune
     ]
 
--- Monitor the precision of the archer.
 monPs :: [MonitorParameter I]
 monPs =
   [ fst >$< monitorDouble "x",
@@ -68,14 +70,12 @@ monPs =
     uncurry (*) >$< monitorDouble "x*y"
   ]
 
--- Monitor to standard output.
 monStd :: MonitorStdOut I
 monStd = monitorStdOut monPs 1000
 
 monFile :: MonitorFile I
 monFile = monitorFile "" monPs 100
 
--- Combine the monitors.
 mon :: Monitor I
 mon = Monitor monStd [monFile] []
 
