@@ -119,6 +119,7 @@ executable tree
   import: exec
   main-is: Tree.hs
   other-modules:
+      Tools
       Paths_mcmc_examples
   autogen-modules:
       Paths_mcmc_examples

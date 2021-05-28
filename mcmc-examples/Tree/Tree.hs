@@ -25,6 +25,8 @@ import Mcmc
 import Mcmc.Tree
 import System.Random.MWC hiding (uniform)
 
+import Tools
+
 data I = I
   { _timeTree :: HeightTree Name,
     _rateTree :: Tree Length Name
@@ -60,10 +62,10 @@ lh x = product $ dRoot (rootBranch x) : zipWith (\t r -> dOthers (fromLength t *
     getBranches _ = error "getBranches: Root node is not bifurcating."
     ts = getBranches $ fromHeightTree $ _timeTree x
     rs = getBranches $ _rateTree x
-    -- dRoot = exponential 1
-    -- dOthers = exponential 1.0
-    dRoot = gamma 1 (recip 1)
-    dOthers = gamma 1 (recip 3)
+    dRoot = normal 1 0.3
+    dOthers = normal (1/3) 0.1
+    -- dRoot = gamma 1 (recip 1)
+    -- dOthers = gamma 1 (recip 3)
 
 -- The branches leading to the root are split. This Jacobian is necessary to
 -- have unbiased proposals on the branches leading to the root.
