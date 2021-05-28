@@ -36,10 +36,14 @@ analysisName = AnalysisName "Pair"
 pr :: PriorFunction I
 pr (x, y) = largerThan 0.00001 x * largerThan 0.00001 y
 
+f :: I -> Double
+-- f (x, y)= 3*x + 5*y
+f (x, y)= x + y
+
 -- Likelihood function only acts on the sum of x and y, so we will need a custom
 -- Jacobian in our proposals.
 lh :: LikelihoodFunction I
-lh (x, y) = exponential 1.0 (x + y)
+lh = exponential 1.0 . f
 
 -- Initial value.
 start :: I
@@ -47,7 +51,7 @@ start = (1.1, 1.1)
 
 -- Jacobian function. A lengthy derivation is required to find this function.
 jacobian :: JacobianFunction I
-jacobian = Exp . log . recip . uncurry (+)
+jacobian = Exp . log . recip . f
 
 cc :: Cycle I
 cc =
@@ -58,7 +62,8 @@ cc =
       liftProposalWith jacobian _2 (scaleUnbiased 1.0 (PName "y") (PWeight 1) Tune),
       -- Sliding the pair contrarily will not change the sum z, and so, no
       -- Jacobian is required (or the Jacobian will be 1.0). If
-      -- 'scaleContrarily' is used, a custom Jacobian is required.
+      -- 'scaleContrarily' is used or 'f' is not 1.0 for a contrary slide, the
+      -- custom Jacobian is required.
       slideContrarily 0 0.5 (PName "x y") (PWeight 20) Tune
     ]
 
@@ -67,7 +72,8 @@ monPs =
   [ fst >$< monitorDouble "x",
     snd >$< monitorDouble "y",
     uncurry (+) >$< monitorDouble "x+y",
-    uncurry (*) >$< monitorDouble "x*y"
+    uncurry (*) >$< monitorDouble "x*y",
+    f >$< monitorDouble "f(x,y)"
   ]
 
 monStd :: MonitorStdOut I
