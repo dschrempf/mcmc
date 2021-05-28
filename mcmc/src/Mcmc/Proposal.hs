@@ -171,6 +171,7 @@ type JacobianFunction a = a -> Log Double
 -- @
 -- scaleFirstEntryOfTuple = _1 @~ scale
 -- @
+infixl 7 @~
 (@~) :: Lens' b a -> Proposal a -> Proposal b
 (@~) = liftProposal
 
