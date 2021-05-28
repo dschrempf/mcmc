@@ -77,10 +77,10 @@ rootBranch (I tTr rTr) = t1 * r1 + t2 * r2
   where
     (t1, t2) = case fromHeightTree tTr of
       Node _ _ [l, r] -> (fromLength $ branch l, fromLength $ branch r)
-      _ -> error "jacobianRootBranch: Time tree is not bifurcating."
+      _ -> error "rootBranch: Time tree is not bifurcating."
     (r1, r2) = case rTr of
       Node _ _ [l, r] -> (fromLength $ branch l, fromLength $ branch r)
-      _ -> error "jacobianRootBranch: Rate tree is not bifurcating."
+      _ -> error "rootBranch: Rate tree is not bifurcating."
 
 -- This Jacobian is necessary to have unbiased proposals on the branches leading
 -- to the root of the time tree.
