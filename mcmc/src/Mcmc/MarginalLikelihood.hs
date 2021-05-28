@@ -13,7 +13,8 @@
 --
 -- Creation date: Mon Jan 11 16:34:18 2021.
 module Mcmc.MarginalLikelihood
-  ( NPoints (..),
+  ( MarginalLikelihood,
+    NPoints (..),
     MLAlgorithm (..),
     MLSettings (..),
     marginalLikelihood,
@@ -35,6 +36,7 @@ import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
 import Mcmc.Environment
 import Mcmc.Internal.Random
+import Mcmc.Likelihood
 import Mcmc.Logger
 import Mcmc.Mcmc
 import Mcmc.Monitor
@@ -46,6 +48,9 @@ import System.Random.MWC
 import Text.Printf
 import Text.Show.Pretty
 import Prelude hiding (cycle)
+
+-- | Marginal likelihood values are stored in log domain.
+type MarginalLikelihood = Log Double
 
 -- Reciprocal temperature value traversed along the path integral.
 type Point = Double
@@ -183,7 +188,7 @@ traversePoints ::
   LikelihoodFunction a ->
   MHG a ->
   -- For each point a vector of obtained likelihoods stored in the log domain.
-  ML [VU.Vector (Log Double)]
+  ML [VU.Vector Likelihood]
 traversePoints _ _ [] _ _ _ = return []
 traversePoints i k (b : bs) ss lhf a = do
   logInfoS $ "Point " <> show i <> " of " <> show k' <> ": " <> show b <> "."
@@ -218,7 +223,7 @@ mlRun ::
   a ->
   GenIO ->
   -- For each point a vector of likelihoods stored in log domain.
-  ML [VU.Vector (Log Double)]
+  ML [VU.Vector Likelihood]
 mlRun k xs em vb prf lhf cc mn i0 g = do
   logDebugB "mlRun: Begin."
   s <- reader settings
@@ -264,8 +269,7 @@ tiWrapper ::
   Monitor a ->
   a ->
   GenIO ->
-  -- Marginal likelihood in log domain.
-  ML (Log Double)
+  ML MarginalLikelihood
 tiWrapper s prf lhf cc mn i0 g = do
   logInfoB "Path integral (thermodynamic integration)."
   [g0, g1] <- splitGen 2 g
@@ -301,10 +305,10 @@ pow' :: Log Double -> Double -> Log Double
 pow' x p = Exp $ ln x * p
 
 -- See Xie2010 p. 153, bottom left.
-sssCalculateMarginalLikelihood :: [Point] -> [VU.Vector (Log Double)] -> Log Double
+sssCalculateMarginalLikelihood :: [Point] -> [VU.Vector Likelihood] -> MarginalLikelihood
 sssCalculateMarginalLikelihood xs lhss = product $ zipWith3 f xs (tail xs) lhss
   where
-    f :: Point -> Point -> VU.Vector (Log Double) -> Log Double
+    f :: Point -> Point -> VU.Vector Likelihood -> MarginalLikelihood
     -- f beta_{k-1} beta_k lhs_{k-1}
     f bkm1 bk lhs = n1 * VU.sum lhsPowered
       where
@@ -327,9 +331,9 @@ sssCalculateMarginalLikelihood xs lhss = product $ zipWith3 f xs (tail xs) lhss
 -- -- to the direct estimator implemented above.
 --
 -- -- See Xie2010 p. 153, top right.
--- sssCalculateMarginalLikelihood' :: [Point] -> [VU.Vector (Log Double)] -> Log Double
+-- sssCalculateMarginalLikelihood' :: [Point] -> [VU.Vector Likelihood] -> MarginalLikelihood
 -- sssCalculateMarginalLikelihood' xs lhss = Exp $ sum $ zipWith3 f xs (tail xs) lhss
---   where f :: Point -> Point -> VU.Vector (Log Double) -> Double
+--   where f :: Point -> Point -> VU.Vector Likelihood -> Double
 --         -- f beta_{k-1} beta_k lhs_{k-1}
 --         f bkm1 bk lhs = dbeta * llhMax + log (n1 * VU.sum lhsNormedPowered)
 --           where dbeta = bk - bkm1
@@ -347,8 +351,7 @@ sssWrapper ::
   Monitor a ->
   a ->
   GenIO ->
-  -- Marginal likelihood in log domain.
-  ML (Log Double)
+  ML MarginalLikelihood
 sssWrapper s prf lhf cc mn i0 g = do
   logInfoB "Stepping stone sampling."
   logLhss <- mlRun k bsForward' em vb prf lhf cc mn i0 g
@@ -374,8 +377,7 @@ marginalLikelihood ::
   -- | A source of randomness. For reproducible runs, make sure to use
   -- generators with the same seed.
   GenIO ->
-  -- | Estimated marginal likelihood stored in log domain.
-  IO (Log Double)
+  IO MarginalLikelihood
 marginalLikelihood s prf lhf cc mn i0 g = do
   -- Initialize.
   e <- initializeEnvironment s

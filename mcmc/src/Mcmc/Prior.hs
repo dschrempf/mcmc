@@ -12,7 +12,8 @@
 --
 -- Creation date: Thu Jul 23 13:26:14 2020.
 module Mcmc.Prior
-  ( PriorFunction,
+  ( Prior,
+    PriorFunction,
     noPrior,
 
     -- * Improper priors
@@ -48,8 +49,11 @@ import qualified Statistics.Distribution.Gamma as S
 import qualified Statistics.Distribution.Normal as S
 import qualified Statistics.Distribution.Poisson as S
 
+-- | Prior values are stored in log domain.
+type Prior = Log Double
+
 -- | Prior function.
-type PriorFunction a = a -> Log Double
+type PriorFunction a = a -> Prior
 
 -- | Flat prior function. Useful for testing and debugging.
 noPrior :: PriorFunction a

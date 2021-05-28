@@ -18,6 +18,8 @@ where
 
 import Data.Aeson
 import Data.Aeson.Types
+import Mcmc.Likelihood
+import Mcmc.Prior
 import Numeric.Log
 
 -- | Link of a Markov chain. For reasons of computational efficiency, each state
@@ -25,10 +27,10 @@ import Numeric.Log
 data Link a = Link
   { -- | The current state in the state space @a@.
     state :: a,
-    -- | The current prior.
-    prior :: Log Double,
-    -- | The current likelihood.
-    likelihood :: Log Double
+    -- | The current prior value.
+    prior :: Prior,
+    -- | The current likelihood value.
+    likelihood :: Likelihood
   }
   deriving (Eq, Ord, Show, Read)
 

@@ -168,7 +168,7 @@ module Mcmc
     module Mcmc.Monitor.Parameter,
     module Mcmc.Monitor.ParameterBatch,
 
-    -- * Prior and likelihood functions
+    -- * Prior, likelihood, and posterior values and functions
     module Mcmc.Prior,
     module Mcmc.Likelihood,
 

@@ -78,18 +78,18 @@ getLens x y = lens (g x y) (s x y)
     s n m gr e = replaceEdge (toD e) n m gr
 
 -- Uninformative prior.
-pr :: a -> Log Double
+pr :: PriorFunction a
 pr = const 1
 
 -- Branch likelihood, a normal distribution with given mean and standard deviation.
-lhBranch :: Mean -> StdDev -> Length -> Log Double
+lhBranch :: Mean -> StdDev -> Length -> Likelihood
 lhBranch m s l
   | l <= 0 = 0
   | otherwise = Exp $ logDensity (normalDistr m s) l
 
 -- Likelihood of the tree for two given trees containing the branch length
 -- means and standard deviations.
-lh :: Tree Mean -> Tree StdDev -> Tree Length -> Log Double
+lh :: Tree Mean -> Tree StdDev -> Tree Length -> Likelihood
 lh mt st lt = product $ zipWith3 lhBranch (getEdgeLabels mt) (getEdgeLabels st) (getEdgeLabels lt)
 
 -- Get a list of edge labels of a tree.

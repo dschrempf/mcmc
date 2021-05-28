@@ -51,7 +51,7 @@ genericContinuous ::
   --
   -- Conversion to log domain is necessary, because some determinants of
   -- Jacobians are very small (or large).
-  Maybe (a -> Double -> Log Double) ->
+  Maybe (a -> Double -> Jacobian) ->
   ProposalSimple a
 genericContinuous d f mInv mJac x g = do
   u <- genContVar d g

@@ -22,6 +22,7 @@ module Mcmc.Algorithm.MHG
     mhg,
     mhgSave,
     mhgLoad,
+    MHGRatio,
     mhgAccept,
   )
 where
@@ -38,6 +39,7 @@ import Mcmc.Chain.Link
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
 import Mcmc.Monitor
+import Mcmc.Posterior
 import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log
@@ -116,6 +118,9 @@ mhgLoad pr lh cc mn nm = do
   chain <- either error (fromSavedChain pr lh cc mn) savedChain
   return $ MHG chain
 
+-- | MHG ratios are stored in log domain.
+type MHGRatio = Log Double
+
 -- The MHG ratio.
 --
 -- 'Infinity' if fX is zero. In this case, the proposal is always accepted.
@@ -128,14 +133,14 @@ mhgLoad pr lh cc mn nm = do
 -- Handbook of Markov Chain Monte Carlo), or (b) almost surely reject the
 -- proposal when either fY or q are zero (Chapter 1). Since I trust the author
 -- of Chapter 1 (Charles Geyer) I choose to follow option (b).
-mhgRatio :: Log Double -> Log Double -> Log Double -> Log Double -> Log Double
+mhgRatio :: Posterior -> Posterior -> KernelRatio -> Jacobian -> MHGRatio
 -- q = qYX / qXY * jXY; see 'ProposalSimple'.
 -- j = Jacobian.
 mhgRatio fX fY q j = fY / fX * q * j
 {-# INLINE mhgRatio #-}
 
 -- | Accept or reject a proposal with given MHG ratio?
-mhgAccept :: Log Double -> GenIO -> IO Bool
+mhgAccept :: MHGRatio -> GenIO -> IO Bool
 mhgAccept r g
   | ln r >= 0.0 = return True
   | otherwise = do

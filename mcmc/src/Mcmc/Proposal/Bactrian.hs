@@ -55,9 +55,7 @@ logDensityBactrian m s x = Exp $ log $ kernel1 + kernel2
 bactrianAdditive ::
   SpikeParameter ->
   StandardDeviation  ->
-  Double ->
-  GenIO ->
-  IO (Double, Log Double, Log Double)
+  ProposalSimple Double
 bactrianAdditive m s x g = do
   dx <- genBactrian m s g
   return (x + dx, 1.0, 1.0)
@@ -108,9 +106,7 @@ fInv dx = recip (1 - dx) - 1
 bactrianMult ::
   SpikeParameter ->
   StandardDeviation  ->
-  Double ->
-  GenIO ->
-  IO (Double, Log Double, Log Double)
+  ProposalSimple Double
 bactrianMult m s x g = do
   du <- genBactrian m s g
   let qXY = logDensityBactrian m s du

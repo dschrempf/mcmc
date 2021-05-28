@@ -81,7 +81,7 @@ scaleTreeJacobian ::
   Int ->
   Tree e a ->
   Double ->
-  Log Double
+  Jacobian
 scaleTreeJacobian n _ u = Exp $ fromIntegral (n - 2) * log u
 
 scaleTreeSimple ::
@@ -120,7 +120,7 @@ scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
 
 -- | Scale the sub trees of a given tree.
 --
--- See 'scaleBranch'.
+-- See 'scaleTree'.
 --
 -- Do not scale leaves.
 scaleSubTrees ::

@@ -10,12 +10,16 @@
 --
 -- Creation date: Wed Mar  3 11:39:04 2021.
 module Mcmc.Likelihood
-  ( LikelihoodFunction,
+  ( Likelihood,
+    LikelihoodFunction,
     noLikelihood,
   )
 where
 
 import Numeric.Log
+
+-- | Likelihood values are stored in log domain.
+type Likelihood = Log Double
 
 -- | Likelihood function.
 type LikelihoodFunction a = a -> Log Double

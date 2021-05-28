@@ -73,6 +73,7 @@ import Mcmc.Internal.Random
 import Mcmc.Internal.Shuffle
 import Mcmc.Monitor
 import Mcmc.Proposal
+import Mcmc.Posterior
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Random.MWC
@@ -339,7 +340,7 @@ swapWith ::
   -- Index j>=0, j/=i of right chain.
   Int ->
   MHGChains a ->
-  (MHGChains a, Log Double)
+  (MHGChains a, Posterior)
 swapWith i j xs
   | i < 0 = error "swapWith: Left index is negative."
   | j < 0 = error "swapWith: Right index is negative."

@@ -21,6 +21,8 @@ module Mcmc.Proposal
     PWeight (..),
     PDimension (..),
     Proposal (..),
+    KernelRatio,
+    Jacobian,
     JacobianFunction,
     (@~),
     liftProposal,
@@ -135,6 +137,9 @@ data PDimension = PDimension Int | PDimensionUnknown
 --
 -- A 'Proposal' may be tuneable in that it contains information about how to enlarge
 -- or shrink the step size to tune the acceptance rate.
+--
+-- Predefined proposals are provided. To create custom proposals, one may use
+-- the convenience function 'createProposal'.
 data Proposal a = Proposal
   { -- | Name of the affected variable.
     pName :: PName,
@@ -158,9 +163,22 @@ instance Eq (Proposal a) where
 instance Ord (Proposal a) where
   compare = compare `on` (\p -> (pDescription p, pName p, pWeight p))
 
--- | A type synonym for a function calculating the absolute value of the
--- determinant of the Jacobian matrix (i.e., the /Jacobian/) of a proposal.
-type JacobianFunction a = a -> Log Double
+-- | Ratio of the proposal kernels.
+--
+-- Part of the MHG acceptance ratio.
+--
+-- See also 'Jacobian'.
+type KernelRatio = Log Double
+
+-- | Absolute value of the determinant of the Jacobian matrix.
+--
+-- Part of the MHG acceptance ratio.
+--
+-- See also 'Jacobian'.
+type Jacobian = Log Double
+
+-- | Function calculating the 'Jacobian' of a proposal.
+type JacobianFunction a = a -> Jacobian
 
 -- | Lift a proposal from one data type to another.
 --
@@ -210,7 +228,7 @@ liftProposalWith jf l (Proposal n r d w s t) = Proposal n r d w (convertProposal
 -- For biased proposals, the kernel ratio is qYX / qXY, where qXY is the
 -- probability density to move from X to Y, and the absolute value of the
 -- determinant of the Jacobian matrix differs from 1.0.
-type ProposalSimple a = a -> GenIO -> IO (a, Log Double, Log Double)
+type ProposalSimple a = a -> GenIO -> IO (a, KernelRatio, Jacobian)
 
 convertProposalSimple :: JacobianFunction b -> Lens' b a -> ProposalSimple a -> ProposalSimple b
 convertProposalSimple jf l s = s'
@@ -246,8 +264,8 @@ createProposal ::
   -- | Description of the proposal type and parameters.
   PDescription ->
   -- | Function creating a simple proposal for a given tuning parameter. The
-  -- larger the tuning parameter, the larger the proposal (and the lower the
-  -- expected acceptance rate), and vice versa.
+  -- larger the tuning parameter, the larger the proposal and the lower the
+  -- expected acceptance rate; and vice versa.
   (TuningParameter -> ProposalSimple a) ->
   -- | Dimension.
   PDimension ->

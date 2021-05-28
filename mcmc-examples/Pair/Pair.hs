@@ -29,12 +29,12 @@ analysisName :: AnalysisName
 analysisName = AnalysisName "Pair"
 
 -- Improper prior for positive values.
-pr :: I -> Log Double
+pr :: PriorFunction I
 pr (x, y) = largerThan 0.00001 x * largerThan 0.00001 y
 
 -- The likelihood function only acts on the sum of x and y, so we will need a
 -- custom Jacobian in our proposals.
-lh :: I -> Log Double
+lh :: LikelihoodFunction I
 lh (x, y) = exponential 1.0 (x + y)
 
 -- Initial value.
@@ -42,7 +42,7 @@ start :: I
 start = (1.1, 1.1)
 
 -- The Jacobian function required
-jacobian :: I -> Log Double
+jacobian :: JacobianFunction I
 jacobian = Exp . log . recip . uncurry (+)
 
 -- The proposal cycle consists of one proposal only. A uniform distribution is used to
