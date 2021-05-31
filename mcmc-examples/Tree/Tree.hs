@@ -89,15 +89,15 @@ jacobianRootBranch = Exp . log . recip . rootBranch
 -- Proposals on the time tree.
 psT :: Tree e a -> [Proposal I]
 psT t =
-  map (liftProposalWith jacobianRootBranch timeTree) psWithJacobian
-    ++ map (liftProposal timeTree) psWithoutJacobian
+  map (liftProposalWith jacobianRootBranch timeTree) psAtRoot
+    ++ map (liftProposal timeTree) psOthers
   where
     w = PWeight 1
+    nR = PName "Time tree [R]"
+    nO = PName "Time tree [O]"
     ps hd n = slideNodesUltrametric t hd 0.5 n w Tune ++ scaleSubTreesUltrametric t hd 0.5 n w Tune
-    nR = PName "Time tree (root branches)"
-    psWithJacobian = pulleyUltrametric t 0.5 nR w Tune : ps (== 1) nR
-    nO = PName "Time tree"
-    psWithoutJacobian = ps (> 1) nO
+    psAtRoot = pulleyUltrametric t 0.5 nR w Tune : ps (== 1) nR
+    psOthers = ps (> 1) nO
 
 -- Proposals on the rate tree.
 psR :: Tree e a -> [Proposal I]
@@ -106,20 +106,22 @@ psR t =
     ++ map (liftProposal rateTree) psOthers
   where
     w = PWeight 1
+    nR = PName "Rate tree [R]"
+    nO = PName "Rate tree [O]"
     ps hd n = scaleBranches t hd 5.0 n w Tune ++ scaleSubTrees t hd 100 n w Tune
-    nR = PName "Rate tree (root branches)"
-    psAtRoot = pulley 0.5 nR w Tune : ps (==1) nR
-    nO = PName "Rate tree"
-    psOthers = scaleBranches t (> 1) 5.0 nO w Tune ++ scaleSubTrees t (> 1) 100 nO w Tune
+    psAtRoot = pulley 0.5 nR w Tune : ps (== 1) nR
+    psOthers = ps (> 1) nO
 
 -- A contrary proposal on the time and rate trees.
 psContra :: Tree e a -> [Proposal I]
 psContra t =
-  map (liftProposalWith jacobianRootBranch timeRateTreesL) psAtRoot
-    ++ map (liftProposal timeRateTreesL) psOthers
+  map (liftProposalWith jacobianRootBranch timeRateTreesL) (ps (== 1) nR)
+    ++ map (liftProposal timeRateTreesL) (ps (> 1) nO)
   where
-    psAtRoot = scaleSubTreesContrarily t (== 1) 0.01 (PName "Trees contra") (PWeight 3) Tune
-    psOthers = scaleSubTreesContrarily t (> 1) 0.01 (PName "Trees contra") (PWeight 3) Tune
+    w = PWeight 3
+    nR = PName "Trees contra [R]"
+    nO = PName "Trees contra [O]"
+    ps hd n = scaleSubTreesContrarily t hd 0.01 n w Tune
     -- Lens for a contrary proposal on the trees.
     timeRateTreesL :: Lens' I (HeightTree Name, Tree Length Name)
     timeRateTreesL =
