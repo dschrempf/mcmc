@@ -203,7 +203,7 @@ main = do
           (BurnInWithCustomAutoTuning [100, 110 .. 500])
           (Iterations 40000)
           Overwrite
-          Parallel
+          Sequential
           NoSave
           LogStdOutAndFile
           Info
