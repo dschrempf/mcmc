@@ -99,7 +99,7 @@ scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
 -- For reference, please see 'scaleSubTreeAtUltrametric', and
 -- 'Mcmc.Tree.Proposal.Unconstrained.scaleTree'.
 --
--- NOTE: The topologies of the trees have to be equal. Different topologies will
+-- NOTE: Application of this proposals to trees with different topologies will
 -- lead to unexpected behavior and possibly to run time errors.
 --
 -- Call 'error' if:
@@ -134,26 +134,29 @@ scaleSubTreeAtContrarily tr pth sd
     nNodes = nInnerNodes subtree
     nBranches = length subtree
 
--- | Scale the sub trees of the given trees constrarily.
+-- | Scale the sub trees of the given trees contrarily.
 --
 -- See 'scaleSubTreeAtContrarily'.
 --
 -- Do not scale the root nor the leaves.
 scaleSubTreesContrarily ::
   Tree e a ->
+  HandleDepth ->
   StandardDeviation ->
   PName ->
   PWeight ->
   Tune ->
   [Proposal (HeightTree b, Tree Length c)]
-scaleSubTreesContrarily tr s n w t =
+scaleSubTreesContrarily tr hd s n w t =
   [ scaleSubTreeAtContrarily tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
       -- Do not scale the root.
       not $ null pth,
       -- Do not scale the leaves.
-      not $ null $ forest focus
+      not $ null $ forest focus,
+      -- Filter other depths.
+      hd $ length pth
   ]
   where
     name lb = n <> PName (" node " ++ show lb)

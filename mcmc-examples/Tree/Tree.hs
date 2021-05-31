@@ -28,7 +28,6 @@ import GHC.Generics
 import Mcmc
 import Mcmc.Tree
 import System.Random.MWC hiding (uniform)
-import Tools
 
 data I = I
   { _timeTree :: HeightTree Name,
@@ -83,7 +82,7 @@ rootBranch (I tTr rTr) = t1 * r1 + t2 * r2
       _ -> error "rootBranch: Rate tree is not bifurcating."
 
 -- This Jacobian is necessary to have unbiased proposals on the branches leading
--- to the root of the time tree.
+-- to the root.
 jacobianRootBranch :: JacobianFunction I
 jacobianRootBranch = Exp . log . recip . rootBranch
 
@@ -95,32 +94,42 @@ psT t =
   where
     w = PWeight 1
     ps hd n = slideNodesUltrametric t hd 0.5 n w Tune ++ scaleSubTreesUltrametric t hd 0.5 n w Tune
-    nJ = PName "Time tree (Jac)"
-    -- Actually the pulley does not need a Jacobian because the root branch
-    -- length is unchanged when the rates are equal.
-    psWithJacobian = pulleyUltrametric t 0.5 nJ (PWeight 5) Tune : ps (== 1) nJ
-    n0 = PName "Time tree"
-    psWithoutJacobian = ps (> 1) n0
+    nR = PName "Time tree (root branches)"
+    psWithJacobian = pulleyUltrametric t 0.5 nR w Tune : ps (== 1) nR
+    nO = PName "Time tree"
+    psWithoutJacobian = ps (> 1) nO
 
 -- Proposals on the rate tree.
 psR :: Tree e a -> [Proposal I]
 psR t =
-  map (liftProposal rateTree) $ psAtRoot : psOthers
+  map (liftProposalWith jacobianRootBranch rateTree) psAtRoot
+    ++ map (liftProposal rateTree) psOthers
   where
     w = PWeight 1
+    ps hd n = scaleBranches t hd 5.0 n w Tune ++ scaleSubTrees t hd 100 n w Tune
     nR = PName "Rate tree (root branches)"
-    -- This proposal changes bot branches leading to the root simultaneously.
-    -- That is, these two branches are constrained will always have the same
-    -- length.
-    psAtRoot = scaleBothBranches 5.0 nR w Tune
+    psAtRoot = pulley 0.5 nR w Tune : ps (==1) nR
     nO = PName "Rate tree"
-    -- The normal scaling proposals should only handle depths larger than 1.
-    hd = (> 1)
-    psOthers = scaleBranches t hd 0.1 nO w Tune ++ scaleSubTrees t hd 100 nO w Tune
+    psOthers = scaleBranches t (> 1) 5.0 nO w Tune ++ scaleSubTrees t (> 1) 100 nO w Tune
+
+-- A contrary proposal on the time and rate trees.
+psContra :: Tree e a -> [Proposal I]
+psContra t =
+  map (liftProposalWith jacobianRootBranch timeRateTreesL) psAtRoot
+    ++ map (liftProposal timeRateTreesL) psOthers
+  where
+    psAtRoot = scaleSubTreesContrarily t (== 1) 0.01 (PName "Trees contra") (PWeight 3) Tune
+    psOthers = scaleSubTreesContrarily t (> 1) 0.01 (PName "Trees contra") (PWeight 3) Tune
+    -- Lens for a contrary proposal on the trees.
+    timeRateTreesL :: Lens' I (HeightTree Name, Tree Length Name)
+    timeRateTreesL =
+      lens
+        (\x -> (x ^. timeTree, x ^. rateTree))
+        (\x (tTr, rTr) -> x {_timeTree = tTr, _rateTree = rTr})
 
 -- The cycle includes proposals on both trees.
 cc :: Tree e a -> Cycle I
-cc t = cycleFromList $ psT t ++ psR t
+cc t = cycleFromList $ psT t ++ psR t ++ psContra t
 
 getTimeTreeNodeHeight :: Path -> I -> Double
 getTimeTreeNodeHeight p x = fromHeight $ nodeHeight $ label $ x ^. timeTree . subTreeAtUnsafeL p
@@ -194,13 +203,13 @@ main = do
           (BurnInWithCustomAutoTuning [100, 110 .. 500])
           (Iterations 40000)
           Overwrite
-          Sequential
+          Parallel
           NoSave
           LogStdOutAndFile
           Info
   -- Metropolis-Hastings-Green algorithm.
   a <- mhg pr lh (cc t) (mon t) TraceAuto (I t r) g
-  -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
-  -- let mc3S = MC3Settings 3 2
-  -- a <- mc3 mc3S pr noLikelihood cc' (mon t) (I t r) g
+  -- -- Metropolis-coupled Markov chain Monte Carlo algorithm.
+  -- let mc3S = MC3Settings (NChains 3) (SwapPeriod 2) (NSwaps 1)
+  -- a <- mc3 mc3S pr lh (cc t) (mon t) TraceAuto (I t r) g
   void $ mcmc mcmcS a
