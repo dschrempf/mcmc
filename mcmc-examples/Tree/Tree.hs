@@ -59,7 +59,9 @@ pr (I _ r) =
 
 -- The branches measured in expected number of substitutions are determining the likelihood.
 lh :: LikelihoodFunction I
-lh x = product $ dRoot (rootBranch x) : zipWith (\t r -> dOthers (fromLength t * fromLength r)) ts rs
+lh x =
+  product' $
+    dRoot (rootBranch x) : zipWith (\t r -> dOthers (fromLength t * fromLength r)) ts rs
   where
     getBranches (Node _ _ [l, r]) = tail (branches l) ++ tail (branches r)
     getBranches _ = error "getBranches: Root node is not bifurcating."
