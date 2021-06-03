@@ -12,8 +12,15 @@
 -- Stability   :  unstable
 -- Portability :  portable
 --
--- Perform an MCMC run on a pair of trees. This example solves the phylogenetic
--- problem of dating (estimating node ages) a tree.
+-- Perform an MCMC run to date a phylogenetic tree (estimate the node ages of a
+-- phylogenetic tree). This example involves a pair of trees. The first tree is
+-- the "time tree" with branch lengths in units proportional to real time. The
+-- second tree is the "rate tree", which has the same topology as the time tree.
+-- The branches of the rate tree describe the rate of evolution at the very same
+-- branch of the time tree.
+--
+-- For a detailed description, please see
+-- https://github.com/dschrempf/mcmc-dating/blob/master/src/Definitions.hs.
 module Main
   ( main,
   )
@@ -29,8 +36,13 @@ import Mcmc
 import Mcmc.Tree
 import System.Random.MWC hiding (uniform)
 
+-- The state space.
 data I = I
-  { _timeTree :: HeightTree Name,
+  { _timeBirthRate :: Double,
+    _timeDeathRate :: Double,
+    _timeTree :: HeightTree Name,
+    _rateMean :: Double,
+    _rateVariance :: Double,
     _rateTree :: Tree Length Name
   }
   deriving (Generic)
@@ -41,40 +53,37 @@ instance ToJSON I
 
 instance FromJSON I
 
--- -- Birth death prior, see Yang (2006), Figure 7.12. For lambda=2, mu=2, rho=0.1,
--- -- we expect a relatively linear distribution of inner node ages (a little bit
--- -- biased to younger ages). A hyper prior for the birth and death rates would be
--- -- required.
--- pr :: PriorFunction I
--- pr (I t r) =
---   product'
---     [ birthDeath ConditionOnTimeOfMrca 2.0 2.0 0.1 $ fromHeightTree t,
---       branchesWith withoutStem (normal 1.0 0.4 . fromLength) r
---     ]
-
+-- The prior functions.
 pr :: PriorFunction I
-pr (I _ r) =
+pr (I l m t mu va r) =
   product'
-    [branchesWith withoutStem (normal 1.0 0.3 . fromLength) r]
+    [ exponential 1 l,
+      exponential 1 m,
+      birthDeath ConditionOnTimeOfMrca l m 1.0 $ fromHeightTree t,
+      exponential 1 mu,
+      exponential 1 va,
+      uncorrelatedGamma withoutStem 1 va r
+    ]
 
--- The branches measured in expected number of substitutions are determining the likelihood.
+-- The branches measured in expected number of substitutions (substitutions =
+-- time * rate) are determining the likelihood.
 lh :: LikelihoodFunction I
-lh x =
+lh x@(I _ _ t mu _ r) =
   product' $
-    dRoot (rootBranch x) : zipWith (\t r -> dOthers (fromLength t * fromLength r)) ts rs
+    dRoot (rootBranch x) : zipWith (\tBr rBr -> dOthers (fromLength tBr * mu * fromLength rBr)) ts rs
   where
-    getBranches (Node _ _ [l, r]) = tail (branches l) ++ tail (branches r)
+    getBranches (Node _ _ [lTr, rTr]) = tail (branches lTr) ++ tail (branches rTr)
     getBranches _ = error "getBranches: Root node is not bifurcating."
-    ts = getBranches $ fromHeightTree $ _timeTree x
-    rs = getBranches $ _rateTree x
-    dRoot = normal 1 0.1
+    ts = getBranches $ fromHeightTree t
+    rs = getBranches r
+    dRoot = normal 1.0 0.1
     dOthers = normal (1 / 3) 0.1
 
 -- The root splits the branch of the unrooted tree into two branches. This
 -- function retrieves the root branch measured in expected number of
 -- substitutions.
 rootBranch :: I -> Double
-rootBranch (I tTr rTr) = t1 * r1 + t2 * r2
+rootBranch (I _ _ tTr mu _ rTr) = mu * (t1 * r1 + t2 * r2)
   where
     (t1, t2) = case fromHeightTree tTr of
       Node _ _ [l, r] -> (fromLength $ branch l, fromLength $ branch r)
@@ -94,7 +103,7 @@ psT t =
   map (liftProposalWith jacobianRootBranch timeTree) psAtRoot
     ++ map (liftProposal timeTree) psOthers
   where
-    w = PWeight 1
+    w = PWeight 3
     nR = PName "Time tree [R]"
     nO = PName "Time tree [O]"
     ps hd n = slideNodesUltrametric t hd 0.5 n w Tune ++ scaleSubTreesUltrametric t hd 0.5 n w Tune
@@ -107,7 +116,7 @@ psR t =
   map (liftProposalWith jacobianRootBranch rateTree) psAtRoot
     ++ map (liftProposal rateTree) psOthers
   where
-    w = PWeight 1
+    w = PWeight 3
     nR = PName "Rate tree [R]"
     nO = PName "Rate tree [O]"
     ps hd n = scaleBranches t hd 5.0 n w Tune ++ scaleSubTrees t hd 100 n w Tune
@@ -117,23 +126,30 @@ psR t =
 -- A contrary proposal on the time and rate trees.
 psContra :: Tree e a -> [Proposal I]
 psContra t =
-  map (liftProposalWith jacobianRootBranch timeRateTreesL) (ps (== 1) nR)
-    ++ map (liftProposal timeRateTreesL) (ps (> 1) nO)
+  map (liftProposalWith jacobianRootBranch timeRateTreesL) psAtRoot
+    ++ map (liftProposal timeRateTreesL) psOthers
   where
-    w = PWeight 3
-    nR = PName "Trees contra [R]"
-    nO = PName "Trees contra [O]"
-    ps hd n = scaleSubTreesContrarily t hd 0.01 n w Tune
     -- Lens for a contrary proposal on the trees.
     timeRateTreesL :: Lens' I (HeightTree Name, Tree Length Name)
     timeRateTreesL =
       lens
         (\x -> (x ^. timeTree, x ^. rateTree))
         (\x (tTr, rTr) -> x {_timeTree = tTr, _rateTree = rTr})
+    w = PWeight 3
+    nR = PName "Trees contra [R]"
+    nO = PName "Trees contra [O]"
+    ps hd n = scaleSubTreesContrarily t hd 0.01 n w Tune
+    psAtRoot = ps (== 1) nR
+    psOthers = ps (> 1) nO
 
 -- The cycle includes proposals on both trees.
 cc :: Tree e a -> Cycle I
-cc t = cycleFromList $ psT t ++ psR t ++ psContra t
+cc t = cycleFromList $
+  liftProposal timeBirthRate (scaleUnbiased 3.0 (PName "Birth rate") (PWeight 20) Tune) :
+  liftProposal timeDeathRate (scaleUnbiased 3.0 (PName "Death rate") (PWeight 20) Tune) :
+  liftProposal rateMean (scaleUnbiased 3.0 (PName "Rate mean") (PWeight 20) Tune) :
+  liftProposal rateVariance (scaleUnbiased 3.0 (PName "Rate variance") (PWeight 20) Tune) :
+  psT t ++ psR t ++ psContra t
 
 getTimeTreeNodeHeight :: Path -> I -> Double
 getTimeTreeNodeHeight p x = fromHeight $ nodeHeight $ label $ x ^. timeTree . subTreeAtUnsafeL p
@@ -147,6 +163,10 @@ getRateTreeBranch p x = fromLength $ branch $ x ^. rateTree . subTreeAtUnsafeL p
 -- Useful monitors.
 monPs :: Tree e a -> [MonitorParameter I]
 monPs t =
+  (view timeBirthRate >$< monitorDouble "Birth rate") :
+  (view timeDeathRate >$< monitorDouble "Death rate") :
+  (view rateMean >$< monitorDouble "Rate mean") :
+  (view rateVariance >$< monitorDouble "Rate variance") :
   -- Branches measured in expected number of substitutions.
   (rootBranch >$< monitorDouble "Root Branch") :
   [ (\x -> getTimeTreeBranch pth x * getRateTreeBranch pth x) >$< monitorDouble ("T*R Branch" ++ show lb)
@@ -197,7 +217,7 @@ main = do
               parseOneNewick Standard tree
       t = either error id $ toHeightTreeUltrametric $ normalizeHeight r'
       -- Set the initial rates to 1.0.
-      r = first (const 1.0) r'
+      r = setStem 0 $ first (const 1.0) r'
   print r
   print t
   g <- create
@@ -205,14 +225,14 @@ main = do
         Settings
           (AnalysisName "test-tree")
           (BurnInWithCustomAutoTuning [100, 110 .. 500])
-          (Iterations 40000)
+          (Iterations 20000)
           Overwrite
           Sequential
           NoSave
           LogStdOutAndFile
           Info
   -- Metropolis-Hastings-Green algorithm.
-  a <- mhg pr lh (cc t) (mon t) TraceAuto (I t r) g
+  a <- mhg pr lh (cc t) (mon t) TraceAuto (I 1.0 1.0 t 1.0 1.0 r) g
   -- -- Metropolis-coupled Markov chain Monte Carlo algorithm.
   -- let mc3S = MC3Settings (NChains 3) (SwapPeriod 2) (NSwaps 1)
   -- a <- mc3 mc3S pr lh (cc t) (mon t) TraceAuto (I t r) g
