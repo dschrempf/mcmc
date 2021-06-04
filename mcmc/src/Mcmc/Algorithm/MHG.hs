@@ -121,18 +121,33 @@ mhgLoad pr lh cc mn nm = do
 -- | MHG ratios are stored in log domain.
 type MHGRatio = Log Double
 
--- The MHG ratio.
+-- The MHG ratio. This implementation has the following properties:
 --
--- 'Infinity' if fX is zero. In this case, the proposal is always accepted.
+-- - The ratio is 'Infinity' if fX is zero. In this case, the proposal is always
+--   accepted.
 --
--- 'NaN' if (fY or q) and fX are zero. In this case, the proposal is always
--- rejected.
-
+-- - The ratio 'NaN' if (fY or q or j) and fX are zero. In this case, the
+--   proposal is always rejected.
+--
+-- This means that a chain in a state with posterior probability zero (fX=0) can
+-- only move if a state with non-zero posterior probability is proposed.
+-- Otherwise it is stuck. Therefore, I print a warning when the posterior
+-- probability is zero in the beginning of the MCMC run. This is probably not
+-- the best behavior, but see below.
+--
 -- There is a discrepancy between authors saying that one should (a) always
--- accept the new state when the current posterior is zero (Chapter 4 of the
--- Handbook of Markov Chain Monte Carlo), or (b) almost surely reject the
--- proposal when either fY or q are zero (Chapter 1). Since I trust the author
--- of Chapter 1 (Charles Geyer) I choose to follow option (b).
+-- accept the new state when the current posterior is zero (Chapter 4 of [1],
+-- [2]), or (b) almost surely reject the proposal when either fY or q are zero
+-- (Chapter 1 of [1]).
+--
+-- Since I trust the author of Chapter 1 (Charles Geyer) I choose to follow
+-- option (b). However, Option (a) is more user-friendly.
+--
+-- [1] Handbook of markov chain monte carlo (2011), CRC press.
+--
+-- [2] Dellaportas, P., & Roberts, G. O., An introduction to mcmc, Lecture Notes
+-- in Statistics, (), 1–41 (2003).
+-- http://dx.doi.org/10.1007/978-0-387-21811-3_1.
 mhgRatio :: Posterior -> Posterior -> KernelRatio -> Jacobian -> MHGRatio
 -- q = qYX / qXY * jXY; see 'ProposalSimple'.
 -- j = Jacobian.
