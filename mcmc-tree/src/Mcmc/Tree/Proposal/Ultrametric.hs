@@ -204,6 +204,10 @@ scaleSubTreeAtUltrametric tr pth sd
 
 -- | Scale the sub trees of a given tree.
 --
+-- The proposal weights are set according to the depth of the node on the tree.
+-- Proposals close to the root get higher weight than proposals at the leaves.
+-- The weights are multiplied with a given factor.
+--
 -- See 'scaleSubTreeAtUltrametric'.
 --
 -- Do not scale the root nor the leaves.
@@ -213,22 +217,28 @@ scaleSubTreesUltrametric ::
   StandardDeviation ->
   -- | Base name of proposals.
   PName ->
-  PWeight ->
+  -- | Weight multiplier.
+  Int ->
   Tune ->
   [Proposal (HeightTree b)]
-scaleSubTreesUltrametric tr hd s n w t =
+scaleSubTreesUltrametric tr hd s n wm t =
   [ scaleSubTreeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
+      let currentDepth = length pth,
+      -- The weight of the root is the depth of the tree. The weight of the
+      -- leaves is 1.
+      let w = PWeight (wm * (totalDepth - currentDepth)),
       -- Do not scale the root.
       not $ null pth,
       -- Do not scale the leaves.
       not $ null $ forest focus,
       -- Filter other depths.
-      hd $ length pth
+      hd currentDepth
   ]
   where
     name lb = n <> PName (" node " ++ show lb)
+    totalDepth = depth tr
 
 -- See 'pulleyTruncatedNormalSample'. However, we have to honor more constraints
 -- in the ultrametric case.

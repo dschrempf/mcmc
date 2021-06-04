@@ -26,10 +26,10 @@ import ELynx.Tree
 import Mcmc.Proposal
 import Mcmc.Proposal.Generic
 import Mcmc.Proposal.Scale
+import Mcmc.Statistics.Types
 import Mcmc.Tree.Import ()
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Proposal.Common
-import Mcmc.Statistics.Types
 import Mcmc.Tree.Types
 import Numeric.Log hiding (sum)
 import Statistics.Distribution.Gamma
@@ -120,29 +120,40 @@ scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
 
 -- | Scale the sub trees of a given tree.
 --
+-- The proposal weights are set according to the depth of the node on the tree.
+-- Proposals close to the root get higher weight than proposals at the leaves.
+-- The weights are multiplied with a given factor.
+--
 -- See 'scaleTree'.
 --
 -- Do not scale leaves.
 scaleSubTrees ::
   Tree e a ->
-  HandleDepth  ->
+  HandleDepth ->
   Shape ->
   -- | Base name of proposals.
   PName ->
-  PWeight ->
+  -- | Weight multiplier.
+  Int ->
   Tune ->
   [Proposal (Tree Length b)]
-scaleSubTrees tr hd s n w t =
+scaleSubTrees tr hd s n wm t =
   [ subTreeAtUnsafeL pth
       @~ scaleTree focus s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
+      let currentDepth = length pth,
+      -- The weight of the root is the depth of the tree. The weight of the
+      -- leaves is 1.
+      let w = PWeight (wm * (totalDepth - currentDepth)),
       -- Do not scale the leaves, because 'scaleBranch' is faster.
       not $ null $ forest focus,
       -- Filter other depths.
       hd $ length pth
   ]
-  where name lb = n <> PName (" node " ++ show lb)
+  where
+    name lb = n <> PName (" node " ++ show lb)
+    totalDepth = depth tr
 
 -- See 'truncatedNormalSample'. U is added to the left branch. I.e., if u is
 -- positive, the left branch is elongated.

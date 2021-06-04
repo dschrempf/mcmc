@@ -103,11 +103,12 @@ psT t =
   map (liftProposalWith jacobianRootBranch timeTree) psAtRoot
     ++ map (liftProposal timeTree) psOthers
   where
-    w = PWeight 3
     nR = PName "Time tree [R]"
     nO = PName "Time tree [O]"
-    ps hd n = slideNodesUltrametric t hd 0.5 n w Tune ++ scaleSubTreesUltrametric t hd 0.5 n w Tune
-    psAtRoot = pulleyUltrametric t 0.5 nR w Tune : ps (== 1) nR
+    ps hd n =
+      slideNodesUltrametric t hd 0.5 n (PWeight 3) Tune
+        ++ scaleSubTreesUltrametric t hd 0.5 n 1 Tune
+    psAtRoot = pulleyUltrametric t 0.5 nR (PWeight 6) Tune : ps (== 1) nR
     psOthers = ps (> 1) nO
 
 -- Proposals on the rate tree.
@@ -116,11 +117,12 @@ psR t =
   map (liftProposalWith jacobianRootBranch rateTree) psAtRoot
     ++ map (liftProposal rateTree) psOthers
   where
-    w = PWeight 3
     nR = PName "Rate tree [R]"
     nO = PName "Rate tree [O]"
-    ps hd n = scaleBranches t hd 5.0 n w Tune ++ scaleSubTrees t hd 100 n w Tune
-    psAtRoot = pulley 0.5 nR w Tune : ps (== 1) nR
+    ps hd n =
+      scaleBranches t hd 5.0 n (PWeight 3) Tune
+        ++ scaleSubTrees t hd 100 n 1 Tune
+    psAtRoot = pulley 0.5 nR (PWeight 6) Tune : ps (== 1) nR
     psOthers = ps (> 1) nO
 
 -- A contrary proposal on the time and rate trees.
@@ -144,12 +146,13 @@ psContra t =
 
 -- The cycle includes proposals on both trees.
 cc :: Tree e a -> Cycle I
-cc t = cycleFromList $
-  liftProposal timeBirthRate (scaleUnbiased 3.0 (PName "Birth rate") (PWeight 20) Tune) :
-  liftProposal timeDeathRate (scaleUnbiased 3.0 (PName "Death rate") (PWeight 20) Tune) :
-  liftProposal rateMean (scaleUnbiased 3.0 (PName "Rate mean") (PWeight 20) Tune) :
-  liftProposal rateVariance (scaleUnbiased 3.0 (PName "Rate variance") (PWeight 20) Tune) :
-  psT t ++ psR t ++ psContra t
+cc t =
+  cycleFromList $
+    liftProposal timeBirthRate (scaleUnbiased 3.0 (PName "Birth rate") (PWeight 20) Tune) :
+    liftProposal timeDeathRate (scaleUnbiased 3.0 (PName "Death rate") (PWeight 20) Tune) :
+    liftProposal rateMean (scaleUnbiased 3.0 (PName "Rate mean") (PWeight 20) Tune) :
+    liftProposal rateVariance (scaleUnbiased 3.0 (PName "Rate variance") (PWeight 20) Tune) :
+    psT t ++ psR t ++ psContra t
 
 getTimeTreeNodeHeight :: Path -> I -> Double
 getTimeTreeNodeHeight p x = fromHeight $ nodeHeight $ label $ x ^. timeTree . subTreeAtUnsafeL p

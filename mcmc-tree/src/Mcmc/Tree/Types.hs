@@ -62,6 +62,12 @@ import GHC.Generics
 
 -- | When creating proposals, which depths should be handled?
 --
+-- By convention, the depth of the root note is 0. The depths of the daughter
+-- nodes of the root node are 1, and so on.
+--
+-- The depth of a node, as it is defined here, should not be confused with the
+-- 'depth' of a tree.
+--
 -- For example, see 'withoutRoot'.
 type HandleDepth = Int -> Bool
 
