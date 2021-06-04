@@ -64,7 +64,7 @@ cc =
       -- Jacobian is required (or the Jacobian will be 1.0). If
       -- 'scaleContrarily' is used or 'f' is not 1.0 for a contrary slide, the
       -- custom Jacobian is required.
-      slideContrarily 0 0.5 (PName "x y") (PWeight 20) Tune
+      slideContrarily 0 0.5 (PName "x y") (PWeight 3) Tune
     ]
 
 monPs :: [MonitorParameter I]
@@ -91,8 +91,8 @@ main = do
   let mcmcS =
         Settings
           analysisName
-          (BurnInWithAutoTuning 100000 500)
-          (Iterations 500000)
+          (BurnInWithAutoTuning 50000 500)
+          (Iterations 200000)
           Overwrite
           Sequential
           NoSave
