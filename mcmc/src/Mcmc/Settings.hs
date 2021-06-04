@@ -164,17 +164,16 @@ openWithExecutionMode em fn = do
 -- | Parallelization mode.
 --
 -- Parallel execution of the chains is only beneficial when the algorithm allows
--- for parallelization, and if computation of the next iteration takes a long
+-- for parallelization, and if computation of the next iteration takes some
 -- time. If the calculation of the next state is fast, sequential execution is
--- usually beneficial, even for algorithms involving parallel chains. If the
--- calculation of the next state is slow, parallel execution may be beneficial.
+-- usually beneficial, even for algorithms involving parallel chains.
 --
 -- - The "Mcmc.Algorithm.MHG" algorithm is inherently sequential.
 --
 -- - The "Mcmc.Algorithm.MC3" algorithm works well with parallelization.
 --
 -- Of course, also the prior or likelihood functions can be computed in
--- parallel. However, this library is not aware of how these functions are
+-- parallel. However, this library is unaware about how these functions are
 -- computed.
 data ParallelizationMode
   = Sequential
