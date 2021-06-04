@@ -95,12 +95,12 @@ main = do
           (Iterations 200000)
           Overwrite
           Sequential
-          NoSave
+          Save
           LogStdOutAndFile
           Info
   -- Metropolis-Hastings-Green algorithm.
   a <- mhg pr lh cc mon TraceAuto start g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
-  -- let mc3S = MC3Settings 3 1
-  -- a <- mc3 mc3S pr lh cc mon start g
+  -- let mc3S = MC3Settings (NChains 4) (SwapPeriod 1) (NSwaps 1)
+  -- a <- mc3 mc3S pr lh cc mon TraceAuto start g
   void $ mcmc mcmcS a
