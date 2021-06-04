@@ -139,7 +139,7 @@ logInfoA a = reader getVerbosity >>= \v -> when (v >= Info) a
 
 -- | Log info message.
 logInfoB :: (HasLock e, HasLogHandles e, HasVerbosity e) => BL.ByteString -> Logger e ()
-logInfoB = logInfoA . logOutB "I: "
+logInfoB = logInfoA . logOutB "   "
 
 -- | Log info message.
 logInfoS :: (HasLock e, HasLogHandles e, HasVerbosity e) => String -> Logger e ()
