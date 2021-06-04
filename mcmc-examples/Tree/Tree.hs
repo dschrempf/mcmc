@@ -223,7 +223,7 @@ main = do
   g <- create
   let mcmcS =
         Settings
-          (AnalysisName "test-tree")
+          (AnalysisName "tree")
           (BurnInWithCustomAutoTuning [100, 110 .. 500])
           (Iterations 20000)
           Overwrite

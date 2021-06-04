@@ -28,7 +28,7 @@ import System.Random.MWC hiding (uniform)
 type I = (Double, Double)
 
 analysisName :: AnalysisName
-analysisName = AnalysisName "Pair"
+analysisName = AnalysisName "pair"
 
 -- Improper prior for positive values of x and y. We set a bound strictly larger
 -- than 0 because otherwise, numerical problems occur when the chain traverses
