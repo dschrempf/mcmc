@@ -249,8 +249,8 @@ initMHG ::
   IO (MHG a)
 initMHG prf lhf i beta a
   | i < 0 = error "initMHG: Chain index negative."
-  -- Do not temper with the cold chain.
-  | i == 0 = return a
+  -- Only set the id for the cold chain.
+  | i == 0 = return $ MHG $ c {chainId = Just 0}
   | otherwise = do
     -- We have to push the current link in the trace, since it is not set by
     -- 'setReciprocalTemperature'. The other links in the trace are still
