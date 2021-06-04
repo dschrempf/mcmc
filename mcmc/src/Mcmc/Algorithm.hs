@@ -26,6 +26,10 @@ class Algorithm a where
   -- | Current iteration.
   aIteration :: a -> Int
 
+  -- | Check if the current state is invalid. At the moment this should just
+  -- check if the posterior probability is zero or NaN.
+  aIsInValidState :: a -> Bool
+
   -- | Sample the next state.
   aIterate :: ParallelizationMode -> a -> IO a
 

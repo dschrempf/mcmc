@@ -53,6 +53,7 @@ newtype MHG a = MHG {fromMHG :: Chain a}
 instance ToJSON a => Algorithm (MHG a) where
   aName = const "Metropolis-Hastings-Green (MHG)"
   aIteration = iteration . fromMHG
+  aIsInValidState = mhgIsInValidState
   aIterate = mhgIterate
   aAutoTune = mhgAutoTune
   aResetAcceptance = mhgResetAcceptance
@@ -208,6 +209,13 @@ mhgPush (MHG c) = do
     i = link c
     t = trace c
     n = iteration c
+
+mhgIsInValidState :: MHG a -> Bool
+mhgIsInValidState a = ((p * l) == 0) || (p * l == (0 / 0))
+  where
+    x = link $ fromMHG a
+    p = prior x
+    l = likelihood x
 
 -- Ignore the number of capabilities. I have tried a lot of stuff, but the MHG
 -- algorithm is just inherently sequential. Parallelization can be achieved by

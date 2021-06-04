@@ -79,6 +79,7 @@ mcmcNewRun a = do
   logInfoB "Initial state."
   logInfoB $ aStdMonitorHeader a
   mcmcExecuteMonitors a
+  when (aIsInValidState a) (logWarnB "The initial state is invalid!")
   logInfoB $ aSummarizeCycle a
   a' <- mcmcBurnIn a
   let i = fromIterations $ sIterations s

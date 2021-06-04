@@ -178,6 +178,7 @@ data MC3 a = MC3
 instance ToJSON a => Algorithm (MC3 a) where
   aName = const "Metropolis-coupled Markov chain Monte Carlo (MC3)"
   aIteration = mc3Iteration
+  aIsInValidState = mc3IsInValidState
   aIterate = mc3Iterate
   aAutoTune = mc3AutoTune
   aResetAcceptance = mc3ResetAcceptance
@@ -410,6 +411,10 @@ mc3ProposeSwap a i = do
       return $ a {mc3SwapAcceptance = ac'}
   where
     g = mc3Generator a
+
+mc3IsInValidState :: ToJSON a => MC3 a -> Bool
+mc3IsInValidState a = V.any aIsInValidState mhgs
+  where mhgs = mc3MHGChains a
 
 -- TODO: Splimix. 'mc3Iterate' is actually not parallel, but concurrent because
 -- of the IO constraint. Use pure parallel code when we have a pure generator.
