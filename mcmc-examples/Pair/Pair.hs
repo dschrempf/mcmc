@@ -77,7 +77,7 @@ monPs =
   ]
 
 monStd :: MonitorStdOut I
-monStd = monitorStdOut monPs 1000
+monStd = monitorStdOut (take 4 monPs) 1000
 
 monFile :: MonitorFile I
 monFile = monitorFile "" monPs 100
