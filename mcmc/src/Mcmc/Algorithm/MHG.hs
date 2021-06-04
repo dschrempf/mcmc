@@ -80,7 +80,7 @@ mhg pr lh cc mn trLen i0 g = do
   -- The trace is a mutable vector and the mutable state needs to be handled by
   -- a monad.
   tr <- replicateT traceLength l0
-  return $ MHG $ Chain 0 l0 0 tr ac g 0 pr lh cc mn
+  return $ MHG $ Chain Nothing l0 0 tr ac g 0 pr lh cc mn
   where
     l0 = Link i0 (pr i0) (lh i0)
     ac = emptyA $ ccProposals cc
@@ -255,7 +255,7 @@ mhgOpenMonitors nm em (MHG c) = do
   where
     m = monitor c
     pre = fromAnalysisName nm
-    suf = printf "%02d" $ chainId c
+    suf = maybe "" (printf "%02d") $ chainId c
 
 mhgExecuteMonitors ::
   Verbosity ->

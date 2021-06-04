@@ -256,7 +256,7 @@ initMHG prf lhf i beta a
     -- 'setReciprocalTemperature'. The other links in the trace are still
     -- pointing to the link of the cold chain, but this has no effect.
     t' <- pushT l t
-    return $ MHG $ c {chainId = i, trace = t'}
+    return $ MHG $ c {chainId = Just i, trace = t'}
   where
     a' = setReciprocalTemperature prf lhf beta a
     c = fromMHG a'

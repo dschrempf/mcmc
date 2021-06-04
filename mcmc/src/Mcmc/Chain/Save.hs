@@ -45,7 +45,7 @@ import Prelude hiding (cycle)
 --
 -- See 'toSavedChain'.
 data SavedChain a = SavedChain
-  { savedId :: Int,
+  { savedId :: Maybe Int,
     savedLink :: Link a,
     savedIteration :: Int,
     savedTrace :: C.Stack VB.Vector (Link a),
