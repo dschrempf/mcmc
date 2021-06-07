@@ -107,7 +107,7 @@ psT t =
     nO = PName "Time tree [O]"
     ps hd n =
       slideNodesUltrametric t hd 0.5 n (PWeight 3) Tune
-        ++ scaleSubTreesUltrametric t hd 0.5 n 1 Tune
+        ++ scaleSubTreesUltrametric t hd 0.5 n (PWeight 3) Tune
     psAtRoot = pulleyUltrametric t 0.5 nR (PWeight 6) Tune : ps (== 1) nR
     psOthers = ps (> 1) nO
 
@@ -121,7 +121,7 @@ psR t =
     nO = PName "Rate tree [O]"
     ps hd n =
       scaleBranches t hd 5.0 n (PWeight 3) Tune
-        ++ scaleSubTrees t hd 100 n 1 Tune
+        ++ scaleSubTrees t hd 100 n (PWeight 3) Tune
     psAtRoot = pulley 0.5 nR (PWeight 6) Tune : ps (== 1) nR
     psOthers = ps (> 1) nO
 
