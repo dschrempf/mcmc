@@ -72,8 +72,8 @@ import Mcmc.Chain.Trace
 import Mcmc.Internal.Random
 import Mcmc.Internal.Shuffle
 import Mcmc.Monitor
-import Mcmc.Proposal
 import Mcmc.Posterior
+import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Random.MWC
@@ -414,7 +414,8 @@ mc3ProposeSwap a i = do
 
 mc3IsInValidState :: ToJSON a => MC3 a -> Bool
 mc3IsInValidState a = V.any aIsInValidState mhgs
-  where mhgs = mc3MHGChains a
+  where
+    mhgs = mc3MHGChains a
 
 -- TODO: Splimix. 'mc3Iterate' is actually not parallel, but concurrent because
 -- of the IO constraint. Use pure parallel code when we have a pure generator.
