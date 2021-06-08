@@ -23,12 +23,14 @@ import Data.Aeson
 import qualified Data.Vector.Unboxed as V
 import GHC.Generics
 import Mcmc
+-- import Statistics.Distribution
 import Statistics.Distribution.Dirichlet
+-- import Statistics.Distribution.Normal
 import System.Random.MWC
 
 -- The Dirichlet distribution is parametrized by a set of alpha values.
 alphasTrue :: V.Vector Double
-alphasTrue = V.fromList [0.1, 10, 8.0, 4.2, 4.5, 0.3]
+alphasTrue = V.fromList $ map (/ 10) [1 .. 25]
 
 -- The state space includes the scaled alpha parameters with sum 1.0, and their
 -- normalization constant.
@@ -47,7 +49,7 @@ instance ToJSON I
 instance FromJSON I
 
 nObservations :: Int
-nObservations = 100
+nObservations = 800
 
 -- Simulate data using a Dirichlet distribution with the true parameter values.
 simulateData :: GenIO -> IO [V.Vector Double]
@@ -56,8 +58,8 @@ simulateData g = replicateM nObservations (dirichletSample dd g)
     dd = either error id $ dirichletDistribution alphasTrue
 
 -- Improper, uninformative prior function. We don't allow negative values.
-pr :: PriorFunction I
-pr (I as n)
+prf :: PriorFunction I
+prf (I as n)
   | V.any (< 0) (toVector as) = 0.0
   | n < 0 = 0.0
   | otherwise = 1.0
@@ -78,14 +80,6 @@ alphaProposals =
     | i <- [0 .. (V.length alphasTrue - 1)]
   ]
 
--- -- Cycle with Dirichlet proposal.
--- proposals :: Cycle I
--- proposals =
---   cycleFromList
---     [ alphas @~ dirichlet "dirichlet" 1 True,
---       norm @~ scaleUnbiased 8.0 "scale norm" 1 True
---     ]
-
 -- Cycle with the beta proposals and a proposal changing the normalization
 -- constant.
 cc :: Cycle I
@@ -93,6 +87,14 @@ cc =
   cycleFromList $
     norm @~ scaleUnbiased 8.0 (PName "Norm") (pWeight 1) Tune :
     alphaProposals
+
+-- -- Cycle with Dirichlet proposal.
+-- proposals :: Cycle I
+-- proposals =
+--   cycleFromList
+--     [ alphas @~ dirichlet "dirichlet" 1 True,
+--       norm @~ scaleUnbiased 8.0 "scale norm" 1 True
+--     ]
 
 monNorm :: MonitorParameter I
 monNorm = _norm >$< monitorDouble "Norm"
@@ -105,42 +107,48 @@ monN n = (\x -> toVector (_alphas x) V.! n * _norm x) >$< monitorDouble name
 monAlphas :: [MonitorParameter I]
 monAlphas = [monN i | i <- [0 .. (V.length alphasTrue - 1)]]
 
+-- Careful, this only works when the dimension is three or larger.
 monStdOut :: MonitorStdOut I
 monStdOut = monitorStdOut [monNorm, monN 0, monN 1, monN 2] 100
 
 monFile :: MonitorFile I
-monFile = monitorFile "" (monNorm : monAlphas) 50
+monFile = monitorFile "" (monNorm : monAlphas) 2
 
 mon :: Monitor I
 mon = Monitor monStdOut [monFile] []
 
 -- Starting state.
 start :: I
-start = I as 1.0
+start = I as s
   where
+    -- Bad starting value.
+    s = 1.0
     as = simplexUniform (V.length alphasTrue)
+    -- -- Good starting value.
+    -- s = V.sum alphasTrue
+    -- normalize = V.map (/ s)
+    -- as = either error id $ simplexFromVector $ normalize alphasTrue
 
 main :: IO ()
 main = do
   g <- create
   putStrLn "-- Simulate Data."
   xs <- simulateData g
-  print xs
-  print start
-  let lh = lhf xs
-      -- Settings.
+  -- print xs
+  -- print start
+  let -- Settings.
       s =
         Settings
           (AnalysisName "dirichlet")
-          (BurnInWithCustomAutoTuning [100,100,200,300,400,500,500,500,500])
-          (Iterations 30000)
+          (BurnInWithCustomAutoTuning [100, 100, 200, 300, 400, 500, 500, 500, 500])
+          (Iterations 10000)
           Overwrite
           Sequential
           NoSave
           LogStdOutAndFile
-          Debug
+          Info
   -- Initialize the Metropolis-Hastings-Green algorithm.
-  a <- mhg pr lh cc mon TraceAuto start g
+  a <- mhg prf (lhf xs) cc mon TraceAuto start g
   -- Run the MCMC sampler.
   _ <- mcmc s a
   putStrLn "Done."
