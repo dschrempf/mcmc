@@ -143,12 +143,15 @@ main = do
           (BurnInWithCustomAutoTuning [100, 100, 200, 300, 400, 500, 500, 500, 500])
           (Iterations 10000)
           Overwrite
-          Sequential
+          Parallel
           NoSave
           LogStdOutAndFile
           Info
   -- Initialize the Metropolis-Hastings-Green algorithm.
   a <- mhg prf (lhf xs) cc mon TraceAuto start g
+  -- -- Metropolis-coupled Markov chain Monte Carlo algorithm.
+  -- let mc3S = MC3Settings (NChains 3) (SwapPeriod 2) (NSwaps 1)
+  -- a <- mc3 mc3S prf (lhf xs) cc mon TraceAuto start g
   -- Run the MCMC sampler.
   _ <- mcmc s a
   putStrLn "Done."
