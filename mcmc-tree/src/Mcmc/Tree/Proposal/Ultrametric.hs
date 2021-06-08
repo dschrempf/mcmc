@@ -220,7 +220,7 @@ scaleSubTreesUltrametric ::
   -- | Base name of proposals.
   PName ->
   -- | Minimum weight at the leaves. If the minimum weight is larger than the
-  -- maximum weight, the minimum weight will be assigned to all proposals.
+  -- maximum weight, the maximum weight will be assigned to all proposals.
   PWeight ->
   -- | Maximum weight for nodes closer to the root.
   PWeight ->
