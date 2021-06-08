@@ -159,7 +159,8 @@ scaleSubTreesContrarily tr hd s n wMin wMax t =
       let focus = tr ^. subTreeAtUnsafeL pth,
       let currentLayer = length pth,
       let currentDepth = depth focus,
-      let w = pWeight $ minimum [fromPWeight wMin + currentDepth, fromPWeight wMax],
+      -- Subtract 2 because leaves have depth one and are not scaled.
+      let w = pWeight $ minimum [fromPWeight wMin + currentDepth - 2, fromPWeight wMax],
       -- Do not scale the root.
       not $ null pth,
       -- Do not scale the leaves.
