@@ -19,8 +19,8 @@
 -- Type synonyms to improve code readability.
 module Mcmc.Tree.Types
   ( -- ** Miscellaneous
-    HandleDepth,
-    allDepths,
+    HandleLayer,
+    allLayers,
     withoutRoot,
     withoutStem,
 
@@ -48,49 +48,37 @@ import Data.Monoid
 import ELynx.Tree
 import GHC.Generics
 
--- -- | When traversing the branches of a tree, should the stem be handled?
--- --
--- -- For example, should the stem be considered when calculating a branch-wise
--- -- prior?
--- data HandleStem = WithStem | WithoutStem
-
--- -- | Should the root be handled?
--- --
--- -- For example, when scaling all sub trees, should the complete tree including
--- -- the stem also be scaled?
--- data HandleRoot = WithRoot | WithoutRoot
-
--- | When creating proposals, which depths should be handled?
+-- | When creating proposals on trees, which layers should be handled?
 --
--- By convention, the depth of the root note is 0. The depths of the daughter
--- nodes of the root node are 1, and so on.
+-- By convention layer 0 only has one element: the root node. The layer 1
+-- includes the daughter nodes of the root node, and so on.
 --
--- The depth of a node, as it is defined here, should not be confused with the
--- 'depth' of a tree.
+-- The layer to which a node belongs should not be confused with the 'depth' of
+-- a tree.
 --
--- For example, see 'withoutRoot'.
-type HandleDepth = Int -> Bool
+-- For an example, see 'withoutRoot'.
+type HandleLayer = Int -> Bool
 
--- | Handle all depths.
+-- | Handle all layers.
 --
 -- In particular:
 --
 -- - Include the stem, if handling branches.
 --
--- - Include the root node, if handling nodes.
-allDepths :: HandleDepth
-allDepths = const True
+-- - Include the root label, if handling node labels.
+allLayers :: HandleLayer
+allLayers = const True
 
--- | Exclude the root.
+-- | Exclude the root label.
 --
 -- @
 -- withoutRoot = (>0)
 -- @
-withoutRoot :: HandleDepth
+withoutRoot :: HandleLayer
 withoutRoot = (>0)
 
 -- | Exclude the stem.
-withoutStem :: HandleDepth
+withoutStem :: HandleLayer
 withoutStem = withoutRoot
 
 -- -- | Should the leaves be handled?

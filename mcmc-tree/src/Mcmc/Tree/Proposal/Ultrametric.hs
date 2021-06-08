@@ -121,7 +121,7 @@ slideNodeAtUltrametric tr pth ds
 -- Do not slide the root nor the leaves.
 slideNodesUltrametric ::
   Tree e a ->
-  HandleDepth ->
+  HandleLayer ->
   StandardDeviation ->
   -- | Base name of proposals.
   PName ->
@@ -135,7 +135,7 @@ slideNodesUltrametric tr hd s n w t =
       not (null pth),
       -- Do not slide the leaves.
       not (isLeafPath tr pth),
-      -- Filter other depths.
+      -- Filter other layers.
       hd $ length pth
   ]
   where
@@ -204,38 +204,41 @@ scaleSubTreeAtUltrametric tr pth sd
 
 -- | Scale the sub trees of a given tree.
 --
--- The proposal weights are set linearly according to the depth of the node on
--- the tree. Proposals close to the root get higher weight than proposals at the
--- leaves. The root weight and the minimum weight have to be provided.
+-- The proposal weights are set linearly according to the 'depth' of the node on
+-- the tree. Minimum and maximum weights have to be provided.
+--
+-- NOTE: The layer (see 'HandleLayer') and the 'depth' of a node are somewhat
+-- opposing concepts.
 --
 -- See 'scaleSubTreeAtUltrametric'.
 --
 -- Do not scale the root nor the leaves.
 scaleSubTreesUltrametric ::
   Tree e a ->
-  HandleDepth ->
+  HandleLayer ->
   StandardDeviation ->
   -- | Base name of proposals.
   PName ->
-  -- | Maximum weight at root.
+  -- | Minimum weight at the leaves. If the minimum weight is larger than the
+  -- maximum weight, the minimum weight will be assigned to all proposals.
   PWeight ->
-  -- | Minimum weight closer to the leaves. If the minimum weight is larger than
-  -- the root weight, all proposals will assigned the minimum weight.
+  -- | Maximum weight for nodes closer to the root.
   PWeight ->
   Tune ->
   [Proposal (HeightTree b)]
-scaleSubTreesUltrametric tr hd s n wR wM t =
+scaleSubTreesUltrametric tr hd s n wMin wMax t =
   [ scaleSubTreeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
-      let currentDepth = length pth,
-      let w = pWeight $ maximum [fromPWeight wR - currentDepth, fromPWeight wM],
+      let currentLayer = length pth,
+      let currentDepth = depth focus,
+      let w = pWeight $ minimum [fromPWeight wMin + currentDepth, fromPWeight wMax],
       -- Do not scale the root.
       not $ null pth,
       -- Do not scale the leaves.
       not $ null $ forest focus,
-      -- Filter other depths.
-      hd currentDepth
+      -- Filter other layers.
+      hd currentLayer
   ]
   where
     name lb = n <> PName (" node " ++ show lb)

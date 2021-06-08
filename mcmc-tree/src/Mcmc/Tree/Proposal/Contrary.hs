@@ -144,27 +144,28 @@ scaleSubTreeAtContrarily tr pth sd
 -- Do not scale the root nor the leaves.
 scaleSubTreesContrarily ::
   Tree e a ->
-  HandleDepth ->
+  HandleLayer ->
   StandardDeviation ->
   PName ->
-  -- | Root weight.
-  PWeight ->
   -- | Minimum weight.
+  PWeight ->
+  -- | Maximum weight.
   PWeight ->
   Tune ->
   [Proposal (HeightTree b, Tree Length c)]
-scaleSubTreesContrarily tr hd s n wR wM t =
+scaleSubTreesContrarily tr hd s n wMin wMax t =
   [ scaleSubTreeAtContrarily tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
-      let currentDepth = length pth,
-      let w = pWeight $ maximum [fromPWeight wR - currentDepth, fromPWeight wM],
+      let currentLayer = length pth,
+      let currentDepth = depth focus,
+      let w = pWeight $ minimum [fromPWeight wMin + currentDepth, fromPWeight wMax],
       -- Do not scale the root.
       not $ null pth,
       -- Do not scale the leaves.
       not $ null $ forest focus,
-      -- Filter other depths.
-      hd currentDepth
+      -- Filter other layers.
+      hd currentLayer
   ]
   where
     name lb = n <> PName (" node " ++ show lb)

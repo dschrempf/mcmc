@@ -56,7 +56,7 @@ scaleBranch s n w t = (branchL . lengthUnsafeL) @~ scaleUnbiased s n w t
 -- See 'scaleBranch'.
 scaleBranches ::
   Tree e a ->
-  HandleDepth ->
+  HandleLayer ->
   Shape ->
   -- | Base name of proposals.
   PName ->
@@ -67,7 +67,7 @@ scaleBranches tr hd s n w t =
   [ subTreeAtUnsafeL pth
       @~ scaleBranch s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
-      -- Filter depths.
+      -- Filter layers.
       hd $ length pth
   ]
   where
@@ -128,27 +128,28 @@ scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
 -- Do not scale leaves.
 scaleSubTrees ::
   Tree e a ->
-  HandleDepth ->
+  HandleLayer ->
   Shape ->
   -- | Base name of proposals.
   PName ->
-  -- | Root weight.
-  PWeight ->
   -- | Minimum weight.
+  PWeight ->
+  -- | Maximum weight.
   PWeight ->
   Tune ->
   [Proposal (Tree Length b)]
-scaleSubTrees tr hd s n wR wM t =
+scaleSubTrees tr hd s n wMin wMax t =
   [ subTreeAtUnsafeL pth
       @~ scaleTree focus s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
-      let currentDepth = length pth,
-      let w = pWeight $ maximum [fromPWeight wR - currentDepth, fromPWeight wM],
+      let currentLayer = length pth,
+      let currentDepth = depth focus,
+      let w = pWeight $ minimum [fromPWeight wMin + currentDepth, fromPWeight wMax],
       -- Do not scale the leaves, because 'scaleBranch' is faster.
       not $ null $ forest focus,
-      -- Filter other depths.
-      hd currentDepth
+      -- Filter other layers.
+      hd currentLayer
   ]
   where
     name lb = n <> PName (" node " ++ show lb)

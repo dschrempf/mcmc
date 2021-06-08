@@ -95,7 +95,7 @@ gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmet
 -- NOTE: For convenience, the mean and variance are used as parameters for this
 -- relaxed molecular clock model. They are used to calculate the shape and the
 -- scale of the underlying gamma distribution.
-uncorrelatedGamma :: HandleDepth -> Mean -> Variance -> PriorFunction (Tree Length a)
+uncorrelatedGamma :: HandleLayer -> Mean -> Variance -> PriorFunction (Tree Length a)
 uncorrelatedGamma hd m v = branchesWith hd (gamma k th . fromLength)
   where
     (k, th) = gammaMeanVarianceToShapeScale m v
@@ -115,7 +115,7 @@ logNormal' mu var r = Exp $ negate t - e
 -- mean and variance.
 --
 -- See Computational Molecular Evolution (Yang, 2006), Section 7.4.
-uncorrelatedLogNormal :: HandleDepth -> Mean -> Variance -> PriorFunction (Tree Length a)
+uncorrelatedLogNormal :: HandleLayer -> Mean -> Variance -> PriorFunction (Tree Length a)
 uncorrelatedLogNormal hd mu var = branchesWith hd (logNormal' mu var . fromLength)
 
 -- | White noise model.
@@ -143,7 +143,7 @@ uncorrelatedLogNormal hd mu var = branchesWith hd (logNormal' mu var . fromLengt
 -- 2669–2680 (2007). http://dx.doi.org/10.1093/molbev/msm193
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
-whiteNoise :: HandleDepth -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
+whiteNoise :: HandleLayer -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
 whiteNoise hd v tTr rTr = branchesWith hd f zTr
   where
     zTr =
@@ -153,7 +153,7 @@ whiteNoise hd v tTr rTr = branchesWith hd f zTr
     -- This is correct. The mean of b=tr is t, the variance of b is
     -- Var(tr) = t^2Var(r) = t^2 v/t = vt, as required in Lepage, 2006.
     f (t, r) = let k = fromLength t / v in gamma k (recip k) (fromLength r)
--- whiteNoise :: HandleDepth -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
+-- whiteNoise :: HandleLayer -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
 -- whiteNoise WithStem v t r =
 --   -- This is correct. The mean of b=tr is t, the variance of b is
 --   -- Var(tr) = t^2Var(r) = t^2 v/t = vt, as required in Lepage, 2006.
@@ -186,7 +186,7 @@ whiteNoise hd v tTr rTr = branchesWith hd f zTr
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
 autocorrelatedGamma ::
-  HandleDepth ->
+  HandleLayer ->
   Mean ->
   Variance ->
   Tree Length a ->
@@ -233,7 +233,7 @@ autocorrelatedGamma hd mu var tTr rTr = branchesWith hd f zTr
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
 autocorrelatedLogNormal ::
-  HandleDepth ->
+  HandleLayer ->
   Mean ->
   Variance ->
   Tree Length a ->

@@ -107,7 +107,7 @@ psT t =
     nO = PName "Time tree [O]"
     ps hd n =
       slideNodesUltrametric t hd 0.5 n (pWeight 3) Tune
-        ++ scaleSubTreesUltrametric t hd 0.5 n (pWeight 7) (pWeight 3) Tune
+        ++ scaleSubTreesUltrametric t hd 0.5 n (pWeight 3) (pWeight 7) Tune
     psAtRoot = pulleyUltrametric t 0.5 nR (pWeight 6) Tune : ps (== 1) nR
     psOthers = ps (> 1) nO
 
@@ -121,7 +121,7 @@ psR t =
     nO = PName "Rate tree [O]"
     ps hd n =
       scaleBranches t hd 5.0 n (pWeight 3) Tune
-        ++ scaleSubTrees t hd 100 n (pWeight 7) (pWeight 3) Tune
+        ++ scaleSubTrees t hd 100 n (pWeight 3) (pWeight 7) Tune
     psAtRoot = pulley 0.5 nR (pWeight 6) Tune : ps (== 1) nR
     psOthers = ps (> 1) nO
 
@@ -139,7 +139,7 @@ psContra t =
         (\x (tTr, rTr) -> x {_timeTree = tTr, _rateTree = rTr})
     nR = PName "Trees contra [R]"
     nO = PName "Trees contra [O]"
-    ps hd n = scaleSubTreesContrarily t hd 0.01 n (pWeight 7) (pWeight 3) Tune
+    ps hd n = scaleSubTreesContrarily t hd 0.01 n (pWeight 3) (pWeight 7) Tune
     psAtRoot = ps (== 1) nR
     psOthers = ps (> 1) nO
 
