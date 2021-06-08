@@ -18,7 +18,8 @@ module Mcmc.Proposal
   ( -- * Proposals and types
     PName (..),
     PDescription (..),
-    PWeight (..),
+    PWeight (fromPWeight),
+    pWeight,
     PDimension (..),
     Proposal (..),
     KernelRatio,
@@ -89,10 +90,15 @@ newtype PName = PName {fromPName :: String}
 newtype PDescription = PDescription {fromPDescription :: String}
   deriving (Show, Eq, Ord)
 
--- | The weight determines how often a 'Proposal' is executed per iteration of
--- the Markov chain.
+-- | The positive weight determines how often a 'Proposal' is executed per
+-- iteration of the Markov chain.
 newtype PWeight = PWeight {fromPWeight :: Int}
   deriving (Show, Eq, Ord)
+
+-- | Check if the weight is positive.
+pWeight :: Int -> PWeight
+pWeight n | n <= 0 = error "pWeight: Proposal weight is zero or negative."
+          | otherwise = PWeight n
 
 -- | Proposal dimension.
 --
@@ -142,26 +148,26 @@ data PDimension = PDimension Int | PDimensionUnknown
 -- the convenience function 'createProposal'.
 data Proposal a = Proposal
   { -- | Name of the affected variable.
-    pName :: PName,
+    prName :: PName,
     -- | Description of the proposal type and parameters.
-    pDescription :: PDescription,
+    prDescription :: PDescription,
     -- | Dimension of the proposal. The dimension is used to calculate the
     -- optimal acceptance rate, and does not have to be exact.
-    pDimension :: PDimension,
+    prDimension :: PDimension,
     -- | The weight determines how often a 'Proposal' is executed per iteration of
     -- the Markov chain.
-    pWeight :: PWeight,
+    prWeight :: PWeight,
     -- | Simple proposal without name, weight, and tuning information.
-    pSimple :: ProposalSimple a,
+    prSimple :: ProposalSimple a,
     -- | Tuning is disabled if set to 'Nothing'.
-    pTuner :: Maybe (Tuner a)
+    prTuner :: Maybe (Tuner a)
   }
 
 instance Eq (Proposal a) where
-  m == n = pName m == pName n && pDescription m == pDescription n
+  m == n = prName m == prName n && prDescription m == prDescription n
 
 instance Ord (Proposal a) where
-  compare = compare `on` (\p -> (pDescription p, pName p, pWeight p))
+  compare = compare `on` (\p -> (prDescription p, prName p, prWeight p))
 
 -- | Ratio of the proposal kernels.
 --
@@ -305,11 +311,11 @@ tuningParameterMax = 1e3
 -- Return 'Nothing' if 'Proposal' is not tuneable.
 tune :: (TuningParameter -> TuningParameter) -> Proposal a -> Maybe (Proposal a)
 tune f m = do
-  (Tuner t g) <- pTuner m
+  (Tuner t g) <- prTuner m
   -- Ensure that the tuning parameter is strictly positive and well bounded.
   let t' = max tuningParameterMin (f t)
       t'' = min tuningParameterMax t'
-  return $ m {pSimple = g t'', pTuner = Just $ Tuner t'' g}
+  return $ m {prSimple = g t'', prTuner = Just $ Tuner t'' g}
 
 -- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double
@@ -412,7 +418,7 @@ prepareProposals (Cycle xs o) g = case o of
     return $ psR ++ reverse psR
   SequentialReversibleO -> return $ ps ++ reverse ps
   where
-    !ps = concat [replicate (fromPWeight $ pWeight p) p | p <- xs]
+    !ps = concat [replicate (fromPWeight $ prWeight p) p | p <- xs]
 
 -- The number of proposals depends on the order.
 getNProposalsPerCycle :: Cycle a -> Int
@@ -422,7 +428,7 @@ getNProposalsPerCycle (Cycle xs o) = case o of
   RandomReversibleO -> 2 * once
   SequentialReversibleO -> 2 * once
   where
-    once = sum $ map (fromPWeight . pWeight) xs
+    once = sum $ map (fromPWeight . prWeight) xs
 
 -- | Tune 'Proposal's in the 'Cycle'. See 'tune'.
 tuneCycle :: M.Map (Proposal a) (TuningParameter -> TuningParameter) -> Cycle a -> Cycle a
@@ -445,7 +451,7 @@ autoTuneCycle a = tuneCycle (M.mapWithKey tuningF $ acceptanceRates a)
     tuningF proposal mCurrentRate currentTuningParam = case mCurrentRate of
       Nothing -> currentTuningParam
       Just currentRate ->
-        let optimalRate = getOptimalRate (pDimension proposal)
+        let optimalRate = getOptimalRate (prDimension proposal)
          in exp (2 * (currentRate - optimalRate)) * currentTuningParam
 
 renderRow ::
@@ -605,11 +611,11 @@ summarizeCycle a c =
       proposalHLine
     ]
       ++ [ summarizeProposal
-             (pName p)
-             (pDescription p)
-             (pWeight p)
-             (tParam <$> pTuner p)
-             (pDimension p)
+             (prName p)
+             (prDescription p)
+             (prWeight p)
+             (tParam <$> prTuner p)
+             (prDimension p)
              (ar p)
            | p <- ps
          ]

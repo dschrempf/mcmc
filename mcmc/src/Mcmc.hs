@@ -118,6 +118,7 @@ module Mcmc
     -- http://dx.doi.org/10.1093/sysbio/syw021
     PName (..),
     PWeight (..),
+    pWeight,
     Proposal,
     JacobianFunction,
     (@~),

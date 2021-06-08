@@ -204,6 +204,10 @@ scaleSubTreeAtUltrametric tr pth sd
 
 -- | Scale the sub trees of a given tree.
 --
+-- The proposal weights are set linearly according to the depth of the node on
+-- the tree. Proposals close to the root get higher weight than proposals at the
+-- leaves. The root weight and the minimum weight have to be provided.
+--
 -- See 'scaleSubTreeAtUltrametric'.
 --
 -- Do not scale the root nor the leaves.
@@ -213,14 +217,19 @@ scaleSubTreesUltrametric ::
   StandardDeviation ->
   -- | Base name of proposals.
   PName ->
+  -- | Maximum weight at root.
+  PWeight ->
+  -- | Minimum weight closer to the leaves. If the minimum weight is larger than
+  -- the root weight, all proposals will assigned the minimum weight.
   PWeight ->
   Tune ->
   [Proposal (HeightTree b)]
-scaleSubTreesUltrametric tr hd s n w t =
+scaleSubTreesUltrametric tr hd s n wR wM t =
   [ scaleSubTreeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
       let currentDepth = length pth,
+      let w = pWeight $ maximum [fromPWeight wR - currentDepth, fromPWeight wM],
       -- Do not scale the root.
       not $ null pth,
       -- Do not scale the leaves.

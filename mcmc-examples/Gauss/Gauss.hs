@@ -54,7 +54,7 @@ cc :: Cycle I
 cc =
   cycleFromList
     [ singular (ix i)
-        @~ slideUniformSymmetric 1.0 (PName $ "x" ++ show i) (PWeight 1) Tune
+        @~ slideUniformSymmetric 1.0 (PName $ "x" ++ show i) (pWeight 1) Tune
       | i <- [0 .. (d -1)]
     ]
 

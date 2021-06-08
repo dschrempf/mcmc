@@ -122,6 +122,9 @@ scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
 --
 -- See 'scaleTree'.
 --
+-- The weights are assigned as described in
+-- 'Mcmc.Tree.Proposal.Ultrametric.scaleSubTreesUltrametric'.
+--
 -- Do not scale leaves.
 scaleSubTrees ::
   Tree e a ->
@@ -129,15 +132,19 @@ scaleSubTrees ::
   Shape ->
   -- | Base name of proposals.
   PName ->
+  -- | Root weight.
+  PWeight ->
+  -- | Minimum weight.
   PWeight ->
   Tune ->
   [Proposal (Tree Length b)]
-scaleSubTrees tr hd s n w t =
+scaleSubTrees tr hd s n wR wM t =
   [ subTreeAtUnsafeL pth
       @~ scaleTree focus s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
       let currentDepth = length pth,
+      let w = pWeight $ maximum [fromPWeight wR - currentDepth, fromPWeight wM],
       -- Do not scale the leaves, because 'scaleBranch' is faster.
       not $ null $ forest focus,
       -- Filter other depths.

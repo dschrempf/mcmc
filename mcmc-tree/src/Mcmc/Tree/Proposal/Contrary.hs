@@ -138,25 +138,33 @@ scaleSubTreeAtContrarily tr pth sd
 --
 -- See 'scaleSubTreeAtContrarily'.
 --
+-- The weights are assigned as described in
+-- 'Mcmc.Tree.Proposal.Ultrametric.scaleSubTreesUltrametric'.
+--
 -- Do not scale the root nor the leaves.
 scaleSubTreesContrarily ::
   Tree e a ->
   HandleDepth ->
   StandardDeviation ->
   PName ->
+  -- | Root weight.
+  PWeight ->
+  -- | Minimum weight.
   PWeight ->
   Tune ->
   [Proposal (HeightTree b, Tree Length c)]
-scaleSubTreesContrarily tr hd s n w t =
+scaleSubTreesContrarily tr hd s n wR wM t =
   [ scaleSubTreeAtContrarily tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtUnsafeL pth,
+      let currentDepth = length pth,
+      let w = pWeight $ maximum [fromPWeight wR - currentDepth, fromPWeight wM],
       -- Do not scale the root.
       not $ null pth,
       -- Do not scale the leaves.
       not $ null $ forest focus,
       -- Filter other depths.
-      hd $ length pth
+      hd currentDepth
   ]
   where
     name lb = n <> PName (" node " ++ show lb)

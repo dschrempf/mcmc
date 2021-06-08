@@ -58,13 +58,13 @@ cc =
   cycleFromList
     [
       -- The proposals require a custom Jacobian.
-      liftProposalWith jacobian _1 (scaleUnbiased 1.0 (PName "x") (PWeight 1) Tune),
-      liftProposalWith jacobian _2 (scaleUnbiased 1.0 (PName "y") (PWeight 1) Tune),
+      liftProposalWith jacobian _1 (scaleUnbiased 1.0 (PName "x") (pWeight 1) Tune),
+      liftProposalWith jacobian _2 (scaleUnbiased 1.0 (PName "y") (pWeight 1) Tune),
       -- Sliding the pair contrarily will not change the sum z, and so, no
       -- Jacobian is required (or the Jacobian will be 1.0). If
       -- 'scaleContrarily' is used or 'f' is not 1.0 for a contrary slide, the
       -- custom Jacobian is required.
-      slideContrarily 0 0.5 (PName "x y") (PWeight 3) Tune
+      slideContrarily 0 0.5 (PName "x y") (pWeight 3) Tune
     ]
 
 monPs :: [MonitorParameter I]

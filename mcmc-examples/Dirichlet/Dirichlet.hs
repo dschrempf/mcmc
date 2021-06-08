@@ -74,7 +74,7 @@ lhf xs (I as n) = case eitherDds of
 -- Beta proposals on the simplex storing the alpha parameters.
 alphaProposals :: [Proposal I]
 alphaProposals =
-  [ alphas @~ beta i (PName "Alpha") (PWeight 1) Tune
+  [ alphas @~ beta i (PName "Alpha") (pWeight 1) Tune
     | i <- [0 .. (V.length alphasTrue - 1)]
   ]
 
@@ -91,7 +91,7 @@ alphaProposals =
 cc :: Cycle I
 cc =
   cycleFromList $
-    norm @~ scaleUnbiased 8.0 (PName "Norm") (PWeight 1) Tune :
+    norm @~ scaleUnbiased 8.0 (PName "Norm") (pWeight 1) Tune :
     alphaProposals
 
 monNorm :: MonitorParameter I

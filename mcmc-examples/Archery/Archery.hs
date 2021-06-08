@@ -56,7 +56,7 @@ lh xs p
 -- The proposal cycle consists of one proposal only. A uniform distribution is used to
 -- slide the precision of the archer.
 cc :: Cycle Precision
-cc = cycleFromList [slideUniformSymmetric 1.0 (PName "Mu") (PWeight 1) Tune]
+cc = cycleFromList [slideUniformSymmetric 1.0 (PName "Mu") (pWeight 1) Tune]
 
 -- -- Other possibilities for proposals.
 -- proposals = cycleFromList [scaleUnbiased 1.6 (PName "Mu") (PWeight 1) Tune]

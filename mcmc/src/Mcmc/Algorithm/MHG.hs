@@ -194,7 +194,7 @@ mhgPropose (MHG c) p = do
       let !ac' = pushA p False ac
       return $ MHG $ c {acceptance = pushA p False ac'}
   where
-    s = pSimple p
+    s = prSimple p
     (Link x pX lX) = link c
     pF = priorFunction c
     lF = likelihoodFunction c

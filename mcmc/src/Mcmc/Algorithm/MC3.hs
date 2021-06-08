@@ -547,7 +547,7 @@ mc3SummarizeCycle a =
       ++ [ summarizeProposal
              (PName $ show i ++ " <-> " ++ show (i + 1))
              (PDescription "Swap states between chains")
-             (PWeight 1)
+             (pWeight 1)
              (Just $ bs U.! (i + 1))
              PDimensionUnknown
              (acceptanceRate i swapAcceptance)
