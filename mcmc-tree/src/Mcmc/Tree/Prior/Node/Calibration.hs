@@ -310,10 +310,13 @@ calibrateUnsafe ::
   HasHeight a =>
   StandardDeviation ->
   V.Vector Calibration ->
+  -- | Height multiplier. Useful if working on normalized trees.
   Double ->
   PriorFunction (Tree e a)
-calibrateUnsafe sd cs h t = V.product $ V.map f cs
+calibrateUnsafe sd cs h t
+  | h <= 0 = error "calibrateUnsafe: Height multiplier is zero or negative."
+  | otherwise = V.product $ V.map f cs
   where
     f (Calibration n x i) =
-      let i' = transformInterval (recip h) i
+      let i' = if h == 1.0 then i else transformInterval (recip h) i
        in calibrateSoftUnsafe sd (Calibration n x i') t
