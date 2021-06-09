@@ -19,8 +19,6 @@ cradle:
       component: "mcmc-examples:exe:pair"
     - path: "mcmc-examples/PhylogeneticLikelihood"
       component: "mcmc-examples:exe:plh"
-    - path: "mcmc-examples/Tree"
-      component: "mcmc-examples:exe:tree"
 
     # mcmc-statistics
     - path: "mcmc-statistics/src"

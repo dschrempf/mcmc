@@ -29,6 +29,8 @@ For example, estimate the [[https://github.com/dschrempf/mcmc/blob/master/mcmc-e
 stack exec archery
 #+end_src
 
+For a more involved example, have a look at the [[https://github.com/dschrempf/mcmc-dating][phylogenetic dating project]].
+
 ** Ideas                                                             :noexport:
 
 *** Marginal likelihood
