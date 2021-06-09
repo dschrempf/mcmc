@@ -26,7 +26,8 @@ import System.Random.MWC
 -- normal distribution with given bounds [a,b] and also computes the required
 -- factor of the Metropolis-Hastings-Green (MHG) proposal ratio.
 --
--- NOTE: No Jacobian is computed, because we do not know how the proposal will be used.
+-- NOTE: No Jacobian is computed, because it is not known how the proposal will
+-- be used.
 truncatedNormalSample ::
   Mean ->
   StandardDeviation ->
