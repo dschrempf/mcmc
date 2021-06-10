@@ -79,7 +79,7 @@ scaleTreeFunction tr u = first (lengthUnsafeL *~ u) tr
 scaleTreeJacobian ::
   -- Number of branches.
   Int ->
-  Tree e a ->
+  a ->
   Double ->
   Jacobian
 scaleTreeJacobian n _ u = Exp $ fromIntegral (n - 2) * log u
@@ -102,9 +102,10 @@ scaleTreeSimple n k t =
 -- A gamma distributed kernel of given shape is used. The scale is set such that
 -- the mean is 1.0.
 --
--- Because the determinant of the Jacobian matrix depends on the number of
--- branches scaled, this proposal is only valid, if all branch lengths
--- (including the stem) are unconstrained and strictly positive.
+-- NOTE: Because the determinant of the Jacobian matrix depends on the number of
+-- branches scaled, this proposal is only valid if all branch lengths (including
+-- the stem) are unconstrained and strictly positive. This assumption is not
+-- enforced nor checked.
 scaleTree ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e b ->
