@@ -281,7 +281,7 @@ scaleVarianceAndTreeContrarilyFunction n (x, Node br lb trs) u =
     mu = s / fromIntegral n
     -- Force NaN when new value is negative. This avoids numerical problems with
     -- negative branch lengths.
-    f b = let b' = (b - mu) * u + mu in if b' > 0 then b' else 0/0
+    f b = let b' = (b - mu) * u + mu in if b' > 0 then b' else 0 / 0
 
 scaleVarianceAndTreeContrarilySimple ::
   -- Number of branches.
@@ -296,9 +296,11 @@ scaleVarianceAndTreeContrarilySimple n k t =
     (Just recip)
     (Just jacobianFunction)
   where
-    -- Minus 2 because of reverse transform.
+    n1 = recip (fromIntegral n)
+    -- Minus 2 because of the reverse transform.
     -- Minus 2 because of the contrary scaling of the variance.
-    jacobianFunction _ u = Exp $ fromIntegral (n - 2 - 2) * log u
+    -- n times a complicated factor because the mean is used.
+    jacobianFunction _ u = Exp $ (-4) * log u + fromIntegral n * log (u  - n1*u + n1)
 
 -- | Scale variance and unconstrained tree contrarily. Slow (see below).
 --
