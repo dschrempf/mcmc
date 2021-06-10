@@ -25,6 +25,7 @@ module Mcmc.Prior
     -- * Continuous priors
     exponential,
     gamma,
+    gammaMeanVariance,
     gammaMeanOne,
     gammaShapeScaleToMeanVariance,
     gammaMeanVarianceToShapeScale,
@@ -90,6 +91,12 @@ gamma :: Shape -> Scale -> PriorFunction Double
 gamma k t = Exp . S.logDensity d
   where
     d = S.gammaDistr k t
+
+-- | See 'gamma' but parametrized using mean and variance.
+gammaMeanVariance :: Mean -> Variance -> PriorFunction Double
+gammaMeanVariance m v = Exp . S.logDensity d
+  where (k, th) = gammaMeanVarianceToShapeScale m v
+        d = S.gammaDistr k th
 
 -- | Gamma disstributed prior with given shape and mean 1.0.
 gammaMeanOne :: Shape -> PriorFunction Double
