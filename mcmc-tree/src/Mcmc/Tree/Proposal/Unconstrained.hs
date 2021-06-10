@@ -18,7 +18,7 @@ module Mcmc.Tree.Proposal.Unconstrained
     scaleSubTrees,
     pulley,
     scaleNormAndTreeContrarily,
-    scaleVarianceAndTreeContrarily,
+    scaleVarianceAndTree,
   )
 where
 
