@@ -17,6 +17,8 @@ module Mcmc.Tree.Proposal.Unconstrained
     scaleTree,
     scaleSubTrees,
     pulley,
+    scaleNormAndTreeContrarily,
+    scaleVarianceAndTreeContrarily,
   )
 where
 
@@ -208,3 +210,122 @@ pulley ::
 pulley s = createProposal description (pulleySimple s) (PDimension 2)
   where
     description = PDescription $ "Pulley; sd: " ++ show s
+
+scaleNormAndTreeContrarilyFunction ::
+  (Double, Tree Length a) ->
+  Double ->
+  (Double, Tree Length a)
+-- Do not touch the stem, this leads to problems with negative stem lengths (or
+-- NaNs).
+scaleNormAndTreeContrarilyFunction (x, Node br lb trs) u =
+  (x / u, Node br lb $ map (first (lengthUnsafeL *~ u)) trs)
+
+scaleNormAndTreeContrarilySimple ::
+  -- Number of branches.
+  Int ->
+  Shape ->
+  TuningParameter ->
+  ProposalSimple (Double, Tree Length a)
+scaleNormAndTreeContrarilySimple n k t =
+  genericContinuous
+    (gammaDistr (k / t) (t / k))
+    scaleNormAndTreeContrarilyFunction
+    (Just recip)
+    (Just jacobianFunction)
+  where
+    -- Minus 2 because of reverse transform.
+    -- Minus 1 because of the contrary scaling of the norm.
+    jacobianFunction _ u = Exp $ fromIntegral (n - 2 - 1) * log u
+
+-- | Scale normalization factor and unconstrained tree contrarily.
+--
+-- NOTE: Because the determinant of the Jacobian matrix depends on the number of
+-- branches scaled, this proposal is only valid if all inner branch lengths
+-- (excluding the stem) are unconstrained and strictly positive. The stem, on
+-- the other hand, is assumed to be zero. This assumption is neither enforced
+-- nor checked.
+scaleNormAndTreeContrarily ::
+  -- | The topology of the tree is used to precompute the number of inner branches.
+  Tree e a ->
+  StandardDeviation ->
+  PName ->
+  PWeight ->
+  Tune ->
+  Proposal (Double, Tree Length b)
+scaleNormAndTreeContrarily tr sd =
+  createProposal
+    description
+    (scaleNormAndTreeContrarilySimple nBranches sd)
+    (PDimension $ nBranches + 1)
+  where
+    description = PDescription $ "Scale norm and tree contrarily; sd: " <> show sd
+    -- Assume that the stem is zero, see note above.
+    nBranches = length tr - 1
+
+scaleVarianceAndTreeContrarilyFunction ::
+  Int ->
+  (Double, Tree Length a) ->
+  Double ->
+  (Double, Tree Length a)
+-- Do not touch the stem, this leads to problems with negative stem lengths (or
+-- NaNs).
+scaleVarianceAndTreeContrarilyFunction n (x, Node br lb trs) u =
+  (x / u / u, Node br lb $ map (first (lengthUnsafeL %~ f)) trs)
+  where
+    -- The calculation of sample mean requires a separate traversal of the tree.
+    -- This may be slow.
+    --
+    -- Specifically ignore the stem.
+    s = fromLength $ sum $ concatMap branches trs
+    -- Sample mean. We assume that 'n' does not count the stem.
+    mu = s / fromIntegral n
+    -- Force NaN when new value is negative. This avoids numerical problems with
+    -- negative branch lengths.
+    f b = let b' = (b - mu) * u + mu in if b' > 0 then b' else 0/0
+
+scaleVarianceAndTreeContrarilySimple ::
+  -- Number of branches.
+  Int ->
+  Shape ->
+  TuningParameter ->
+  ProposalSimple (Double, Tree Length a)
+scaleVarianceAndTreeContrarilySimple n k t =
+  genericContinuous
+    (gammaDistr (k / t) (t / k))
+    (scaleVarianceAndTreeContrarilyFunction n)
+    (Just recip)
+    (Just jacobianFunction)
+  where
+    -- Minus 2 because of reverse transform.
+    -- Minus 2 because of the contrary scaling of the variance.
+    jacobianFunction _ u = Exp $ fromIntegral (n - 2 - 2) * log u
+
+-- | Scale variance and unconstrained tree contrarily. Slow (see below).
+--
+-- NOTE: Because the determinant of the Jacobian matrix depends on the number of
+-- branches scaled, this proposal is only valid if all inner branch lengths
+-- (excluding the stem) are unconstrained and strictly positive. The stem, on
+-- the other hand, is assumed to be zero. This assumption is neither enforced
+-- nor checked.
+--
+-- NOTE: The sample mean is used to scale the parameters. This has two
+-- disadvantages: (1) It is slow, and (2) the sample mean may be off
+-- considerably. However, the actual mean of the distribution is, in general,
+-- unknown.
+scaleVarianceAndTreeContrarily ::
+  -- | The topology of the tree is used to precompute the number of inner branches.
+  Tree e a ->
+  StandardDeviation ->
+  PName ->
+  PWeight ->
+  Tune ->
+  Proposal (Double, Tree Length b)
+scaleVarianceAndTreeContrarily tr sd =
+  createProposal
+    description
+    (scaleVarianceAndTreeContrarilySimple nBranches sd)
+    (PDimension $ nBranches + 1)
+  where
+    description = PDescription $ "Scale variance and tree contrarily; sd: " <> show sd
+    -- Assume that the stem is zero, see note above.
+    nBranches = length tr - 1
