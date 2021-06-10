@@ -262,15 +262,15 @@ scaleNormAndTreeContrarily tr sd =
     -- Assume that the stem is zero, see note above.
     nBranches = length tr - 1
 
-scaleVarianceAndTreeContrarilyFunction ::
+scaleVarianceAndTreeFunction ::
   Int ->
   (Double, Tree Length a) ->
   Double ->
   (Double, Tree Length a)
 -- Do not touch the stem, this leads to problems with negative stem lengths (or
 -- NaNs).
-scaleVarianceAndTreeContrarilyFunction n (x, Node br lb trs) u =
-  (x / u / u, Node br lb $ map (first (lengthUnsafeL %~ f)) trs)
+scaleVarianceAndTreeFunction n (x, Node br lb trs) u =
+  (x * u * u, Node br lb $ map (first (lengthUnsafeL %~ f)) trs)
   where
     -- The calculation of sample mean requires a separate traversal of the tree.
     -- This may be slow.
@@ -283,26 +283,27 @@ scaleVarianceAndTreeContrarilyFunction n (x, Node br lb trs) u =
     -- negative branch lengths.
     f b = let b' = (b - mu) * u + mu in if b' > 0 then b' else 0 / 0
 
-scaleVarianceAndTreeContrarilySimple ::
+scaleVarianceAndTreeSimple ::
   -- Number of branches.
   Int ->
   Shape ->
   TuningParameter ->
   ProposalSimple (Double, Tree Length a)
-scaleVarianceAndTreeContrarilySimple n k t =
+scaleVarianceAndTreeSimple n k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
-    (scaleVarianceAndTreeContrarilyFunction n)
+    (scaleVarianceAndTreeFunction n)
     (Just recip)
     (Just jacobianFunction)
   where
     n1 = recip (fromIntegral n)
     -- Minus 2 because of the reverse transform.
-    -- Minus 2 because of the contrary scaling of the variance.
-    -- n times a complicated factor because the mean is used.
-    jacobianFunction _ u = Exp $ (-4) * log u + fromIntegral n * log (u  - n1*u + n1)
+    -- Plus 2 because of the scaling of the variance.
+    -- Is 0 :).
+    -- However, n times a complicated factor because the mean is used.
+    jacobianFunction _ u = Exp $ fromIntegral n * log (u  - n1*u + n1)
 
--- | Scale variance and unconstrained tree contrarily. Slow (see below).
+-- | Scale variance and unconstrained tree. Slow (see below).
 --
 -- NOTE: Because the determinant of the Jacobian matrix depends on the number of
 -- branches scaled, this proposal is only valid if all inner branch lengths
@@ -314,7 +315,7 @@ scaleVarianceAndTreeContrarilySimple n k t =
 -- disadvantages: (1) It is slow, and (2) the sample mean may be off
 -- considerably. However, the actual mean of the distribution is, in general,
 -- unknown.
-scaleVarianceAndTreeContrarily ::
+scaleVarianceAndTree ::
   -- | The topology of the tree is used to precompute the number of inner branches.
   Tree e a ->
   StandardDeviation ->
@@ -322,12 +323,12 @@ scaleVarianceAndTreeContrarily ::
   PWeight ->
   Tune ->
   Proposal (Double, Tree Length b)
-scaleVarianceAndTreeContrarily tr sd =
+scaleVarianceAndTree tr sd =
   createProposal
     description
-    (scaleVarianceAndTreeContrarilySimple nBranches sd)
+    (scaleVarianceAndTreeSimple nBranches sd)
     (PDimension $ nBranches + 1)
   where
-    description = PDescription $ "Scale variance and tree contrarily; sd: " <> show sd
+    description = PDescription $ "Scale variance and tree; sd: " <> show sd
     -- Assume that the stem is zero, see note above.
     nBranches = length tr - 1
