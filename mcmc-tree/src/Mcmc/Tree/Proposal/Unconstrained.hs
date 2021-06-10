@@ -303,7 +303,9 @@ scaleVarianceAndTreeSimple n k t =
     -- However, n times a complicated factor because the mean is used.
     jacobianFunction _ u = Exp $ fromIntegral n * log (u  - n1*u + n1)
 
--- | Scale variance and unconstrained tree. Slow (see below).
+-- | Let the branch lengths of an unconstrained tree be distributed according to
+-- a distribution with a given variance hyper-parameter. This proposal scales
+-- the variance hyper-parameter and the branches using the sample mean.
 --
 -- NOTE: Because the determinant of the Jacobian matrix depends on the number of
 -- branches scaled, this proposal is only valid if all inner branch lengths
