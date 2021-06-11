@@ -244,6 +244,8 @@ scaleNormAndTreeContrarilySimple n k t =
 -- (excluding the stem) are unconstrained and strictly positive. The stem, on
 -- the other hand, is assumed to be zero. This assumption is neither enforced
 -- nor checked.
+--
+-- See also 'scaleVarianceAndTree'.
 scaleNormAndTreeContrarily ::
   -- | The topology of the tree is used to precompute the number of inner branches.
   Tree e a ->
@@ -305,7 +307,13 @@ scaleVarianceAndTreeSimple n k t =
 
 -- | Let the branch lengths of an unconstrained tree be distributed according to
 -- a distribution with a given variance hyper-parameter. This proposal scales
--- the variance hyper-parameter and the branches using the sample mean.
+-- the variance hyper-parameter and the branches. The branches are scaled such
+-- that the sample variance is scaled in the same way as the variance
+-- hyper-parameter.
+--
+-- NOTE: This behavior is the opposite to the one of
+-- 'scaleNormAndTreeContrarily', because the normalization factor is not a
+-- hyper-parameter.
 --
 -- NOTE: Because the determinant of the Jacobian matrix depends on the number of
 -- branches scaled, this proposal is only valid if all inner branch lengths
