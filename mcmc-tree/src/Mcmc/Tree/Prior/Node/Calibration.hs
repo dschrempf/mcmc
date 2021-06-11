@@ -266,7 +266,7 @@ calibrateHardUnsafe c t
 --
 -- When the node is out of bounds, a one-sided normal distribution with given
 -- standard deviation is used. The normal distribution is normalized such that
--- the complete distribution of the constrained is continuous. Use of the normal
+-- the complete distribution of the constraint is continuous. Use of the normal
 -- distribution also ensures that the first derivative is continuous.
 --
 -- If the upper bound is not given, no upper bound is used.
@@ -308,6 +308,8 @@ calibrateSoftUnsafe s c t
 -- Call 'error' if a path is invalid.
 calibrateUnsafe ::
   HasHeight a =>
+  -- | Standard deviation of the calibrations before scaling with the height
+  -- multiplier.
   StandardDeviation ->
   V.Vector Calibration ->
   -- | Height multiplier. Useful if working on normalized trees.
