@@ -4,8 +4,15 @@
 
 ## Unreleased changes
 
+
+## 0.5.0.0
+
 -   Marginal likelihood estimation using thermodynamic integration or stepping
     stone sampling.
+-   Various changes of function names (e.g., metropologis -> mhg).
+-   Updated examples.
+-   Proper but minimal logging framework.
+-   Various other changes.
 
 
 ## 0.4.0.0
