@@ -44,16 +44,17 @@ packages:
 #   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
 #
 extra-deps:
-  # - circular-0.3.1.1
-  # - dirichlet-0.1.0.0
-  # - elynx-nexus-0.5.0.1
-  # - elynx-tools-0.5.0.1
-  # - elynx-tree-0.5.0.1
-  - ../circular
-  - ../dirichlet
-  - ../elynx/elynx-nexus
-  - ../elynx/elynx-tools
-  - ../elynx/elynx-tree
+  - circular-0.4.0.0
+  - dirichlet-0.1.0.4
+  - elynx-nexus-0.5.1.0
+  - elynx-tools-0.5.1.0
+  - elynx-tree-0.5.1.0
+  - mwc-random-0.15.0.1
+  # - ../circular
+  # - ../dirichlet
+  # - ../elynx/elynx-nexus
+  # - ../elynx/elynx-tools
+  # - ../elynx/elynx-tree
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
