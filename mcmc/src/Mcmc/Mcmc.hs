@@ -3,7 +3,7 @@
 -- |
 -- Module      :  Mcmc.Mcmc
 -- Description :  Framework for running Markov chain Monte Carlo samplers
--- Copyright   :  (c) Dominik Schrempf, 2020
+-- Copyright   :  (c) Dominik Schrempf, 2021
 -- License     :  GPL-3.0-or-later
 --
 -- Maintainer  :  dominik.schrempf@gmail.com

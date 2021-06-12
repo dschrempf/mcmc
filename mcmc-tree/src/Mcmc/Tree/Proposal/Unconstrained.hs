@@ -1,7 +1,7 @@
 -- |
 -- Module      :  Mcmc.Tree.Proposal.Unconstrained
 -- Description :  Proposals on trees with unconstrained branch lengths
--- Copyright   :  (c) Dominik Schrempf, 2020
+-- Copyright   :  (c) Dominik Schrempf, 2021
 -- License     :  GPL-3.0-or-later
 --
 -- Maintainer  :  dominik.schrempf@gmail.com

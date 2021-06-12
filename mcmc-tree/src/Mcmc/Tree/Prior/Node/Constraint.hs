@@ -3,7 +3,7 @@
 -- |
 -- Module      :  Mcmc.Tree.Prior.Node.Constraint
 -- Description :  Relative node order constraints and node calibrations
--- Copyright   :  (c) Dominik Schrempf, 2020
+-- Copyright   :  (c) Dominik Schrempf, 2021
 -- License     :  GPL-3.0-or-later
 --
 -- Maintainer  :  dominik.schrempf@gmail.com

@@ -1,7 +1,7 @@
 -- |
 -- Module      :  Mcmc.Tree.Proposal.Common
 -- Description :  Common functions used by all tree proposals
--- Copyright   :  (c) Dominik Schrempf, 2020
+-- Copyright   :  (c) Dominik Schrempf, 2021
 -- License     :  GPL-3.0-or-later
 --
 -- Maintainer  :  dominik.schrempf@gmail.com

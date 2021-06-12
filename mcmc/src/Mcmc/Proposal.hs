@@ -6,7 +6,7 @@
 -- |
 -- Module      :  Mcmc.Proposal
 -- Description :  Proposals are instruction to move around the state space
--- Copyright   :  (c) Dominik Schrempf 2020
+-- Copyright   :  (c) Dominik Schrempf 2021
 -- License     :  GPL-3.0-or-later
 --
 -- Maintainer  :  dominik.schrempf@gmail.com
