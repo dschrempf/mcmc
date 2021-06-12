@@ -31,7 +31,7 @@ lh :: LikelihoodFunction Double
 lh = normal trueMean stdDev
 
 cc :: Cycle Double
-cc = cycleFromList [slideSymmetric 1.0 (PName "Medium") (PWeight 1) Tune]
+cc = cycleFromList [slideSymmetric 1.0 (PName "Medium") (pWeight 1) Tune]
 
 mons :: [MonitorParameter Double]
 mons = [monitorDouble "mu"]
@@ -60,7 +60,7 @@ normalSlideBench g = do
 ccLarge :: Cycle Double
 ccLarge =
   cycleFromList
-    [slideSymmetric 1.0 (PName $ "Medium " ++ show i) (PWeight 1) Tune | i <- [0 .. 100 :: Int]]
+    [slideSymmetric 1.0 (PName $ "Medium " ++ show i) (pWeight 1) Tune | i <- [0 .. 100 :: Int]]
 
 -- Should have the same run time as 'normalSlide'.
 normalLargeCycleBench :: GenIO -> IO ()
@@ -79,7 +79,7 @@ normalLargeCycleBench g = do
   void $ mcmc s a
 
 ccBactrian :: Cycle Double
-ccBactrian = cycleFromList [slideBactrian 0.5 1.0 (PName "Bactrian") (PWeight 1) Tune]
+ccBactrian = cycleFromList [slideBactrian 0.5 1.0 (PName "Bactrian") (pWeight 1) Tune]
 
 normalBactrianBench :: GenIO -> IO ()
 normalBactrianBench g = do

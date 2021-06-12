@@ -41,10 +41,10 @@ lh :: LikelihoodFunction I
 lh x = product [f ft yr x | (ft, yr) <- zip fatalities normalizedYears]
 
 proposalAlpha :: Proposal I
-proposalAlpha = _1 @~ slideSymmetric 0.2 (PName "Alpha") (PWeight 1) NoTune
+proposalAlpha = _1 @~ slideSymmetric 0.2 (PName "Alpha") (pWeight 1) NoTune
 
 proposalBeta :: Proposal I
-proposalBeta = _2 @~ slideSymmetric 0.2 (PName "Beta") (PWeight 1) NoTune
+proposalBeta = _2 @~ slideSymmetric 0.2 (PName "Beta") (pWeight 1) NoTune
 
 proposals :: Cycle I
 proposals = cycleFromList [proposalAlpha, proposalBeta]

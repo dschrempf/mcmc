@@ -20,10 +20,10 @@ import System.Random.MWC
 import Test.Hspec
 
 p1 :: Proposal Double
-p1 = slideSymmetric 1.0 (PName "Test 1") (PWeight 1) Tune
+p1 = slideSymmetric 1.0 (PName "Test 1") (pWeight 1) Tune
 
 p2 :: Proposal Double
-p2 = slideSymmetric 1.0 (PName "Test 2") (PWeight 3) Tune
+p2 = slideSymmetric 1.0 (PName "Test 2") (pWeight 3) Tune
 
 c :: Cycle Double
 c = cycleFromList [p1, p2]
