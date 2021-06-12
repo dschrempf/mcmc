@@ -5,6 +5,41 @@
 
 packages:
 - completed:
+    hackage: circular-0.4.0.0@sha256:940c7367050788a4911859f308012940dfc47b605df3f4062b931e415a144537,1634
+    pantry-tree:
+      size: 498
+      sha256: 1d29d7b8d40a9f36df796f4412027d15f8838c9ac8ac43d6684ef4ca4264a1d2
+  original:
+    hackage: circular-0.4.0.0
+- completed:
+    hackage: dirichlet-0.1.0.4@sha256:9e7791fb78c8cb94eb9b07a7098042036621f9b3c99fbebc7cceeb2e5a1515c0,1466
+    pantry-tree:
+      size: 471
+      sha256: 78cc6447b28e6eb99f0128e6249044e8e7ef48639ce42c82cecfa2580d7b18e3
+  original:
+    hackage: dirichlet-0.1.0.4
+- completed:
+    hackage: elynx-nexus-0.5.1.0@sha256:9b08cc85782f4a5f69319532a14b300d224cf639a3e52716bd949e1988b35b67,1504
+    pantry-tree:
+      size: 395
+      sha256: 8c5412c092f93c3aac94a655c62d9165e4dfb5bd91e67b24249bd5b6e74cd9db
+  original:
+    hackage: elynx-nexus-0.5.1.0
+- completed:
+    hackage: elynx-tools-0.5.1.0@sha256:60a3c22925a24543e9acfaab183c32f3140c8281b849838f964fb4552e2d9ba1,1978
+    pantry-tree:
+      size: 1089
+      sha256: 0745945b99d9e8d2b6f33b0d14cb1f4420c0f277cfb61c6e75c8a398c6b1bb66
+  original:
+    hackage: elynx-tools-0.5.1.0
+- completed:
+    hackage: elynx-tree-0.5.1.0@sha256:3e759801dbd8d8b059e977158247ed3433c04147dc3e91820cbc5e718b5c5677,4329
+    pantry-tree:
+      size: 4445
+      sha256: 3f01e2dc52ac4af76fb4fe417f95ce801a1c1ce738cedafb380eddcfdb25bd75
+  original:
+    hackage: elynx-tree-0.5.1.0
+- completed:
     hackage: mwc-random-0.15.0.1@sha256:48e4b01a7447671b8bd13957de65f19ef41ee0376083c0c501e179e68768276a,3372
     pantry-tree:
       size: 721
