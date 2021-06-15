@@ -241,15 +241,17 @@ scaleNormAndTreeContrarilySimple n k t =
     -- Minus 1 because of scaling the norm contrarily.
     jacobianFunction _ u = Exp $ fromIntegral (n - 2 - 1) * log u
 
--- | Let the branch lengths of an unconstrained tree be distributed according to
--- a distribution with a given mean hyper-parameter. This proposal scales the
--- mean hyper-parameter and the branches.
+-- | Let the branch lengths of an unconstrained tree be normalized with a
+-- multiplicative factor. This proposal scales the normalization factor and the
+-- branches contrarily.
 --
 -- NOTE: Because the determinant of the Jacobian matrix depends on the number of
 -- branches scaled, this proposal is only valid if all inner branch lengths are
 -- unconstrained and strictly positive. The stem is ignored.
 --
 -- See also 'scaleVarianceAndTree'.
+--
+-- Call 'error' if an inner branch length is zero or negative.
 scaleNormAndTreeContrarily ::
   -- | The topology of the tree is used to precompute the number of inner branches.
   Tree e a ->
@@ -312,8 +314,11 @@ scaleVarianceAndTreeSimple n k t =
 -- | Let the branch lengths of an unconstrained tree be distributed according to
 -- a distribution with a given variance hyper-parameter. This proposal scales
 -- the variance hyper-parameter and the branches. The branches are scaled such
--- that the sample variance is scaled in the same way as the variance
+-- that the sample variance changes in the same way as the variance
 -- hyper-parameter.
+--
+-- NOTE: The behavior of this proposal is opposite to
+-- 'scaleNormAndTreeContrarily'.
 --
 -- NOTE: Because the determinant of the Jacobian matrix depends on the number of
 -- branches scaled, this proposal is only valid if all inner branch lengths are
@@ -323,6 +328,8 @@ scaleVarianceAndTreeSimple n k t =
 -- disadvantages: (1) It is slow, and (2) the sample mean may be off
 -- considerably. However, the actual mean of the distribution is, in general,
 -- unknown.
+--
+-- Call 'error' if an inner branch length is zero or negative.
 scaleVarianceAndTree ::
   -- | The topology of the tree is used to precompute the number of inner branches.
   Tree e a ->
