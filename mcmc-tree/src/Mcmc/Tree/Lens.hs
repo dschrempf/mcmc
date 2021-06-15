@@ -18,16 +18,16 @@ module Mcmc.Tree.Lens
     labelL,
     forestL,
     branchL,
-    subTreeAtUnsafeL,
+    subTreeAtL,
 
     -- ** Tree zippers
     currentL,
 
     -- ** Height and length lenses
     hasHeightL,
-    heightUnsafeL,
+    heightL,
     hasLengthL,
-    lengthUnsafeL,
+    lengthL,
   )
 where
 
@@ -67,8 +67,8 @@ splitAt' i xs = (ls, head rs, tail rs)
 -- | A specific sub tree.
 --
 -- Call 'error' if the path is invalid.
-subTreeAtUnsafeL :: Path -> Lens' (Tree e a) (Tree e a)
-subTreeAtUnsafeL pth f s = go s pth
+subTreeAtL :: Path -> Lens' (Tree e a) (Tree e a)
+subTreeAtL pth f s = go s pth
   where
     go t [] = f t
     go (Node lb br ts) (x : xs) =
@@ -77,13 +77,15 @@ subTreeAtUnsafeL pth f s = go s pth
     assemble :: e -> a -> Forest e a -> Forest e a -> Tree e a -> Tree e a
     assemble br lb ls rs c = Node br lb $ ls ++ (c : rs)
 
+-- -- The following function is left here for reference.
+-- --
 -- -- Around 10 percent slower for trees with five to ten levels, because they
 -- -- have to be traversed twice. However, the loss of speed may be worse for
 -- -- deeper structures.
 --
 -- -- | A specific sub tree.
--- subTreeAtUnsafeL :: Path -> Lens' (Tree e a) (Tree e a)
--- subTreeAtUnsafeL p =
+-- subTreeAtL :: Path -> Lens' (Tree e a) (Tree e a)
+-- subTreeAtL p =
 --   lens
 --     (getSubTreeUnsafe p)
 --     (\t t' -> let pos = goPathUnsafe p $ fromTree t in toTree $ pos {current = t'})
@@ -96,18 +98,29 @@ currentL = lens current (\x t -> x {current = t})
 hasHeightL :: HasHeight a => Lens' a Height
 hasHeightL = lens getHeight (flip setHeight)
 
--- | Height, unsafe.
+-- Possibly faster.
+-- hasHeightL f hh = (`setHeight` hh) <$> f (getHeight hh)
+
+-- | Height.
 --
--- Non-negativity is not ensured.
-heightUnsafeL :: Lens' Height Double
-heightUnsafeL f l = toHeightUnsafe <$> f (fromHeight l)
+-- Call 'error' if the height is negative.
+heightL :: Lens' Height Double
+heightL f h = g <$> f (fromHeight h)
+  where
+    g x
+      | x < 0 = error "heightL: Height is negative."
+      | otherwise = toHeightUnsafe x
 
 -- | Length of measurable types.
 hasLengthL :: HasLength a => Lens' a Length
 hasLengthL = lens getLen (flip setLen)
 
--- | Length, unsafe.
+-- | Length.
 --
--- Non-negativity is not ensured.
-lengthUnsafeL :: Lens' Length Double
-lengthUnsafeL f l = toLengthUnsafe <$> f (fromLength l)
+-- Call 'error' if branch length is zero or negative.
+lengthL :: Lens' Length Double
+lengthL f l = g <$> f (fromLength l)
+  where
+    g x
+      | x <= 0 = error $ "lengthL: Branch length is zero or negative: " <> show x <> "."
+      | otherwise = toLengthUnsafe x
