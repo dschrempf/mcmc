@@ -16,9 +16,9 @@ module Mcmc.Tree.Prior.Node.Constraint
     Constraint (..),
     constraint,
     loadConstraints,
-    constrainHardUnsafe,
-    constrainSoftUnsafe,
-    constrainUnsafe,
+    constrainHard,
+    constrainSoft,
+    constrain,
   )
 where
 
@@ -264,12 +264,12 @@ loadConstraints t f = do
 --
 -- For reasons of computational efficiency, the paths are not checked for
 -- validity. Please do so beforehand using 'constraint'.
-constrainHardUnsafe ::
+constrainHard ::
   HasHeight a =>
   Constraint ->
   PriorFunction (Tree e a)
-constrainHardUnsafe c t
-  | getHeightFromNodeUnsafe y t < getHeightFromNodeUnsafe o t = 1
+constrainHard c t
+  | getHeightFromNode y t < getHeightFromNode o t = 1
   | otherwise = 0
   where
     y = constraintYoungNode c
@@ -286,17 +286,17 @@ constrainHardUnsafe c t
 --
 -- For reasons of computational efficiency, the paths are not checked for
 -- validity. Please do so beforehand using 'constraint'.
-constrainSoftUnsafe ::
+constrainSoft ::
   HasHeight a =>
   StandardDeviation ->
   Constraint ->
   PriorFunction (Tree e a)
-constrainSoftUnsafe s c t
+constrainSoft s c t
   | hY < hO = 1
   | otherwise = Exp $ logDensity d (hY - hO) - logDensity d 0
   where
-    hY = fromHeight $ getHeightFromNodeUnsafe y t
-    hO = fromHeight $ getHeightFromNodeUnsafe o t
+    hY = fromHeight $ getHeightFromNode y t
+    hO = fromHeight $ getHeightFromNode o t
     d = normalDistr 0 s
     y = constraintYoungNode c
     o = constraintOldNode c
@@ -304,7 +304,7 @@ constrainSoftUnsafe s c t
 -- XXX: Here, we may have to extract the heights first and then check them. Or
 -- go through all nodes and check if there is a calibration.
 
--- | Constrain nodes of a tree using 'constrainSoftUnsafe'.
+-- | Constrain nodes of a tree using 'constrainSoft'.
 --
 -- Calculate the constraint prior for a given vector of constraints, and a
 -- tree with relative heights.
@@ -314,11 +314,11 @@ constrainSoftUnsafe s c t
 -- repeated at each proposal.
 --
 -- Call 'error' if a path is invalid.
-constrainUnsafe ::
+constrain ::
   HasHeight a =>
   StandardDeviation ->
   V.Vector Constraint ->
   PriorFunction (Tree e a)
-constrainUnsafe sd cs t = V.product $ V.map f cs
+constrain sd cs t = V.product $ V.map f cs
   where
-    f x = constrainSoftUnsafe sd x t
+    f x = constrainSoft sd x t

@@ -24,9 +24,9 @@ module Mcmc.Tree.Prior.Node.Calibration
     Calibration (..),
     calibration,
     loadCalibrations,
-    calibrateHardUnsafe,
-    calibrateSoftUnsafe,
-    calibrateUnsafe,
+    calibrateHard,
+    calibrateSoft,
+    calibrate,
   )
 where
 
@@ -170,10 +170,6 @@ calibration t n xs = Calibration n p
     err msg = error $ "calibration: " ++ n ++ ": " ++ msg
     p = either err id $ mrca xs t
 
--- XXX: Maybe use a vector (but we may just fold over it then a list is fine).
---
--- type Calibrations = [Calibration]
-
 data CalibrationData = CalibrationData String String String Double (Maybe Double)
   deriving (Generic, Show)
 
@@ -246,17 +242,17 @@ loadCalibrations t f = do
 -- validity. Please do so beforehand using 'calibration'.
 --
 -- Call 'error' if the path is invalid.
-calibrateHardUnsafe ::
+calibrateHard ::
   HasHeight a =>
   Calibration ->
   PriorFunction (Tree e a)
-calibrateHardUnsafe c t
+calibrateHard c t
   | h <= a' = 0
   | h >* b = 0
   | otherwise = 1
   where
     a' = fromNonNegative a
-    h = fromHeight $ getHeightFromNodeUnsafe p t
+    h = fromHeight $ getHeightFromNode p t
     (Interval a b) = calibrationInterval c
     p = calibrationNode c
 
@@ -275,12 +271,12 @@ calibrateHardUnsafe c t
 -- validity. Please do so beforehand using 'calibration'.
 --
 -- Call 'error' if the path is invalid.
-calibrateSoftUnsafe ::
+calibrateSoft ::
   HasHeight a =>
   StandardDeviation ->
   Calibration ->
   PriorFunction (Tree e a)
-calibrateSoftUnsafe s c t
+calibrateSoft s c t
   | h <= a' = Exp $ logDensity d (a' - h) - logDensity d 0
   | h >* b = case b of
     Infinity -> 1.0
@@ -288,7 +284,7 @@ calibrateSoftUnsafe s c t
   | otherwise = 1
   where
     a' = fromNonNegative a
-    h = fromHeight $ getHeightFromNodeUnsafe p t
+    h = fromHeight $ getHeightFromNode p t
     d = normalDistr 0 s
     (Interval a b) = calibrationInterval c
     p = calibrationNode c
@@ -296,7 +292,7 @@ calibrateSoftUnsafe s c t
 -- XXX: Here, we may have to extract the heights first and then check them. Or
 -- go through all nodes and check if there is a calibration.
 
--- | Calibrate nodes of a tree using 'calibrateSoftUnsafe'.
+-- | Calibrate nodes of a tree using 'calibrateSoft'.
 --
 -- Calculate the calibration prior for a given vector of calibrations, the
 -- absolute height of the tree, and the tree with relative heights.
@@ -305,8 +301,12 @@ calibrateSoftUnsafe s c t
 -- reason is that finding the nodes on the tree is a slow process not to be
 -- repeated at each proposal.
 --
--- Call 'error' if a path is invalid.
-calibrateUnsafe ::
+-- Call 'error' if:
+--
+-- - A path is invalid.
+--
+-- - The height multiplier is zero or negative.
+calibrate ::
   HasHeight a =>
   -- | Standard deviation of the calibrations before scaling with the height
   -- multiplier.
@@ -315,10 +315,10 @@ calibrateUnsafe ::
   -- | Height multiplier. Useful if working on normalized trees.
   Double ->
   PriorFunction (Tree e a)
-calibrateUnsafe sd cs h t
-  | h <= 0 = error "calibrateUnsafe: Height multiplier is zero or negative."
+calibrate sd cs h t
+  | h <= 0 = error "calibrate: Height multiplier is zero or negative."
   | otherwise = V.product $ V.map f cs
   where
     f (Calibration n x i) =
       let i' = if h == 1.0 then i else transformInterval (recip h) i
-       in calibrateSoftUnsafe sd (Calibration n x i') t
+       in calibrateSoft sd (Calibration n x i') t

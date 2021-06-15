@@ -10,7 +10,7 @@
 --
 -- Creation date: Thu Feb 25 15:34:52 2021.
 module Mcmc.Tree.Prior.Node.Common
-  ( getHeightFromNodeUnsafe,
+  ( getHeightFromNode,
   )
 where
 
@@ -22,5 +22,5 @@ import Mcmc.Tree.Types
 -- | Get the height of the node at path on the tree.
 --
 -- Call 'error' if the path is invalid.
-getHeightFromNodeUnsafe :: HasHeight a => Path -> Tree e a -> Height
-getHeightFromNodeUnsafe p t = t ^. subTreeAtUnsafeL p . labelL . hasHeightL
+getHeightFromNode :: HasHeight a => Path -> Tree e a -> Height
+getHeightFromNode p t = t ^. subTreeAtL p . labelL . hasHeightL
