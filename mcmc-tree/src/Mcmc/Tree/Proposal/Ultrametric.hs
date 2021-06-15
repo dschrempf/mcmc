@@ -36,7 +36,7 @@ module Mcmc.Tree.Proposal.Ultrametric
 
     -- * Helper functions
     nInnerNodes,
-    scaleTreeF,
+    scaleUltrametricTreeF,
   )
 where
 
@@ -62,20 +62,18 @@ slideNodeAtUltrametricSimple pth s t tr g
   | otherwise = do
     (hNode', q) <- truncatedNormalSample hNode s t hChild hParent g
     let setNodeHeight x =
-          x & labelL . nodeHeightL
-            -- We trust 'truncatedNormalSample'.
-            .~ toHeightUnsafe
-              hNode'
+          x & labelL . nodeHeightL . heightL .~ hNode'
     -- The absolute value of the determinant of the Jacobian is 1.0.
     return (toTree $ modifyTree setNodeHeight trPos, q, 1.0)
   where
     trPos = goPathUnsafe pth $ fromTree tr
     focus = current trPos
-    parent = current $ goParentUnsafe trPos
     children = forest focus
     hNode = fromHeight $ nodeHeight $ label focus
     hChild = fromHeight $ maximum $ map (nodeHeight . label) children
-    hParent = fromHeight $ nodeHeight $ label parent
+    parent = current $ goParentUnsafe trPos
+    -- Set the upper bound to +Infinity if no parent node exists.
+    hParent = if null pth then 1 / 0 else fromHeight $ nodeHeight $ label parent
 
 -- | Slide node (for ultrametric trees).
 --
@@ -88,11 +86,12 @@ slideNodeAtUltrametricSimple pth s t tr g
 -- A normal distribution truncated at the heights of the parent node and the
 -- closest child node is used.
 --
+-- NOTE: When sliding the root node the tree height changes and no upper bound
+-- is used because no parent node exists.
+--
 -- Call 'error' if:
 --
 -- - The path is invalid.
---
--- - The path is empty and leads to the root.
 --
 -- - The path leads to a leaf.
 slideNodeAtUltrametric ::
@@ -107,7 +106,6 @@ slideNodeAtUltrametric ::
   Tune ->
   Proposal (HeightTree b)
 slideNodeAtUltrametric tr pth ds
-  | null pth = error "slideNodeAtUltrametric: Path is empty."
   | not $ isValidPath tr pth = error $ "slideNodeAtUltrametric: Path is invalid: " <> show pth <> "."
   | isLeafPath tr pth = error $ "slideNodeAtUltrametric: Path leads to a leaf: " <> show pth <> "."
   | otherwise = createProposal description (slideNodeAtUltrametricSimple pth ds) (PDimension 1)
@@ -118,7 +116,7 @@ slideNodeAtUltrametric tr pth ds
 --
 -- See 'slideNodeAtUltrametric'.
 --
--- Do not slide the root nor the leaves.
+-- Do not slide leaves.
 slideNodesUltrametric ::
   Tree e a ->
   HandleLayer ->
@@ -131,8 +129,6 @@ slideNodesUltrametric ::
 slideNodesUltrametric tr hd s n w t =
   [ slideNodeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
-      -- Do not slide the root.
-      not (null pth),
       -- Do not slide the leaves.
       not (isLeafPath tr pth),
       -- Filter other layers.
@@ -156,14 +152,15 @@ scaleSubTreeAtUltrametricSimple n pth sd t tr g
     let xi = hNode' / hNode
         -- (-1) because the root height has an additive change.
         jacobian = Exp $ fromIntegral (n - 1) * log xi
-    return (toTree $ modifyTree (scaleTreeF hNode' xi) trPos, q, jacobian)
+    return (toTree $ modifyTree (scaleUltrametricTreeF hNode' xi) trPos, q, jacobian)
   where
     trPos = goPathUnsafe pth $ fromTree tr
     focus = current trPos
-    parent = current $ goParentUnsafe trPos
     children = forest focus
     hNode = fromHeight $ nodeHeight $ label focus
-    hParent = fromHeight $ nodeHeight $ label parent
+    parent = current $ goParentUnsafe trPos
+    -- Set the upper bound to +Infinity if no parent node exists.
+    hParent = if null pth then 1 / 0 else fromHeight $ nodeHeight $ label parent
 
 -- | Scale the node heights of the sub tree at given path.
 --
@@ -171,11 +168,12 @@ scaleSubTreeAtUltrametricSimple n pth sd t tr g
 -- the height of the parent node and the leaves is used to determine the new
 -- height of the sub tree.
 --
+-- NOTE: When scaling the root node the tree height changes and no upper bound
+-- is used because no parent node exists.
+--
 -- Call 'error' if:
 --
 -- - The path is invalid.
---
--- - The path is empty and leads to the root.
 --
 -- - The path leads to a leaf.
 scaleSubTreeAtUltrametric ::
@@ -190,7 +188,6 @@ scaleSubTreeAtUltrametric ::
   Tune ->
   Proposal (HeightTree b)
 scaleSubTreeAtUltrametric tr pth sd
-  | null pth = error "scaleSubTreeAtUltrametric: Path is empty."
   | not $ isValidPath tr pth = error $ "scaleSubTreeAtUltrametric: Path is invalid: " <> show pth <> "."
   | isLeafPath tr pth = error $ "scaleSubTreeAtUltrametric: Path leads to a leaf: " <> show pth <> "."
   | otherwise =
@@ -212,7 +209,7 @@ scaleSubTreeAtUltrametric tr pth sd
 --
 -- See 'scaleSubTreeAtUltrametric'.
 --
--- Do not scale the root nor the leaves.
+-- Do not scale the leaves.
 scaleSubTreesUltrametric ::
   Tree e a ->
   HandleLayer ->
@@ -229,13 +226,11 @@ scaleSubTreesUltrametric ::
 scaleSubTreesUltrametric tr hd s n wMin wMax t =
   [ scaleSubTreeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
-      let focus = tr ^. subTreeAtUnsafeL pth,
+      let focus = tr ^. subTreeAtL pth,
       let currentLayer = length pth,
       let currentDepth = depth focus,
       -- Subtract 2 because leaves have depth one and are not scaled.
       let w = pWeight $ minimum [fromPWeight wMin + currentDepth - 2, fromPWeight wMax],
-      -- Do not scale the root.
-      not $ null pth,
       -- Do not scale the leaves.
       not $ null $ forest focus,
       -- Filter other layers.
@@ -294,7 +289,7 @@ pulleyUltrametricSimple nL nR s t tr@(Node br lb [l, r]) g = do
       hR' = fromHeight hR + u
       -- Scaling factor right. (hR + u)/hR = (1.0 + u/hR).
       xiR = hR' / fromHeight hR
-  let tr' = Node br lb [scaleTreeF hL' xiL l, scaleTreeF hR' xiR r]
+  let tr' = Node br lb [scaleUltrametricTreeF hL' xiL l, scaleUltrametricTreeF hR' xiR r]
   -- The derivation of the Jacobian matrix is very lengthy. Similar to before,
   -- we parameterize the right and left trees into the heights of all other
   -- internal nodes. However, the left and right node heights are now treated in
@@ -342,7 +337,7 @@ nInnerNodes (Node _ _ []) = 0
 nInnerNodes tr = 1 + sum (map nInnerNodes $ forest tr)
 
 -- | A very specific function scaling an ultrametric tree.
-scaleTreeF ::
+scaleUltrametricTreeF ::
   -- | New root node height.
   Double ->
   -- | Scaling factor for other nodes. The scaling factor for inner node heights
@@ -350,7 +345,7 @@ scaleTreeF ::
   Double ->
   HeightTree a ->
   HeightTree a
-scaleTreeF h xi (Node _ lb ts) =
+scaleUltrametricTreeF h xi (Node _ lb ts) =
   Node () (lb & nodeHeightL .~ h') $ map (second $ nodeHeightL *~ xi') ts
   where
     xi' = either (error . (<>) "scaleSubTreeF:xi: ") id $ toHeight xi
