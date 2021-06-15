@@ -75,7 +75,7 @@ allLayers = const True
 -- withoutRoot = (>0)
 -- @
 withoutRoot :: HandleLayer
-withoutRoot = (>0)
+withoutRoot = (> 0)
 
 -- | Exclude the stem.
 withoutStem :: HandleLayer
@@ -165,10 +165,15 @@ toHeightTreeUltrametric t
 -- Assume the tree is ultrametric.
 toHeightTreeUltrametric' :: Tree Length a -> HeightTree a
 toHeightTreeUltrametric' t@(Node _ lb ts) =
-    Node
-      ()
-      (HeightLabel (either error id $ toHeight $ fromLength $ rootHeight t) lb)
-      (map toHeightTreeUltrametric' ts)
+  Node
+    ()
+    ( HeightLabel
+        ( either (error . (<>) "toHeightTreeUltrametric': ") id $
+            toHeight $ fromLength $ rootHeight t
+        )
+        lb
+    )
+    (map toHeightTreeUltrametric' ts)
 
 -- | Remove information about node height from node label.
 fromHeightTree :: HeightTree a -> Tree Length a
@@ -178,6 +183,8 @@ fromHeightTree t = go (nodeHeight $ label t) t
       let hNode = nodeHeight lb
           nNode = nodeName lb
        in Node
-            (either error id $ toLength $ fromHeight $ hParent - hNode)
+            ( either (error . (<>) "fromHeightTree: ") id $
+                toLength $ fromHeight $ hParent - hNode
+            )
             nNode
             $ map (go hNode) ts
