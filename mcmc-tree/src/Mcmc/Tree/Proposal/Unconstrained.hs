@@ -19,6 +19,11 @@ module Mcmc.Tree.Proposal.Unconstrained
     pulley,
     scaleNormAndTreeContrarily,
     scaleVarianceAndTree,
+
+    -- * Helper functions
+    scaleUnconstrainedTreeF,
+    scaleUnconstrainedTreeWithoutStemF,
+    scaleUnconstrainedStem,
   )
 where
 
@@ -40,9 +45,9 @@ import System.Random.MWC
 -- | Scale branch.
 --
 -- This proposal scales the stem of the given tree. To slide inner branches, use
--- 'subTreeAtUnsafeL' or 'scaleBranches'. For example,
+-- 'subTreeAtL' or 'scaleBranches'. For example,
 --
--- @subTreeAtUnsafeL path @~ scaleBranch ...@.
+-- @subTreeAtL path @~ scaleBranch ...@.
 --
 -- See 'scaleUnbiased'.
 scaleBranch ::
@@ -51,7 +56,7 @@ scaleBranch ::
   PWeight ->
   Tune ->
   Proposal (Tree Length a)
-scaleBranch s n w t = (branchL . lengthUnsafeL) @~ scaleUnbiased s n w t
+scaleBranch s n w t = (branchL . lengthL) @~ scaleUnbiased s n w t
 
 -- | Scale the branches of a given tree.
 --
@@ -66,7 +71,7 @@ scaleBranches ::
   Tune ->
   [Proposal (Tree Length b)]
 scaleBranches tr hd s n w t =
-  [ subTreeAtUnsafeL pth
+  [ subTreeAtL pth
       @~ scaleBranch s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       -- Filter layers.
@@ -74,9 +79,6 @@ scaleBranches tr hd s n w t =
   ]
   where
     name lb = n <> PName (" branch " ++ show lb)
-
-scaleTreeFunction :: Tree Length a -> Double -> Tree Length a
-scaleTreeFunction tr u = first (lengthUnsafeL *~ u) tr
 
 scaleTreeJacobian ::
   -- Number of branches.
@@ -95,19 +97,22 @@ scaleTreeSimple ::
 scaleTreeSimple n k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
-    scaleTreeFunction
+    (flip scaleUnconstrainedTreeF)
     (Just recip)
     (Just $ scaleTreeJacobian n)
 
--- | Scale all branches.
+-- | Scale all branches including the stem.
 --
 -- A gamma distributed kernel of given shape is used. The scale is set such that
 -- the mean is 1.0.
 --
 -- NOTE: Because the determinant of the Jacobian matrix depends on the number of
--- branches scaled, this proposal is only valid if all branch lengths (including
--- the stem) are unconstrained and strictly positive. This assumption is not
--- enforced nor checked.
+-- branches scaled, this proposal is only valid if all branch lengths including
+-- the stem are unconstrained and strictly positive.
+--
+-- Call 'error' if:
+--
+-- - A branch length is zero or negative.
 scaleTree ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e b ->
@@ -128,7 +133,7 @@ scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
 -- The weights are assigned as described in
 -- 'Mcmc.Tree.Proposal.Ultrametric.scaleSubTreesUltrametric'.
 --
--- Do not scale leaves.
+-- Do not scale the leaves.
 scaleSubTrees ::
   Tree e a ->
   HandleLayer ->
@@ -142,10 +147,10 @@ scaleSubTrees ::
   Tune ->
   [Proposal (Tree Length b)]
 scaleSubTrees tr hd s n wMin wMax t =
-  [ subTreeAtUnsafeL pth
+  [ subTreeAtL pth
       @~ scaleTree focus s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
-      let focus = tr ^. subTreeAtUnsafeL pth,
+      let focus = tr ^. subTreeAtL pth,
       let currentLayer = length pth,
       let currentDepth = depth focus,
       -- Subtract 2 because leaves have depth one and are not scaled.
@@ -184,8 +189,8 @@ pulleySimple s t tr@(Node br lb [l, r]) g = do
         Node
           br
           lb
-          [ l & branchL . lengthUnsafeL +~ u,
-            r & branchL . lengthUnsafeL -~ u
+          [ l & branchL . lengthL +~ u,
+            r & branchL . lengthL -~ u
           ]
   -- The determinant of the Jacobian matrix is (-1).
   return (tr', q, 1.0)
@@ -198,7 +203,7 @@ pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
 --
 -- The heights of the two sub trees change.
 --
--- Call error if:
+-- Call 'error' if:
 --
 -- - The node is not bifurcating.
 pulley ::
@@ -271,14 +276,14 @@ scaleVarianceAndTreeFunction ::
   (Double, Tree Length a)
 -- Do not touch the stem, this leads to problems with negative stem lengths (or
 -- NaNs).
-scaleVarianceAndTreeFunction n (x, Node br lb trs) u =
-  (x * u * u, Node br lb $ map (first (lengthUnsafeL %~ f)) trs)
+scaleVarianceAndTreeFunction n (x, tr) u =
+  (x * u * u, tr & forestL %~ map (first (lengthL %~ f)))
   where
     -- The calculation of sample mean requires a separate traversal of the tree.
     -- This may be slow.
     --
     -- Specifically ignore the stem.
-    s = fromLength $ sum $ concatMap branches trs
+    s = fromLength $ sum $ concatMap branches $ forest tr
     -- Sample mean. We assume that 'n' does not count the stem.
     mu = s / fromIntegral n
     -- Force NaN when new value is negative. This avoids numerical problems with
@@ -303,7 +308,7 @@ scaleVarianceAndTreeSimple n k t =
     -- Plus 2 because of the scaling of the variance.
     -- Is 0 :).
     -- However, n times a complicated factor because the mean is used.
-    jacobianFunction _ u = Exp $ fromIntegral n * log (u  - n1*u + n1)
+    jacobianFunction _ u = Exp $ fromIntegral n * log (u - n1 * u + n1)
 
 -- | Let the branch lengths of an unconstrained tree be distributed according to
 -- a distribution with a given variance hyper-parameter. This proposal scales
@@ -311,15 +316,9 @@ scaleVarianceAndTreeSimple n k t =
 -- that the sample variance is scaled in the same way as the variance
 -- hyper-parameter.
 --
--- NOTE: This behavior is the opposite to the one of
--- 'scaleNormAndTreeContrarily', because the normalization factor is not a
--- hyper-parameter.
---
 -- NOTE: Because the determinant of the Jacobian matrix depends on the number of
--- branches scaled, this proposal is only valid if all inner branch lengths
--- (excluding the stem) are unconstrained and strictly positive. The stem, on
--- the other hand, is assumed to be zero. This assumption is neither enforced
--- nor checked.
+-- branches scaled, this proposal is only valid if all inner branch lengths are
+-- unconstrained and strictly positive. The stem is ignored.
 --
 -- NOTE: The sample mean is used to scale the parameters. This has two
 -- disadvantages: (1) It is slow, and (2) the sample mean may be off
@@ -340,5 +339,17 @@ scaleVarianceAndTree tr sd =
     (PDimension $ nBranches + 1)
   where
     description = PDescription $ "Scale variance and tree; sd: " <> show sd
-    -- Assume that the stem is zero, see note above.
+    -- Ignore the stem, see note above.
     nBranches = length tr - 1
+
+-- | Scale the branches of an unconstrained tree.
+scaleUnconstrainedTreeF :: Double -> Tree Length a -> Tree Length a
+scaleUnconstrainedTreeF u = first (lengthL *~ u)
+
+-- | Scale the branches of an unconstrained tree. Do not scale the stem.
+scaleUnconstrainedTreeWithoutStemF :: Double -> Tree Length a -> Tree Length a
+scaleUnconstrainedTreeWithoutStemF u tr = tr & forestL %~ map (first $ lengthL *~ u)
+
+-- | Scale the stem of an unconstrained tree.
+scaleUnconstrainedStem :: Double -> Tree Length a -> Tree Length a
+scaleUnconstrainedStem u tr = tr & branchL %~ lengthL *~ u
