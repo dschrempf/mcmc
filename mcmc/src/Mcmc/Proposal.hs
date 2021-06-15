@@ -288,14 +288,19 @@ createProposal ::
 createProposal r f d n w Tune = Proposal n r d w (f 1.0) (Just $ Tuner 1.0 f)
 createProposal r f d n w NoTune = Proposal n r d w (f 1.0) Nothing
 
--- | Minimal tuning parameter; @1e-12@, subject to change.
+-- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
+-- proposal with a large tuning parameter is not a problem. But then, if the
+-- tuning parameters are very different from one, a different base proposal
+-- should be chosen.
+
+-- | Minimal tuning parameter; @1e-5@, subject to change.
 --
 -- >>> tuningParameterMin
 -- 1e-5
 tuningParameterMin :: TuningParameter
 tuningParameterMin = 1e-5
 
--- | Maximal tuning parameter; @1e12@, subject to change.
+-- | Maximal tuning parameter; @1e3@, subject to change.
 -- >>> tuningParameterMax
 -- 1e3
 tuningParameterMax :: TuningParameter
