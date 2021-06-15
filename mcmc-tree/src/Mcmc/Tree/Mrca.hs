@@ -12,7 +12,6 @@
 module Mcmc.Tree.Mrca
   ( -- ** Most recent command ancestors
     mrca,
-    mrcaUnsafe,
   )
 where
 
@@ -38,11 +37,11 @@ isMrca xs t = isAncestor xs t && not (any (isAncestor xs) (forest t))
 --
 -- Return 'Left' if:
 --
--- The leaves of the tree contain duplicates.
+-- - The leaves of the tree contain duplicates.
 --
--- The list of leaves contains duplicates.
+-- - The list of leaves contains duplicates.
 --
--- The MRCA cannot be found.
+-- - The MRCA cannot be found.
 mrca :: (Ord a, Show a) => [a] -> Tree e a -> Either String Path
 mrca xs tr
   | duplicateLeaves tr = Left "mrca: Tree contains duplicate leaves."
@@ -55,7 +54,3 @@ mrca xs tr
       --                                    One path will be (Right p).
       | isAncestor ss t = Right $ i : head (rights [go j t' | (j, t') <- zip [0 ..] (forest t)])
       | otherwise = Left $ "Could not get MRCA for: " <> show xs <> "."
-
--- | See 'mrca' but call 'error'.
-mrcaUnsafe :: (Ord a, Show a) => [a] -> Tree e a -> Path
-mrcaUnsafe xs = either error id . mrca xs
