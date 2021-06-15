@@ -96,7 +96,7 @@ gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmet
 -- relaxed molecular clock model. They are used to calculate the shape and the
 -- scale of the underlying gamma distribution.
 uncorrelatedGamma :: HandleLayer -> Mean -> Variance -> PriorFunction (Tree Length a)
-uncorrelatedGamma hd m v = branchesWith hd (gamma k th . fromLength)
+uncorrelatedGamma hl m v = branchesWith hl (gamma k th . fromLength)
   where
     (k, th) = gammaMeanVarianceToShapeScale m v
 
@@ -116,7 +116,7 @@ logNormal' mu var r = Exp $ negate t - e
 --
 -- See Computational Molecular Evolution (Yang, 2006), Section 7.4.
 uncorrelatedLogNormal :: HandleLayer -> Mean -> Variance -> PriorFunction (Tree Length a)
-uncorrelatedLogNormal hd mu var = branchesWith hd (logNormal' mu var . fromLength)
+uncorrelatedLogNormal hl mu var = branchesWith hl (logNormal' mu var . fromLength)
 
 -- | White noise model.
 --
@@ -144,7 +144,7 @@ uncorrelatedLogNormal hd mu var = branchesWith hd (logNormal' mu var . fromLengt
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
 whiteNoise :: HandleLayer -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
-whiteNoise hd v tTr rTr = branchesWith hd f zTr
+whiteNoise hl v tTr rTr = branchesWith hl f zTr
   where
     zTr =
       fromMaybe
@@ -191,7 +191,7 @@ autocorrelatedGamma ::
   Variance ->
   Tree Length a ->
   PriorFunction (Tree Length a)
-autocorrelatedGamma hd mu var tTr rTr = branchesWith hd f zTr
+autocorrelatedGamma hl mu var tTr rTr = branchesWith hl f zTr
   where
     zTr =
       fromMaybe
@@ -238,7 +238,7 @@ autocorrelatedLogNormal ::
   Variance ->
   Tree Length a ->
   PriorFunction (Tree Length a)
-autocorrelatedLogNormal hd mu var tTr rTr = branchesWith hd f zTr
+autocorrelatedLogNormal hl mu var tTr rTr = branchesWith hl f zTr
   where
     zTr =
       fromMaybe
