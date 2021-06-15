@@ -220,10 +220,9 @@ scaleNormAndTreeContrarilyFunction ::
   (Double, Tree Length a) ->
   Double ->
   (Double, Tree Length a)
--- Do not touch the stem, this leads to problems with negative stem lengths (or
--- NaNs).
-scaleNormAndTreeContrarilyFunction (x, Node br lb trs) u =
-  (x / u, Node br lb $ map (first (lengthUnsafeL *~ u)) trs)
+-- Do not touch the stem, because this leads to problems with negative stem
+-- lengths (or NaNs).
+scaleNormAndTreeContrarilyFunction (x, tr) u = (x / u, scaleUnconstrainedTreeWithoutStemF u tr)
 
 scaleNormAndTreeContrarilySimple ::
   -- Number of branches.
@@ -239,16 +238,16 @@ scaleNormAndTreeContrarilySimple n k t =
     (Just jacobianFunction)
   where
     -- Minus 2 because of reverse transform.
-    -- Minus 1 because of the contrary scaling of the norm.
+    -- Minus 1 because of scaling the norm contrarily.
     jacobianFunction _ u = Exp $ fromIntegral (n - 2 - 1) * log u
 
--- | Scale normalization factor and unconstrained tree contrarily.
+-- | Let the branch lengths of an unconstrained tree be distributed according to
+-- a distribution with a given mean hyper-parameter. This proposal scales the
+-- mean hyper-parameter and the branches.
 --
 -- NOTE: Because the determinant of the Jacobian matrix depends on the number of
--- branches scaled, this proposal is only valid if all inner branch lengths
--- (excluding the stem) are unconstrained and strictly positive. The stem, on
--- the other hand, is assumed to be zero. This assumption is neither enforced
--- nor checked.
+-- branches scaled, this proposal is only valid if all inner branch lengths are
+-- unconstrained and strictly positive. The stem is ignored.
 --
 -- See also 'scaleVarianceAndTree'.
 scaleNormAndTreeContrarily ::
@@ -266,7 +265,7 @@ scaleNormAndTreeContrarily tr sd =
     (PDimension $ nBranches + 1)
   where
     description = PDescription $ "Scale norm and tree contrarily; sd: " <> show sd
-    -- Assume that the stem is zero, see note above.
+    -- Ignore the stem, see note above.
     nBranches = length tr - 1
 
 scaleVarianceAndTreeFunction ::
