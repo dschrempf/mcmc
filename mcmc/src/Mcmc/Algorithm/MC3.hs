@@ -536,6 +536,7 @@ mc3SummarizeCycle a =
         Just ar ->
           [ "MC3: Average acceptance rate across all chains: "
               <> BL.fromStrict (BC.toFixed 2 ar)
+              <> "."
           ]
       ++ [ "MC3: Reciprocal temperatures of the chains: " <> BL.intercalate ", " bsB <> ".",
            "MC3: Summary of state swaps.",
