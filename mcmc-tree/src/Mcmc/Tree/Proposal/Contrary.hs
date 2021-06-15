@@ -10,28 +10,21 @@
 --
 -- Creation date: Wed Mar  3 13:19:54 2021.
 module Mcmc.Tree.Proposal.Contrary
-  ( scaleSubTreeAtContrarily,
+  ( scaleSubTreesAtContrarily,
     scaleSubTreesContrarily,
   )
 where
 
 import Control.Lens
-import Data.Bifunctor
 import ELynx.Tree
 import Mcmc.Proposal
 import Mcmc.Statistics.Types
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Proposal.Common
 import Mcmc.Tree.Proposal.Ultrametric
+import Mcmc.Tree.Proposal.Unconstrained
 import Mcmc.Tree.Types
 import Numeric.Log
-
--- Scale all branches but the stem.
-scaleRateTreeF :: Double -> Tree Length a -> Tree Length a
-scaleRateTreeF xi tr = tr & forestL %~ map (first (lengthUnsafeL *~ xi))
-
-scaleStem :: Double -> Tree Length a -> Tree Length a
-scaleStem xi tr = tr & branchL . lengthUnsafeL *~ xi
 
 -- See also 'scaleSubTreeAtUltrametricSimple'.
 scaleSubTreeAtContrarilySimple ::
@@ -50,15 +43,21 @@ scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
     error "scaleSubTreeAtContrarilySimple: Sub tree of rate tree is a leaf."
   | otherwise = do
     (hTTrNode', q) <- truncatedNormalSample hTTrNode sd t 0 hTTrParent g
-    let -- Scaling factor of time tree branches excluding the stem (xi, not x_i).
+    let -- Scaling factor of time tree nodes heights (xi, not x_i).
         xi = hTTrNode' / hTTrNode
-        tTr' = toTree $ modifyTree (scaleTreeF hTTrNode' xi) tTrPos
+        tTr' = toTree $ modifyTree (scaleUltrametricTreeF hTTrNode' xi) tTrPos
     -- Rate tree.
     let -- Scaling factor of rate tree branches excluding the stem.
         xi' = recip xi
         -- Scaling factor of rate tree stem.
         xiStem = (hTTrParent - hTTrNode') / (hTTrParent - hTTrNode)
-        rTr' = toTree $ modifyTree (scaleStem xiStem . scaleRateTreeF xi') rTrPos
+        -- If the root node is handled, do not scale the stem because no upper
+        -- bound is set.
+        f =
+          if null pth
+            then scaleUnconstrainedTreeWithoutStemF xi'
+            else scaleUnconstrainedStem xiStem . scaleUnconstrainedTreeWithoutStemF xi'
+        rTr' = toTree $ modifyTree f rTrPos
     -- New state.
     let x' = (tTr', rTr')
         -- jacobianTimeTree = Exp $ fromIntegral (nNodes - 1) * log xi
@@ -73,7 +72,9 @@ scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
     tTrParent = current $ goParentUnsafe tTrPos
     tTrChildren = forest tTrFocus
     hTTrNode = fromHeight $ nodeHeight $ label tTrFocus
-    hTTrParent = fromHeight $ nodeHeight $ label tTrParent
+    -- If the root node is handled, set the upper bound to +Infinity because no
+    -- parent node exists.
+    hTTrParent = if null pth then 1 / 0 else fromHeight $ nodeHeight $ label tTrParent
     -- Rate tree.
     rTrPos = goPathUnsafe pth $ fromTree rTr
     rTrFocus = current rTrPos
@@ -99,6 +100,11 @@ scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
 -- For reference, please see 'scaleSubTreeAtUltrametric', and
 -- 'Mcmc.Tree.Proposal.Unconstrained.scaleTree'.
 --
+-- NOTE: When applying to the root node (1) the tree heights change contrarily,
+-- (2) no upper bound is used because no parent node exists, and (3) the stem of
+-- the unconstrained tree is not changed because it does not map to a valid
+-- branch of the ultrametric tree.
+--
 -- NOTE: Application of this proposals to trees with different topologies will
 -- lead to unexpected behavior and possibly to run time errors.
 --
@@ -106,10 +112,8 @@ scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
 --
 -- - The path is invalid.
 --
--- - The path is empty and leads to the root.
---
 -- - The path leads to a leaf.
-scaleSubTreeAtContrarily ::
+scaleSubTreesAtContrarily ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e a ->
   Path ->
@@ -118,10 +122,9 @@ scaleSubTreeAtContrarily ::
   PWeight ->
   Tune ->
   Proposal (HeightTree b, Tree Length c)
-scaleSubTreeAtContrarily tr pth sd
-  | null pth = error "scaleSubTreeAtContrarily: Path is empty."
-  | not $ isValidPath tr pth = error $ "scaleSubTreeAtContrarily: Path is invalid: " <> show pth <> "."
-  | isLeafPath tr pth = error $ "scaleSubTreeAtContrarily: Path leads to a leaf: " <> show pth <> "."
+scaleSubTreesAtContrarily tr pth sd
+  | not $ isValidPath tr pth = error $ "scaleSubTreesAtContrarily: Path is invalid: " <> show pth <> "."
+  | isLeafPath tr pth = error $ "scaleSubTreesAtContrarily: Path leads to a leaf: " <> show pth <> "."
   | otherwise =
     createProposal
       description
@@ -130,18 +133,17 @@ scaleSubTreeAtContrarily tr pth sd
   where
     description = PDescription $ "Scale sub trees contrarily; sd: " <> show sd
     subtree = current $ goPathUnsafe pth $ fromTree tr
-    -- XXX: The number of nodes and branches could be calculated in one go.
     nNodes = nInnerNodes subtree
     nBranches = length subtree
 
 -- | Scale the sub trees of the given trees contrarily.
 --
--- See 'scaleSubTreeAtContrarily'.
+-- See 'scaleSubTreesAtContrarily'.
 --
 -- The weights are assigned as described in
 -- 'Mcmc.Tree.Proposal.Ultrametric.scaleSubTreesUltrametric'.
 --
--- Do not scale the root nor the leaves.
+-- Do not scale the leaves.
 scaleSubTreesContrarily ::
   Tree e a ->
   HandleLayer ->
@@ -154,15 +156,13 @@ scaleSubTreesContrarily ::
   Tune ->
   [Proposal (HeightTree b, Tree Length c)]
 scaleSubTreesContrarily tr hd s n wMin wMax t =
-  [ scaleSubTreeAtContrarily tr pth s (name lb) w t
+  [ scaleSubTreesAtContrarily tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
-      let focus = tr ^. subTreeAtUnsafeL pth,
+      let focus = tr ^. subTreeAtL pth,
       let currentLayer = length pth,
       let currentDepth = depth focus,
       -- Subtract 2 because leaves have depth one and are not scaled.
       let w = pWeight $ minimum [fromPWeight wMin + currentDepth - 2, fromPWeight wMax],
-      -- Do not scale the root.
-      not $ null pth,
       -- Do not scale the leaves.
       not $ null $ forest focus,
       -- Filter other layers.
