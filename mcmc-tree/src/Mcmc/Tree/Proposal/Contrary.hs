@@ -26,9 +26,63 @@ import Mcmc.Tree.Proposal.Common
 import Mcmc.Tree.Proposal.Ultrametric
 import Mcmc.Tree.Proposal.Unconstrained
 import Mcmc.Tree.Types
-import Numeric.Log
+import Numeric.Log hiding (sum)
 
--- | Slide nodes at given path.
+-- See also 'slideNodeAtUltrametricSimple'.
+slideNodesAtContrarilySimple ::
+  Path ->
+  StandardDeviation ->
+  TuningParameter ->
+  ProposalSimple (HeightTree a, Tree Length b)
+slideNodesAtContrarilySimple pth sd t (tTr, rTr) g
+  | null tTrChildren =
+    error "slideNodesAtContrarilySimple: Sub tree of ultrametric tree is a leaf."
+  | null rTrChildren =
+    error "slideNodesAtContrarilySimple: Sub tree of unconstrained tree is a leaf."
+  | otherwise = do
+    (hTTrNode', q) <- truncatedNormalSample hTTrNode sd t hTTrOldestChild hTTrParent g
+    -- Time tree.
+    let setNodeHeight x = x & labelL . nodeHeightL . heightL .~ hTTrNode'
+        tTr' = toTree $ modifyTree setNodeHeight tTrPos
+    -- Rate tree.
+    let -- Scaling factor of rate tree stem.
+        xiStemR = if null pth then 1.0 else (hTTrParent - hTTrNode) / (hTTrParent - hTTrNode')
+        -- Scaling factors of rate tree daughter branches excluding the stem.
+        getXiR h = (hTTrNode - h) / (hTTrNode' - h)
+        xisR = map getXiR hsTTrChildren
+        scaleDaughterBranches (Node br lb trs) = Node br lb $ zipWith scaleUnconstrainedStem xisR trs
+        -- If the root node is handled, do not scale the stem because no upper
+        -- bound is set.
+        f =
+          if null pth
+            then scaleDaughterBranches
+            else scaleUnconstrainedStem xiStemR . scaleDaughterBranches
+        rTr' = toTree $ modifyTree f rTrPos
+    -- New state.
+    let x' = (tTr', rTr')
+        -- jacobianTimeTree = Exp $ fromIntegral (nNodes - 1) * log xi
+        -- jacobianRateTree = Exp $ fromIntegral (nBranches -1) * log xi' + log xiStem
+        jacobian = Exp $ sum (map log xisR) + log xiStemR
+    let
+    return (x', q, jacobian)
+  where
+    -- Time tree.
+    tTrPos = goPathUnsafe pth $ fromTree tTr
+    tTrFocus = current tTrPos
+    tTrParent = current $ goParentUnsafe tTrPos
+    hTTrNode = fromHeight $ nodeHeight $ label tTrFocus
+    -- If the root node is handled, set the upper bound to +Infinity because no
+    -- parent node exists.
+    hTTrParent = if null pth then 1 / 0 else fromHeight $ nodeHeight $ label tTrParent
+    tTrChildren = forest tTrFocus
+    hsTTrChildren = map (fromHeight . nodeHeight . label) tTrChildren
+    hTTrOldestChild = maximum hsTTrChildren
+    -- Rate tree.
+    rTrPos = goPathUnsafe pth $ fromTree rTr
+    rTrFocus = current rTrPos
+    rTrChildren = forest rTrFocus
+
+-- | Slide nodes contrarily at given path.
 --
 -- This proposal acts on a pair of trees. The first tree is an ultrametric tree
 -- (see "Mcmc.Tree.Proposal.Ultrametric"), usually the time tree with branches
@@ -63,7 +117,7 @@ import Numeric.Log
 --
 -- - A node height or branch length is zero.
 slideNodesAtContrarily ::
-  -- | The topology of the tree is used to precompute the number of inner nodes.
+  -- | The topology of the tree is used to check the path.
   Tree e a ->
   Path ->
   StandardDeviation ->
@@ -71,9 +125,23 @@ slideNodesAtContrarily ::
   PWeight ->
   Tune ->
   Proposal (HeightTree b, Tree Length c)
-slideNodesAtContrarily = undefined
+slideNodesAtContrarily tr pth sd
+  | not $ isValidPath tr pth = error $ "slideNodesAtContrarily: Path is invalid: " <> show pth <> "."
+  | isLeafPath tr pth = error $ "slideNodesAtContrarily: Path leads to a leaf: " <> show pth <> "."
+  | otherwise =
+    createProposal
+      description
+      (slideNodesAtContrarilySimple pth sd)
+      -- 1 for ultrametric node.
+      -- 0 or 1 for unconstrained stem.
+      -- n for unconstrained daughters.
+      (PDimension $ 1 + nStem + nDaughters)
+  where
+    description = PDescription $ "Scale sub trees contrarily; sd: " <> show sd
+    nStem = if null pth then 0 else 1
+    nDaughters = length $ forest $ current $ goPathUnsafe pth $ fromTree tr
 
--- | Slide the nodes of the given trees contrarily.
+-- | Slide the nodes of two trees contrarily.
 --
 -- See 'slideNodesAtContrarily'.
 --
@@ -81,7 +149,6 @@ slideNodesAtContrarily = undefined
 --
 -- Do not scale the leaves.
 slideNodesContrarily ::
-  -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e a ->
   HandleLayer ->
   StandardDeviation ->
@@ -92,7 +159,21 @@ slideNodesContrarily ::
   PWeight ->
   Tune ->
   [Proposal (HeightTree b, Tree Length c)]
-slideNodesContrarily = undefined
+slideNodesContrarily tr hd s n wMin wMax t =
+  [ slideNodesAtContrarily tr pth s (name lb) w t
+    | (pth, lb) <- itoList $ identify tr,
+      let focus = tr ^. subTreeAtL pth,
+      let currentLayer = length pth,
+      let currentDepth = depth focus,
+      -- Subtract 2 because leaves have depth one and are not scaled.
+      let w = pWeight $ minimum [fromPWeight wMin + currentDepth - 2, fromPWeight wMax],
+      -- Do not scale the leaves.
+      not $ null $ forest focus,
+      -- Filter other layers.
+      hd currentLayer
+  ]
+  where
+    name lb = n <> PName (" node " ++ show lb)
 
 -- See also 'scaleSubTreeAtUltrametricSimple'.
 scaleSubTreeAtContrarilySimple ::
@@ -106,31 +187,31 @@ scaleSubTreeAtContrarilySimple ::
   ProposalSimple (HeightTree a, Tree Length b)
 scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
   | null tTrChildren =
-    error "scaleSubTreeAtContrarilySimple: Sub tree of time tree is a leaf."
+    error "scaleSubTreeAtContrarilySimple: Sub tree of ultrametric tree is a leaf."
   | null rTrChildren =
-    error "scaleSubTreeAtContrarilySimple: Sub tree of rate tree is a leaf."
+    error "scaleSubTreeAtContrarilySimple: Sub tree of unconstrained tree is a leaf."
   | otherwise = do
     (hTTrNode', q) <- truncatedNormalSample hTTrNode sd t 0 hTTrParent g
     let -- Scaling factor of time tree nodes heights (xi, not x_i).
-        xi = hTTrNode' / hTTrNode
-        tTr' = toTree $ modifyTree (scaleUltrametricTreeF hTTrNode' xi) tTrPos
+        xiT = hTTrNode' / hTTrNode
+        tTr' = toTree $ modifyTree (scaleUltrametricTreeF hTTrNode' xiT) tTrPos
     -- Rate tree.
     let -- Scaling factor of rate tree branches excluding the stem.
-        xi' = recip xi
+        xiR = recip xiT
         -- Scaling factor of rate tree stem.
-        xiStem = (hTTrParent - hTTrNode') / (hTTrParent - hTTrNode)
+        xiStemR = if null pth then 1.0 else (hTTrParent - hTTrNode) / (hTTrParent - hTTrNode')
         -- If the root node is handled, do not scale the stem because no upper
         -- bound is set.
         f =
           if null pth
-            then scaleUnconstrainedTreeWithoutStemF xi'
-            else scaleUnconstrainedStem xiStem . scaleUnconstrainedTreeWithoutStemF xi'
+            then scaleUnconstrainedTreeWithoutStemF xiR
+            else scaleUnconstrainedStem xiStemR . scaleUnconstrainedTreeWithoutStemF xiR
         rTr' = toTree $ modifyTree f rTrPos
     -- New state.
     let x' = (tTr', rTr')
         -- jacobianTimeTree = Exp $ fromIntegral (nNodes - 1) * log xi
         -- jacobianRateTree = Exp $ fromIntegral (nBranches -1) * log xi' + log xiStem
-        jacobian = Exp $ fromIntegral (nNodes - nBranches) * log xi + log xiStem
+        jacobian = Exp $ fromIntegral (nNodes - nBranches) * log xiT + log xiStemR
     let
     return (x', q, jacobian)
   where
@@ -206,7 +287,7 @@ scaleSubTreesAtContrarily tr pth sd
     nNodes = nInnerNodes subtree
     nBranches = length subtree
 
--- | Scale the sub trees of the given trees contrarily.
+-- | Scale the sub trees of two trees contrarily.
 --
 -- See 'scaleSubTreesAtContrarily'.
 --

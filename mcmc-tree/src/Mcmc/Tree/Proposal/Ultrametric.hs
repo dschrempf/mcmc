@@ -61,8 +61,7 @@ slideNodeAtUltrametricSimple pth s t tr g
   | null children = error "slideNodeAtUltrametricSimple: Cannot slide leaf."
   | otherwise = do
     (hNode', q) <- truncatedNormalSample hNode s t hChild hParent g
-    let setNodeHeight x =
-          x & labelL . nodeHeightL . heightL .~ hNode'
+    let setNodeHeight x = x & labelL . nodeHeightL . heightL .~ hNode'
     -- The absolute value of the determinant of the Jacobian is 1.0.
     return (toTree $ modifyTree setNodeHeight trPos, q, 1.0)
   where
