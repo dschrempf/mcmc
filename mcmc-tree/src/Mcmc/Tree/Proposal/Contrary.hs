@@ -10,7 +10,9 @@
 --
 -- Creation date: Wed Mar  3 13:19:54 2021.
 module Mcmc.Tree.Proposal.Contrary
-  ( scaleSubTreesAtContrarily,
+  ( slideNodesAtContrarily,
+    slideNodesContrarily,
+    scaleSubTreesAtContrarily,
     scaleSubTreesContrarily,
   )
 where
@@ -25,6 +27,72 @@ import Mcmc.Tree.Proposal.Ultrametric
 import Mcmc.Tree.Proposal.Unconstrained
 import Mcmc.Tree.Types
 import Numeric.Log
+
+-- | Slide nodes at given path.
+--
+-- This proposal acts on a pair of trees. The first tree is an ultrametric tree
+-- (see "Mcmc.Tree.Proposal.Ultrametric"), usually the time tree with branches
+-- denoting absolute or relative time. The second tree is an unconstrained tree
+-- (see "Mcmc.Tree.Proposal.Unconstrained"), usually the rate tree with branches
+-- denoting absolute or relative rates.
+--
+-- The specified nodes of both trees are slid contrarily. For example, if the
+-- parent branch of the ultrametric tree node is shortened, the parent branch of
+-- the unconstrained tree node is elongated. Ultrametricity is maintained.
+--
+-- A normal distribution truncated at the height of the parent node of the
+-- ultrametric tree and the oldest daughter node of the ultrametric tree is used
+-- to determine the new node height of the ultrametric tree. The rates are
+-- changed accordingly.
+--
+-- See 'slideNodeAtUltrametric'.
+--
+-- NOTE: When applying to the root node (1) the tree heights change contrarily,
+-- (2) no upper bound is used because no parent node exists, and (3) the stem of
+-- the unconstrained tree is not changed because it does not map to a valid
+-- branch of the ultrametric tree.
+--
+-- NOTE: Application of this proposal to trees with different topologies will
+-- lead to unexpected behavior and possibly to run time errors.
+--
+-- Call 'error' if:
+--
+-- - The path is invalid.
+--
+-- - The path leads to a leaf.
+--
+-- - A node height or branch length is zero.
+slideNodesAtContrarily ::
+  -- | The topology of the tree is used to precompute the number of inner nodes.
+  Tree e a ->
+  Path ->
+  StandardDeviation ->
+  PName ->
+  PWeight ->
+  Tune ->
+  Proposal (HeightTree b, Tree Length c)
+slideNodesAtContrarily = undefined
+
+-- | Slide the nodes of the given trees contrarily.
+--
+-- See 'slideNodesAtContrarily'.
+--
+-- The weights are assigned as described in 'scaleSubTreesUltrametric'.
+--
+-- Do not scale the leaves.
+slideNodesContrarily ::
+  -- | The topology of the tree is used to precompute the number of inner nodes.
+  Tree e a ->
+  HandleLayer ->
+  StandardDeviation ->
+  PName ->
+  -- | Minimum weight.
+  PWeight ->
+  -- | Maximum weight.
+  PWeight ->
+  Tune ->
+  [Proposal (HeightTree b, Tree Length c)]
+slideNodesContrarily = undefined
 
 -- See also 'scaleSubTreeAtUltrametricSimple'.
 scaleSubTreeAtContrarilySimple ::
@@ -84,28 +152,28 @@ scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
 --
 -- This proposal acts on a pair of trees. The first tree is an ultrametric tree
 -- (see "Mcmc.Tree.Proposal.Ultrametric"), usually the time tree with branches
--- denoting relative time. The second tree is an unconstrained tree (see
--- "Mcmc.Tree.Proposal.Unconstrained"), usually the rate tree with branches
--- denoting relative rates.
+-- denoting absolute or relative time. The second tree is an unconstrained tree
+-- (see "Mcmc.Tree.Proposal.Unconstrained"), usually the rate tree with branches
+-- denoting absolute or relative rates.
 --
 -- The sub trees of both trees are scaled contrarily. For example, if the sub
--- tree of the time tree is magnified, the sub tree of the rate tree is shrunk.
--- In order to maintain ultrametricity of the time tree, the stem of the sub
--- tree is shortened (see 'scaleSubTreeAtUltrametric'). Correspondingly, the stem
--- of the rate tree is elongated.
+-- tree of the ultrametric tree is magnified, the sub tree of the unconstrained
+-- tree is shrunk. In order to maintain ultrametricity of the ultrametric tree,
+-- the stem of the sub tree is shortened (see 'scaleSubTreeAtUltrametric').
+-- Correspondingly, the stem of the unconstrained tree is elongated.
 --
--- A normal distribution truncated at the height of the parent node and the
--- leaves is used to determine the new height of the sub tree.
+-- A normal distribution truncated at the height of the parent node of the
+-- ultrametric tree and the leaves is used to determine the new height of the
+-- sub tree of the ultrametric tree.
 --
--- For reference, please see 'scaleSubTreeAtUltrametric', and
--- 'Mcmc.Tree.Proposal.Unconstrained.scaleTree'.
+-- For reference, please see 'scaleSubTreeAtUltrametric', and 'scaleTree'.
 --
 -- NOTE: When applying to the root node (1) the tree heights change contrarily,
 -- (2) no upper bound is used because no parent node exists, and (3) the stem of
 -- the unconstrained tree is not changed because it does not map to a valid
 -- branch of the ultrametric tree.
 --
--- NOTE: Application of this proposals to trees with different topologies will
+-- NOTE: Application of this proposal to trees with different topologies will
 -- lead to unexpected behavior and possibly to run time errors.
 --
 -- Call 'error' if:
@@ -113,6 +181,8 @@ scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
 -- - The path is invalid.
 --
 -- - The path leads to a leaf.
+--
+-- - A node height or branch length is zero.
 scaleSubTreesAtContrarily ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e a ->
@@ -140,8 +210,7 @@ scaleSubTreesAtContrarily tr pth sd
 --
 -- See 'scaleSubTreesAtContrarily'.
 --
--- The weights are assigned as described in
--- 'Mcmc.Tree.Proposal.Ultrametric.scaleSubTreesUltrametric'.
+-- The weights are assigned as described in 'scaleSubTreesUltrametric'.
 --
 -- Do not scale the leaves.
 scaleSubTreesContrarily ::
