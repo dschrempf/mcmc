@@ -32,7 +32,7 @@ normalizedYears = map (subtract m) ys
     ys = [1976.0 .. 1985.0]
     m = sum ys / fromIntegral (length ys)
 
-f :: Int -> Double -> I -> Log Double
+f :: Int -> Double -> I -> Likelihood
 f ft yr (a, b) = poisson l (fromIntegral ft)
   where
     l = exp $ a + b * yr

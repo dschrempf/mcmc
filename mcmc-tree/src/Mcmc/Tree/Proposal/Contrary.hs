@@ -12,12 +12,14 @@
 module Mcmc.Tree.Proposal.Contrary
   ( slideNodesAtContrarily,
     slideNodesContrarily,
+    slideRootContrarily,
     scaleSubTreesAtContrarily,
     scaleSubTreesContrarily,
   )
 where
 
 import Control.Lens
+import Data.Bifunctor
 import ELynx.Tree
 import Mcmc.Proposal
 import Mcmc.Statistics.Types
@@ -174,6 +176,87 @@ slideNodesContrarily tr hd s n wMin wMax t =
   ]
   where
     name lb = n <> PName (" node " ++ show lb)
+
+slideRootContrarilyJacobian ::
+  -- Number of inner nodes.
+  Int ->
+  -- Scaling factor u for heights.
+  Double ->
+  -- Scaling factors xi_j for rates. Usually those are just two factors, but
+  -- let's keep it general.
+  [Double] ->
+  Jacobian
+slideRootContrarilyJacobian n u xis =
+  Exp $
+    sum $
+      -- Minus n: Scaling the time tree node heights contrarily.
+      fromIntegral (- n) * log u :
+      -- Scaling the rate branches.
+      map log xis
+
+slideRootSimple ::
+  Int ->
+  StandardDeviation ->
+  TuningParameter ->
+  ProposalSimple (Double, HeightTree a, Tree Length b)
+slideRootSimple n s t (ht, tTr, rTr) g = do
+  -- Do not use 'genericContinuous' because the forward operator and the
+  -- Jacobian function need access to the time tree node heights.
+  (ht', q) <- truncatedNormalSample ht s t htOldestChild (1 / 0) g
+  -- Scaling factor of time tree node heights.
+  let u = ht' / ht
+  -- Scaling factors for rates.
+  let getXi h = (1 - h) / (u - h)
+      xis = map getXi htsChildren
+  -- Compute new state.
+  let tTr' = tTr & forestL %~ map (second $ nodeHeightL . heightL //~ u)
+      rTr' = rTr & forestL %~ zipWith scaleUnconstrainedStem xis
+      j = slideRootContrarilyJacobian n u xis
+      x' = (ht', tTr', rTr')
+  return (x', q, j)
+  where
+    getHeightOfTree = fromHeight . view (labelL . nodeHeightL)
+    htsChildren = map getHeightOfTree $ forest tTr
+    -- Absolute height of oldest child.
+    htOldestChild = ht * maximum htsChildren
+
+-- | Specific proposal sliding the absolute time height while leaving the
+-- absolute heights of internal time tree nodes untouched.
+--
+-- The proposal works on a parameter triple @(H, t, r)@, where @H@ is the
+-- absolute height of the time tree, @t@ is a relative time tree, and @r@ is an
+-- absolute or relative rate tree.
+--
+-- Use a truncated normal distribution with given standard deviation to propose
+-- a new height @H'@ such that @H'@ is larger than the highest daughter node of
+-- the root. Let @H'=H*u@. Scale all node heights of @t@ contrarily. That is,
+-- let \(I\) be the index set traversing the nodes of the time tree excluding
+-- the leaves and the root. For any \(i \in I\), the node height \(t_i\) will
+-- become \(t_i'=t_i/u\). Further, propose new rates for the rate tree branches
+-- \(r_j\) leading to the root node. In particular, \(r_j' = r_j
+-- \frac{1-t_j}{u-t_j}\), where \(t_j\) is the height of the node corresponding
+-- to branch \(j\). In this way, the expected number of substitutions on all
+-- branches stays constant.
+slideRootContrarily ::
+  -- | The topology of the tree is used to precompute the number of inner nodes.
+  Tree e a ->
+  StandardDeviation ->
+  PName ->
+  PWeight ->
+  Tune ->
+  Proposal (Double, HeightTree b, Tree Length c)
+slideRootContrarily tr s =
+  createProposal
+    description
+    (slideRootSimple n s)
+    -- 1: Slide absolute time height.
+    -- n: Scale inner nodes of time tree.
+    -- k: Scale the two rate tree branches leading to the root.
+    (PDimension $ 1 + n + k)
+  where
+    description = PDescription $ "Slide root contrarily; sd: " ++ show s
+    n = nInnerNodes tr
+    k = length $ forest tr
 
 -- See also 'scaleSubTreeAtUltrametricSimple'.
 scaleSubTreeAtContrarilySimple ::
