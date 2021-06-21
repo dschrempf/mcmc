@@ -212,7 +212,8 @@ slideRootSimple n s t (ht, tTr, rTr) g = do
   -- Do not use 'genericContinuous' because the forward operator and the
   -- Jacobian function need access to the time tree node heights.
   (ht', q) <- truncatedNormalSample ht s t htOldestChild (1 / 0) g
-  -- Scaling factor of time tree node heights.
+  -- Scaling factor of absolute time tree height. This is the reverse scaling
+  -- factor of the time tree node heights.
   let u = ht' / ht
   -- Scaling factors for rates.
   let getXi h = (1 - h) / (u - h)
@@ -232,20 +233,20 @@ slideRootSimple n s t (ht, tTr, rTr) g = do
 -- | Specific proposal sliding the absolute time height while leaving the
 -- absolute heights of internal time tree nodes untouched.
 --
--- The proposal works on a parameter triple @(H, t, r)@, where @H@ is the
--- absolute height of the time tree, @t@ is a relative time tree, and @r@ is an
--- absolute or relative rate tree.
+-- The proposal works on a parameter triple \((H, t, r)\), where \(H\) is the
+-- absolute height of the time tree, \(t\) is a relative time tree, and \(r\) is
+-- an absolute or relative rate tree.
 --
 -- Use a truncated normal distribution with given standard deviation to propose
--- a new height @H'@ such that @H'@ is larger than the highest daughter node of
--- the root. Let @H'=H*u@. Scale all node heights of @t@ contrarily. That is,
--- let \(I\) be the index set traversing the nodes of the time tree excluding
--- the leaves and the root. For any \(i \in I\), the node height \(t_i\) will
--- become \(t_i'=t_i/u\). Further, propose new rates for the rate tree branches
--- \(r_j\) leading to the root node. In particular, \(r_j' = r_j
--- \frac{1-t_j}{u-t_j}\), where \(t_j\) is the height of the node corresponding
--- to branch \(j\). In this way, the expected number of substitutions on all
--- branches stays constant.
+-- a new height \(H'\) such that \(H'\) is larger than the highest daughter node
+-- of the root. Let \(H'=H*u\). Scale all node heights of \(t\) contrarily. That
+-- is, let \(I\) be the index set traversing the nodes of the time tree
+-- excluding the leaves and the root. For any \(i \in I\), the node height
+-- \(t_i\) will become \(t_i'=t_i/u\). Further, propose new rates for the rate
+-- tree branches \(r_j\) leading to the root node. In particular,
+-- \(r_j'=r_j\frac{1-t_j}{u-t_j}\), where \(t_j\) is the height of the node
+-- corresponding to branch \(j\). In this way, the expected number of
+-- substitutions on all branches stays constant.
 --
 -- Call 'error' if:
 --
@@ -264,7 +265,7 @@ slideRootContrarily tr s =
     (slideRootSimple n s)
     -- 1: Slide absolute time height.
     -- n: Scale inner nodes of time tree.
-    -- k: Scale the two rate tree branches leading to the root.
+    -- k: Scale the rate tree branches leading to the root.
     (PDimension $ 1 + n + k)
   where
     description = PDescription $ "Slide root contrarily; sd: " ++ show s
