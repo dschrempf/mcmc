@@ -19,6 +19,7 @@ module Mcmc.Tree.Proposal.Contrary
 where
 
 import Control.Lens
+import Control.Monad
 import Data.Bifunctor
 import ELynx.Tree
 import Mcmc.Proposal
@@ -200,6 +201,14 @@ slideRootSimple ::
   TuningParameter ->
   ProposalSimple (Double, HeightTree a, Tree Length b)
 slideRootSimple n s t (ht, tTr, rTr) g = do
+  let tTrHeight = getHeightOfTree tTr
+  when
+    (tTrHeight /= 1.0)
+    ( error $
+        "slideRootSimple: Height of relative time tree is different from 1.0: "
+          <> show tTrHeight
+          <> "."
+    )
   -- Do not use 'genericContinuous' because the forward operator and the
   -- Jacobian function need access to the time tree node heights.
   (ht', q) <- truncatedNormalSample ht s t htOldestChild (1 / 0) g
@@ -237,6 +246,10 @@ slideRootSimple n s t (ht, tTr, rTr) g = do
 -- \frac{1-t_j}{u-t_j}\), where \(t_j\) is the height of the node corresponding
 -- to branch \(j\). In this way, the expected number of substitutions on all
 -- branches stays constant.
+--
+-- Call 'error' if:
+--
+-- - The height of the relative time tree is different from 1.0.
 slideRootContrarily ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e a ->
