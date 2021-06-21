@@ -41,7 +41,6 @@ library
   import: lib
   exposed-modules:
       Mcmc.Tree
-  other-modules:
       Mcmc.Tree.Import
       Mcmc.Tree.Lens
       Mcmc.Tree.Monitor
@@ -52,11 +51,12 @@ library
       Mcmc.Tree.Prior.Node.Calibration
       Mcmc.Tree.Prior.Node.Common
       Mcmc.Tree.Prior.Node.Constraint
-      Mcmc.Tree.Proposal.Common
       Mcmc.Tree.Proposal.Contrary
       Mcmc.Tree.Proposal.Ultrametric
       Mcmc.Tree.Proposal.Unconstrained
       Mcmc.Tree.Types
+  other-modules:
+      Mcmc.Tree.Proposal.Common
       Statistics.Distribution.TruncatedNormal
       Paths_mcmc_tree
   autogen-modules:
