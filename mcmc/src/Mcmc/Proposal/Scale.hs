@@ -42,6 +42,9 @@ scaleSimple k th t =
 -- all derived proposals are log-additive in that they do not change the sign of
 -- the state. Further, the value zero is never proposed when having a strictly
 -- positive value.
+--
+-- Consider using 'Mcmc.Proposal.Slide.slide' to allow proposition of values
+-- having opposite sign.
 scale ::
   Shape ->
   Scale ->
