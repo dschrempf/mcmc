@@ -65,8 +65,8 @@ genericContinuous ::
   -- That is, the determinant of the Jacobian matrix of multiplication is just
   -- the reciprocal value of @u@ (with conversion to log domain).
   --
-  -- Required for proposals for which absolute value of the determinant of the
-  -- Jacobian differs from 1.0.
+  -- Required for proposals for which the absolute value of the determinant of
+  -- the Jacobian differs from 1.0.
   --
   -- Conversion to log domain is necessary, because some determinants of
   -- Jacobians are very small (or large).
