@@ -36,7 +36,12 @@ scaleSimple k th t =
   where
     jac _ = Exp . log . recip
 
--- | Multiplicative proposal with gamma distributed kernel.
+-- | Multiplicative proposal.
+--
+-- The gamma distribution is used to sample the multiplier. Therefore, this and
+-- all derived proposals are log-additive in that they do not change the sign of
+-- the state. Further, the value zero is never proposed when having a strictly
+-- positive value.
 scale ::
   Shape ->
   Scale ->
@@ -48,7 +53,7 @@ scale k th = createProposal description (scaleSimple k th) (PDimension 1)
   where
     description = PDescription $ "Scale; shape: " ++ show k ++ ", scale: " ++ show th
 
--- | Multiplicative proposal with gamma distributed kernel.
+-- | See 'scale'.
 --
 -- The scale of the gamma distribution is set to (shape)^{-1}, so that the mean
 -- of the gamma distribution is 1.0.
@@ -73,7 +78,7 @@ scaleContrarilySimple k th t =
     contra (x, y) u = (x * u, y / u)
     jac _ u = Exp $ log $ recip $ u * u
 
--- | Multiplicative proposal with gamma distributed kernel.
+-- | See 'scale'.
 --
 -- The two values are scaled contrarily so that their product stays constant.
 -- Contrary proposals are useful when parameters are confounded.

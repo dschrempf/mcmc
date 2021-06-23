@@ -123,7 +123,9 @@ bactrianMultSimple m s t
   | otherwise = bactrianMult m (t * s)
 
 -- | Multiplicative proposal with kernel similar to the silhouette of a Bactrian
--- camel. See 'slideBactrian'.
+-- camel.
+--
+-- See 'Mcmc.Proposal.Scale.scale', and 'slideBactrian'.
 scaleBactrian ::
   SpikeParameter ->
   StandardDeviation ->

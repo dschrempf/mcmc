@@ -20,16 +20,34 @@ import Numeric.Log
 import Statistics.Distribution
 
 -- | Generic function to create proposals for continuous parameters ('Double').
+--
+-- The procedure is as follows: Let \(\mathbb{X}\) be the state space and \(x\)
+-- be the current state.
+--
+-- 1. Let \(D\) be a continuous probability distribution on \(\mathbb{D}\);
+--    sample an auxiliary variable \(epsilon \sim D\).
+--
+-- 2. Suppose \(\odot : \mathbb{X} \times \mathbb{D} \to \mathbb{X}\). Propose a
+--    new state \(x' = x \odot \epsilon\).
+--
+-- 3. If the proposal is unbiased, the Metropolis-Hastings-Green ratio can
+--    directly be calculated using the posterior function.
+--
+-- 4. However, if the proposal is biased: Suppose \(g : \mathbb{D} \to
+--    \mathbb{D}\) inverses the auxiliary variable \(\epsilon\) such that \(x =
+--    x' \odot g(\epsilon)\). Calculate the Metropolis-Hastings-Green ratio
+--    using the posterior function, \(g\), \(D\), \(\epsilon\), and possibly a
+--    Jacobian function.
 genericContinuous ::
   (ContDistr d, ContGen d) =>
   -- | Probability distribution
   d ->
-  -- | Forward operator.
+  -- | Forward operator \(\odot\).
   --
   -- For example, for a multiplicative proposal on one variable the forward
   -- operator is @(*)@, so that @x * u = y@.
   (a -> Double -> a) ->
-  -- | Inverse operator.
+  -- | Inverse operator of the auxiliary variable \(g\).
   --
   -- For example, 'recip' for a multiplicative proposal on one variable, since
   -- @y * (recip u) = x * u * (recip u) = x@.
@@ -68,14 +86,21 @@ genericContinuous d f mInv mJac x g = do
 {-# INLINEABLE genericContinuous #-}
 
 -- | Generic function to create proposals for discrete parameters ('Int').
+--
+-- See 'genericContinuous'.
 genericDiscrete ::
   (DiscreteDistr d, DiscreteGen d) =>
   -- | Probability distribution.
   d ->
-  -- | Forward operator, e.g. (+), so that x + dx = x'.
+  -- | Forward operator.
+  --
+  -- For example, (+), so that x + dx = x'.
   (a -> Int -> a) ->
-  -- | Inverse operator, e.g., 'negate', so that x' + (negate dx) = x. Only
-  -- required for biased proposals.
+  -- | Inverse operator of the auxiliary variable \(g\).
+  --
+  -- For example, 'negate', so that x' + (negate dx) = x.
+  --
+  -- Only required for biased proposals.
   Maybe (Int -> Int) ->
   ProposalSimple a
 genericDiscrete d f mfInv x g = do

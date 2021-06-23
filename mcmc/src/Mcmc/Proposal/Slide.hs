@@ -30,7 +30,9 @@ slideSimple :: Mean -> StandardDeviation -> TuningParameter -> ProposalSimple Do
 slideSimple m s t =
   genericContinuous (normalDistr m (s * t)) (+) (Just negate) Nothing
 
--- | Additive proposal with normally distributed kernel.
+-- | Additive proposal.
+--
+-- A normal distribution is used to sample the addend.
 slide ::
   Mean ->
   StandardDeviation ->
@@ -47,9 +49,11 @@ slideSymmetricSimple :: StandardDeviation -> TuningParameter -> ProposalSimple D
 slideSymmetricSimple s t =
   genericContinuous (normalDistr 0.0 (s * t)) (+) Nothing Nothing
 
--- | Additive proposal with normally distributed kernel with mean zero. This
--- proposal is very fast, because the Metropolis-Hastings-Green ratio does not
--- include calculation of the forwards and backwards kernels.
+-- | See 'slide'.
+--
+-- Use a normal distribution with mean zero. This proposal is fast, because the
+-- Metropolis-Hastings-Green ratio does not include calculation of the forwards
+-- and backwards kernels.
 slideSymmetric ::
   StandardDeviation ->
   PName ->
@@ -65,9 +69,11 @@ slideUniformSimple :: Size -> TuningParameter -> ProposalSimple Double
 slideUniformSimple d t =
   genericContinuous (uniformDistr (- t * d) (t * d)) (+) Nothing Nothing
 
--- | Additive proposal with uniformly distributed kernel with mean zero. This
--- proposal is very fast, because the Metropolis-Hastings-Green ratio does not
--- include calculation of the forwards and backwards kernels.
+-- | See 'slide'.
+--
+-- Use a uniformly distributed kernel with mean zero. This proposal is fast,
+-- because the Metropolis-Hastings-Green ratio does not include calculation of
+-- the forwards and backwards kernels.
 slideUniformSymmetric ::
   Size ->
   PName ->
@@ -89,7 +95,9 @@ slideContrarilySimple ::
 slideContrarilySimple m s t =
   genericContinuous (normalDistr m (s * t)) contra (Just negate) Nothing
 
--- | Additive proposal with normally distributed kernel.
+-- | See 'slide'.
+--
+-- Use a normally distributed kernel.
 --
 -- The two values are slid contrarily so that their sum stays constant. Contrary
 -- proposals are useful when parameters are confounded.
