@@ -19,7 +19,8 @@ import Mcmc.Proposal
 import Numeric.Log
 import Statistics.Distribution
 
--- | Generic function to create proposals for continuous parameters ('Double').
+-- | Generic function to create proposals for continuous parameters (e.g.,
+-- 'Double').
 --
 -- The procedure is as follows: Let \(\mathbb{X}\) be the state space and \(x\)
 -- be the current state.
@@ -47,7 +48,7 @@ genericContinuous ::
   -- For example, for a multiplicative proposal on one variable the forward
   -- operator is @(*)@, so that @x * u = y@.
   (a -> Double -> a) ->
-  -- | Inverse operator of the auxiliary variable \(g\).
+  -- | Inverse operator \(g\) of the auxiliary variable.
   --
   -- For example, 'recip' for a multiplicative proposal on one variable, since
   -- @y * (recip u) = x * u * (recip u) = x@.
@@ -85,7 +86,7 @@ genericContinuous d f mInv mJac x g = do
   return (x `f` u, r, j)
 {-# INLINEABLE genericContinuous #-}
 
--- | Generic function to create proposals for discrete parameters ('Int').
+-- | Generic function to create proposals for discrete parameters (e.g., 'Int').
 --
 -- See 'genericContinuous'.
 genericDiscrete ::
@@ -96,7 +97,7 @@ genericDiscrete ::
   --
   -- For example, (+), so that x + dx = x'.
   (a -> Int -> a) ->
-  -- | Inverse operator of the auxiliary variable \(g\).
+  -- | Inverse operator \(g\) of the auxiliary variable.
   --
   -- For example, 'negate', so that x' + (negate dx) = x.
   --
