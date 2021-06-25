@@ -24,7 +24,8 @@ where
 -- equally well.
 
 -- TODO: First class parameters. Make a type class for parameter types (name,
--- lens, proposals, monitors).
+-- lens, proposals, monitors). Proposals should only act on data types with a
+-- parameter instance.
 
 import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
