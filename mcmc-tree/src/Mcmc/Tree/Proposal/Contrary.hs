@@ -153,7 +153,7 @@ slideNodesAtContrarily tr pth sd
 -- Do not scale the leaves.
 slideNodesContrarily ::
   Tree e a ->
-  HandleLayer ->
+  HandleNode ->
   StandardDeviation ->
   PName ->
   -- | Minimum weight.
@@ -162,18 +162,17 @@ slideNodesContrarily ::
   PWeight ->
   Tune ->
   [Proposal (HeightTree b, Tree Length c)]
-slideNodesContrarily tr hd s n wMin wMax t =
+slideNodesContrarily tr hn s n wMin wMax t =
   [ slideNodesAtContrarily tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtL pth,
-      let currentLayer = length pth,
       let currentDepth = depth focus,
       -- Subtract 2 because leaves have depth one and are not scaled.
       let w = pWeight $ minimum [fromPWeight wMin + currentDepth - 2, fromPWeight wMax],
       -- Do not scale the leaves.
       not $ null $ forest focus,
-      -- Filter other layers.
-      hd currentLayer
+      -- Filter other nodes.
+      hn pth
   ]
   where
     name lb = n <> PName (" node " ++ show lb)
@@ -393,7 +392,7 @@ scaleSubTreesAtContrarily tr pth sd
 -- Do not scale the leaves.
 scaleSubTreesContrarily ::
   Tree e a ->
-  HandleLayer ->
+  HandleNode ->
   StandardDeviation ->
   PName ->
   -- | Minimum weight.
@@ -402,18 +401,17 @@ scaleSubTreesContrarily ::
   PWeight ->
   Tune ->
   [Proposal (HeightTree b, Tree Length c)]
-scaleSubTreesContrarily tr hd s n wMin wMax t =
+scaleSubTreesContrarily tr hn s n wMin wMax t =
   [ scaleSubTreesAtContrarily tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtL pth,
-      let currentLayer = length pth,
       let currentDepth = depth focus,
       -- Subtract 2 because leaves have depth one and are not scaled.
       let w = pWeight $ minimum [fromPWeight wMin + currentDepth - 2, fromPWeight wMax],
       -- Do not scale the leaves.
       not $ null $ forest focus,
-      -- Filter other layers.
-      hd currentLayer
+      -- Filter other nodes.
+      hn pth
   ]
   where
     name lb = n <> PName (" node " ++ show lb)

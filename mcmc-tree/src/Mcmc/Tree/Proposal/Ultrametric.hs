@@ -118,20 +118,20 @@ slideNodeAtUltrametric tr pth ds
 -- Do not slide leaves.
 slideNodesUltrametric ::
   Tree e a ->
-  HandleLayer ->
+  HandleNode ->
   StandardDeviation ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
   Tune ->
   [Proposal (HeightTree b)]
-slideNodesUltrametric tr hd s n w t =
+slideNodesUltrametric tr hn s n w t =
   [ slideNodeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       -- Do not slide the leaves.
       not (isLeafPath tr pth),
-      -- Filter other layers.
-      hd $ length pth
+      -- Filter other nodes.
+      hn pth
   ]
   where
     name lb = n <> PName (" node " ++ show lb)
@@ -211,7 +211,7 @@ scaleSubTreeAtUltrametric tr pth sd
 -- Do not scale the leaves.
 scaleSubTreesUltrametric ::
   Tree e a ->
-  HandleLayer ->
+  HandleNode ->
   StandardDeviation ->
   -- | Base name of proposals.
   PName ->
@@ -222,18 +222,17 @@ scaleSubTreesUltrametric ::
   PWeight ->
   Tune ->
   [Proposal (HeightTree b)]
-scaleSubTreesUltrametric tr hd s n wMin wMax t =
+scaleSubTreesUltrametric tr hn s n wMin wMax t =
   [ scaleSubTreeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
       let focus = tr ^. subTreeAtL pth,
-      let currentLayer = length pth,
       let currentDepth = depth focus,
       -- Subtract 2 because leaves have depth one and are not scaled.
       let w = pWeight $ minimum [fromPWeight wMin + currentDepth - 2, fromPWeight wMax],
       -- Do not scale the leaves.
       not $ null $ forest focus,
-      -- Filter other layers.
-      hd currentLayer
+      -- Filter other nodes.
+      hn pth
   ]
   where
     name lb = n <> PName (" node " ++ show lb)

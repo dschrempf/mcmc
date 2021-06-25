@@ -12,9 +12,7 @@
 --
 -- Creation date: Wed Aug 19 08:55:42 2020.
 module Mcmc.Tree.Lens
-  ( Path,
-
-    -- ** Tree lenses
+  ( -- ** Tree lenses
     labelL,
     forestL,
     branchL,

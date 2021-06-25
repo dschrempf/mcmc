@@ -95,8 +95,8 @@ gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmet
 -- NOTE: For convenience, the mean and variance are used as parameters for this
 -- relaxed molecular clock model. They are used to calculate the shape and the
 -- scale of the underlying gamma distribution.
-uncorrelatedGamma :: HandleLayer -> Mean -> Variance -> PriorFunction (Tree Length a)
-uncorrelatedGamma hl m v = branchesWith hl (gamma k th . fromLength)
+uncorrelatedGamma :: HandleStem -> Mean -> Variance -> PriorFunction (Tree Length a)
+uncorrelatedGamma hs m v = branchesWith hs (gamma k th . fromLength)
   where
     (k, th) = gammaMeanVarianceToShapeScale m v
 
@@ -115,8 +115,8 @@ logNormal' mu var r = Exp $ negate t - e
 -- mean and variance.
 --
 -- See Computational Molecular Evolution (Yang, 2006), Section 7.4.
-uncorrelatedLogNormal :: HandleLayer -> Mean -> Variance -> PriorFunction (Tree Length a)
-uncorrelatedLogNormal hl mu var = branchesWith hl (logNormal' mu var . fromLength)
+uncorrelatedLogNormal :: HandleStem -> Mean -> Variance -> PriorFunction (Tree Length a)
+uncorrelatedLogNormal hs mu var = branchesWith hs (logNormal' mu var . fromLength)
 
 -- | White noise model.
 --
@@ -143,8 +143,8 @@ uncorrelatedLogNormal hl mu var = branchesWith hl (logNormal' mu var . fromLengt
 -- 2669–2680 (2007). http://dx.doi.org/10.1093/molbev/msm193
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
-whiteNoise :: HandleLayer -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
-whiteNoise hl v tTr rTr = branchesWith hl f zTr
+whiteNoise :: HandleStem -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
+whiteNoise hs v tTr rTr = branchesWith hs f zTr
   where
     zTr =
       fromMaybe
@@ -186,12 +186,12 @@ whiteNoise hl v tTr rTr = branchesWith hl f zTr
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
 autocorrelatedGamma ::
-  HandleLayer ->
+  HandleStem ->
   Mean ->
   Variance ->
   Tree Length a ->
   PriorFunction (Tree Length a)
-autocorrelatedGamma hl mu var tTr rTr = branchesWith hl f zTr
+autocorrelatedGamma hs mu var tTr rTr = branchesWith hs f zTr
   where
     zTr =
       fromMaybe
@@ -233,12 +233,12 @@ autocorrelatedGamma hl mu var tTr rTr = branchesWith hl f zTr
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
 autocorrelatedLogNormal ::
-  HandleLayer ->
+  HandleStem ->
   Mean ->
   Variance ->
   Tree Length a ->
   PriorFunction (Tree Length a)
-autocorrelatedLogNormal hl mu var tTr rTr = branchesWith hl f zTr
+autocorrelatedLogNormal hs mu var tTr rTr = branchesWith hs f zTr
   where
     zTr =
       fromMaybe

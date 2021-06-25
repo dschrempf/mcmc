@@ -20,11 +20,14 @@
 --
 -- Type synonyms to improve code readability.
 module Mcmc.Tree.Types
-  ( -- ** Miscellaneous
-    HandleLayer,
-    allLayers,
-    withoutRoot,
-    withoutStem,
+  ( -- ** Stem
+    HandleStem (..),
+
+    -- ** Nodes
+    Path,
+    HandleNode,
+    allNodes,
+    withoutRootNode,
 
     -- ** Heights
     Height (fromHeight),
@@ -51,41 +54,33 @@ import Data.Vector.Unboxed.Deriving
 import ELynx.Tree
 import GHC.Generics
 
--- | When creating proposals on trees, which layers should be handled?
---
--- By convention layer 0 only has one element: the root node. The layer 1
--- includes the daughter nodes of the root node, and so on.
---
--- The layer to which a node belongs should not be confused with the 'depth' of
--- a tree.
---
--- For an example, see 'withoutRoot'.
-type HandleLayer = Int -> Bool
+-- | Should the stem be handled, when traversing branches of a tree?
+data HandleStem = WithStem | WithoutStem
 
--- | Handle all layers.
+-- | Which nodes should be handled, when traversing a tree?
+--
+-- Useful when creating proposals on trees.
+--
+-- For an example, see 'withoutRootNode'.
+type HandleNode = Path -> Bool
+
+-- | Handle all nodes.
 --
 -- In particular:
 --
 -- - Include the stem, if handling branches.
 --
 -- - Include the root label, if handling node labels.
-allLayers :: HandleLayer
-allLayers = const True
+allNodes :: HandleNode
+allNodes = const True
 
 -- | Exclude the root label.
 --
 -- @
 -- withoutRoot = (>0)
 -- @
-withoutRoot :: HandleLayer
-withoutRoot = (> 0)
-
--- | Exclude the stem.
-withoutStem :: HandleLayer
-withoutStem = withoutRoot
-
--- -- | Should the leaves be handled?
--- data HandleLeaves = WithLeaves | WithoutLeaves
+withoutRootNode :: HandleNode
+withoutRootNode = not . null
 
 -- | Non-negative height.
 --
