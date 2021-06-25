@@ -417,10 +417,10 @@ mc3IsInValidState a = V.any aIsInValidState mhgs
   where
     mhgs = mc3MHGChains a
 
--- TODO: Splimix. 'mc3Iterate' is actually not parallel, but concurrent because
+-- TODO: Splitmix. 'mc3Iterate' is actually not parallel, but concurrent because
 -- of the IO constraint. Use pure parallel code when we have a pure generator.
 --
--- However, we to have honor the mutable traces.
+-- However, we have to take care of the mutable traces.
 mc3Iterate ::
   ToJSON a =>
   ParallelizationMode ->

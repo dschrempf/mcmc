@@ -297,8 +297,9 @@ constrainSoft s c t
     y = constraintYoungNode c
     o = constraintOldNode c
 
--- XXX: Here, we may have to extract the heights first and then check them. Or
--- go through all nodes and check if there is a calibration.
+-- TODO: Improve speed of multiple constraints. Here, we may have to extract the
+-- heights first and then check them. Or go through all nodes and check if there
+-- is a calibration.
 
 -- | Constrain nodes of a tree using 'constrainSoft'.
 --

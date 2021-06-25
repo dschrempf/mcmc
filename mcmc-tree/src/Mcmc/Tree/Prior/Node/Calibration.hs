@@ -289,8 +289,9 @@ calibrateSoft s c t
     (Interval a b) = calibrationInterval c
     p = calibrationNode c
 
--- XXX: Here, we may have to extract the heights first and then check them. Or
--- go through all nodes and check if there is a calibration.
+-- TODO: Improve speed of multiple calibrations. Here, we may have to extract
+-- the heights first and then check them. Or go through all nodes and check if
+-- there is a calibration.
 
 -- | Calibrate nodes of a tree using 'calibrateSoft'.
 --
