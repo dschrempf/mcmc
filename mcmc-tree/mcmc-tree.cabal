@@ -78,7 +78,6 @@ library
     , math-functions
     , mcmc
     , mwc-random
-    , parallel
     , statistics
     , vector
     , vector-th-unbox

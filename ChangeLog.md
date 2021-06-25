@@ -4,6 +4,16 @@
 
 ## Unreleased changes
 
+-   Improve documentation.
+
+
+### mcmc-tree
+
+-   Remove parallel branch prior. Improve speed of sequential branch prior.
+-   Remove unsafe suffix of various functions (mrca).
+-   Change height and length lenses.
+-   Combined calibrations and constraints.
+
 
 ## 0.5.0.0
 

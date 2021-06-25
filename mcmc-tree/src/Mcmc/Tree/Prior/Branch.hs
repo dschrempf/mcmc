@@ -13,26 +13,31 @@
 -- Branch wise priors.
 module Mcmc.Tree.Prior.Branch
   ( branchesWith,
-    parBranchesWith,
   )
 where
 
-import Control.Parallel.Strategies
+import Data.List
 import ELynx.Tree
 import Mcmc.Chain.Chain
 import Mcmc.Tree.Types
 
 -- | Branch wise prior with given prior function.
 branchesWith :: HandleStem -> PriorFunction e -> PriorFunction (Tree e a)
-branchesWith = parBranchesWith 0
+branchesWith WithStem f (Node br _ ts) = foldl' (*) (f br) $ map (branchesWith WithStem f) ts
+branchesWith WithoutStem f (Node _ _ ts) = foldl1' (*) $ map (branchesWith WithStem f) ts
 
--- | See 'branchesWith'.
---
--- Evaluate the sub trees up to given layer in parallel. Useful if tree is
--- large, or if calculation of the branch prior function is costly.
-parBranchesWith :: Int -> HandleStem -> PriorFunction e -> PriorFunction (Tree e a)
-parBranchesWith n WithStem f t = parBranchFoldMap n f (*) t
-parBranchesWith n WithoutStem f t
-  | n > 1 = product (map (parBranchFoldMap (n-1) f (*)) ts `using` parList rdeepseq)
-  | otherwise = product $ map (parBranchFoldMap 0 f (*)) $ forest t
-  where ts = forest t
+-- -- NOTE: Somehow I never used this function, because computing priors on
+-- -- branches is just too fast to parallelize. I leave this for further
+-- -- reference.
+
+-- -- | See 'branchesWith'.
+-- --
+-- -- Evaluate the sub trees up to given layer in parallel. Useful if tree is
+-- -- large, or if calculation of the branch prior function is costly.
+-- parBranchesWith :: Int -> HandleStem -> PriorFunction e -> PriorFunction (Tree e a)
+-- parBranchesWith n WithStem f t = parBranchFoldMap n f (*) t
+-- parBranchesWith n WithoutStem f t
+--   | n > 1 = foldl1' (*) (map (parBranchFoldMap (n -1) f (*)) ts `using` parList rdeepseq)
+--   | otherwise = foldl1' (*) $ map (parBranchFoldMap 0 f (*)) $ forest t
+--   where
+--     ts = forest t
