@@ -47,11 +47,9 @@ import System.IO
 import Paths_mcmc (version)
 import Data.Version (showVersion)
 
--- TODO: Combine LogMode and Verbosity to:
---
--- data Verbosity = Quiet | Warn LogMode | Info LogMode | Debug LogMode
-
 -- | Define where the log output should be directed to.
+--
+-- Logging is disabled if 'Verbosity' is set to 'Quiet'.
 data LogMode = LogStdOutAndFile | LogStdOutOnly | LogFileOnly
   deriving (Eq, Read, Show)
 
