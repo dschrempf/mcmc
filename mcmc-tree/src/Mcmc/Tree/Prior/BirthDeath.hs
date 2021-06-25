@@ -100,15 +100,16 @@ computeDENearCritical la mu rho dt e0 = (nomD / denom / denom, nomE / denom)
 epsNearCritical :: Double
 epsNearCritical = 1e-6
 
--- TODO: Condition on time of origin and survival (or MRCA and survival).
-
--- TODO: Condition on time of origin and the number of taxa (or MRCA and the
--- number of taxa).
-
 -- | Condition on the time of origin or the time of the most recent common
 -- ancestor (MRCA).
 --
 -- If 'ConditionOnTimeOfOrigin' is used, the stem needs to be strictly positive.
+--
+-- NOTE: It is not yet possible to condition on:
+--
+-- - the time of origin and survival (or MRCA and survival);
+--
+-- - the time of origin and the number of taxa (or MRCA and the number of taxa).
 data ConditionOn = ConditionOnTimeOfOrigin | ConditionOnTimeOfMrca
 
 -- | Birth and death prior for bifurcating trees.
@@ -161,9 +162,12 @@ birthDeathWith f la mu rho (Node br _ [l, r]) = (Exp (log $ dT * la) * dL * dR, 
     (dL, eL) = birthDeathWith f la mu rho l
     -- (dR, eR) = birthDeathWith f la mu rho r
     --
-    -- TODO: eL and eR should be the same. Separate calculation of D and E?
-    -- Should I check that they indeed are the same, but that would slow down
-    -- the calculation.
+    -- XXX: eL and eR should be the same. However, there will be hardly any
+    -- speed benefit because D and E are calculated simultaneously. Should I
+    -- separate the calculation of D and E?
+    --
+    -- XXX: I should actually check that eL and eR indeed are the same, but that
+    -- would also slow down the calculation.
     (dR, _) = birthDeathWith f la mu rho r
     -- D and E at the top of the internal branch. Since we are treating internal
     -- nodes here, we use rho=1.0. In the future, one may also allow values

@@ -146,10 +146,6 @@ constraint t n ys os =
     y = either err id $ mrca ys t
     o = either err id $ mrca os t
 
--- XXX: Maybe use a vector (but we may just fold over it then a list is fine).
---
--- type Constraints = [Constraint]
-
 data ConstraintData = ConstraintData String String String String String
   deriving (Generic, Show)
 
