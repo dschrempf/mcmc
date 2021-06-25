@@ -18,6 +18,7 @@ module Mcmc.Tree.Prior.Node.Constraint
     loadConstraints,
     constrainHard,
     constrainSoft,
+    constrainSoftF,
     constrain,
   )
 where
@@ -51,9 +52,13 @@ import Statistics.Distribution.Normal
 data Constraint = Constraint
   { constraintName :: String,
     -- | Path to younger node (closer to the leaves).
-    constraintYoungNode :: Path,
+    constraintYoungNodePath :: Path,
+    -- | Index of younger node.
+    constraintYoungNodeIndex :: Int,
     -- | Path to older node (closer to the root).
-    constraintOldNode :: Path
+    constraintOldNodePath :: Path,
+    -- | Index of older node.
+    constraintOldNodeIndex :: Int
   }
   deriving (Eq, Read, Show)
 
@@ -114,8 +119,8 @@ validateConstraint c = case areDirectDescendants y o of
   Unrelated -> Right c
   where
     n = constraintName c
-    y = constraintYoungNode c
-    o = constraintOldNode c
+    y = constraintYoungNodePath c
+    o = constraintOldNodePath c
     getErrMsg msg = "validateConstraint: " ++ show n ++ ": " ++ msg
 
 -- | Create and validate a constraint.
@@ -140,11 +145,16 @@ constraint ::
 constraint t n ys os =
   either error id $
     validateConstraint $
-      Constraint n y o
+      Constraint n pY iY pO iO
   where
     err msg = error $ "constraint: " ++ show n ++ ": " ++ msg
-    y = either err id $ mrca ys t
-    o = either err id $ mrca os t
+    -- NOTE: Identifying the tree multiple times may be slow when creating many
+    -- constraints. But this is only done once in the beginning.
+    iTr = identify t
+    pY = either err id $ mrca ys t
+    iY = label $ getSubTreeUnsafe pY iTr
+    pO = either err id $ mrca os t
+    iO = label $ getSubTreeUnsafe pO iTr
 
 data ConstraintData = ConstraintData String String String String String
   deriving (Generic, Show)
@@ -199,7 +209,7 @@ describeProp (RightIsFine l r) =
 -- Did I miss any other tests?
 --
 validateConstraints :: Constraint -> Constraint -> Property
-validateConstraints l@(Constraint _ a b) r@(Constraint _ c d)
+validateConstraints l@(Constraint _ a _ b _) r@(Constraint _ c _ d _)
   | (c `isDescendant` a) && (d `isAncestor` b) = RightIsRedundant l r
   | (c `isAncestor` b) && (d `isDescendant` a) = RightIsConflicting l r
   | otherwise = RightIsFine l r
@@ -268,8 +278,8 @@ constrainHard c t
   | getHeightFromNode y t < getHeightFromNode o t = 1
   | otherwise = 0
   where
-    y = constraintYoungNode c
-    o = constraintOldNode c
+    y = constraintYoungNodePath c
+    o = constraintOldNodePath c
 
 -- | Soft constrain order of nodes with given paths.
 --
@@ -287,19 +297,24 @@ constrainSoft ::
   StandardDeviation ->
   Constraint ->
   PriorFunction (Tree e a)
-constrainSoft s c t
-  | hY < hO = 1
-  | otherwise = Exp $ logDensity d (hY - hO) - logDensity d 0
+constrainSoft s c t = constrainSoftF s (hY, hO)
   where
-    hY = fromHeight $ getHeightFromNode y t
-    hO = fromHeight $ getHeightFromNode o t
-    d = normalDistr 0 s
-    y = constraintYoungNode c
-    o = constraintOldNode c
+    hY = getHeightFromNode y t
+    hO = getHeightFromNode o t
+    y = constraintYoungNodePath c
+    o = constraintOldNodePath c
 
--- TODO: Improve speed of multiple constraints. Here, we may have to extract the
--- heights first and then check them. Or go through all nodes and check if there
--- is a calibration.
+-- | See 'constrainSoft'.
+constrainSoftF ::
+  StandardDeviation ->
+  PriorFunction (Height, Height)
+constrainSoftF s (hY, hO)
+  | hY' < hO' = 1
+  | otherwise = Exp $ logDensity d (hY' - hO') - logDensity d 0
+  where
+    hY' = fromHeight hY
+    hO' = fromHeight hO
+    d = normalDistr 0 s
 
 -- | Constrain nodes of a tree using 'constrainSoft'.
 --

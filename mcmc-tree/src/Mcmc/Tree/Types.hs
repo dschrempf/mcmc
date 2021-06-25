@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |
@@ -45,6 +47,7 @@ import Control.Lens
 import Data.Aeson
 import Data.Aeson.TH
 import Data.Monoid
+import Data.Vector.Unboxed.Deriving
 import ELynx.Tree
 import GHC.Generics
 
@@ -94,6 +97,12 @@ newtype Height = Height {fromHeight :: Double}
   deriving (Read, Show, Generic, NFData)
   deriving (Enum, Eq, Floating, Fractional, Num, Ord, Real, RealFloat, RealFrac) via Double
   deriving (Semigroup, Monoid) via Sum Double
+
+derivingUnbox
+  "Height"
+  [t|Height -> Double|]
+  [|fromHeight|]
+  [|Height|]
 
 $(deriveJSON defaultOptions ''Height)
 

@@ -25,6 +25,7 @@ module Mcmc.Tree
     module Mcmc.Tree.Prior.Branch.RelaxedClock,
     module Mcmc.Tree.Prior.Node.Calibration,
     module Mcmc.Tree.Prior.Node.Constraint,
+    module Mcmc.Tree.Prior.Node.Combined,
 
     -- * Proposals
     module Mcmc.Tree.Proposal.Contrary,
@@ -45,6 +46,7 @@ import Mcmc.Tree.Prior.BirthDeath
 import Mcmc.Tree.Prior.Branch
 import Mcmc.Tree.Prior.Branch.RelaxedClock
 import Mcmc.Tree.Prior.Node.Calibration
+import Mcmc.Tree.Prior.Node.Combined
 import Mcmc.Tree.Prior.Node.Constraint
 import Mcmc.Tree.Proposal.Contrary
 import Mcmc.Tree.Proposal.Ultrametric

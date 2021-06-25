@@ -26,6 +26,7 @@ module Mcmc.Tree.Prior.Node.Calibration
     loadCalibrations,
     calibrateHard,
     calibrateSoft,
+    calibrateSoftF,
     calibrate,
   )
 where
@@ -136,19 +137,22 @@ h >* Positive b = h > b
 -- ensures that the root node is older than @YOUNG@, and younger than @OLD@.
 data Calibration = Calibration
   { calibrationName :: String,
-    calibrationNode :: Path,
+    calibrationNodePath :: Path,
+    calibrationNodeIndex :: Int,
     calibrationInterval :: Interval
   }
   deriving (Eq, Show)
 
 prettyPrintCalibration :: Calibration -> String
-prettyPrintCalibration (Calibration n p i) =
+prettyPrintCalibration (Calibration n p i l) =
   "Calibration: "
     <> n
     <> " with path "
     <> show p
-    <> " and interval "
+    <> ", index "
     <> show i
+    <> ", and interval "
+    <> show l
     <> "."
 
 -- | Create and validate a calibration.
@@ -165,12 +169,22 @@ calibration ::
   [a] ->
   Interval ->
   Calibration
-calibration t n xs = Calibration n p
+calibration t n xs = Calibration n p i
   where
     err msg = error $ "calibration: " ++ n ++ ": " ++ msg
     p = either err id $ mrca xs t
+    -- NOTE: Identifying the tree multiple times may be slow when creating many
+    -- calibrations. But this is only done once in the beginning.
+    i = label $ getSubTreeUnsafe p $ identify t
 
-data CalibrationData = CalibrationData String String String Double (Maybe Double)
+-- Used to decode the CSV file.
+data CalibrationData
+  = CalibrationData
+      String -- Calibration name.
+      String -- Leaf a.
+      String -- Leaf b.
+      Double -- Lef boundary.
+      (Maybe Double) -- Maybe right boundary.
   deriving (Generic, Show)
 
 instance FromRecord CalibrationData
@@ -226,7 +240,7 @@ loadCalibrations t f = do
   let calsAll = V.map (calibrationDataToCalibration t) cds
   -- Check for redundant or conflicting calibrations.
   --
-  let calsDupl = findDupsBy ((==) `on` calibrationNode) $ V.toList calsAll
+  let calsDupl = findDupsBy ((==) `on` calibrationNodePath) $ V.toList calsAll
   unless (null calsDupl) $ do
     -- Calibrations could also be removed. But then, which one should be removed?
     let render xs = unlines $ "Redundant and/or conflicting calibration:" : map prettyPrintCalibration xs
@@ -254,7 +268,7 @@ calibrateHard c t
     a' = fromNonNegative a
     h = fromHeight $ getHeightFromNode p t
     (Interval a b) = calibrationInterval c
-    p = calibrationNode c
+    p = calibrationNodePath c
 
 -- | Calibrate height of a node with given path.
 --
@@ -276,22 +290,24 @@ calibrateSoft ::
   StandardDeviation ->
   Calibration ->
   PriorFunction (Tree e a)
-calibrateSoft s c t
-  | h <= a' = Exp $ logDensity d (a' - h) - logDensity d 0
-  | h >* b = case b of
+calibrateSoft s c t = calibrateSoftF s l h
+  where
+    p = calibrationNodePath c
+    h = getHeightFromNode p t
+    l = calibrationInterval c
+
+-- | See 'calibrateSoft'.
+calibrateSoftF :: StandardDeviation -> Interval -> PriorFunction Height
+calibrateSoftF s (Interval a b) h
+  | h' <= a' = Exp $ logDensity d (a' - h') - logDensity d 0
+  | h' >* b = case b of
     Infinity -> 1.0
-    Positive b' -> Exp $ logDensity d (h - b') - logDensity d 0
+    Positive b' -> Exp $ logDensity d (h' - b') - logDensity d 0
   | otherwise = 1
   where
+    h' = fromHeight h
     a' = fromNonNegative a
-    h = fromHeight $ getHeightFromNode p t
     d = normalDistr 0 s
-    (Interval a b) = calibrationInterval c
-    p = calibrationNode c
-
--- TODO: Improve speed of multiple calibrations. Here, we may have to extract
--- the heights first and then check them. Or go through all nodes and check if
--- there is a calibration.
 
 -- | Calibrate nodes of a tree using 'calibrateSoft'.
 --
@@ -311,15 +327,17 @@ calibrate ::
   HasHeight a =>
   -- | Standard deviation of the calibrations before scaling with the height
   -- multiplier.
+  --
+  -- NOTE: The same standard deviation is used for all calibrations.
   StandardDeviation ->
   V.Vector Calibration ->
-  -- | Height multiplier. Useful if working on normalized trees.
+  -- | Height multiplier of tree. Useful when working on normalized trees.
   Double ->
   PriorFunction (Tree e a)
 calibrate sd cs h t
   | h <= 0 = error "calibrate: Height multiplier is zero or negative."
   | otherwise = V.product $ V.map f cs
   where
-    f (Calibration n x i) =
-      let i' = if h == 1.0 then i else transformInterval (recip h) i
-       in calibrateSoft sd (Calibration n x i') t
+    f (Calibration n x i l) =
+      let l' = if h == 1.0 then l else transformInterval (recip h) l
+       in calibrateSoft sd (Calibration n x i l') t
