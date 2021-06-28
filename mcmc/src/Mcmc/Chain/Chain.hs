@@ -19,13 +19,41 @@ module Mcmc.Chain.Chain
   )
 where
 
--- NOTE: It is not necessary to add another type @b@ to store supplementary
--- information about the chain. The information can just be stored in @a@
--- equally well.
+-- NOTE: Auxiliary data.
+--
+-- It is not necessary to add another type @b@ to store auxiliary data about the
+-- chain. The information can just be stored in @a@ equally well.
+--
+-- I am not sure if this is the case. If @b@ is affected by a change in @a@, it
+-- has to be recomputed. This is difficult to implement at the proposal step.
+-- Maybe the new value is not even accepted. On the other hand, one could trust
+-- the lazyness of Haskell, and recompute @b@. The computation is done only when
+-- the value is accessed.
+--
+-- That is, I have to think about how to implement auxiliary data A. Prior and
+-- likelihood functions can then act on the state space I and A, e.g.,
+--
+-- > type PriorFunction a b = a -> b -> Log Double
+--
+-- where a is the type of the state, and b is the auxiliary data type.
 
--- TODO: First class parameters. Make a type class for parameter types (name,
--- lens, proposals, monitors). Proposals should only act on data types with a
--- parameter instance.
+-- NOTE: First class parameters.
+--
+-- I thought a lot about implementing a type class for parameters. For example,
+-- parameters should have a name, a lens, possibly proposals, monitors, and so
+-- on.
+--
+-- However, this is really difficult. If I use a type class, I need different
+-- data types for each parameter which is cumbersome (and slow?). Of course, one
+-- could use a data type such as
+--
+-- > data ParamterSpec a = ParameterSpec { name :: ByteString, pMonitor :: (a -> ByteString) }
+--
+-- But even in this case we run into problems: There are proposals and monitors
+-- acting on a combination of parameters. Even setting the name doesn't make
+-- sense in this case.
+--
+-- I decided to let this idea rest.
 
 import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
