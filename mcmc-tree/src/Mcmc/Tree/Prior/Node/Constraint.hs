@@ -26,7 +26,6 @@ where
 import Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Csv hiding (Name)
-import Data.Function
 import Data.List
 import qualified Data.Vector as V
 import ELynx.Tree
@@ -62,6 +61,19 @@ data Constraint = Constraint
     constraintOldNodeIndex :: Int
   }
   deriving (Eq, Read, Show)
+
+prettyPrintConstraint :: Constraint -> String
+prettyPrintConstraint (Constraint n yP yI oP oI) =
+  "Constraint: "
+    <> n
+    <> "\n  Young node index and path: "
+    <> show yI
+    <> ", "
+    <> show yP
+    <> "\n  Old node index and path: "
+    <> show oI
+    <> ", "
+    <> show oP
 
 -- Is the left node an ancestor of the right node?
 isAncestor :: Eq a => [a] -> [a] -> Bool
@@ -168,29 +180,6 @@ constraintDataToConstraint t (ConstraintData n yL yR oL oR) =
   where
     f = Name . BL.pack
 
--- Given two constraints, we can have:
-data Property
-  = RightIsRedundant Constraint Constraint
-  | RightIsConflicting Constraint Constraint
-  | RightIsFine Constraint Constraint
-  deriving (Eq, Show, Read)
-
-isRedundant :: Property -> Bool
-isRedundant (RightIsRedundant _ _) = True
-isRedundant _ = False
-
-isConflicting :: Property -> Bool
-isConflicting (RightIsConflicting _ _) = True
-isConflicting _ = False
-
-describeProp :: Property -> String
-describeProp (RightIsRedundant l r) =
-  "Constraint " <> constraintName r <> " is redundant given constraint " <> constraintName l <> "."
-describeProp (RightIsConflicting l r) =
-  "Constraint " <> constraintName r <> " is conflicting given constraint " <> constraintName l <> "."
-describeProp (RightIsFine l r) =
-  "Constraint " <> constraintName r <> " is fine given constraint " <> constraintName l <> "."
-
 -- Given a left constraint, check if a right constraint is redundant.
 --
 -- Let D(x,y) be true iff x is a descendant of y (see 'isDescendent').
@@ -204,10 +193,6 @@ isRedundantWith :: Constraint -> Constraint -> Bool
 isRedundantWith (Constraint _ a _ b _) (Constraint _ c _ d _) =
   (c `isDescendant` a) && (d `isAncestor` b)
 
--- -- Retain the most informative, non-redundant constraints.
--- filterRedundant :: (V.Vector Constraint, [Property]) -> (V.Vector Constraint, [Property])
--- filterRedundant (xs, ps) = fix (V.filter (\x -> V.any (`isRedundantWith` x) xs))
-
 -- Given a left constraint, check if a right constraint is conflicting.
 --
 -- See 'isRedundantWith'.
@@ -217,26 +202,17 @@ isConflictingWith :: Constraint -> Constraint -> Bool
 isConflictingWith (Constraint _ a _ b _) (Constraint _ c _ d _) =
   (c `isAncestor` b) && ((d `isDescendant` a) || (d `isDescendant` b))
 
--- Given two constraints, left and right, check if the right constraint is
--- redundant or conflicting.
---
--- See also 'validateConstraint' which performs checks on single constraints.
---
--- This validation includes a complicated list of tests checking for
--- redundancies or conflicts between two constraints.
-validateConstraints :: Constraint -> Constraint -> Property
-validateConstraints l r
-  | isRedundantWith l r = RightIsRedundant l r
-  | isConflictingWith l r = RightIsConflicting l r
-  | otherwise = RightIsFine l r
+-- Pairwise comparison using a given function. Keep comparisons returning 'True'.
+validateWith :: Eq a => (a -> a -> Bool) -> [a] -> [(a, a)]
+validateWith p xs = [(x, y) | x <- xs, y <- xs, x /= y, p x y]
 
--- Pairwise comparison with 'validateConstraints'.
-validateConstraintVector :: V.Vector Constraint -> V.Vector Property
-validateConstraintVector xs = do
-  l <- xs
-  r <- xs
-  guard (l /= r)
-  return $ validateConstraints l r
+describeConflicting :: (Constraint, Constraint) -> String
+describeConflicting (l, r) =
+  "Constraint " <> constraintName r <> " is conflicting given constraint " <> constraintName l <> "."
+
+describeRedundant :: (Constraint, Constraint) -> String
+describeRedundant (l, r) =
+  "Constraint " <> constraintName r <> " is redundant given constraint " <> constraintName l <> "."
 
 -- | Load and validate constraints from file.
 --
@@ -258,47 +234,61 @@ validateConstraintVector xs = do
 -- ExampleConstraint,A,B,C,D
 -- @
 --
+-- Redundant constraints are removed.
+--
 -- Call 'error' if
 --
 -- - The file contains errors.
 --
 -- - An MRCA cannot be found.
 --
--- - Redundant or conflicting constraints are found.
+-- - Conflicting constraints are found.
 loadConstraints :: Tree e Name -> FilePath -> IO (V.Vector Constraint)
 loadConstraints t f = do
   d <- BL.readFile f
   let mr = decode NoHeader d :: Either String (V.Vector ConstraintData)
       cds = either error id mr
   when (V.null cds) $ error $ "loadConstraints: No constraints found in file: " <> f <> "."
-  let cons = V.map (constraintDataToConstraint t) cds
+  let constraints = V.toList $ V.map (constraintDataToConstraint t) cds
   -- Check for redundant and conflicting constraints.
-  let properties = validateConstraintVector cons
-      redundantPs = V.filter isRedundant comparisons
-      conflictingPs = V.filter isConflicting comparisons
+  let redundantCs = validateWith isRedundantWith constraints
+      conflictingCs = validateWith isConflictingWith constraints
+  -- Call 'error' when constraints are conflicting. We don't want to repair
+  -- this.
   unless
-    (V.null conflictingPs)
+    (null conflictingCs)
     ( do
-        V.sequence_ $ V.map (putStrLn . describeProp) conflictingPs
+        mapM_ (putStrLn . describeConflicting) conflictingCs
         error "loadConstraints: Constraints are erroneous (see above)."
     )
-  unless
-    (V.null redundantPs)
-    ( do
+  -- We do remove redundant constraints, but we are very verbose about it.
+  goodConstraints <-
+    if null redundantCs
+      then return constraints
+      else do
         putStrLn "The following redundant constraints have been detected."
-        V.sequence_ $ V.map (putStrLn . describeProp) redundantPs
-        putStrLn "The redundant constraints will be removed."
-    )
-  let
-    -- TODO:
-    -- - Extract redundant rights.
-    redundantConstraints = undefined
-    -- - Filter them from all constraints.
-    goodConstraints = undefined
-  -- Use PARTITION_WITH?
-  return goodConstraints
-
-
+        mapM_ (putStrLn . describeRedundant) redundantCs
+        -- Extract the unique redundant constraints (they are the right ones of
+        -- each tuple).
+        let uniqueRedundantConstraints = nub $ map snd redundantCs
+        putStrLn $
+          "The total number constraints is: "
+            <> show (length constraints)
+            <> "."
+        putStrLn $
+          "The number of unique redundant constraints is: "
+            <> show (length uniqueRedundantConstraints)
+            <> "."
+        -- Remove them from all constraints.
+        let goodConstraints' = constraints \\ uniqueRedundantConstraints
+        putStrLn $
+          "The number of informative constraints is: "
+            <> show (length goodConstraints')
+            <> "."
+        putStrLn "The informative constraints are:"
+        mapM_ (putStrLn . prettyPrintConstraint) goodConstraints'
+        return goodConstraints'
+  return $ V.fromList goodConstraints
 
 -- | Hard constrain order of nodes with given paths.
 --
