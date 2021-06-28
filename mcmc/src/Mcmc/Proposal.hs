@@ -405,9 +405,15 @@ cycleFromList :: [Proposal a] -> Cycle a
 cycleFromList [] =
   error "cycleFromList: Received an empty list but cannot create an empty Cycle."
 cycleFromList xs =
-  if length (nub xs) == length xs
+  if length uniqueXs == length xs
     then Cycle xs def
-    else error "cycleFromList: Proposals are not unique."
+    else error $ "\n" ++ msg ++ "cycleFromList: Proposals are not unique."
+  where uniqueXs = nub xs
+        removedXs = xs \\ uniqueXs
+        removedNames = map (show . prName) removedXs
+        removedDescriptions = map (show . prDescription) removedXs
+        removedMsgs = zipWith (\n d -> n ++ " " ++ d) removedNames removedDescriptions
+        msg = unlines removedMsgs
 
 -- | Set the order of 'Proposal's in a 'Cycle'.
 setOrder :: Order -> Cycle a -> Cycle a
