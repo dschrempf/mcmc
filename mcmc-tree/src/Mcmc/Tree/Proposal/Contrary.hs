@@ -140,7 +140,7 @@ slideNodesAtContrarily tr pth sd
       -- n for unconstrained daughters.
       (PDimension $ 1 + nStem + nDaughters)
   where
-    description = PDescription $ "Scale sub trees contrarily; sd: " <> show sd
+    description = PDescription $ "Slide nodes contrarily; sd: " <> show sd
     nStem = if null pth then 0 else 1
     nDaughters = length $ forest $ current $ goPathUnsafe pth $ fromTree tr
 
