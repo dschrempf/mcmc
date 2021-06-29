@@ -62,6 +62,10 @@ data Constraint = Constraint
   }
   deriving (Eq, Read, Show)
 
+-- Do the constraints affect the same nodes?
+duplicate :: Constraint -> Constraint -> Bool
+duplicate (Constraint _ _ yL _ oL) (Constraint _ _ yR _ oR) = (yL == yR) && (oL == oR)
+
 prettyPrintConstraint :: Constraint -> String
 prettyPrintConstraint (Constraint n yP yI oP oI) =
   "Constraint: "
@@ -203,12 +207,24 @@ isConflictingWith (Constraint _ a _ b _) (Constraint _ c _ d _) =
   (c `isAncestor` b) && ((d `isDescendant` a) || (d `isDescendant` b))
 
 -- Pairwise comparison using a given function. Keep comparisons returning 'True'.
+--
+-- Do not assume commutativity of the operator. Compare (x, y) and (y, x).
 validateWith :: Eq a => (a -> a -> Bool) -> [a] -> [(a, a)]
 validateWith p xs = [(x, y) | x <- xs, y <- xs, x /= y, p x y]
+
+-- Pairwise comparison using a given function. Keep comparisons returning 'True'.
+--
+-- Assume commutativity of the operator. Only compare (x, y).
+validateWithCommutative :: Eq a => (a -> a -> Bool) -> [a] -> [(a, a)]
+validateWithCommutative p xs = [(x, y) | (x, ys) <- zip xs (tails xs), y <- ys, x /= y, p x y]
 
 describeConflicting :: (Constraint, Constraint) -> String
 describeConflicting (l, r) =
   "Constraint " <> constraintName r <> " is conflicting given constraint " <> constraintName l <> "."
+
+describeEqual :: (Constraint, Constraint) -> String
+describeEqual (x, y) =
+  "Constraints " <> constraintName x <> " and " <> constraintName y <> " affect the same nodes."
 
 describeRedundant :: (Constraint, Constraint) -> String
 describeRedundant (l, r) =
@@ -249,46 +265,59 @@ loadConstraints t f = do
   let mr = decode NoHeader d :: Either String (V.Vector ConstraintData)
       cds = either error id mr
   when (V.null cds) $ error $ "loadConstraints: No constraints found in file: " <> f <> "."
-  let constraints = V.toList $ V.map (constraintDataToConstraint t) cds
-  -- Check for redundant and conflicting constraints.
-  let redundantCs = validateWith isRedundantWith constraints
-      conflictingCs = validateWith isConflictingWith constraints
+  let allConstraints = V.toList $ V.map (constraintDataToConstraint t) cds
+  putStrLn $ "The total number constraints is: " <> show (length allConstraints) <> "."
   -- Call 'error' when constraints are conflicting. We don't want to repair
   -- this.
-  unless
-    (null conflictingCs)
-    ( do
-        mapM_ (putStrLn . describeConflicting) conflictingCs
-        error "loadConstraints: Constraints are erroneous (see above)."
-    )
-  -- We do remove redundant constraints, but we are very verbose about it.
-  goodConstraints <-
-    if null redundantCs
-      then return constraints
+  let conflictingCs = validateWith isConflictingWith allConstraints
+  if null conflictingCs
+    then putStrLn "No conflicting constraints have been detected."
+    else do
+      mapM_ (putStrLn . describeConflicting) conflictingCs
+      error "loadConstraints: Constraints are erroneous (see above)."
+  -- We do remove duplicate constraints, but we are very verbose about it.
+  let equalCs = validateWithCommutative duplicate allConstraints
+  uniqueConstraints <-
+    if null equalCs
+      then do
+        putStrLn "No duplicate constraints have been detected."
+        return allConstraints
       else do
-        putStrLn "The following redundant constraints have been detected."
+        putStrLn "The following duplicates have been detected:"
+        mapM_ (putStrLn . describeEqual) equalCs
+        -- Extract the unique duplicate constraints (they are the right ones of
+        -- each tuple).
+        let uniqueDuplicateConstraints = nub $ map snd equalCs
+        putStrLn $
+          "The number of unique duplicate constraints is: "
+            <> show (length uniqueDuplicateConstraints)
+            <> "."
+        return $ allConstraints \\ uniqueDuplicateConstraints
+  -- We do remove redundant constraints, but we are very verbose about it.
+  let redundantCs = validateWith isRedundantWith uniqueConstraints
+  informativeConstraints <-
+    if null redundantCs
+      then do
+        putStrLn "No redundant constraints have been detected."
+        return uniqueConstraints
+      else do
+        putStrLn "The following redundancies have been detected:"
         mapM_ (putStrLn . describeRedundant) redundantCs
         -- Extract the unique redundant constraints (they are the right ones of
         -- each tuple).
         let uniqueRedundantConstraints = nub $ map snd redundantCs
         putStrLn $
-          "The total number constraints is: "
-            <> show (length constraints)
-            <> "."
-        putStrLn $
           "The number of unique redundant constraints is: "
             <> show (length uniqueRedundantConstraints)
             <> "."
-        -- Remove them from all constraints.
-        let goodConstraints' = constraints \\ uniqueRedundantConstraints
-        putStrLn $
-          "The number of informative constraints is: "
-            <> show (length goodConstraints')
-            <> "."
-        putStrLn "The informative constraints are:"
-        mapM_ (putStrLn . prettyPrintConstraint) goodConstraints'
-        return goodConstraints'
-  return $ V.fromList goodConstraints
+        return $ uniqueConstraints \\ uniqueRedundantConstraints
+  putStrLn $
+    "The number of informative constraints is: "
+      <> show (length informativeConstraints)
+      <> "."
+  putStrLn "The informative constraints are:"
+  mapM_ (putStrLn . prettyPrintConstraint) informativeConstraints
+  return $ V.fromList informativeConstraints
 
 -- | Hard constrain order of nodes with given paths.
 --
