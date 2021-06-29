@@ -274,7 +274,7 @@ loadConstraints t f = do
     then putStrLn "No conflicting constraints have been detected."
     else do
       mapM_ (putStrLn . describeConflicting) conflictingCs
-      error "loadConstraints: Constraints are erroneous (see above)."
+      error "loadConstraints: Conflicting constraints have been detected."
   -- We do remove duplicate constraints, but we are very verbose about it.
   let equalCs = validateWithCommutative duplicate allConstraints
   uniqueConstraints <-

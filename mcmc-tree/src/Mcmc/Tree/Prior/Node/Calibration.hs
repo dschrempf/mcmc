@@ -238,14 +238,16 @@ loadCalibrations t f = do
       cds = either error id mr
   when (V.null cds) $ error $ "loadCalibrations: No calibrations found in file: " <> f <> "."
   let calsAll = V.map (calibrationDataToCalibration t) cds
-  -- Check for redundant or conflicting calibrations.
-  --
+  -- Check for duplicates and conflicts.
   let calsDupl = findDupsBy ((==) `on` calibrationNodePath) $ V.toList calsAll
-  unless (null calsDupl) $ do
-    -- Calibrations could also be removed. But then, which one should be removed?
-    let render xs = unlines $ "Redundant and/or conflicting calibration:" : map prettyPrintCalibration xs
-    mapM_ (putStr . render) calsDupl
-    error "loadCalibrations: Redundant and/or conflicting calibrations (see above)."
+  if null calsDupl
+    then putStrLn "No duplicates and no conflicting calibrations have been detected."
+    else do
+      -- Calibrations could also be removed. But then, which one should be removed?
+      let render xs = unlines $
+            "Redundant and/or conflicting calibration:" : map prettyPrintCalibration xs
+      mapM_ (putStr . render) calsDupl
+      error "loadCalibrations: Duplicates and/or conflicting calibrations have been detected."
   return calsAll
 
 -- | Calibrate height of a node with given path using the uniform distribution.
