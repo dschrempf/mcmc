@@ -111,7 +111,7 @@ heightL f h = g <$> f (fromHeight h)
 
 -- | Length of measurable types.
 hasLengthL :: HasLength a => Lens' a Length
-hasLengthL = lens getLen (flip setLen)
+hasLengthL = lens getLength (flip setLength)
 
 -- | Length.
 --

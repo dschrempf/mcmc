@@ -126,7 +126,6 @@ benchmark mcmc-bench
   build-depends:
       base >=4.7 && <5
     , criterion
-    , log-domain
     , mcmc
     , microlens
     , mwc-random
