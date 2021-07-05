@@ -33,8 +33,12 @@ module Mcmc.Proposal.Hamiltonian
   )
 where
 
+import Data.Foldable
 import Mcmc.Prior
 import Mcmc.Proposal
+import Numeric.Log
+import Statistics.Distribution
+import Statistics.Distribution.Normal
 import System.Random.MWC
 
 -- | Specifications for Hamilton Monte Carlo proposal.
@@ -63,17 +67,25 @@ data HMC f = HMC
   }
 
 generateMomenta ::
+  Traversable f =>
   -- Masses.
   f Double ->
   GenIO ->
   IO (f Double)
-generateMomenta = undefined
+generateMomenta masses gen = traverse (generateWith gen) masses
+  where
+    generateWith g m = let d = normalDistr 0 m in genContVar d g
 
 priorMomenta ::
+  (Applicative f, Foldable f) =>
+  -- Masses.
   f Double ->
+  -- Momenta.
   f Double ->
   Prior
-priorMomenta = undefined
+priorMomenta masses phi = foldl' (*) 1.0 $ f <$> masses <*> phi
+  where
+    f m p = let d = normalDistr 0 m in Exp $ logDensity d p
 
 leapfrog ::
   Applicative f =>
@@ -155,7 +167,7 @@ leapfrogStepPositions eps masses theta phi = theta .+. (mReversedScaled .*. phi)
 -- phi half update
 
 hmcSimpleWith ::
-  Applicative f =>
+  (Applicative f, Traversable f, Show (f Double)) =>
   HMC f ->
   TuningParameter ->
   f Double ->
@@ -174,14 +186,19 @@ hmcSimpleWith s t theta g = do
     -- acceptance ratio.
     --
     -- Further, lTuned * epsTuned should be approximately constant.
-    lTuned = ceiling $ fromIntegral l / t
+    --
+    -- TODO: Improve tuning. Leaving l*eps constant leads to very large l and
+    -- very slow proposals.
+    --
+    -- lTuned = ceiling $ fromIntegral l / t
+    lTuned = l
     epsTuned = t * hmcLeapFrogScalingFactor s
     masses = hmcMasses s
     gradient = hmcGradient s
 
 -- | Hamiltonian Monte Carlo proposal.
 hmc ::
-  (Foldable f, Applicative f) =>
+  (Applicative f, Traversable f, Show (f Double)) =>
   -- | The sample state is used to calculate the dimension of the proposal.
   f Double ->
   HMC f ->
