@@ -64,7 +64,6 @@ instance ToJSON a => Algorithm (MHG a) where
   aCloseMonitors = mhgCloseMonitors
   aSave = mhgSave
 
-
 -- | Initialize an MHG algorithm.
 --
 -- NOTE: Computation in the 'IO' Monad is necessary because the trace is
@@ -214,14 +213,15 @@ mhgPush (MHG c) = do
 
 -- Check if the current state is invalid.
 --
--- At the moment this just checks whether the posterior probability is zero or
--- NaN.
+-- At the moment this just checks whether the prior, likelihood, or posterior
+-- are NaN or infinite.
 mhgIsInValidState :: MHG a -> Bool
-mhgIsInValidState a = ((p * l) == 0) || (p * l == (0 / 0))
+mhgIsInValidState a = check p || check l || check (p*l)
   where
     x = link $ fromMHG a
     p = prior x
     l = likelihood x
+    check v = let v' = ln v in isNaN v' || isInfinite v' || v' == 0
 
 -- Ignore the number of capabilities. I have tried a lot of stuff, but the MHG
 -- algorithm is just inherently sequential. Parallelization can be achieved by
