@@ -84,6 +84,22 @@ executable gauss
     , mcmc
     , mwc-random
 
+executable hamiltonian
+  import: exec
+  main-is: Hamiltonian.hs
+  other-modules:
+      Paths_mcmc_examples
+  autogen-modules:
+      Paths_mcmc_examples
+  hs-source-dirs:
+      Hamiltonian
+  build-depends:
+      ad
+    , aeson
+    , base
+    , mcmc
+    , mwc-random
+
 executable pair
   import: exec
   main-is: Pair.hs
