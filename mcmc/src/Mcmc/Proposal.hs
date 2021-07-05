@@ -266,15 +266,16 @@ data Tune = Tune | NoTune
   deriving (Show, Eq)
 
 -- | Tuning parameter.
+--
+--  The larger the tuning parameter, the larger the proposal and the lower the
+-- expected acceptance rate; and vice versa.
 type TuningParameter = Double
 
 -- | Create a tuneable proposal.
 createProposal ::
   -- | Description of the proposal type and parameters.
   PDescription ->
-  -- | Function creating a simple proposal for a given tuning parameter. The
-  -- larger the tuning parameter, the larger the proposal and the lower the
-  -- expected acceptance rate; and vice versa.
+  -- | Function creating a simple proposal for a given tuning parameter.
   (TuningParameter -> ProposalSimple a) ->
   -- | Dimension.
   PDimension ->

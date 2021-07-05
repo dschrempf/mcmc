@@ -134,6 +134,8 @@ module Mcmc
     slideUniformSymmetric,
     slideContrarily,
     slideBactrian,
+    HMC (..),
+    hmc,
     module Mcmc.Proposal.Simplex,
     Cycle,
     cycleFromList,
@@ -205,6 +207,7 @@ import Mcmc.Monitor.ParameterBatch
 import Mcmc.Prior
 import Mcmc.Proposal
 import Mcmc.Proposal.Bactrian
+import Mcmc.Proposal.Hamiltonian
 import Mcmc.Proposal.Scale
 import Mcmc.Proposal.Simplex
 import Mcmc.Proposal.Slide

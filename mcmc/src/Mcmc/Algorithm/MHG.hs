@@ -64,9 +64,11 @@ instance ToJSON a => Algorithm (MHG a) where
   aCloseMonitors = mhgCloseMonitors
   aSave = mhgSave
 
--- NOTE: IO is required because the trace is mutable.
 
 -- | Initialize an MHG algorithm.
+--
+-- NOTE: Computation in the 'IO' Monad is necessary because the trace is
+-- mutable.
 mhg ::
   PriorFunction a ->
   LikelihoodFunction a ->
@@ -210,6 +212,10 @@ mhgPush (MHG c) = do
     t = trace c
     n = iteration c
 
+-- Check if the current state is invalid.
+--
+-- At the moment this just checks whether the posterior probability is zero or
+-- NaN.
 mhgIsInValidState :: MHG a -> Bool
 mhgIsInValidState a = ((p * l) == 0) || (p * l == (0 / 0))
   where
