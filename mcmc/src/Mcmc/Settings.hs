@@ -17,7 +17,7 @@ module Mcmc.Settings
   ( -- * Data types
     AnalysisName (..),
     HasAnalysisName (..),
-    BurnInSpecification (..),
+    BurnInSettings (..),
     burnInIterations,
     Iterations (..),
     TraceLength (..),
@@ -56,7 +56,7 @@ class HasAnalysisName s where
   getAnalysisName :: s -> AnalysisName
 
 -- | Burn in specification.
-data BurnInSpecification
+data BurnInSettings
   = -- | No burn in.
     NoBurnIn
   | -- | Burn in for a given number of iterations.
@@ -75,17 +75,17 @@ data BurnInSpecification
     BurnInWithCustomAutoTuning [Int]
   deriving (Eq, Read, Show)
 
-$(deriveJSON defaultOptions ''BurnInSpecification)
+$(deriveJSON defaultOptions ''BurnInSettings)
 
--- Check if the burn in specification is valid.
-burnInValid :: BurnInSpecification -> Bool
+-- Check if the burn in settings are valid.
+burnInValid :: BurnInSettings -> Bool
 burnInValid NoBurnIn = True
 burnInValid (BurnInWithoutAutoTuning n) = n > 0
 burnInValid (BurnInWithAutoTuning n t) = n > 0 && t > 0
 burnInValid (BurnInWithCustomAutoTuning xs) = not (null xs) && all (> 0) xs
 
 -- | Get the number of burn in iterations.
-burnInIterations :: BurnInSpecification -> Int
+burnInIterations :: BurnInSettings -> Int
 burnInIterations NoBurnIn = 0
 burnInIterations (BurnInWithoutAutoTuning n) = n
 burnInIterations (BurnInWithAutoTuning n _) = n
@@ -197,7 +197,7 @@ $(deriveJSON defaultOptions ''SaveMode)
 -- | Settings of an MCMC sampler.
 data Settings = Settings
   { sAnalysisName :: AnalysisName,
-    sBurnIn :: BurnInSpecification,
+    sBurnIn :: BurnInSettings,
     sIterations :: Iterations,
     sExecutionMode :: ExecutionMode,
     sParallelizationMode :: ParallelizationMode,

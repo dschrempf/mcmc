@@ -87,9 +87,9 @@ data MLSettings = MLSettings
     mlAlgorithm :: MLAlgorithm,
     mlNPoints :: NPoints,
     -- | Initial burn in at the starting point of the path.
-    mlInitialBurnIn :: BurnInSpecification,
+    mlInitialBurnIn :: BurnInSettings,
     -- | Repetitive burn in at each point on the path.
-    mlPointBurnIn :: BurnInSpecification,
+    mlPointBurnIn :: BurnInSettings,
     -- | The number of iterations performed at each point.
     mlIterations :: Iterations,
     mlExecutionMode :: ExecutionMode,

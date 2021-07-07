@@ -25,6 +25,8 @@ import System.Random.MWC hiding (uniform)
 
 type I = ZipList Double
 
+type IL = ZipList (Log Double)
+
 instance ToJSON a => ToJSON (ZipList a)
 
 instance FromJSON a => FromJSON (ZipList a)
@@ -36,8 +38,8 @@ rosenbrock _ _ _ = error "lhf: Number of parameters has changed."
 rb :: RealFloat a => [a] -> a
 rb = rosenbrock 1 100
 
-gradient :: [Double] -> [Double]
-gradient = grad rb
+gradient :: [Double] -> [Log Double]
+gradient = map (Exp . log) . grad rb
 
 prf :: PriorFunction I
 prf (ZipList [x, y]) = uniform (-2) 2 x * uniform (-1) 3 y
@@ -48,14 +50,14 @@ prf _ = error "prf: Number of parameters has changed."
 lhfI :: LikelihoodFunction I
 lhfI = Exp . rb . getZipList
 
-gradientI :: I -> I
+gradientI :: I -> IL
 gradientI = ZipList . gradient . getZipList
 
 masses :: I
 masses = ZipList [1, 1]
 
-hmcSettings :: HMC ZipList
-hmcSettings = HMC gradientI masses 10 0.1
+hmcSettings :: HmcSettings ZipList
+hmcSettings = HmcSettings gradientI masses 10 0.1
 
 initialState :: I
 initialState = ZipList [1.1, 0.9]

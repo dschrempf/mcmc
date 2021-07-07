@@ -153,15 +153,6 @@ whiteNoise hs v tTr rTr = branchesWith hs f zTr
     -- This is correct. The mean of b=tr is t, the variance of b is
     -- Var(tr) = t^2Var(r) = t^2 v/t = vt, as required in Lepage, 2006.
     f (t, r) = let k = fromLength t / v in gamma k (recip k) (fromLength r)
--- whiteNoise :: HandleLayer -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
--- whiteNoise WithStem v t r =
---   -- This is correct. The mean of b=tr is t, the variance of b is
---   -- Var(tr) = t^2Var(r) = t^2 v/t = vt, as required in Lepage, 2006.
---   gamma k (recip k) (fromLength $ branch r) * whiteNoise WithoutStem v t r
---   where
---     k = fromLength (branch t) / v
--- whiteNoise WithoutStem v t r =
---   product $ zipWith (whiteNoise WithStem v) (forest t) (forest r)
 
 -- | Auto-correlated gamma model.
 --

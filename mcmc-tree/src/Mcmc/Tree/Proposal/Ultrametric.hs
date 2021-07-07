@@ -203,9 +203,6 @@ scaleSubTreeAtUltrametric tr pth sd
 -- The proposal weights are set linearly according to the 'depth' of the node on
 -- the tree. Minimum and maximum weights have to be provided.
 --
--- NOTE: The layer (see 'HandleLayer') and the 'depth' of a node are somewhat
--- opposing concepts.
---
 -- See 'scaleSubTreeAtUltrametric'.
 --
 -- Do not scale the leaves.

@@ -12,7 +12,7 @@
 --
 -- Creation date: Mon Jul  5 12:59:42 2021.
 --
--- The Hamiltonian Monte Carlo ('HMC') proposal.
+-- The Hamiltonian Monte Carlo (HMC, see 'hmc') proposal.
 --
 -- For references, see:
 --
@@ -28,7 +28,11 @@
 --
 -- NOTE: This module is in development.
 module Mcmc.Proposal.Hamiltonian
-  ( HMC (..),
+  ( Gradient,
+    Masses,
+    LeapfrogTrajectoryLength,
+    LeapfrogScalingFactor,
+    HmcSettings (..),
     hmc,
   )
 where
@@ -41,47 +45,70 @@ import Statistics.Distribution
 import Statistics.Distribution.Normal
 import System.Random.MWC
 
+-- TODO: Allow random leapfrog trajectory lengths and leapfrog scaling factors
+-- (sample one l and one epsilon per proposal, not per leapfrog step).
+
+-- | Gradient of the posterior function.
+--
+-- NOTE: Not the log gradient in log domain.
+type Gradient f = f Double -> f (Log Double)
+
+-- | Masses.
+--
+-- The masses describe how fast the sampler moves in each direction of the
+-- state space. High masses result in low momenta, and vice versa. The
+-- proposal is more efficient if masses are assigned according to the
+-- (co)-variance structure of the posterior. However, the proposal works
+-- fine when all masses are set to 1.0.
+--
+-- NOTE: At the moment, it is impossible to set off-diagonal elements of the
+-- mass matrix.
+type Masses f = f Double
+
+-- | Leapfrog trajectory length \(L\).
+--
+-- Number of leapfrog steps per proposal.
+--
+-- Usually set to 10.
+type LeapfrogTrajectoryLength = Int
+
+-- | Leapfrog scaling factor \(\epsilon\).
+--
+-- Determines the size of each leapfrog step.
+--
+-- Usually set such that \( L \epsilon = 1.0 \).
+type LeapfrogScalingFactor = Double
+
+-- State containing parameters.
+type Positions f = f Double
+
+-- Momenta or velocities of the parameters.
+--
+-- TODO: Check if these are actually the momenta, or the velocities (without
+-- mass component).
+type Momenta f = f Double
+
 -- | Specifications for Hamilton Monte Carlo proposal.
-data HMC f = HMC
-  { -- | Gradient of the posterior function.
-    hmcGradient :: f Double -> f Double,
-    -- | Masses.
-    --
-    -- The masses describe how fast the sampler moves in each direction of the
-    -- state space. High masses result in low momenta, and vice versa. The
-    -- proposal is more efficient if masses are assigned according to the
-    -- (co)-variance structure of the posterior. However, the proposal works
-    -- fine when all masses are set to 1.0.
-    --
-    -- NOTE: At the moment, it is impossible to set off-diagonal elements of the
-    -- mass matrix.
-    hmcMasses :: f Double,
-    -- | Number \(L\) of leapfrog steps per proposal.
-    --
-    -- Usually set to 10.
-    hmcNLeapFrogSteps :: Int,
-    -- | Scaling factor \(\epsilon\) of the leapfrog steps.
-    --
-    -- Usually set such that \( L \epsilon = 1.0 \).
-    hmcLeapFrogScalingFactor :: Double
+data HmcSettings f = HmcSettings
+  { hmcGradient :: Gradient f,
+    hmcMasses :: Masses f,
+    hmcLeapfrogTrajectoryLength :: LeapfrogTrajectoryLength,
+    hmcLeapfrogScalingFactor :: LeapfrogScalingFactor
   }
 
 generateMomenta ::
   Traversable f =>
-  -- Masses.
-  f Double ->
+  Masses f ->
   GenIO ->
-  IO (f Double)
+  IO (Momenta f)
 generateMomenta masses gen = traverse (generateWith gen) masses
   where
     generateWith g m = let d = normalDistr 0 m in genContVar d g
 
 priorMomenta ::
   (Applicative f, Foldable f) =>
-  -- Masses.
-  f Double ->
-  -- Momenta.
-  f Double ->
+  Masses f ->
+  Momenta f ->
   Prior
 priorMomenta masses phi = foldl' (*) 1.0 $ f <$> masses <*> phi
   where
@@ -89,20 +116,14 @@ priorMomenta masses phi = foldl' (*) 1.0 $ f <$> masses <*> phi
 
 leapfrog ::
   Applicative f =>
-  -- Number of leapfrog steps \(L\).
-  Int ->
-  -- Scaling factor \(\epsilon\).
-  Double ->
-  -- Masses.
-  f Double ->
-  -- Gradient.
-  (f Double -> f Double) ->
-  -- Positions.
-  f Double ->
-  -- Momenta.
-  f Double ->
+  LeapfrogTrajectoryLength ->
+  LeapfrogScalingFactor ->
+  Masses f ->
+  Gradient f ->
+  Positions f ->
+  Momenta f ->
   -- (Positions', Momenta').
-  (f Double, f Double)
+  (Positions f, Momenta f)
 leapfrog l eps masses grad theta phi = (thetaL, phiL)
   where
     -- The first half step of the momenta.
@@ -123,29 +144,29 @@ leapfrogStepMomenta ::
   Applicative f =>
   -- Size of step (half or full step).
   Double ->
-  -- Scaling factor \(\epsilon\).
-  Double ->
-  -- Gradient.
-  (f Double -> f Double) ->
+  LeapfrogScalingFactor ->
+  Gradient f ->
   -- Current positions.
-  f Double ->
+  Positions f ->
   -- Current momenta.
-  f Double ->
+  Momenta f ->
   -- New momenta.
-  f Double
+  Momenta f
 leapfrogStepMomenta xi eps grad theta phi = phi .+. ((xi * eps) .* grad theta)
+  where
+    -- Scalar-vector multiplication.
+    (.*) :: Applicative f => Double -> f (Log Double) -> f Double
+    (.*) x ys = (* x) . ln <$> ys
 
 leapfrogStepPositions ::
   Applicative f =>
-  -- Scaling factor \(\epsilon\).
-  Double ->
-  -- Masses.
-  f Double ->
+  LeapfrogScalingFactor ->
+  Masses f ->
   -- Current positions.
-  f Double ->
+  Positions f ->
   -- Current momenta.
-  f Double ->
-  f Double
+  Momenta f ->
+  Positions f
 leapfrogStepPositions eps masses theta phi = theta .+. (mReversedScaled .*. phi)
   where
     mReversedScaled = (* eps) . (** (-1)) <$> masses
@@ -158,30 +179,31 @@ leapfrogStepPositions eps masses theta phi = theta .+. (mReversedScaled .*. phi)
 (.*.) :: Applicative f => f Double -> f Double -> f Double
 (.*.) xs ys = (*) <$> xs <*> ys
 
--- Scalar-vector multiplication.
-(.*) :: Applicative f => Double -> f Double -> f Double
-(.*) x ys = (* x) <$> ys
-
 -- phi half update
 -- (l-1) theta and phi full updates
 -- phi half update
 
 hmcSimpleWith ::
   (Applicative f, Traversable f, Show (f Double)) =>
-  HMC f ->
+  HmcSettings f ->
   TuningParameter ->
-  f Double ->
+  Positions f ->
   GenIO ->
-  IO (f Double, KernelRatio, Jacobian)
+  IO (Positions f, KernelRatio, Jacobian)
 hmcSimpleWith s t theta g = do
   phi <- generateMomenta masses g
   let (theta', phi') = leapfrog lTuned epsTuned masses gradient theta phi
       prPhi = priorMomenta masses phi
+      -- XXX: In Neal page 12, it is stated that the momenta have to be negated
+      -- before proposing the new value to make the proposal symmetrical. This
+      -- does not change anything here since the prior involves normal
+      -- distributions centered around 0. However, if the multivariate normal
+      -- distribution is used, it makes a difference.
       prPhi' = priorMomenta masses phi'
       kernelR = prPhi' / prPhi
   return (theta', kernelR, 1.0)
   where
-    l = hmcNLeapFrogSteps s
+    l = hmcLeapfrogTrajectoryLength s
     -- The larger epsilon, the larger the proposal step size and the lower the
     -- acceptance ratio.
     --
@@ -192,7 +214,7 @@ hmcSimpleWith s t theta g = do
     --
     -- lTuned = ceiling $ fromIntegral l / t
     lTuned = l
-    epsTuned = t * hmcLeapFrogScalingFactor s
+    epsTuned = t * hmcLeapfrogScalingFactor s
     masses = hmcMasses s
     gradient = hmcGradient s
 
@@ -201,7 +223,7 @@ hmc ::
   (Applicative f, Traversable f, Show (f Double)) =>
   -- | The sample state is used to calculate the dimension of the proposal.
   f Double ->
-  HMC f ->
+  HmcSettings f ->
   PName ->
   PWeight ->
   Tune ->
