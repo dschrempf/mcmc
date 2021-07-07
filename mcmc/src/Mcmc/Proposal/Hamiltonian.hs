@@ -70,17 +70,17 @@ type Gradient f = f Double -> f Double
 -- The proposal is more efficient if masses are assigned according to the
 -- inverse (co)-variance structure of the posterior function. That is,
 -- parameters changing on larger scales should have lower masses than parameters
--- changing on larger scales. In particular, and for a diagonal mass matrix, the
+-- changing on lower scales. In particular, and for a diagonal mass matrix, the
 -- optimal masses are the inverted variances of the parameters distributed
 -- according to the posterior function.
 --
 -- Of course, the scales of the parameters of the posterior function are usually
 -- unknown. Often, it is sufficient to
 --
--- - Set the masses to identical values roughly scaled with the inverted
---   estimated average variance of the posterior function.
+-- - set the masses to identical values roughly scaled with the inverted
+--   estimated average variance of the posterior function;
 --
--- - Set all masses to 1.0.
+-- - set all masses to 1.0.
 type Masses f = f Double
 
 -- | Mean leapfrog trajectory length \(L\).
