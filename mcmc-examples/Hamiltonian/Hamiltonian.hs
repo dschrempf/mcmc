@@ -52,10 +52,10 @@ gradientI :: I -> I
 gradientI = ZipList . gradient . getZipList
 
 masses :: I
-masses = (* 0.25) <$> ZipList [1, 1]
+masses = ZipList [3, 6]
 
 hmcSettings :: HmcSettings ZipList
-hmcSettings = HmcSettings gradientI masses 10 0.05
+hmcSettings = HmcSettings gradientI masses 10 0.1
 
 initialState :: I
 initialState = ZipList [1.1, 0.9]
@@ -86,7 +86,7 @@ main = do
   let s =
         Settings
           (AnalysisName "hamiltonian")
-          (BurnInWithCustomAutoTuning ([10,20..200] ++ [400,400]))
+          (BurnInWithCustomAutoTuning ([10,20..200] ++ [400,600]))
           (Iterations 10000)
           Overwrite
           Sequential

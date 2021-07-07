@@ -16,17 +16,15 @@
 --
 -- For references, see:
 --
--- - Chapter 5 of Handbook of Monte Carlo: Neal, R. M., MCMC Using Hamiltonian
---   Dynamics, In S. Brooks, A. Gelman, G. Jones, & X. Meng (Eds.), Handbook of
---   Markov Chain Monte Carlo (2011), CRC press.
+-- - [1] Chapter 5 of Handbook of Monte Carlo: Neal, R. M., MCMC Using
+--   Hamiltonian Dynamics, In S. Brooks, A. Gelman, G. Jones, & X. Meng (Eds.),
+--   Handbook of Markov Chain Monte Carlo (2011), CRC press.
 --
--- - Gelman, A., Carlin, J. B., Stern, H. S., & Rubin, D. B., Bayesian data
+-- - [2] Gelman, A., Carlin, J. B., Stern, H. S., & Rubin, D. B., Bayesian data
 --   analysis (2014), CRC Press.
 --
--- - Review by Betancourt and notes: Betancourt, M., A conceptual introduction
---   to Hamiltonian Monte Carlo, arXiv, 1701–02434 (2017).
---
--- NOTE: This module is in development.
+-- - [3] Review by Betancourt and notes: Betancourt, M., A conceptual
+--   introduction to Hamiltonian Monte Carlo, arXiv, 1701–02434 (2017).
 module Mcmc.Proposal.Hamiltonian
   ( Gradient,
     Masses,
@@ -47,10 +45,6 @@ import System.Random.MWC
 
 -- TODO: Estimate masses (basically inverse variances) from a given sample of
 -- the posterior (remove burn in).
-
--- TODO: Allow random leapfrog trajectory lengths and leapfrog scaling factors
--- (sample one l and one epsilon per proposal, not per leapfrog step). See
--- Gelman p. 304.
 
 -- TODO: At the moment, the HMC proposal is agnostic of the posterior function.
 -- This means, that it cannot know when it reaches a point with zero posterior
@@ -89,16 +83,33 @@ type Gradient f = f Double -> f Double
 -- - Set all masses to 1.0.
 type Masses f = f Double
 
--- | Leapfrog trajectory length \(L\).
+-- | Mean leapfrog trajectory length \(L\).
 --
 -- Number of leapfrog steps per proposal.
+--
+-- To avoid problems with ergodicity, the actual number of leapfrog steps is
+-- sampled proposal from a discrete uniform distribution over the interval
+-- \([\text{floor}(0.8L),\text{ceiling}(1.2L)]\).
+--
+-- For a discussion of ergodicity and reasons why randomization is important,
+-- see [1] p. 15; also mentioned in [2] p. 304.
+--
+-- NOTE: To avoid errors, the left bound has an additional hard minimum of 1,
+-- and the right bound is required to be larger equal than the left bound.
 --
 -- Usually set to 10.
 type LeapfrogTrajectoryLength = Int
 
--- | Leapfrog scaling factor \(\epsilon\).
+-- | Mean of leapfrog scaling factor \(\epsilon\).
 --
 -- Determines the size of each leapfrog step.
+--
+-- To avoid problems with ergodicity, the actual leapfrog scaling factor is
+-- sampled per proposal from a continuous uniform distribution over the interval
+-- \([0.8\epsilon,1.2\epsilon]\).
+--
+-- For a discussion of ergodicity and reasons why randomization is important,
+-- see [1] p. 15; also mentioned in [2] p. 304.
 --
 -- Usually set such that \( L \epsilon = 1.0 \).
 type LeapfrogScalingFactor = Double
@@ -116,6 +127,13 @@ data HmcSettings f = HmcSettings
     hmcLeapfrogTrajectoryLength :: LeapfrogTrajectoryLength,
     hmcLeapfrogScalingFactor :: LeapfrogScalingFactor
   }
+
+checkHmcSettings :: Foldable f => HmcSettings f -> Maybe String
+checkHmcSettings (HmcSettings _ masses l eps)
+  | any (<= 0) masses = Just "checkHmcSettings: One or more masses are zero or negative."
+  | l < 1 = Just "checkHmcSettings: Leapfrog trajectory length is zero or negative."
+  | eps <= 0 = Just "checkHmcSettings: Leapfrog scaling factor is zero or negative."
+  | otherwise = Nothing
 
 generateMomenta ::
   Traversable f =>
@@ -213,7 +231,9 @@ hmcSimpleWith ::
   IO (Positions f, KernelRatio, Jacobian)
 hmcSimpleWith s t theta g = do
   phi <- generateMomenta masses g
-  let (theta', phi') = leapfrog lTuned epsTuned masses gradient theta phi
+  lTunedRandomized <- uniformR (lLeft, lRight) g
+  epsTunedRandomized <- uniformR (epsLeft, epsRight) g
+  let (theta', phi') = leapfrog lTunedRandomized epsTunedRandomized masses gradient theta phi
       prPhi = priorMomenta masses phi
       -- NOTE: Neal page 12: In order for the proposal to be in detailed
       -- balance, the momenta have to be negated before proposing the new value.
@@ -232,8 +252,14 @@ hmcSimpleWith s t theta g = do
     --
     -- TODO: Improve tuning. Leaving l*eps constant may lead to very large l,
     -- and consequently, to very slow proposals.
-    lTuned = ceiling $ fromIntegral l / t
+    --
+    lTuned = ceiling $ fromIntegral l / t :: Int
+    -- lTuned = l
+    lLeft = maximum [1 :: Int, floor $ (0.8 :: Double) * fromIntegral lTuned]
+    lRight = maximum [lLeft, ceiling $ (1.2 :: Double) * fromIntegral lTuned]
     epsTuned = t * hmcLeapfrogScalingFactor s
+    epsLeft = 0.8 * epsTuned
+    epsRight = 1.2 * epsTuned
     masses = hmcMasses s
     gradient = hmcGradient s
 
@@ -252,7 +278,9 @@ hmc ::
   PWeight ->
   Tune ->
   Proposal (f Double)
-hmc x s = createProposal hmcDescription (hmcSimpleWith s) d
+hmc x s = case checkHmcSettings s of
+  Just err -> error err
+  Nothing -> createProposal hmcDescription (hmcSimpleWith s) d
   where
     hmcDescription = PDescription "Hamiltonian Monte Carlo (HMC)"
     d = PSpecial (length x) 0.65
