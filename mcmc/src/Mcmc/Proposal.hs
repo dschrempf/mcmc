@@ -606,7 +606,7 @@ summarizeProposal name description weight tuningParameter dimension ar =
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) ar
     acceptRate = BL.fromStrict $ maybe "" (BC.toFixed 2 . (^. _3)) ar
     optimalRate = BL.fromStrict $ BC.toFixed 2 $ getOptimalRate dimension
-    tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 3) tuningParameter
+    tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 4) tuningParameter
     checkRate rate
       | rate < rateMin = Just "rate too low"
       | rate > rateMax = Just "rate too high"

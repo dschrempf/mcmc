@@ -52,10 +52,10 @@ gradientI :: I -> I
 gradientI = ZipList . gradient . getZipList
 
 masses :: I
-masses = ZipList [1, 1]
+masses = (* 0.25) <$> ZipList [1, 1]
 
 hmcSettings :: HmcSettings ZipList
-hmcSettings = HmcSettings gradientI masses 10 0.1
+hmcSettings = HmcSettings gradientI masses 10 0.05
 
 initialState :: I
 initialState = ZipList [1.1, 0.9]

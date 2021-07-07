@@ -226,15 +226,13 @@ hmcSimpleWith s t theta g = do
   where
     l = hmcLeapfrogTrajectoryLength s
     -- The larger epsilon, the larger the proposal step size and the lower the
-    -- acceptance ratio.
+    -- expected acceptance ratio.
     --
-    -- Further, lTuned * epsTuned should be approximately constant.
+    -- Further, we keep \( L * \epsilon = 1.0 \).
     --
-    -- TODO: Improve tuning. Leaving l*eps constant leads to very large l and
-    -- very slow proposals.
-    --
-    -- lTuned = ceiling $ fromIntegral l / t
-    lTuned = l
+    -- TODO: Improve tuning. Leaving l*eps constant may lead to very large l,
+    -- and consequently, to very slow proposals.
+    lTuned = ceiling $ fromIntegral l / t
     epsTuned = t * hmcLeapfrogScalingFactor s
     masses = hmcMasses s
     gradient = hmcGradient s
