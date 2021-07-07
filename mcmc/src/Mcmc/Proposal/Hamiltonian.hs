@@ -106,7 +106,7 @@ type LeapfrogTrajectoryLength = Int
 --
 -- To avoid problems with ergodicity, the actual leapfrog scaling factor is
 -- sampled per proposal from a continuous uniform distribution over the interval
--- \([0.8\epsilon,1.2\epsilon]\).
+-- \((0.8\epsilon,1.2\epsilon]\).
 --
 -- For a discussion of ergodicity and reasons why randomization is important,
 -- see [1] p. 15; also mentioned in [2] p. 304.
