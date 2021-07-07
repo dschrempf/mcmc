@@ -45,6 +45,9 @@ import Statistics.Distribution
 import Statistics.Distribution.Normal
 import System.Random.MWC
 
+-- TODO: Estimate masses (basically inverse variances) from a given sample of
+-- the posterior (remove burn in).
+
 -- TODO: Allow random leapfrog trajectory lengths and leapfrog scaling factors
 -- (sample one l and one epsilon per proposal, not per leapfrog step). See
 -- Gelman p. 304.
@@ -60,16 +63,30 @@ import System.Random.MWC
 -- | Gradient of the log posterior function.
 type Gradient f = f Double -> f Double
 
--- | Masses.
+-- | Masses of parameters.
 --
--- The masses describe how fast the sampler moves in each direction of the
--- state space. High masses result in low momenta, and vice versa. The
--- proposal is more efficient if masses are assigned according to the
--- (co)-variance structure of the posterior. However, the proposal works
--- fine when all masses are set to 1.0.
+-- NOTE: Full specification of a mass matrix including off-diagonal elements is
+-- not supported.
 --
--- NOTE: At the moment, it is impossible to set off-diagonal elements of the
--- mass matrix.
+-- The masses roughly describe how reluctant the particle moves through the
+-- state space. If a parameter has higher mass, the momentum in this direction
+-- will be changed less by the provided gradient, than when the same parameter
+-- has lower mass.
+--
+-- The proposal is more efficient if masses are assigned according to the
+-- inverse (co)-variance structure of the posterior function. That is,
+-- parameters changing on larger scales should have lower masses than parameters
+-- changing on larger scales. In particular, and for a diagonal mass matrix, the
+-- optimal masses are the inverted variances of the parameters distributed
+-- according to the posterior function.
+--
+-- Of course, the scales of the parameters of the posterior function are usually
+-- unknown. Often, it is sufficient to
+--
+-- - Set the masses to identical values roughly scaled with the inverted
+--   estimated average variance of the posterior function.
+--
+-- - Set all masses to 1.0.
 type Masses f = f Double
 
 -- | Leapfrog trajectory length \(L\).
