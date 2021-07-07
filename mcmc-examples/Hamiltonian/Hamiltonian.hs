@@ -86,7 +86,7 @@ main = do
   let s =
         Settings
           (AnalysisName "hamiltonian")
-          (BurnInWithCustomAutoTuning [10,20..250])
+          (BurnInWithCustomAutoTuning ([10,20..200] ++ [400,400]))
           (Iterations 10000)
           Overwrite
           Sequential
