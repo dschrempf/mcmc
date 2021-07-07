@@ -25,21 +25,19 @@ import System.Random.MWC hiding (uniform)
 
 type I = ZipList Double
 
-type IL = ZipList (Log Double)
-
 instance ToJSON a => ToJSON (ZipList a)
 
 instance FromJSON a => FromJSON (ZipList a)
 
-rosenbrock :: RealFloat a => a -> a -> [a] -> a
-rosenbrock a b [x, y] = log $ (a - x) ** 2 + b * ((y - x * x) ** 2)
-rosenbrock _ _ _ = error "lhf: Number of parameters has changed."
+logRosenbrock :: RealFloat a => a -> a -> [a] -> a
+logRosenbrock a b [x, y] = log $ (a - x) ** 2 + b * ((y - x * x) ** 2)
+logRosenbrock _ _ _ = error "lhf: Number of parameters has changed."
 
-rb :: RealFloat a => [a] -> a
-rb = rosenbrock 1 100
+lrb :: RealFloat a => [a] -> a
+lrb = logRosenbrock 1 100
 
-gradient :: [Double] -> [Log Double]
-gradient = map (Exp . log) . grad rb
+gradient :: [Double] -> [Double]
+gradient = grad lrb
 
 prf :: PriorFunction I
 prf (ZipList [x, y]) = uniform (-2) 2 x * uniform (-1) 3 y
@@ -48,9 +46,9 @@ prf _ = error "prf: Number of parameters has changed."
 -- The Llkelihood function on I is less general, and does not allow for
 -- automatic differentiation.
 lhfI :: LikelihoodFunction I
-lhfI = Exp . rb . getZipList
+lhfI = Exp . lrb . getZipList
 
-gradientI :: I -> IL
+gradientI :: I -> I
 gradientI = ZipList . gradient . getZipList
 
 masses :: I

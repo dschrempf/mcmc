@@ -97,8 +97,9 @@ newtype PWeight = PWeight {fromPWeight :: Int}
 
 -- | Check if the weight is positive.
 pWeight :: Int -> PWeight
-pWeight n | n <= 0 = error "pWeight: Proposal weight is zero or negative."
-          | otherwise = PWeight n
+pWeight n
+  | n <= 0 = error "pWeight: Proposal weight is zero or negative."
+  | otherwise = PWeight n
 
 -- | Proposal dimension.
 --
@@ -108,8 +109,8 @@ pWeight n | n <= 0 = error "pWeight: Proposal weight is zero or negative."
 -- high dimensional ones.
 --
 -- Optimal acceptance rates are still subject to controversies. As far as I
--- know, research has focused on random walk proposal with a multivariate normal
--- distribution of dimension @d@. In this case, the following acceptance rates
+-- know, research has focused on random walk proposals with multivariate normal
+-- distributions of dimension @d@. In this case, the following acceptance rates
 -- are desired:
 --
 -- - one dimension: 0.44 (numerical results);
@@ -123,19 +124,27 @@ pWeight n | n <= 0 = error "pWeight: Proposal weight is zero or negative."
 -- Of course, many proposals may not be classical random walk proposals. For
 -- example, the beta proposal on a simplex ('Mcmc.Proposal.Simplex.beta')
 -- samples one new variable of the simplex from a beta distribution while
--- rescaling all other variables. What is the dimension of this proposal? I
--- don't know, but I set the dimension to 2. The reason is that if the dimension
--- of the simplex is 2, two variables are changed. If the dimension of the
--- simplex is high, one variable is changed substantially, while all others are
--- changed marginally.
+-- rescaling all other variables. What is the dimension of this proposal? Here,
+-- the dimension is set to 2. The reason is that if the dimension of the simplex
+-- is 2, two variables are changed. If the dimension of the simplex is high, one
+-- variable is changed substantially, while all others are changed marginally.
 --
 -- Further, if a proposal changes a number of variables in the same way (and not
--- independently like in a random walk proposal), I still set the dimension of
--- the proposal to the number of variables changed.
+-- independently like in a random walk proposal), the dimension of the proposal
+-- is set to the number of variables changed.
 --
--- Finally, I assume that proposals of unknown dimension have high dimension,
--- and use the optimal acceptance rate 0.234.
-data PDimension = PDimension Int | PDimensionUnknown
+-- Moreover, proposals of unknown dimension are assumed to have high dimension,
+-- and the optimal acceptance rate 0.234 is used.
+--
+-- Finally, special proposals may have completely different desired acceptance
+-- rates. For example. the Hamiltonian Monte Carlo proposal (see
+-- Mcmc.Proposal.Hamiltonian.hmc) has a desired acceptance rate of 0.65.
+-- Specific acceptance rates can be set with 'PSpecial'.
+data PDimension
+  = PDimension Int
+  | PDimensionUnknown
+  -- | Provide dimension ('Int') and desired acceptance rate ('Double').
+  | PSpecial Int Double
 
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability mass or probability density
@@ -200,6 +209,7 @@ type JacobianFunction a = a -> Jacobian
 -- scaleFirstEntryOfTuple = _1 @~ scale
 -- @
 infixl 7 @~
+
 (@~) :: Lens' b a -> Proposal a -> Proposal b
 (@~) = liftProposal
 
@@ -335,6 +345,7 @@ getOptimalRate (PDimension n)
   | n >= 5 = 0.234
   | otherwise = error "getOptimalRate: Proposal dimension is not an integer?"
 getOptimalRate PDimensionUnknown = 0.234
+getOptimalRate (PSpecial _ r) = r
 
 -- Warn if acceptance rate is lower.
 rateMin :: Double
@@ -409,12 +420,13 @@ cycleFromList xs =
   if length uniqueXs == length xs
     then Cycle xs def
     else error $ "\n" ++ msg ++ "cycleFromList: Proposals are not unique."
-  where uniqueXs = nub xs
-        removedXs = xs \\ uniqueXs
-        removedNames = map (show . prName) removedXs
-        removedDescriptions = map (show . prDescription) removedXs
-        removedMsgs = zipWith (\n d -> n ++ " " ++ d) removedNames removedDescriptions
-        msg = unlines removedMsgs
+  where
+    uniqueXs = nub xs
+    removedXs = xs \\ uniqueXs
+    removedNames = map (show . prName) removedXs
+    removedDescriptions = map (show . prDescription) removedXs
+    removedMsgs = zipWith (\n d -> n ++ " " ++ d) removedNames removedDescriptions
+    msg = unlines removedMsgs
 
 -- | Set the order of 'Proposal's in a 'Cycle'.
 setOrder :: Order -> Cycle a -> Cycle a

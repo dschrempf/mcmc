@@ -48,10 +48,8 @@ import System.Random.MWC
 -- TODO: Allow random leapfrog trajectory lengths and leapfrog scaling factors
 -- (sample one l and one epsilon per proposal, not per leapfrog step).
 
--- | Gradient of the posterior function.
---
--- NOTE: Not the log gradient in log domain.
-type Gradient f = f Double -> f (Log Double)
+-- | Gradient of the log posterior function.
+type Gradient f = f Double -> f Double
 
 -- | Masses.
 --
@@ -153,10 +151,6 @@ leapfrogStepMomenta ::
   -- New momenta.
   Momenta f
 leapfrogStepMomenta xi eps grad theta phi = phi .+. ((xi * eps) .* grad theta)
-  where
-    -- Scalar-vector multiplication.
-    (.*) :: Applicative f => Double -> f (Log Double) -> f Double
-    (.*) x ys = (* x) . ln <$> ys
 
 leapfrogStepPositions ::
   Applicative f =>
@@ -171,17 +165,21 @@ leapfrogStepPositions eps masses theta phi = theta .+. (mReversedScaled .*. phi)
   where
     mReversedScaled = (* eps) . (** (-1)) <$> masses
 
--- Element-wise vector-vector addition.
+-- Scalar-vector multiplication.
+(.*) :: Applicative f => Double -> f Double -> f Double
+(.*) x ys = (* x) <$> ys
+
+-- Applicative element-wise vector-vector addition.
+--
+-- Assume a zip-like applicative instance.
 (.+.) :: Applicative f => f Double -> f Double -> f Double
 (.+.) xs ys = (+) <$> xs <*> ys
 
--- Element-wise vector-vector multiplication.
+-- Applicative element-wise vector-vector multiplication.
+--
+-- Assume a zip-like applicative instance.
 (.*.) :: Applicative f => f Double -> f Double -> f Double
 (.*.) xs ys = (*) <$> xs <*> ys
-
--- phi half update
--- (l-1) theta and phi full updates
--- phi half update
 
 hmcSimpleWith ::
   (Applicative f, Traversable f, Show (f Double)) =>
@@ -194,11 +192,11 @@ hmcSimpleWith s t theta g = do
   phi <- generateMomenta masses g
   let (theta', phi') = leapfrog lTuned epsTuned masses gradient theta phi
       prPhi = priorMomenta masses phi
-      -- XXX: In Neal page 12, it is stated that the momenta have to be negated
-      -- before proposing the new value to make the proposal symmetrical. This
-      -- does not change anything here since the prior involves normal
-      -- distributions centered around 0. However, if the multivariate normal
-      -- distribution is used, it makes a difference.
+      -- NOTE: Neal page 12: In order for the proposal to be in detailed
+      -- balance, the momenta have to be negated before proposing the new value.
+      -- This is not required here since the prior involves normal distributions
+      -- centered around 0. However, if the multivariate normal distribution is
+      -- used, it makes a difference.
       prPhi' = priorMomenta masses phi'
       kernelR = prPhi' / prPhi
   return (theta', kernelR, 1.0)
@@ -219,6 +217,11 @@ hmcSimpleWith s t theta g = do
     gradient = hmcGradient s
 
 -- | Hamiltonian Monte Carlo proposal.
+--
+-- The 'Applicative' and 'Traversable' instances are used for element-wise
+-- operations.
+--
+-- Assume a zip-like 'Applicative' instance.
 hmc ::
   (Applicative f, Traversable f, Show (f Double)) =>
   -- | The sample state is used to calculate the dimension of the proposal.
@@ -231,6 +234,4 @@ hmc ::
 hmc x s = createProposal hmcDescription (hmcSimpleWith s) d
   where
     hmcDescription = PDescription "Hamiltonian Monte Carlo (HMC)"
-    -- TODO: The dimension is correct, but the calculated optimal acceptance
-    -- rate differs from the actual optimal rate, which is 65%).
-    d = PDimension $ length x
+    d = PSpecial (length x) 0.65
