@@ -43,7 +43,7 @@ prf :: PriorFunction I
 prf (ZipList [x, y]) = uniform (-2) 2 x * uniform (-1) 3 y
 prf _ = error "prf: Number of parameters has changed."
 
--- The Llkelihood function on I is less general, and does not allow for
+-- The Likelihood function on I is less general, and does not allow for
 -- automatic differentiation.
 lhfI :: LikelihoodFunction I
 lhfI = Exp . lrb . getZipList

@@ -46,7 +46,16 @@ import Statistics.Distribution.Normal
 import System.Random.MWC
 
 -- TODO: Allow random leapfrog trajectory lengths and leapfrog scaling factors
--- (sample one l and one epsilon per proposal, not per leapfrog step).
+-- (sample one l and one epsilon per proposal, not per leapfrog step). See
+-- Gelman p. 304.
+
+-- TODO: At the moment, the HMC proposal is agnostic of the posterior function.
+-- This means, that it cannot know when it reaches a point with zero posterior
+-- probability. This also affects restricted parameters. See Gelman p. 303.
+
+-- TODO: No-U-turn sampler.
+
+-- TODO: Riemannian adaptation.
 
 -- | Gradient of the log posterior function.
 type Gradient f = f Double -> f Double
@@ -77,13 +86,10 @@ type LeapfrogTrajectoryLength = Int
 -- Usually set such that \( L \epsilon = 1.0 \).
 type LeapfrogScalingFactor = Double
 
--- State containing parameters.
+-- Target state containing parameters.
 type Positions f = f Double
 
--- Momenta or velocities of the parameters.
---
--- TODO: Check if these are actually the momenta, or the velocities (without
--- mass component).
+-- Momenta of the parameters.
 type Momenta f = f Double
 
 -- | Specifications for Hamilton Monte Carlo proposal.
@@ -161,9 +167,9 @@ leapfrogStepPositions ::
   -- Current momenta.
   Momenta f ->
   Positions f
-leapfrogStepPositions eps masses theta phi = theta .+. (mReversedScaled .*. phi)
+leapfrogStepPositions eps masses theta phi = theta .+. (mScaledReversed .*. phi)
   where
-    mReversedScaled = (* eps) . (** (-1)) <$> masses
+    mScaledReversed = (* eps) . (** (-1)) <$> masses
 
 -- Scalar-vector multiplication.
 (.*) :: Applicative f => Double -> f Double -> f Double
