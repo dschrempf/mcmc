@@ -58,12 +58,13 @@ spec = do
                 (AnalysisName "SaveSpec")
                 (BurnInWithAutoTuning 20 10)
                 (Iterations 200)
+                TraceAuto
                 Overwrite
                 Sequential
                 NoSave
                 LogStdOutOnly
                 Quiet
-        c <- fromMHG <$> mhg noPrior lh proposals mon TraceAuto 0 gen
+        c <- fromMHG <$> mhg s noPrior lh proposals mon 0 gen
         savedChain <- toSavedChain c
         c' <- fromSavedChain noPrior lh proposals mon savedChain
         putStrLn "@load . save@ should be @id@."

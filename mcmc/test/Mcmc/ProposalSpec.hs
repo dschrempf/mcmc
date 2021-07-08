@@ -14,6 +14,7 @@ module Mcmc.ProposalSpec
   )
 where
 
+import Mcmc.Cycle
 import Mcmc.Proposal
 import Mcmc.Proposal.Slide
 import System.Random.MWC

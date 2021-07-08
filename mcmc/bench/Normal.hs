@@ -49,12 +49,13 @@ normalSlideBench g = do
           (AnalysisName "Normal")
           (BurnInWithAutoTuning 2000 500)
           (Iterations 20000)
+          TraceAuto
           Overwrite
           Sequential
           NoSave
           LogStdOutOnly
           Quiet
-  a <- mhg noPrior lh cc mon TraceAuto 0 g
+  a <- mhg s noPrior lh cc mon 0 g
   void $ mcmc s a
 
 ccLarge :: Cycle Double
@@ -70,12 +71,13 @@ normalLargeCycleBench g = do
           (AnalysisName "Normal")
           (BurnInWithAutoTuning 20 5)
           (Iterations 200)
+          TraceAuto
           Overwrite
           Sequential
           NoSave
           LogStdOutOnly
           Quiet
-  a <- mhg noPrior lh ccLarge mon TraceAuto 0 g
+  a <- mhg s noPrior lh ccLarge mon 0 g
   void $ mcmc s a
 
 ccBactrian :: Cycle Double
@@ -88,12 +90,13 @@ normalBactrianBench g = do
           (AnalysisName "NormalBactrian")
           (BurnInWithAutoTuning 2000 200)
           (Iterations 20000)
+          TraceAuto
           Overwrite
           Sequential
           NoSave
           LogStdOutOnly
           Quiet
-  a <- mhg noPrior lh ccBactrian mon TraceAuto 0 g
+  a <- mhg s noPrior lh ccBactrian mon 0 g
   void $ mcmc s a
 
 normalMC3 :: GenIO -> Int -> IO ()
@@ -103,11 +106,12 @@ normalMC3 g n = do
           (AnalysisName "MC3")
           (BurnInWithAutoTuning 200 20)
           (Iterations 2000)
+          TraceAuto
           Overwrite
           Sequential
           NoSave
           LogStdOutOnly
           Quiet
       mc3S = MC3Settings (NChains n) (SwapPeriod 2) (NSwaps 1)
-  a <- mc3 mc3S noPrior lh cc mon TraceAuto 0 g
+  a <- mc3 mc3S mcmcS noPrior lh cc mon 0 g
   void $ mcmc mcmcS a

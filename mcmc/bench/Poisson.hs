@@ -71,10 +71,11 @@ poissonBench g = do
           (AnalysisName "Poisson")
           (BurnInWithAutoTuning 2000 200)
           (Iterations 10000)
+          TraceAuto
           Overwrite
           Sequential
           NoSave
           LogStdOutOnly
           Quiet
-  a <- mhg noPrior lh proposals mon TraceAuto initial g
+  a <- mhg s noPrior lh proposals mon initial g
   void $ mcmc s a
