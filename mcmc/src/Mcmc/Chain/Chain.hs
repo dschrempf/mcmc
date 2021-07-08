@@ -55,8 +55,10 @@ where
 --
 -- I decided to let this idea rest.
 
+import Mcmc.Acceptance
 import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
+import Mcmc.Cycle
 import Mcmc.Likelihood
 import Mcmc.Monitor
 import Mcmc.Prior

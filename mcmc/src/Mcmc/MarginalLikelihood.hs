@@ -30,17 +30,18 @@ import Data.List hiding (cycle)
 import qualified Data.Map.Strict as M
 import qualified Data.Vector as VB
 import qualified Data.Vector.Unboxed as VU
+import Mcmc.Acceptance
 import Mcmc.Algorithm.MHG
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
+import Mcmc.Cycle
 import Mcmc.Environment
 import Mcmc.Internal.Random
 import Mcmc.Likelihood
 import Mcmc.Logger
 import Mcmc.Mcmc
 import Mcmc.Monitor
-import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Directory
@@ -235,11 +236,11 @@ mlRun k xs em vb prf lhf cc mn i0 g = do
       vb' = case vb of
         Debug -> Debug
         _ -> Quiet
-      ssI = Settings nm biI (Iterations 0) em Sequential NoSave LogFileOnly vb'
-      ssP = Settings nm biP is em Sequential NoSave LogFileOnly vb'
       trLen = TraceMinimum $ fromIterations is
+      ssI = Settings nm biI (Iterations 0) trLen em Sequential NoSave LogFileOnly vb'
+      ssP = Settings nm biP is trLen em Sequential NoSave LogFileOnly vb'
   logDebugB "mlRun: Initialize MHG algorithm."
-  a0 <- liftIO $ mhg prf lhf cc mn trLen i0 g
+  a0 <- liftIO $ mhg ssI prf lhf cc mn i0 g
   logDebugS $ "mlRun: Perform initial burn in at first point " <> show x0 <> "."
   a1 <- sampleAtPoint x0 ssI lhf a0
   logDebugB "mlRun: Traverse points."

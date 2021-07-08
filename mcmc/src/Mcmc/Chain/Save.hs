@@ -27,15 +27,16 @@ import Control.Monad
 import Data.Aeson
 import Data.Aeson.TH
 import Data.List hiding (cycle)
-import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Stack.Circular as C
 import qualified Data.Vector as VB
 import qualified Data.Vector.Unboxed as VU
 import Data.Word
+import Mcmc.Acceptance
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
+import Mcmc.Cycle
 import Mcmc.Internal.Random
 import Mcmc.Monitor
 import Mcmc.Proposal
@@ -51,7 +52,7 @@ data SavedChain a = SavedChain
     savedTrace :: C.Stack VB.Vector (Link a),
     savedAcceptance :: Acceptance Int,
     savedSeed :: VU.Vector Word32,
-    savedTuningParameters :: [Maybe TuningParameter]
+    savedTuningParameters :: [Maybe (TuningParameter, VB.Vector Double)]
   }
   deriving (Eq, Read, Show)
 
@@ -68,7 +69,10 @@ toSavedChain (Chain ci it i tr ac g _ _ _ cc _) = do
   where
     ps = ccProposals cc
     ac' = transformKeysA ps [0 ..] ac
-    ts = [fmap tParam mt | mt <- map prTuner ps]
+    ts =
+      [ (\t -> (tGetTuningParameter t, tGetAuxiliaryParameters t)) <$> mt
+        | mt <- map prTuner ps
+      ]
 
 -- | Load a saved chain.
 --
@@ -100,13 +104,9 @@ fromSavedChain pr lh cc mn (SavedChain ci it i tr ac' g' ts)
     return $ Chain ci it i tr' ac g i pr lh cc' mn
   where
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
-    getTuningF mt = case mt of
-      Nothing -> const 1.0
-      Just t -> const t
-    cc' =
-      tuneCycle
-        ( M.map getTuningF $
-            M.fromList $
-              zip (ccProposals cc) ts
-        )
-        cc
+    tunePs mt p = case mt of
+      Nothing -> p
+      Just (x, xs) -> either (error . (<> err)) id $ tune x xs p
+    err = error "\nfromSavedChain: Proposal with stored tuning parameters is not tunable."
+    ps = ccProposals cc
+    cc' = cc {ccProposals = zipWith tunePs ts ps}

@@ -33,11 +33,14 @@ import Control.Monad.IO.Class
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Time
+import qualified Data.Vector as VB
+import Mcmc.Acceptance
 import Mcmc.Algorithm
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
+import Mcmc.Cycle
 import Mcmc.Monitor
 import Mcmc.Posterior
 import Mcmc.Proposal
@@ -69,15 +72,15 @@ instance ToJSON a => Algorithm (MHG a) where
 -- NOTE: Computation in the 'IO' Monad is necessary because the trace is
 -- mutable.
 mhg ::
+  Settings ->
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
   Monitor a ->
-  TraceLength ->
   InitialState a ->
   GenIO ->
   IO (MHG a)
-mhg pr lh cc mn trLen i0 g = do
+mhg s pr lh cc mn i0 g = do
   -- The trace is a mutable vector and the mutable state needs to be handled by
   -- a monad.
   tr <- replicateT traceLength l0
@@ -86,10 +89,14 @@ mhg pr lh cc mn trLen i0 g = do
     l0 = Link i0 (pr i0) (lh i0)
     ac = emptyA $ ccProposals cc
     batchMonitorSizes = map getMonitorBatchSize $ mBatches mn
-    minimumTraceLength = case trLen of
+    minimumTraceLength = case sTraceLength s of
       TraceAuto -> 1
       TraceMinimum n -> n
-    traceLength = maximum $ minimumTraceLength : batchMonitorSizes
+    bi = case sBurnIn s of
+      BurnInWithAutoTuning _ n -> n
+      BurnInWithCustomAutoTuning ns -> maximum ns
+      _ -> 0
+    traceLength = maximum $ minimumTraceLength : bi : batchMonitorSizes
 
 mhgFn :: AnalysisName -> FilePath
 mhgFn (AnalysisName nm) = nm ++ ".mcmc.mhg"
@@ -216,7 +223,7 @@ mhgPush (MHG c) = do
 -- At the moment this just checks whether the prior, likelihood, or posterior
 -- are NaN or infinite.
 mhgIsInValidState :: MHG a -> Bool
-mhgIsInValidState a = check p || check l || check (p*l)
+mhgIsInValidState a = check p || check l || check (p * l)
   where
     x = link $ fromMHG a
     p = prior x
@@ -237,8 +244,10 @@ mhgIterate _ a = do
     cc = cycle c
     g = generator c
 
-mhgAutoTune :: MHG a -> MHG a
-mhgAutoTune (MHG c) = MHG $ c {cycle = autoTuneCycle ac cc}
+mhgAutoTune :: Int -> MHG a -> IO (MHG a)
+mhgAutoTune n (MHG c) = do
+  tr <- VB.map state <$> takeT n (trace c)
+  return $ MHG $ c {cycle = autoTuneCycle ac tr cc}
   where
     ac = acceptance c
     cc = cycle c

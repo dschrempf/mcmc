@@ -142,13 +142,14 @@ main = do
           (AnalysisName "dirichlet")
           (BurnInWithCustomAutoTuning [100, 100, 200, 300, 400, 500, 500, 500, 500])
           (Iterations 10000)
+          TraceAuto
           Overwrite
           Parallel
           NoSave
           LogStdOutAndFile
           Info
   -- Initialize the Metropolis-Hastings-Green algorithm.
-  a <- mhg prf (lhf xs) cc mon TraceAuto start g
+  a <- mhg s prf (lhf xs) cc mon start g
   -- -- Metropolis-coupled Markov chain Monte Carlo algorithm.
   -- let mc3S = MC3Settings (NChains 3) (SwapPeriod 2) (NSwaps 1)
   -- a <- mc3 mc3S prf (lhf xs) cc mon TraceAuto start g

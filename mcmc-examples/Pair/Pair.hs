@@ -93,14 +93,15 @@ main = do
           analysisName
           (BurnInWithAutoTuning 50000 500)
           (Iterations 200000)
+          TraceAuto
           Overwrite
           Sequential
           Save
           LogStdOutAndFile
           Info
   -- Metropolis-Hastings-Green algorithm.
-  a <- mhg pr lh cc mon TraceAuto start g
+  a <- mhg mcmcS pr lh cc mon start g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
   -- let mc3S = MC3Settings (NChains 4) (SwapPeriod 1) (NSwaps 1)
-  -- a <- mc3 mc3S pr lh cc mon TraceAuto start g
+  -- a <- mc3 mc3S mcmcS pr lh cc mon TraceAuto start g
   void $ mcmc mcmcS a

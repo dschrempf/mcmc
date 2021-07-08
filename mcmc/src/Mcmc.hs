@@ -206,6 +206,7 @@ where
 import Mcmc.Algorithm.MC3
 import Mcmc.Algorithm.MHG
 import Mcmc.Chain.Chain
+import Mcmc.Cycle
 import Mcmc.Likelihood
 import Mcmc.MarginalLikelihood
 import Mcmc.Mcmc

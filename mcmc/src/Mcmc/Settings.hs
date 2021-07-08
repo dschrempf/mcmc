@@ -103,12 +103,23 @@ $(deriveJSON defaultOptions ''Iterations)
 --
 -- Be careful, this setting determines the memory requirement of the MCMC chain.
 data TraceLength
-  = -- | Automatically determine the length of the trace. The value is
-    -- determined by the 'Mcmc.Monitor.MonitorBatch' with largest batch size.
+  = -- | Automatically determine the minimum length of the trace. The value is
+    -- the maximum of used
+    --
+    -- - 'Mcmc.Monitor.MonitorBatch' sizes
+    --
+    -- - auto tune intervals during burn in
     TraceAuto
   | -- | Store a given minimum number of iterations of the chain. Store more
     --  iterations if required (see 'TraceAuto').
     TraceMinimum Int
+  deriving (Eq, Show)
+
+$(deriveJSON defaultOptions ''TraceLength)
+
+validTraceLength :: TraceLength -> Bool
+validTraceLength (TraceMinimum n) = n > 0
+validTraceLength _ = True
 
 -- | Execution mode.
 data ExecutionMode
@@ -199,6 +210,7 @@ data Settings = Settings
   { sAnalysisName :: AnalysisName,
     sBurnIn :: BurnInSettings,
     sIterations :: Iterations,
+    sTraceLength :: TraceLength,
     sExecutionMode :: ExecutionMode,
     sParallelizationMode :: ParallelizationMode,
     sSaveMode :: SaveMode,
@@ -270,13 +282,14 @@ settingsCheck ::
   -- | Current iteration.
   Int ->
   IO ()
-settingsCheck s@(Settings nm bi i em _ _ _ _) iCurrent
+settingsCheck s@(Settings nm bi i tl em _ _ _ _) iCurrent
   | null (fromAnalysisName nm) = serr "Analysis name is the empty string."
   | burnInIterations bi < 0 = serr "Number of burn in iterations is negative."
-  | not $ burnInValid bi = serr $ "Burn in setting invalid: " <> show bi
+  | not $ burnInValid bi = serr $ "Burn in setting invalid: " <> show bi <> "."
   | fromIterations i < 0 = serr "Number of iterations is negative."
   | burnInIterations bi + fromIterations i - iCurrent < 0 =
     serr "Current iteration is larger than the total number of iterations."
+  | not $ validTraceLength tl = serr $ "Trace length invalid: " <> show tl <> "."
   | iCurrent /= 0 && em /= Continue =
     serr "Current iteration is non-zero but execution mode is not 'Continue'."
   | iCurrent == 0 && em == Continue =

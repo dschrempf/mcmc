@@ -190,13 +190,14 @@ main = do
               analysisName
               (BurnInWithAutoTuning 4000 200)
               (Iterations 20000)
+              TraceAuto
               Overwrite
               Sequential
               Save
               LogStdOutAndFile
               Debug
       -- Initialize the Metropolis-Hastings-Green algorithm.
-      a <- mhg pr (lh meanTree stdDevTree) cc mon TraceAuto startingTree g
+      a <- mhg s pr (lh meanTree stdDevTree) cc mon startingTree g
       -- Run the MCMC sampler.
       void $ mcmc s a
     ["continue", nStr] -> do

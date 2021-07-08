@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -38,46 +37,20 @@ module Mcmc.Proposal
     tune,
     getOptimalRate,
 
-    -- * Cycles
-    Order (..),
-    Cycle (ccProposals),
-    cycleFromList,
-    setOrder,
-    prepareProposals,
-    tuneCycle,
-    autoTuneCycle,
-
-    -- * Acceptance rates
-    Acceptance (fromAcceptance),
-    emptyA,
-    pushA,
-    resetA,
-    transformKeysA,
-    acceptanceRate,
-    acceptanceRates,
-
     -- * Output
     proposalHeader,
-    proposalHLine,
     summarizeProposal,
-    summarizeCycle,
   )
 where
 
-import Control.DeepSeq
-import Data.Aeson
-import Data.Bifunctor
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Default
 import qualified Data.Double.Conversion.ByteString as BC
 import Data.Function
-import Data.List
-import qualified Data.Map.Strict as M
-import Data.Maybe
+import qualified Data.Vector as VB
 import Lens.Micro
+import Lens.Micro.Extras
 import Mcmc.Internal.ByteString
-import Mcmc.Internal.Shuffle
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
@@ -143,8 +116,8 @@ pWeight n
 data PDimension
   = PDimension Int
   | PDimensionUnknown
-  -- | Provide dimension ('Int') and desired acceptance rate ('Double').
-  | PSpecial Int Double
+  | -- | Provide dimension ('Int') and desired acceptance rate ('Double').
+    PSpecial Int Double
 
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability mass or probability density
@@ -201,21 +174,21 @@ type JacobianFunction a = a -> Jacobian
 
 -- | Lift a proposal from one data type to another.
 --
--- Assume the Jacobian is 1.0 (see also 'liftProposal' and 'liftProposalWith').
+-- Assume the Jacobian is 1.0.
 --
 -- For example:
 --
 -- @
 -- scaleFirstEntryOfTuple = _1 @~ scale
 -- @
+--
+-- See also 'liftProposal' and 'liftProposalWith'.
 infixl 7 @~
 
 (@~) :: Lens' b a -> Proposal a -> Proposal b
 (@~) = liftProposal
 
--- | Lift a proposal from one data type to another.
---
--- Assume the Jacobian is 1.0 (see also '(@~)' and 'liftProposalWith').
+-- | See '(@~)'.
 liftProposal :: Lens' b a -> Proposal a -> Proposal b
 liftProposal = liftProposalWith (const 1.0)
 
@@ -227,7 +200,8 @@ liftProposal = liftProposalWith (const 1.0)
 -- For further reference, please see the [example
 -- @Pair@](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Pair/Pair.hs).
 liftProposalWith :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
-liftProposalWith jf l (Proposal n r d w s t) = Proposal n r d w (convertProposalSimple jf l s) (convertTuner jf l <$> t)
+liftProposalWith jf l (Proposal n r d w s t) =
+  Proposal n r d w (liftProposalSimple jf l s) (liftTuner jf l <$> t)
 
 -- | Simple proposal without tuning information.
 --
@@ -249,8 +223,9 @@ liftProposalWith jf l (Proposal n r d w s t) = Proposal n r d w (convertProposal
 -- determinant of the Jacobian matrix differs from 1.0.
 type ProposalSimple a = a -> GenIO -> IO (a, KernelRatio, Jacobian)
 
-convertProposalSimple :: JacobianFunction b -> Lens' b a -> ProposalSimple a -> ProposalSimple b
-convertProposalSimple jf l s = s'
+-- Lift a simple proposal from one data type to another.
+liftProposalSimple :: JacobianFunction b -> Lens' b a -> ProposalSimple a -> ProposalSimple b
+liftProposalSimple jf l s = s'
   where
     s' y g = do
       (x', r, j) <- s (y ^. l) g
@@ -260,18 +235,33 @@ convertProposalSimple jf l s = s'
           j' = j * jyx / jxy
       return (y', r, j')
 
--- | Tune the acceptance rate of a 'Proposal'; see 'tune', or 'autoTuneCycle'.
+-- | Required information to tune 'Proposal's.
 data Tuner a = Tuner
-  { tParam :: TuningParameter,
-    tFunc :: TuningParameter -> ProposalSimple a
+  { tGetTuningParameter :: TuningParameter,
+    -- | Auxiliary tuning parameters; vector may be empty.
+    tGetAuxiliaryParameters :: VB.Vector TuningParameter,
+    -- | Instruction about how to extract the auxiliary tuning parameters from a
+    -- given trace.
+    tComputeAuxiliaryParameters :: VB.Vector a -> VB.Vector TuningParameter,
+    -- | Given the tuning parameter, and the auxiliary tuning parameters, get
+    -- the tuned simple proposal.
+    --
+    -- Should return 'Left' if the vector of auxiliary tuning parameters is
+    -- invalid.
+    tGetSimpleProposal ::
+      TuningParameter ->
+      VB.Vector TuningParameter ->
+      Either String (ProposalSimple a)
   }
 
-convertTuner :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
-convertTuner jf l (Tuner p f) = Tuner p f'
+-- Lift tuner from one data type to another.
+liftTuner :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
+liftTuner jf l (Tuner p ps f g) = Tuner p ps f' g'
   where
-    f' x = convertProposalSimple jf l $ f x
+    f' = f . VB.map (view l)
+    g' x xs = liftProposalSimple jf l <$> g x xs
 
--- | Tune the proposal?
+-- | Tune proposal?
 data Tune = Tune | NoTune
   deriving (Show, Eq)
 
@@ -281,7 +271,10 @@ data Tune = Tune | NoTune
 -- expected acceptance rate; and vice versa.
 type TuningParameter = Double
 
--- | Create a tuneable proposal.
+-- | Create a proposal with a single tuning parameter.
+--
+-- Proposals with arbitrary tuning parameters have to be created manually. See
+-- 'Tuner' for more information, and 'Mcmc.Proposal.Hamiltonian' for an example.
 createProposal ::
   -- | Description of the proposal type and parameters.
   PDescription ->
@@ -296,8 +289,12 @@ createProposal ::
   -- | Activate tuning?
   Tune ->
   Proposal a
-createProposal r f d n w Tune = Proposal n r d w (f 1.0) (Just $ Tuner 1.0 f)
-createProposal r f d n w NoTune = Proposal n r d w (f 1.0) Nothing
+createProposal r f d n w Tune =
+  Proposal n r d w (f 1.0) (Just tuner)
+  where
+    tuner = Tuner 1.0 VB.empty (const VB.empty) (\t _ -> Right $ f t)
+createProposal r f d n w NoTune =
+  Proposal n r d w (f 1.0) Nothing
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
 -- proposal with a large tuning parameter is not a problem. But then, if the
@@ -312,6 +309,7 @@ tuningParameterMin :: TuningParameter
 tuningParameterMin = 1e-5
 
 -- | Maximal tuning parameter; @1e3@, subject to change.
+--
 -- >>> tuningParameterMax
 -- 1e3
 tuningParameterMax :: TuningParameter
@@ -319,19 +317,27 @@ tuningParameterMax = 1e3
 
 -- | Tune a 'Proposal'.
 --
--- The size of the proposal is proportional to the tuning parameter which has a
--- positive lower bound of 'tuningParameterMin'.
+-- The size of the proposal is proportional to the tuning parameter which has
+-- positive lower and upper boundaries of 'tuningParameterMin' and
+-- 'tuningParameterMax', respectively.
 --
--- The tuning function maps the current tuning parameter to a new one.
+-- Auxiliary tuning parameters may also be used by the 'Tuner' of the proposal.
 --
--- Return 'Nothing' if 'Proposal' is not tuneable.
-tune :: (TuningParameter -> TuningParameter) -> Proposal a -> Maybe (Proposal a)
-tune f m = do
-  (Tuner t g) <- prTuner m
-  -- Ensure that the tuning parameter is strictly positive and well bounded.
-  let t' = max tuningParameterMin (f t)
-      t'' = min tuningParameterMax t'
-  return $ m {prSimple = g t'', prTuner = Just $ Tuner t'' g}
+-- Return 'Left' if:
+--
+-- - the 'Proposal' is not tuneable;
+--
+-- - the auxiliary tuning parameters are invalid.
+tune :: TuningParameter -> VB.Vector TuningParameter -> Proposal a -> Either String (Proposal a)
+tune t ts p = case prTuner p of
+  Nothing -> Left "tune: Proposal is not tunable."
+  Just (Tuner _ _ f g) ->
+    let t' = max tuningParameterMin t
+        t'' = min tuningParameterMax t'
+        psE = g t'' ts
+     in case psE of
+          Left err -> Left $ "tune: " <> err
+          Right ps -> Right $ p {prSimple = ps, prTuner = Just $ Tuner t'' ts f g}
 
 -- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double
@@ -354,129 +360,6 @@ rateMin = 0.1
 -- Warn if acceptance rate is larger.
 rateMax :: Double
 rateMax = 0.9
-
--- | Define the order in which 'Proposal's are executed in a 'Cycle'. The total
--- number of 'Proposal's per 'Cycle' may differ between 'Order's (e.g., compare
--- 'RandomO' and 'RandomReversibleO').
-data Order
-  = -- | Shuffle the 'Proposal's in the 'Cycle'. The 'Proposal's are replicated
-    -- according to their weights and executed in random order. If a 'Proposal' has
-    -- weight @w@, it is executed exactly @w@ times per iteration.
-    RandomO
-  | -- | The 'Proposal's are executed sequentially, in the order they appear in the
-    -- 'Cycle'. 'Proposal's with weight @w>1@ are repeated immediately @w@ times
-    -- (and not appended to the end of the list).
-    SequentialO
-  | -- | Similar to 'RandomO'. However, a reversed copy of the list of
-    --  shuffled 'Proposal's is appended such that the resulting Markov chain is
-    --  reversible.
-    --  Note: the total number of 'Proposal's executed per cycle is twice the number
-    --  of 'RandomO'.
-    RandomReversibleO
-  | -- | Similar to 'SequentialO'. However, a reversed copy of the list of
-    -- sequentially ordered 'Proposal's is appended such that the resulting Markov
-    -- chain is reversible.
-    SequentialReversibleO
-  deriving (Eq, Show)
-
-instance Default Order where def = RandomO
-
--- Describe the order.
-describeOrder :: Order -> BL.ByteString
-describeOrder RandomO = "The proposals are executed in random order."
-describeOrder SequentialO = "The proposals are executed sequentially."
-describeOrder RandomReversibleO =
-  BL.intercalate
-    "\n"
-    [ describeOrder RandomO,
-      "A reversed copy of the shuffled proposals is appended to ensure reversibility."
-    ]
-describeOrder SequentialReversibleO =
-  BL.intercalate
-    "\n"
-    [ describeOrder SequentialO,
-      "A reversed copy of the sequential proposals is appended to ensure reversibility."
-    ]
-
--- | In brief, a 'Cycle' is a list of proposals.
---
--- The state of the Markov chain will be logged only after all 'Proposal's in
--- the 'Cycle' have been completed, and the iteration counter will be increased
--- by one. The order in which the 'Proposal's are executed is specified by
--- 'Order'. The default is 'RandomO'.
---
--- No proposals with the same name and description are allowed in a 'Cycle', so
--- that they can be uniquely identified.
-data Cycle a = Cycle
-  { ccProposals :: [Proposal a],
-    ccOrder :: Order
-  }
-
--- | Create a 'Cycle' from a list of 'Proposal's.
-cycleFromList :: [Proposal a] -> Cycle a
-cycleFromList [] =
-  error "cycleFromList: Received an empty list but cannot create an empty Cycle."
-cycleFromList xs =
-  if length uniqueXs == length xs
-    then Cycle xs def
-    else error $ "\n" ++ msg ++ "cycleFromList: Proposals are not unique."
-  where
-    uniqueXs = nub xs
-    removedXs = xs \\ uniqueXs
-    removedNames = map (show . prName) removedXs
-    removedDescriptions = map (show . prDescription) removedXs
-    removedMsgs = zipWith (\n d -> n ++ " " ++ d) removedNames removedDescriptions
-    msg = unlines removedMsgs
-
--- | Set the order of 'Proposal's in a 'Cycle'.
-setOrder :: Order -> Cycle a -> Cycle a
-setOrder o c = c {ccOrder = o}
-
--- | Replicate 'Proposal's according to their weights and possibly shuffle them.
-prepareProposals :: Cycle a -> GenIO -> IO [Proposal a]
-prepareProposals (Cycle xs o) g = case o of
-  RandomO -> shuffle ps g
-  SequentialO -> return ps
-  RandomReversibleO -> do
-    psR <- shuffle ps g
-    return $ psR ++ reverse psR
-  SequentialReversibleO -> return $ ps ++ reverse ps
-  where
-    !ps = concat [replicate (fromPWeight $ prWeight p) p | p <- xs]
-
--- The number of proposals depends on the order.
-getNProposalsPerCycle :: Cycle a -> Int
-getNProposalsPerCycle (Cycle xs o) = case o of
-  RandomO -> once
-  SequentialO -> once
-  RandomReversibleO -> 2 * once
-  SequentialReversibleO -> 2 * once
-  where
-    once = sum $ map (fromPWeight . prWeight) xs
-
--- | Tune 'Proposal's in the 'Cycle'. See 'tune'.
-tuneCycle :: M.Map (Proposal a) (TuningParameter -> TuningParameter) -> Cycle a -> Cycle a
-tuneCycle m c =
-  if sort (M.keys m) == sort ps
-    then c {ccProposals = map tuneF ps}
-    else error "tuneCycle: Propoals in map and cycle do not match."
-  where
-    ps = ccProposals c
-    tuneF p = case m M.!? p of
-      Nothing -> p
-      Just f -> fromMaybe p (tune f p)
-
--- | Calculate acceptance rates and auto tune the 'Proposal's in the 'Cycle'. For
--- now, a 'Proposal' is enlarged when the acceptance rate is above 0.44, and
--- shrunk otherwise. Do not change 'Proposal's that are not tuneable.
-autoTuneCycle :: Acceptance (Proposal a) -> Cycle a -> Cycle a
-autoTuneCycle a = tuneCycle (M.mapWithKey tuningF $ acceptanceRates a)
-  where
-    tuningF proposal mCurrentRate currentTuningParam = case mCurrentRate of
-      Nothing -> currentTuningParam
-      Just currentRate ->
-        let optimalRate = getOptimalRate (prDimension proposal)
-         in exp (2 * (currentRate - optimalRate)) * currentTuningParam
 
 renderRow ::
   BL.ByteString ->
@@ -501,67 +384,6 @@ renderRow name ptype weight nAccept nReject acceptRate optimalRate tuneParam man
     tp = alignRight 20 tuneParam
     mt = alignRight 30 manualAdjustment
 
--- | For each key @k@, store the number of accepted and rejected proposals.
-newtype Acceptance k = Acceptance {fromAcceptance :: M.Map k (Int, Int)}
-  deriving (Eq, Read, Show)
-
-instance ToJSONKey k => ToJSON (Acceptance k) where
-  toJSON (Acceptance m) = toJSON m
-  toEncoding (Acceptance m) = toEncoding m
-
-instance (Ord k, FromJSONKey k) => FromJSON (Acceptance k) where
-  parseJSON v = Acceptance <$> parseJSON v
-
--- | In the beginning there was the Word.
---
--- Initialize an empty storage of accepted/rejected values.
-emptyA :: Ord k => [k] -> Acceptance k
-emptyA ks = Acceptance $ M.fromList [(k, (0, 0)) | k <- ks]
-
--- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
-pushA :: Ord k => k -> Bool -> Acceptance k -> Acceptance k
-pushA k True = Acceptance . M.adjust (force . first succ) k . fromAcceptance
-pushA k False = Acceptance . M.adjust (force . second succ) k . fromAcceptance
-{-# INLINEABLE pushA #-}
-
--- | Reset acceptance storage.
-resetA :: Ord k => Acceptance k -> Acceptance k
-resetA = emptyA . M.keys . fromAcceptance
-
-transformKeys :: (Ord k1, Ord k2) => [k1] -> [k2] -> M.Map k1 v -> M.Map k2 v
-transformKeys ks1 ks2 m = foldl' insrt M.empty $ zip ks1 ks2
-  where
-    insrt m' (k1, k2) = M.insert k2 (m M.! k1) m'
-
--- | Transform keys using the given lists. Keys not provided will not be present
--- in the new 'Acceptance' variable.
-transformKeysA :: (Ord k1, Ord k2) => [k1] -> [k2] -> Acceptance k1 -> Acceptance k2
-transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
-
--- | Acceptance counts and rate for a specific proposal.
---
--- Return 'Nothing' if no proposals have been accepted or rejected (division by
--- zero).
-acceptanceRate :: Ord k => k -> Acceptance k -> Maybe (Int, Int, Double)
-acceptanceRate k a = case fromAcceptance a M.!? k of
-  Just (0, 0) -> Nothing
-  Just (as, rs) -> Just (as, rs, fromIntegral as / fromIntegral (as + rs))
-  Nothing -> error "acceptanceRate: Key not found in map."
-
--- | Acceptance rates for all proposals.
---
--- Set rate to 'Nothing' if no proposals have been accepted or rejected
--- (division by zero).
-acceptanceRates :: Acceptance k -> M.Map k (Maybe Double)
-acceptanceRates =
-  M.map
-    ( \(as, rs) ->
-        if as + rs == 0
-          then Nothing
-          else Just $ fromIntegral as / fromIntegral (as + rs)
-    )
-    . fromAcceptance
-
 -- | Header of proposal summaries.
 proposalHeader :: BL.ByteString
 proposalHeader =
@@ -575,10 +397,6 @@ proposalHeader =
     "Optimal rate"
     "Tuning parameter"
     "Consider manual adjustment"
-
--- | Horizontal line of proposal summaries.
-proposalHLine :: BL.ByteString
-proposalHLine = BL.replicate (BL.length proposalHeader) '-'
 
 -- | Proposal summary.
 summarizeProposal ::
@@ -623,32 +441,3 @@ summarizeProposal name description weight tuningParameter dimension ar =
             (Nothing, Nothing) -> ""
             (Just s, _) -> s
             (_, Just s) -> s
-
--- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance rates.
-summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> BL.ByteString
-summarizeCycle a c =
-  BL.intercalate "\n" $
-    [ "Summary of proposal(s) in cycle.",
-      nProposalsFullStr,
-      describeOrder (ccOrder c),
-      proposalHeader,
-      proposalHLine
-    ]
-      ++ [ summarizeProposal
-             (prName p)
-             (prDescription p)
-             (prWeight p)
-             (tParam <$> prTuner p)
-             (prDimension p)
-             (ar p)
-           | p <- ps
-         ]
-      ++ [proposalHLine]
-  where
-    ps = ccProposals c
-    nProposals = getNProposalsPerCycle c
-    nProposalsStr = BB.toLazyByteString $ BB.intDec nProposals
-    nProposalsFullStr = case nProposals of
-      1 -> nProposalsStr <> " proposal is performed per iteration."
-      _ -> nProposalsStr <> " proposals are performed per iterations."
-    ar m = acceptanceRate m a

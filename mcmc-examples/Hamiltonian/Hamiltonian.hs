@@ -88,10 +88,11 @@ main = do
           (AnalysisName "hamiltonian")
           (BurnInWithCustomAutoTuning ([10,20..200] ++ [400,600]))
           (Iterations 10000)
+          TraceAuto
           Overwrite
           Sequential
           Save
           LogStdOutAndFile
           Debug
-  a <- mhg prf lhfI cc mon TraceAuto initialState g
+  a <- mhg s prf lhfI cc mon initialState g
   void $ mcmc s a

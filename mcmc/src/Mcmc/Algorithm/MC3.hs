@@ -62,13 +62,14 @@ import Data.Time
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 import Data.Word
--- import Debug.Trace hiding (trace)
+import Mcmc.Acceptance
 import Mcmc.Algorithm
 import Mcmc.Algorithm.MHG
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Link
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
+import Mcmc.Cycle
 import Mcmc.Internal.Random
 import Mcmc.Internal.Shuffle
 import Mcmc.Monitor
@@ -275,28 +276,28 @@ initMHG prf lhf i beta a
 -- - The swap period is zero or negative.
 mc3 ::
   MC3Settings ->
+  Settings ->
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
   Monitor a ->
-  TraceLength ->
   InitialState a ->
   GenIO ->
   IO (MC3 a)
-mc3 s pr lh cc mn tr i0 g
+mc3 sMc3 s pr lh cc mn i0 g
   | n < 2 = error "mc3: The number of chains must be two or larger."
   | sp < 1 = error "mc3: The swap period must be strictly positive."
   | sn < 1 || sn > n - 1 = error "mc3: The number of swaps must be in [1, NChains - 1]."
   | otherwise = do
     -- Split random number generators.
     gs <- V.fromList <$> splitGen n g
-    cs <- V.mapM (mhg pr lh cc mn tr i0) gs
+    cs <- V.mapM (mhg s pr lh cc mn i0) gs
     hcs <- V.izipWithM (initMHG pr lh) (V.convert bs) cs
-    return $ MC3 s hcs bs 0 (emptyA [0 .. n - 2]) g
+    return $ MC3 sMc3 hcs bs 0 (emptyA [0 .. n - 2]) g
   where
-    n = fromNChains $ mc3NChains s
-    sp = fromSwapPeriod $ mc3SwapPeriod s
-    sn = fromNSwaps $ mc3NSwaps s
+    n = fromNChains $ mc3NChains sMc3
+    sp = fromSwapPeriod $ mc3SwapPeriod sMc3
+    sn = fromNSwaps $ mc3NSwaps sMc3
     -- NOTE: The initial choice of reciprocal temperatures is based on a few
     -- tests but otherwise pretty arbitrary.
     --
@@ -472,41 +473,40 @@ tuneBeta bsOld i xi bsNew = bsNew U.// [(j, brNew)]
     rNew = (brOld / blOld) ** xi
     brNew = blNew * rNew
 
-mc3AutoTune :: ToJSON a => MC3 a -> MC3 a
-mc3AutoTune a = a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
-  where
-    mhgs = mc3MHGChains a
-    -- 1. Auto tune all chains.
-    mhgs' = V.map aAutoTune mhgs
-    -- 2. Auto tune temperatures.
-    optimalRate = getOptimalRate PDimensionUnknown
-    mCurrentRates = acceptanceRates $ mc3SwapAcceptance a
-    -- We assume that the acceptance rate of state swaps between two chains is
-    -- roughly proportional to the ratio of the temperatures of the chains.
-    -- Hence, we focus on temperature ratios, actually reciprocal temperature
-    -- ratios, which is the same. Also, by working with ratios in (0,1) of
-    -- neighboring chains, we ensure the monotonicity of the reciprocal
-    -- temperatures.
-    --
-    -- The factor (1/2) was determined by a few tests and is otherwise
-    -- absolutely arbitrary.
-    xi i = case mCurrentRates M.! i of
-      Nothing -> 1.0
-      Just currentRate -> exp $ (/ 2) $ currentRate - optimalRate
-    bs = mc3ReciprocalTemperatures a
-    n = fromNChains $ mc3NChains $ mc3Settings a
-    -- Do not change the temperature, and the prior and likelihood functions of
-    -- the cold chain.
-    bs' = foldl' (\xs j -> tuneBeta bs j (xi j) xs) bs [0 .. n - 2]
-    coldChain = fromMHG $ V.head mhgs'
-    coldPrF = priorFunction coldChain
-    coldLhF = likelihoodFunction coldChain
-    mhgs'' =
-      V.head mhgs'
-        `V.cons` V.zipWith
-          (setReciprocalTemperature coldPrF coldLhF)
-          (V.convert $ U.tail bs')
-          (V.tail mhgs')
+mc3AutoTune :: ToJSON a => Int -> MC3 a -> IO (MC3 a)
+mc3AutoTune l a = do
+  -- 1. Auto tune all chains.
+  mhgs' <- V.mapM (aAutoTune l) $ mc3MHGChains a
+  -- 2. Auto tune temperatures.
+  let optimalRate = getOptimalRate PDimensionUnknown
+      mCurrentRates = acceptanceRates $ mc3SwapAcceptance a
+      -- We assume that the acceptance rate of state swaps between two chains is
+      -- roughly proportional to the ratio of the temperatures of the chains.
+      -- Hence, we focus on temperature ratios, actually reciprocal temperature
+      -- ratios, which is the same. Also, by working with ratios in (0,1) of
+      -- neighboring chains, we ensure the monotonicity of the reciprocal
+      -- temperatures.
+      --
+      -- The factor (1/2) was determined by a few tests and is otherwise
+      -- absolutely arbitrary.
+      xi i = case mCurrentRates M.! i of
+        Nothing -> 1.0
+        Just currentRate -> exp $ (/ 2) $ currentRate - optimalRate
+      bs = mc3ReciprocalTemperatures a
+      n = fromNChains $ mc3NChains $ mc3Settings a
+      -- Do not change the temperature, and the prior and likelihood functions of
+      -- the cold chain.
+      bs' = foldl' (\xs j -> tuneBeta bs j (xi j) xs) bs [0 .. n - 2]
+      coldChain = fromMHG $ V.head mhgs'
+      coldPrF = priorFunction coldChain
+      coldLhF = likelihoodFunction coldChain
+      mhgs'' =
+        V.head mhgs'
+          `V.cons` V.zipWith
+            (setReciprocalTemperature coldPrF coldLhF)
+            (V.convert $ U.tail bs')
+            (V.tail mhgs')
+  return $ a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
 
 mc3ResetAcceptance :: ToJSON a => MC3 a -> MC3 a
 mc3ResetAcceptance a = a'

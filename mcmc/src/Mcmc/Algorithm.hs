@@ -33,8 +33,11 @@ class Algorithm a where
   -- | Sample the next state.
   aIterate :: ParallelizationMode -> a -> IO a
 
-  -- | Auto tune all proposals.
-  aAutoTune :: a -> a
+  -- | Auto tune all proposals over the last N iterations.
+  --
+  -- NOTE: Computation in the 'IO' Monad is necessary because the trace is
+  -- mutable.
+  aAutoTune :: Int -> a -> IO a
 
   -- | Reset acceptance counts.
   aResetAcceptance :: a -> a

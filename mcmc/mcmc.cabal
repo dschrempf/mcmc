@@ -40,12 +40,14 @@ library
   import: lib
   exposed-modules:
       Mcmc
+      Mcmc.Acceptance
       Mcmc.Algorithm
       Mcmc.Algorithm.MC3
       Mcmc.Algorithm.MHG
       Mcmc.Chain.Chain
       Mcmc.Chain.Link Mcmc.Chain.Save
       Mcmc.Chain.Trace
+      Mcmc.Cycle
       Mcmc.Environment
       Mcmc.Likelihood
       Mcmc.Logger

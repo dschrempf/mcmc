@@ -98,13 +98,14 @@ main = do
           (AnalysisName "archery")
           (BurnInWithAutoTuning 200000 10000)
           (Iterations 1000000)
+          TraceAuto
           Overwrite
           Sequential
           Save
           LogStdOutAndFile
           Info
   -- Use the Metropolis-Hastings-Green (MHG) algorithm.
-  a <- mhg pr (lh xs) cc mon TraceAuto 0.01 g
+  a <- mhg s pr (lh xs) cc mon 0.01 g
   -- Run the MCMC sampler.
   void $ mcmc s a
   -- Marginal likelihood estimation.

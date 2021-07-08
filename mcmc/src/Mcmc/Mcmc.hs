@@ -137,23 +137,23 @@ mcmcBurnIn a = do
       return a'
 
 -- Auto tune the proposals.
-mcmcAutotune :: Algorithm a => a -> MCMC a
-mcmcAutotune a = do
+mcmcAutotune :: Algorithm a => Int -> a -> MCMC a
+mcmcAutotune n a = do
   logDebugB "Auto tune."
-  return $ aAutoTune a
+  liftIO $ aAutoTune n a
 
 mcmcBurnInWithAutoTuning :: Algorithm a => [Int] -> a -> MCMC a
 mcmcBurnInWithAutoTuning [] _ = error "mcmcBurnInWithAutoTuning: Empty lisst."
 mcmcBurnInWithAutoTuning [x] a = do
   -- Last round.
   a' <- mcmcIterate x a
-  a'' <- mcmcAutotune a'
+  a'' <- mcmcAutotune x a'
   logInfoB $ aSummarizeCycle a''
   logInfoS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   mcmcResetAcceptance a''
 mcmcBurnInWithAutoTuning (x:xs) a = do
   a' <- mcmcIterate x a
-  a'' <- mcmcAutotune a'
+  a'' <- mcmcAutotune x a'
   logDebugB $ aSummarizeCycle a''
   logDebugS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   logDebugB $ aStdMonitorHeader a''
