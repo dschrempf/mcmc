@@ -44,7 +44,16 @@ import Statistics.Distribution.Normal
 import System.Random.MWC
 
 -- TODO: Estimate masses (basically inverse variances) from a given sample of
--- the posterior (remove burn in).
+-- the posterior.
+--
+-- The prerequisites are done, proposals can now be tuned using the trace.
+--
+-- Questions:
+--
+-- - Do we alternate tuning of the proposal masses and of the proposal size
+--   or do we tune both at the same time?
+--
+-- - Do we allow specification of when the masses should be tuned, and when not?
 
 -- TODO: At the moment, the HMC proposal is agnostic of the posterior function.
 -- This means, that it cannot know when it reaches a point with zero posterior
