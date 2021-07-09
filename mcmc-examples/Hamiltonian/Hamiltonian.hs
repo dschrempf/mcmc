@@ -17,8 +17,10 @@ module Main
 where
 
 import Control.Applicative
+import Control.Lens
 import Control.Monad
 import Data.Aeson
+import Data.Foldable
 import Mcmc
 import Numeric.AD (grad)
 import System.Random.MWC hiding (uniform)
@@ -29,36 +31,52 @@ instance ToJSON a => ToJSON (ZipList a)
 
 instance FromJSON a => FromJSON (ZipList a)
 
-logRosenbrock :: RealFloat a => a -> a -> [a] -> a
-logRosenbrock a b [x, y] = log $ (a - x) ** 2 + b * ((y - x * x) ** 2)
-logRosenbrock _ _ _ = error "lhf: Number of parameters has changed."
+-- The Rosenbrock function is really hard to estimate. It works somewhat, but
+-- the example is a little bit frustrating.
 
-lrb :: RealFloat a => [a] -> a
-lrb = logRosenbrock 1 100
+-- logRosenbrock :: RealFloat a => a -> a -> [a] -> a
+-- logRosenbrock a b [x, y] = log $ (a - x) ** 2 + b * ((y - x * x) ** 2)
+-- logRosenbrock _ _ _ = error "lhf: Number of parameters has changed."
+
+logGauss1 :: RealFloat a => a -> a -> a
+logGauss1 s x = log (recip $ s * sqrt (2 * pi)) - 0.5 * x * x / s / s
+
+logGaussN :: RealFloat a => [a] -> [a] -> a
+logGaussN ss xs = foldl' (+) 0.0 (zipWith logGauss1 ss xs)
+
+standardDeviations :: (Enum a, RealFloat a) => [a]
+standardDeviations = [0.02, 0.04 .. 1.0] ++ [2, 4 .. 100]
+
+dimension :: Int
+dimension = length (standardDeviations :: [Double])
+
+llhf :: (RealFloat a, Enum a) => [a] -> a
+llhf = logGaussN standardDeviations
 
 gradient :: [Double] -> [Double]
-gradient = grad lrb
+gradient = grad llhf
 
 prf :: PriorFunction I
-prf (ZipList [x, y]) = uniform (-2) 2 x * uniform (-1) 3 y
-prf _ = error "prf: Number of parameters has changed."
+prf _ = 1.0
+-- prf (ZipList [x, y]) = uniform (-2) 2 x * uniform (-1) 3 y
+-- prf _ = error "prf: Number of parameters has changed."
 
 -- The Likelihood function on I is less general, and does not allow for
 -- automatic differentiation.
 lhfI :: LikelihoodFunction I
-lhfI = Exp . lrb . getZipList
+lhfI = Exp . llhf . getZipList
 
 gradientI :: I -> I
 gradientI = ZipList . gradient . getZipList
 
 masses :: I
-masses = ZipList [3, 6]
+masses = ZipList $ replicate dimension 1
 
 hmcSettings :: HmcSettings ZipList
-hmcSettings = HmcSettings gradientI masses 10 0.02 HmcTuneMassesAndLeapfrog
+hmcSettings = HmcSettings gradientI masses 10 0.1 HmcTuneMassesAndLeapfrog
 
 initialState :: I
-initialState = ZipList [1.1, 0.9]
+initialState = ZipList $ replicate dimension 1
 
 hmcProposal :: Proposal I
 hmcProposal = hmc initialState hmcSettings n w
@@ -71,22 +89,25 @@ cc =
   cycleFromList [hmcProposal]
 
 monPs :: [MonitorParameter I]
-monPs = [head . getZipList >$< monitorDouble "x", head . tail . getZipList >$< monitorDouble "y"]
+monPs = [(view (singular (ix i)) . getZipList) >$< monitorDouble (n i) | i <- [0 .. (dimension -1)]]
+  where
+    n j = show j
 
 mon :: Monitor I
 mon =
   Monitor
-    (monitorStdOut monPs 10)
+    (monitorStdOut (take 4 monPs) 10)
     [monitorFile "params" monPs 2]
     []
 
 main :: IO ()
 main = do
+  putStrLn $ "The dimension is: " <> show dimension <> "."
   g <- create
   let s =
         Settings
           (AnalysisName "hamiltonian")
-          (BurnInWithCustomAutoTuning ([10,20..200] ++ [400,600]))
+          (BurnInWithCustomAutoTuning ([10, 20 .. 250] ++ [500, 500, 500]))
           (Iterations 10000)
           TraceAuto
           Overwrite

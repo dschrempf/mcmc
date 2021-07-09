@@ -40,7 +40,6 @@ import Data.Foldable
 import qualified Data.Matrix as M
 import Data.Traversable
 import qualified Data.Vector as VB
-import Debug.Trace
 import Mcmc.Prior
 import Mcmc.Proposal
 import Numeric.Log
@@ -101,7 +100,7 @@ type Masses f = f Double
 -- NOTE: To avoid errors, the left bound has an additional hard minimum of 1,
 -- and the right bound is required to be larger equal than the left bound.
 --
--- Usually set to 10.
+-- Usually set to 10, but larger values may be desirable.
 type LeapfrogTrajectoryLength = Int
 
 -- | Mean of leapfrog scaling factor \(\epsilon\).
@@ -175,7 +174,7 @@ generateMomenta ::
   IO (Momenta f)
 generateMomenta masses gen = traverse (generateWith gen) masses
   where
-    generateWith g m = let d = normalDistr 0 m in genContVar d g
+    generateWith g m = let d = normalDistr 0 (sqrt m) in genContVar d g
 
 priorMomenta ::
   (Applicative f, Foldable f) =>
@@ -184,7 +183,7 @@ priorMomenta ::
   Prior
 priorMomenta masses phi = foldl' (*) 1.0 $ f <$> masses <*> phi
   where
-    f m p = let d = normalDistr 0 m in Exp $ logDensity d p
+    f m p = let d = normalDistr 0 (sqrt m) in Exp $ logDensity d p
 
 leapfrog ::
   Applicative f =>
@@ -289,8 +288,9 @@ hmcTuningParametersToSettings t ts (HmcSettings g m l e tn) =
     -- The larger epsilon, the larger the proposal step size and the lower the
     -- expected acceptance ratio.
     --
-    -- Further, we keep \( L * \epsilon = 1.0 \).
-    lTuned = ceiling $ fromIntegral l / t :: Int
+    -- Further, we roughly keep \( L * \epsilon = 1.0 \). The equation is not
+    -- correct, because we pull L closer to the original value.
+    lTuned = ceiling $ fromIntegral l / (t ** 0.8) :: Int
     eTuned = t * e
 
 hmcSimpleWithTuningParameters ::
@@ -346,7 +346,7 @@ computeAuxiliaryTuningParameters xss ts =
   where
     -- TODO: Improve matrix transposition.
     xssT = VB.fromList $ M.toColumns $ M.fromLists $ VB.toList $ VB.map toList xss
-    calcSamplesAndVariance xs = (traceShowId $ VB.length $ VB.uniq $ S.gsort xs, S.variance xs)
+    calcSamplesAndVariance xs = (VB.length $ VB.uniq $ S.gsort xs, S.variance xs)
     rescueWith t (sampleSize, var) =
       if var < minVariance || maxVariance < var || sampleSize < minSamples
         -- then traceShow ("Rescue with " <> show t) t

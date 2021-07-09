@@ -97,6 +97,7 @@ executable hamiltonian
       ad
     , aeson
     , base
+    , lens
     , mcmc
     , mwc-random
 
