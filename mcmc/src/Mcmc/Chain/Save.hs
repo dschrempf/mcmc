@@ -52,7 +52,7 @@ data SavedChain a = SavedChain
     savedTrace :: C.Stack VB.Vector (Link a),
     savedAcceptance :: Acceptance Int,
     savedSeed :: VU.Vector Word32,
-    savedTuningParameters :: [Maybe (TuningParameter, VB.Vector Double)]
+    savedTuningParameters :: [Maybe (TuningParameter, AuxiliaryTuningParameters)]
   }
   deriving (Eq, Read, Show)
 
@@ -70,7 +70,7 @@ toSavedChain (Chain ci it i tr ac g _ _ _ cc _) = do
     ps = ccProposals cc
     ac' = transformKeysA ps [0 ..] ac
     ts =
-      [ (\t -> (tGetTuningParameter t, tGetAuxiliaryParameters t)) <$> mt
+      [ (\t -> (tGetTuningParameter t, tGetAuxiliaryTuningParameters t)) <$> mt
         | mt <- map prTuner ps
       ]
 
@@ -106,7 +106,7 @@ fromSavedChain pr lh cc mn (SavedChain ci it i tr ac' g' ts)
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
     tunePs mt p = case mt of
       Nothing -> p
-      Just (x, xs) -> either (error . (<> err)) id $ tune x xs p
+      Just (x, xs) -> either (error . (<> err)) id $ tuneWithTuningParameters x xs p
     err = error "\nfromSavedChain: Proposal with stored tuning parameters is not tunable."
     ps = ccProposals cc
     cc' = cc {ccProposals = zipWith tunePs ts ps}

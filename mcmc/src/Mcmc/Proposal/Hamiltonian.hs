@@ -36,6 +36,8 @@ module Mcmc.Proposal.Hamiltonian
 where
 
 import Data.Foldable
+import Data.Traversable
+import qualified Data.Vector as VB
 import Mcmc.Prior
 import Mcmc.Proposal
 import Numeric.Log
@@ -231,29 +233,32 @@ leapfrogStepPositions eps masses theta phi = theta .+. (mScaledReversed .*. phi)
 (.*.) :: Applicative f => f Double -> f Double -> f Double
 (.*.) xs ys = (*) <$> xs <*> ys
 
-hmcSimpleWith ::
-  (Applicative f, Traversable f, Show (f Double)) =>
-  HmcSettings f ->
-  TuningParameter ->
-  Positions f ->
-  GenIO ->
-  IO (Positions f, KernelRatio, Jacobian)
-hmcSimpleWith s t theta g = do
-  phi <- generateMomenta masses g
-  lTunedRandomized <- uniformR (lLeft, lRight) g
-  epsTunedRandomized <- uniformR (epsLeft, epsRight) g
-  let (theta', phi') = leapfrog lTunedRandomized epsTunedRandomized masses gradient theta phi
-      prPhi = priorMomenta masses phi
-      -- NOTE: Neal page 12: In order for the proposal to be in detailed
-      -- balance, the momenta have to be negated before proposing the new value.
-      -- This is not required here since the prior involves normal distributions
-      -- centered around 0. However, if the multivariate normal distribution is
-      -- used, it makes a difference.
-      prPhi' = priorMomenta masses phi'
-      kernelR = prPhi' / prPhi
-  return (theta', kernelR, 1.0)
+-- TODO: The tuning stuff is all a little ugly. Can we improve on that?
+
+massesToTuningParameters :: Foldable f => Masses f -> AuxiliaryTuningParameters
+massesToTuningParameters = VB.fromList . toList
+
+-- We need the structure in order to fill it with the given parameters.
+tuningParametersToMasses :: Traversable f => AuxiliaryTuningParameters -> Masses f -> Either String (Masses f)
+tuningParametersToMasses xs ms =
+  if null xs'
+    then sequenceA msE
+    else Left "tuningParametersToMasses: Too many values."
   where
-    l = hmcLeapfrogTrajectoryLength s
+    (xs', msE) = mapAccumL setValue (VB.toList xs) ms
+    setValue [] _ = ([], Left "tuningParametersToMasses: Too few values.")
+    setValue (y : ys) _ = (ys, Right y)
+
+hmcTuningParametersToSettings ::
+  Traversable f =>
+  TuningParameter ->
+  AuxiliaryTuningParameters ->
+  HmcSettings f ->
+  Either String (HmcSettings f)
+hmcTuningParametersToSettings t ts (HmcSettings g m l e) = case tuningParametersToMasses ts m of
+  Left err -> Left err
+  Right m' -> Right $ HmcSettings g m' lTuned eTuned
+  where
     -- The larger epsilon, the larger the proposal step size and the lower the
     -- expected acceptance ratio.
     --
@@ -264,13 +269,48 @@ hmcSimpleWith s t theta g = do
     --
     lTuned = ceiling $ fromIntegral l / t :: Int
     -- lTuned = l
-    lLeft = maximum [1 :: Int, floor $ (0.8 :: Double) * fromIntegral lTuned]
-    lRight = maximum [lLeft, ceiling $ (1.2 :: Double) * fromIntegral lTuned]
-    epsTuned = t * hmcLeapfrogScalingFactor s
-    epsLeft = 0.8 * epsTuned
-    epsRight = 1.2 * epsTuned
-    masses = hmcMasses s
-    gradient = hmcGradient s
+    eTuned = t * e
+
+hmcSimpleWith ::
+  (Applicative f, Traversable f, Show (f Double)) =>
+  HmcSettings f ->
+  TuningParameter ->
+  AuxiliaryTuningParameters ->
+  Either String (ProposalSimple (Positions f))
+hmcSimpleWith s t ts = case hmcTuningParametersToSettings t ts s of
+  Left err -> Left err
+  Right s' -> Right $ hmcSimple s'
+
+hmcSimple ::
+  (Applicative f, Traversable f, Show (f Double)) =>
+  HmcSettings f ->
+  ProposalSimple (Positions f)
+hmcSimple (HmcSettings gradient masses l e) theta g = do
+  phi <- generateMomenta masses g
+  lRan <- uniformR (lL, lR) g
+  eRan <- uniformR (eL, eR) g
+  let (theta', phi') = leapfrog lRan eRan masses gradient theta phi
+      prPhi = priorMomenta masses phi
+      -- NOTE: Neal page 12: In order for the proposal to be in detailed
+      -- balance, the momenta have to be negated before proposing the new value.
+      -- This is not required here since the prior involves normal distributions
+      -- centered around 0. However, if the multivariate normal distribution is
+      -- used, it makes a difference.
+      prPhi' = priorMomenta masses phi'
+      kernelR = prPhi' / prPhi
+  return (theta', kernelR, 1.0)
+  where
+    lL = maximum [1 :: Int, floor $ (0.8 :: Double) * fromIntegral l]
+    lR = maximum [lL, ceiling $ (1.2 :: Double) * fromIntegral l]
+    eL = 0.8 * e
+    eR = 1.2 * e
+
+-- TODO.
+computeAuxiliaryTuningParameters ::
+  VB.Vector (Positions f) ->
+  AuxiliaryTuningParameters ->
+  AuxiliaryTuningParameters
+computeAuxiliaryTuningParameters = undefined
 
 -- | Hamiltonian Monte Carlo proposal.
 --
@@ -278,6 +318,16 @@ hmcSimpleWith s t theta g = do
 -- operations.
 --
 -- Assume a zip-like 'Applicative' instance.
+--
+-- This is a special proposal because:
+--
+-- - the desired acceptance rate is 0.65, although the dimension of the proposal
+-- - is high;
+--
+-- - the speed of this proposal can change drastically when tuned because the
+-- - leapfrog trajectory length is changed;
+--
+-- - tuning also involves recalculation of the masses.
 hmc ::
   (Applicative f, Traversable f, Show (f Double)) =>
   -- | The sample state is used to calculate the dimension of the proposal.
@@ -287,9 +337,22 @@ hmc ::
   PWeight ->
   Tune ->
   Proposal (f Double)
-hmc x s = case checkHmcSettings s of
+hmc x s n w t = case checkHmcSettings s of
   Just err -> error err
-  Nothing -> createProposal hmcDescription (hmcSimpleWith s) d
-  where
-    hmcDescription = PDescription "Hamiltonian Monte Carlo (HMC)"
-    d = PSpecial (length x) 0.65
+  Nothing ->
+    let desc = PDescription "Hamiltonian Monte Carlo (HMC)"
+        dim = PDimension (length x)
+        ts = massesToTuningParameters (hmcMasses s)
+        -- NOTE: This error should never trigger since:
+        --
+        -- @massesToTuningParameters . tuningParametersToMasses == id@
+        --
+        -- But who knows :).
+        ps = either (error . ("hmc: " <>)) id $ hmcSimpleWith s 1.0 ts
+        p' = Proposal n desc dim w ps
+        fT = defaultTuningFunction 0.65
+        fTs = computeAuxiliaryTuningParameters
+        tnr = Tuner 1.0 fT ts fTs (hmcSimpleWith s)
+     in case t of
+          NoTune -> p' Nothing
+          Tune -> p' (Just tnr)

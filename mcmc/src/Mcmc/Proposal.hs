@@ -30,11 +30,14 @@ module Mcmc.Proposal
     ProposalSimple,
     Tuner (..),
     Tune (..),
+    defaultTuningFunction,
     createProposal,
     TuningParameter,
+    AuxiliaryTuningParameters,
     tuningParameterMin,
     tuningParameterMax,
-    tune,
+    tuneWithTuningParameters,
+    tuneWithChainParameters,
     getOptimalRate,
 
     -- * Output
@@ -50,6 +53,7 @@ import Data.Function
 import qualified Data.Vector as VB
 import Lens.Micro
 import Lens.Micro.Extras
+import Mcmc.Acceptance
 import Mcmc.Internal.ByteString
 import Numeric.Log hiding (sum)
 import System.Random.MWC
@@ -108,16 +112,9 @@ pWeight n
 --
 -- Moreover, proposals of unknown dimension are assumed to have high dimension,
 -- and the optimal acceptance rate 0.234 is used.
---
--- Finally, special proposals may have completely different desired acceptance
--- rates. For example. the Hamiltonian Monte Carlo proposal (see
--- Mcmc.Proposal.Hamiltonian.hmc) has a desired acceptance rate of 0.65.
--- Specific acceptance rates can be set with 'PSpecial'.
 data PDimension
   = PDimension Int
   | PDimensionUnknown
-  | -- | Provide dimension ('Int') and desired acceptance rate ('Double').
-    PSpecial Int Double
 
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability mass or probability density
@@ -238,11 +235,16 @@ liftProposalSimple jf l s = s'
 -- | Required information to tune 'Proposal's.
 data Tuner a = Tuner
   { tGetTuningParameter :: TuningParameter,
-    -- | Auxiliary tuning parameters; vector may be empty.
-    tGetAuxiliaryParameters :: VB.Vector TuningParameter,
-    -- | Instruction about how to extract the auxiliary tuning parameters from a
-    -- given trace.
-    tComputeAuxiliaryParameters :: VB.Vector a -> VB.Vector TuningParameter,
+    -- | Instruction about how to compute new tuning parameter from a given
+    -- acceptance rate and the old tuning parameter.
+    tComputeTuningParameter :: AcceptanceRate -> TuningParameter -> TuningParameter,
+    tGetAuxiliaryTuningParameters :: AuxiliaryTuningParameters,
+    -- | Instruction about how to compute new auxiliary tuning parameters from a
+    -- given trace and the old auxiliary tuning parameters.
+    tComputeAuxiliaryTuningParameters ::
+      VB.Vector a ->
+      AuxiliaryTuningParameters ->
+      AuxiliaryTuningParameters,
     -- | Given the tuning parameter, and the auxiliary tuning parameters, get
     -- the tuned simple proposal.
     --
@@ -250,15 +252,15 @@ data Tuner a = Tuner
     -- invalid.
     tGetSimpleProposal ::
       TuningParameter ->
-      VB.Vector TuningParameter ->
+      AuxiliaryTuningParameters ->
       Either String (ProposalSimple a)
   }
 
 -- Lift tuner from one data type to another.
 liftTuner :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
-liftTuner jf l (Tuner p ps f g) = Tuner p ps f' g'
+liftTuner jf l (Tuner p fP ps fPs g) = Tuner p fP ps fPs' g'
   where
-    f' = f . VB.map (view l)
+    fPs' = fPs . VB.map (view l)
     g' x xs = liftProposalSimple jf l <$> g x xs
 
 -- | Tune proposal?
@@ -270,6 +272,23 @@ data Tune = Tune | NoTune
 --  The larger the tuning parameter, the larger the proposal and the lower the
 -- expected acceptance rate; and vice versa.
 type TuningParameter = Double
+
+-- | Auxiliary tuning parameters; vector may be empty.
+type AuxiliaryTuningParameters = VB.Vector TuningParameter
+
+-- | Default tuning function.
+--
+-- Subject to change.
+defaultTuningFunction ::
+  -- Optimal acceptance rate.
+  AcceptanceRate ->
+  AcceptanceRate ->
+  TuningParameter ->
+  TuningParameter
+defaultTuningFunction rO r t = exp (2 * (r - rO)) * t
+
+noAuxiliaryTuningFunction :: VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters
+noAuxiliaryTuningFunction _ ts = ts
 
 -- | Create a proposal with a single tuning parameter.
 --
@@ -292,7 +311,11 @@ createProposal ::
 createProposal r f d n w Tune =
   Proposal n r d w (f 1.0) (Just tuner)
   where
-    tuner = Tuner 1.0 VB.empty (const VB.empty) (\t _ -> Right $ f t)
+    rO = getOptimalRate d
+    fT = defaultTuningFunction rO
+    fTs = noAuxiliaryTuningFunction
+    g t _ = Right $ f t
+    tuner = Tuner 1.0 fT VB.empty fTs g
 createProposal r f d n w NoTune =
   Proposal n r d w (f 1.0) Nothing
 
@@ -328,16 +351,30 @@ tuningParameterMax = 1e3
 -- - the 'Proposal' is not tuneable;
 --
 -- - the auxiliary tuning parameters are invalid.
-tune :: TuningParameter -> VB.Vector TuningParameter -> Proposal a -> Either String (Proposal a)
-tune t ts p = case prTuner p of
-  Nothing -> Left "tune: Proposal is not tunable."
-  Just (Tuner _ _ f g) ->
+tuneWithTuningParameters ::
+  TuningParameter ->
+  AuxiliaryTuningParameters ->
+  Proposal a ->
+  Either String (Proposal a)
+tuneWithTuningParameters t ts p = case prTuner p of
+  Nothing -> Left "tuneWithTuningParameters: Proposal is not tunable."
+  Just (Tuner _ fT _ fTs g) ->
     let t' = max tuningParameterMin t
         t'' = min tuningParameterMax t'
         psE = g t'' ts
      in case psE of
           Left err -> Left $ "tune: " <> err
-          Right ps -> Right $ p {prSimple = ps, prTuner = Just $ Tuner t'' ts f g}
+          Right ps -> Right $ p {prSimple = ps, prTuner = Just $ Tuner t'' fT ts fTs g}
+
+-- | See 'tuneWithTuningParameters' and 'Tuner'.
+tuneWithChainParameters :: AcceptanceRate -> VB.Vector a -> Proposal a -> Either String (Proposal a)
+tuneWithChainParameters ar xs p = case prTuner p of
+  Nothing -> Left "tuneWithChainParameters: Proposal is not tunable."
+  Just (Tuner t fT ts fTs _) ->
+    -- Ensure that the tuning parameter is strictly positive and well bounded.
+    let t' = fT ar t
+        ts' = fTs xs ts
+     in tuneWithTuningParameters t' ts' p
 
 -- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double
@@ -351,7 +388,6 @@ getOptimalRate (PDimension n)
   | n >= 5 = 0.234
   | otherwise = error "getOptimalRate: Proposal dimension is not an integer?"
 getOptimalRate PDimensionUnknown = 0.234
-getOptimalRate (PSpecial _ r) = r
 
 -- Warn if acceptance rate is lower.
 rateMin :: Double

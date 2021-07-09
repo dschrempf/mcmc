@@ -32,7 +32,6 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Default
 import Data.List
 import qualified Data.Map.Strict as M
-import Data.Maybe
 import qualified Data.Vector as VB
 import Mcmc.Acceptance
 import Mcmc.Internal.Shuffle
@@ -138,16 +137,6 @@ getNProposalsPerCycle (Cycle xs o) = case o of
   where
     once = sum $ map (fromPWeight . prWeight) xs
 
-tuneWith :: AcceptanceRate -> VB.Vector a -> Proposal a -> Maybe (Proposal a)
-tuneWith r xs p = do
-  (Tuner t _ f _) <- prTuner p
-  -- Ensure that the tuning parameter is strictly positive and well bounded.
-  let ts = f xs
-      t' = exp (2 * (r - rO)) * t
-  return $ either error id $ tune t' ts p
-  where
-    rO = getOptimalRate (prDimension p)
-
 -- | Calculate acceptance rates and auto tunes the 'Proposal's in the 'Cycle'.
 --
 -- Do not change 'Proposal's that are not tuneable.
@@ -155,12 +144,12 @@ autoTuneCycle :: Acceptance (Proposal a) -> VB.Vector a -> Cycle a -> Cycle a
 autoTuneCycle a xs c =
   if sort (M.keys ar) == sort ps
     then c {ccProposals = map tuneF ps}
-    else error "tuneCycle: Propoals in map and cycle do not match."
+    else error "autoTuneCycle: Proposals in map and cycle do not match."
   where
     ar = acceptanceRates a
     ps = ccProposals c
     tuneF p = case ar M.!? p of
-      Just (Just x) -> fromMaybe p (tuneWith x xs p)
+      Just (Just x) -> either error id (tuneWithChainParameters x xs p)
       _ -> p
 
 -- | Horizontal line of proposal summaries.
