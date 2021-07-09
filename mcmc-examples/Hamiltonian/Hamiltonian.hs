@@ -55,13 +55,13 @@ masses :: I
 masses = ZipList [3, 6]
 
 hmcSettings :: HmcSettings ZipList
-hmcSettings = HmcSettings gradientI masses 10 0.1
+hmcSettings = HmcSettings gradientI masses 10 0.02 HmcTuneMassesAndLeapfrog
 
 initialState :: I
 initialState = ZipList [1.1, 0.9]
 
 hmcProposal :: Proposal I
-hmcProposal = hmc initialState hmcSettings n w Tune
+hmcProposal = hmc initialState hmcSettings n w
   where
     n = PName "Space"
     w = pWeight 1

@@ -112,9 +112,16 @@ pWeight n
 --
 -- Moreover, proposals of unknown dimension are assumed to have high dimension,
 -- and the optimal acceptance rate 0.234 is used.
+--
+-- Finally, special proposals may have completely different desired acceptance
+-- rates. For example. the Hamiltonian Monte Carlo proposal (see
+-- Mcmc.Proposal.Hamiltonian.hmc) has a desired acceptance rate of 0.65.
+-- Specific acceptance rates can be set with 'PSpecial'.
 data PDimension
   = PDimension Int
   | PDimensionUnknown
+  | -- | Provide dimension ('Int') and desired acceptance rate ('Double').
+    PSpecial Int Double
 
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability mass or probability density
@@ -281,11 +288,11 @@ type AuxiliaryTuningParameters = VB.Vector TuningParameter
 -- Subject to change.
 defaultTuningFunction ::
   -- Optimal acceptance rate.
-  AcceptanceRate ->
+  PDimension ->
   AcceptanceRate ->
   TuningParameter ->
   TuningParameter
-defaultTuningFunction rO r t = exp (2 * (r - rO)) * t
+defaultTuningFunction d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 
 noAuxiliaryTuningFunction :: VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters
 noAuxiliaryTuningFunction _ ts = ts
@@ -311,8 +318,7 @@ createProposal ::
 createProposal r f d n w Tune =
   Proposal n r d w (f 1.0) (Just tuner)
   where
-    rO = getOptimalRate d
-    fT = defaultTuningFunction rO
+    fT = defaultTuningFunction d
     fTs = noAuxiliaryTuningFunction
     g t _ = Right $ f t
     tuner = Tuner 1.0 fT VB.empty fTs g
@@ -359,6 +365,7 @@ tuneWithTuningParameters ::
 tuneWithTuningParameters t ts p = case prTuner p of
   Nothing -> Left "tuneWithTuningParameters: Proposal is not tunable."
   Just (Tuner _ fT _ fTs g) ->
+    -- Ensure that the tuning parameter is strictly positive and well bounded.
     let t' = max tuningParameterMin t
         t'' = min tuningParameterMax t'
         psE = g t'' ts
@@ -371,7 +378,6 @@ tuneWithChainParameters :: AcceptanceRate -> VB.Vector a -> Proposal a -> Either
 tuneWithChainParameters ar xs p = case prTuner p of
   Nothing -> Left "tuneWithChainParameters: Proposal is not tunable."
   Just (Tuner t fT ts fTs _) ->
-    -- Ensure that the tuning parameter is strictly positive and well bounded.
     let t' = fT ar t
         ts' = fTs xs ts
      in tuneWithTuningParameters t' ts' p
@@ -388,6 +394,7 @@ getOptimalRate (PDimension n)
   | n >= 5 = 0.234
   | otherwise = error "getOptimalRate: Proposal dimension is not an integer?"
 getOptimalRate PDimensionUnknown = 0.234
+getOptimalRate (PSpecial _ r) = r
 
 -- Warn if acceptance rate is lower.
 rateMin :: Double

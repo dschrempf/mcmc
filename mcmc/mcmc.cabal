@@ -89,6 +89,7 @@ library
     , dirichlet
     , double-conversion
     , log-domain
+    , matrices
     , microlens
     , mwc-random
     , monad-parallel

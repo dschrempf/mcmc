@@ -134,14 +134,7 @@ module Mcmc
     slideUniformSymmetric,
     slideContrarily,
     slideBactrian,
-
-    -- ** Hamiltonian Monte Carlo proposal
-    Gradient,
-    Masses,
-    LeapfrogTrajectoryLength,
-    LeapfrogScalingFactor,
-    HmcSettings (..),
-    hmc,
+    module Mcmc.Proposal.Hamiltonian,
     module Mcmc.Proposal.Simplex,
 
     -- ** Cycles

@@ -30,32 +30,25 @@ module Mcmc.Proposal.Hamiltonian
     Masses,
     LeapfrogTrajectoryLength,
     LeapfrogScalingFactor,
+    HmcTune (..),
     HmcSettings (..),
     hmc,
   )
 where
 
 import Data.Foldable
+import qualified Data.Matrix as M
 import Data.Traversable
 import qualified Data.Vector as VB
+import Debug.Trace
 import Mcmc.Prior
 import Mcmc.Proposal
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
+import qualified Statistics.Function as S
+import qualified Statistics.Sample as S
 import System.Random.MWC
-
--- TODO: Estimate masses (basically inverse variances) from a given sample of
--- the posterior.
---
--- The prerequisites are done, proposals can now be tuned using the trace.
---
--- Questions:
---
--- - Do we alternate tuning of the proposal masses and of the proposal size
---   or do we tune both at the same time?
---
--- - Do we allow specification of when the masses should be tuned, and when not?
 
 -- TODO: At the moment, the HMC proposal is agnostic of the posterior function.
 -- This means, that it cannot know when it reaches a point with zero posterior
@@ -122,7 +115,8 @@ type LeapfrogTrajectoryLength = Int
 -- For a discussion of ergodicity and reasons why randomization is important,
 -- see [1] p. 15; also mentioned in [2] p. 304.
 --
--- Usually set such that \( L \epsilon = 1.0 \).
+-- Usually set such that \( L \epsilon = 1.0 \), but smaller values may be
+-- required if acceptance rates are low.
 type LeapfrogScalingFactor = Double
 
 -- Target state containing parameters.
@@ -131,16 +125,44 @@ type Positions f = f Double
 -- Momenta of the parameters.
 type Momenta f = f Double
 
+-- | Tuning settings.
+--
+--
+-- Tuning of leapfrog parameters:
+--
+-- We expect that the larger the leapfrog step size the larger the proposal step
+-- size and the lower the acceptance ratio. Consequently, if the acceptance rate
+-- is too low, the leapfrog step size is decreased and vice versa. Further, the
+-- leapfrog trajectory length is scaled such that the product of the leapfrog
+-- step size and trajectory length stays constant.
+--
+-- Tuning of masses:
+--
+-- The variances of all parameters of the posterior distribution obtained over
+-- the last auto tuning interval is calculated and the masses are amended using
+-- the old masses and the inverted variances. If, for a specific coordinate, the
+-- sample size is too low, or if the calculated variance is out of predefined
+-- bounds, the mass of the affected position is not changed.
+data HmcTune
+  = -- | Tune masses and leapfrog parameters.
+    HmcTuneMassesAndLeapfrog
+  | -- | Tune leapfrog parameters only.
+    HmcTuneLeapfrogOnly
+  | -- | Do not tune at all.
+    HmcNoTune
+  deriving (Eq, Show)
+
 -- | Specifications for Hamilton Monte Carlo proposal.
 data HmcSettings f = HmcSettings
   { hmcGradient :: Gradient f,
     hmcMasses :: Masses f,
     hmcLeapfrogTrajectoryLength :: LeapfrogTrajectoryLength,
-    hmcLeapfrogScalingFactor :: LeapfrogScalingFactor
+    hmcLeapfrogScalingFactor :: LeapfrogScalingFactor,
+    hmcTune :: HmcTune
   }
 
 checkHmcSettings :: Foldable f => HmcSettings f -> Maybe String
-checkHmcSettings (HmcSettings _ masses l eps)
+checkHmcSettings (HmcSettings _ masses l eps _)
   | any (<= 0) masses = Just "checkHmcSettings: One or more masses are zero or negative."
   | l < 1 = Just "checkHmcSettings: Leapfrog trajectory length is zero or negative."
   | eps <= 0 = Just "checkHmcSettings: Leapfrog scaling factor is zero or negative."
@@ -233,13 +255,15 @@ leapfrogStepPositions eps masses theta phi = theta .+. (mScaledReversed .*. phi)
 (.*.) :: Applicative f => f Double -> f Double -> f Double
 (.*.) xs ys = (*) <$> xs <*> ys
 
--- TODO: The tuning stuff is all a little ugly. Can we improve on that?
-
 massesToTuningParameters :: Foldable f => Masses f -> AuxiliaryTuningParameters
 massesToTuningParameters = VB.fromList . toList
 
 -- We need the structure in order to fill it with the given parameters.
-tuningParametersToMasses :: Traversable f => AuxiliaryTuningParameters -> Masses f -> Either String (Masses f)
+tuningParametersToMasses ::
+  Traversable f =>
+  AuxiliaryTuningParameters ->
+  Masses f ->
+  Either String (Masses f)
 tuningParametersToMasses xs ms =
   if null xs'
     then sequenceA msE
@@ -255,29 +279,27 @@ hmcTuningParametersToSettings ::
   AuxiliaryTuningParameters ->
   HmcSettings f ->
   Either String (HmcSettings f)
-hmcTuningParametersToSettings t ts (HmcSettings g m l e) = case tuningParametersToMasses ts m of
-  Left err -> Left err
-  Right m' -> Right $ HmcSettings g m' lTuned eTuned
+hmcTuningParametersToSettings t ts (HmcSettings g m l e tn) =
+  if tn == HmcTuneMassesAndLeapfrog
+    then case tuningParametersToMasses ts m of
+      Left err -> Left err
+      Right m' -> Right $ HmcSettings g m' lTuned eTuned tn
+    else Right $ HmcSettings g m lTuned eTuned tn
   where
     -- The larger epsilon, the larger the proposal step size and the lower the
     -- expected acceptance ratio.
     --
     -- Further, we keep \( L * \epsilon = 1.0 \).
-    --
-    -- TODO: Improve tuning. Leaving l*eps constant may lead to very large l,
-    -- and consequently, to very slow proposals.
-    --
     lTuned = ceiling $ fromIntegral l / t :: Int
-    -- lTuned = l
     eTuned = t * e
 
-hmcSimpleWith ::
+hmcSimpleWithTuningParameters ::
   (Applicative f, Traversable f, Show (f Double)) =>
   HmcSettings f ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
   Either String (ProposalSimple (Positions f))
-hmcSimpleWith s t ts = case hmcTuningParametersToSettings t ts s of
+hmcSimpleWithTuningParameters s t ts = case hmcTuningParametersToSettings t ts s of
   Left err -> Left err
   Right s' -> Right $ hmcSimple s'
 
@@ -285,7 +307,7 @@ hmcSimple ::
   (Applicative f, Traversable f, Show (f Double)) =>
   HmcSettings f ->
   ProposalSimple (Positions f)
-hmcSimple (HmcSettings gradient masses l e) theta g = do
+hmcSimple (HmcSettings gradient masses l e _) theta g = do
   phi <- generateMomenta masses g
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
@@ -305,29 +327,48 @@ hmcSimple (HmcSettings gradient masses l e) theta g = do
     eL = 0.8 * e
     eR = 1.2 * e
 
--- TODO.
+minVariance :: Double
+minVariance = 1e-6
+
+maxVariance :: Double
+maxVariance = 1e6
+
+minSamples :: Int
+minSamples = 60
+
 computeAuxiliaryTuningParameters ::
+  Foldable f =>
   VB.Vector (Positions f) ->
   AuxiliaryTuningParameters ->
   AuxiliaryTuningParameters
-computeAuxiliaryTuningParameters = undefined
+computeAuxiliaryTuningParameters xss ts =
+  VB.zipWith (\t -> rescueWith t . calcSamplesAndVariance) ts xssT
+  where
+    -- TODO: Improve matrix transposition.
+    xssT = VB.fromList $ M.toColumns $ M.fromLists $ VB.toList $ VB.map toList xss
+    calcSamplesAndVariance xs = (traceShowId $ VB.length $ VB.uniq $ S.gsort xs, S.variance xs)
+    rescueWith t (sampleSize, var) =
+      if var < minVariance || maxVariance < var || sampleSize < minSamples
+        -- then traceShow ("Rescue with " <> show t) t
+        then t
+        else
+          let t' = sqrt (t * recip var)
+           -- in traceShow ("Old mass " <> show t <> " new mass " <> show t') t'
+           in t'
 
 -- | Hamiltonian Monte Carlo proposal.
 --
 -- The 'Applicative' and 'Traversable' instances are used for element-wise
 -- operations.
 --
--- Assume a zip-like 'Applicative' instance.
+-- Assume a zip-like 'Applicative' instance so that cardinality remains
+-- constant.
 --
--- This is a special proposal because:
+-- NOTE: The desired acceptance rate is 0.65, although the dimension of the
+-- proposal is high.
 --
--- - the desired acceptance rate is 0.65, although the dimension of the proposal
--- - is high;
---
--- - the speed of this proposal can change drastically when tuned because the
--- - leapfrog trajectory length is changed;
---
--- - tuning also involves recalculation of the masses.
+-- NOTE: The speed of this proposal can change drastically when tuned because
+-- the leapfrog trajectory length is changed.
 hmc ::
   (Applicative f, Traversable f, Show (f Double)) =>
   -- | The sample state is used to calculate the dimension of the proposal.
@@ -335,24 +376,21 @@ hmc ::
   HmcSettings f ->
   PName ->
   PWeight ->
-  Tune ->
   Proposal (f Double)
-hmc x s n w t = case checkHmcSettings s of
+hmc x s n w = case checkHmcSettings s of
   Just err -> error err
   Nothing ->
     let desc = PDescription "Hamiltonian Monte Carlo (HMC)"
-        dim = PDimension (length x)
+        dim = PSpecial (length x) 0.65
         ts = massesToTuningParameters (hmcMasses s)
-        -- NOTE: This error should never trigger since:
-        --
-        -- @massesToTuningParameters . tuningParametersToMasses == id@
-        --
-        -- But who knows :).
-        ps = either (error . ("hmc: " <>)) id $ hmcSimpleWith s 1.0 ts
+        ps = hmcSimple s
         p' = Proposal n desc dim w ps
-        fT = defaultTuningFunction 0.65
-        fTs = computeAuxiliaryTuningParameters
-        tnr = Tuner 1.0 fT ts fTs (hmcSimpleWith s)
-     in case t of
-          NoTune -> p' Nothing
-          Tune -> p' (Just tnr)
+        fT = defaultTuningFunction dim
+        tS = hmcTune s
+        fTs =
+          if tS == HmcTuneMassesAndLeapfrog
+            then computeAuxiliaryTuningParameters
+            else \_ xs -> xs
+     in case tS of
+          HmcNoTune -> p' Nothing
+          _ -> p' $ Just $ Tuner 1.0 fT ts fTs (hmcSimpleWithTuningParameters s)
