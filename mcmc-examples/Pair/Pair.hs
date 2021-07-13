@@ -30,11 +30,11 @@ type I = (Double, Double)
 analysisName :: AnalysisName
 analysisName = AnalysisName "pair"
 
--- Improper prior for positive values of x and y. We set a bound strictly larger
--- than 0 because otherwise, numerical problems occur when the chain traverses
--- values very close to zero.
+-- Improper prior for positive values of x and y. We set a bound strictly
+-- greater than 0 because otherwise, numerical problems occur when the chain
+-- traverses values very close to zero.
 pr :: PriorFunction I
-pr (x, y) = largerThan 0.00001 x * largerThan 0.00001 y
+pr (x, y) = greaterThan 0.00001 x * greaterThan 0.00001 y
 
 f :: I -> Double
 -- f (x, y)= 3*x + 5*y

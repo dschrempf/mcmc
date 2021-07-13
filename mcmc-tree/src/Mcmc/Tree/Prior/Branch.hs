@@ -26,9 +26,9 @@ branchesWith :: HandleStem -> PriorFunction e -> PriorFunction (Tree e a)
 branchesWith WithStem f (Node br _ ts) = foldl' (*) (f br) $ map (branchesWith WithStem f) ts
 branchesWith WithoutStem f (Node _ _ ts) = foldl1' (*) $ map (branchesWith WithStem f) ts
 
--- -- NOTE: Somehow I never used this function, because computing priors on
--- -- branches is just too fast to parallelize. I leave this for further
--- -- reference.
+-- -- NOTE: Somehow I never used the parallelized version, because computing
+-- -- priors on branches is just too fast. I leave the implementation for
+-- -- further reference.
 
 -- -- | See 'branchesWith'.
 -- --

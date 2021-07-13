@@ -11,15 +11,18 @@
 -- Portability :  portable
 --
 -- Creation date: Thu Jul 23 13:26:14 2020.
+--
+-- Specialized prior functions. For the generalized versions, see
+-- "Mcmc.Prior.General".
 module Mcmc.Prior
   ( Prior,
     PriorFunction,
-    noPrior,
 
     -- * Improper priors
-    largerThan,
+    noPrior,
+    greaterThan,
     positive,
-    lowerThan,
+    lessThan,
     negative,
 
     -- * Continuous priors
@@ -60,25 +63,25 @@ type PriorFunction a = a -> Prior
 noPrior :: PriorFunction a
 noPrior = const 1.0
 
--- | Improper uniform prior; strictly larger than a given value.
-largerThan :: LowerBoundary -> PriorFunction Double
-largerThan a x
+-- | Improper uniform prior; strictly greater than a given value.
+greaterThan :: LowerBoundary -> PriorFunction Double
+greaterThan a x
   | x <= a = 0
   | otherwise = 1
 
--- | Improper uniform prior; strictly larger than zero.
+-- | Improper uniform prior; strictly greater than zero.
 positive :: PriorFunction Double
-positive = largerThan 0
+positive = greaterThan 0
 
--- | Improper uniform prior; strictly lower than a given value.
-lowerThan :: UpperBoundary -> PriorFunction Double
-lowerThan b x
+-- | Improper uniform prior; strictly less than a given value.
+lessThan :: UpperBoundary -> PriorFunction Double
+lessThan b x
   | x >= b = 0
   | otherwise = 1
 
--- | Improper uniform prior; strictly lower than zero.
+-- | Improper uniform prior; strictly less than zero.
 negative :: PriorFunction Double
-negative = lowerThan 0
+negative = lessThan 0
 
 -- | Exponential distributed prior.
 exponential :: Rate -> PriorFunction Double
@@ -95,8 +98,9 @@ gamma k t = Exp . S.logDensity d
 -- | See 'gamma' but parametrized using mean and variance.
 gammaMeanVariance :: Mean -> Variance -> PriorFunction Double
 gammaMeanVariance m v = Exp . S.logDensity d
-  where (k, th) = gammaMeanVarianceToShapeScale m v
-        d = S.gammaDistr k th
+  where
+    (k, th) = gammaMeanVarianceToShapeScale m v
+    d = S.gammaDistr k th
 
 -- | Gamma disstributed prior with given shape and mean 1.0.
 gammaMeanOne :: Shape -> PriorFunction Double
@@ -135,9 +139,9 @@ normal m s = Exp . S.logDensity d
 -- | Uniform prior on [a, b].
 uniform :: LowerBoundary -> UpperBoundary -> PriorFunction Double
 uniform a b x
-  | x <= a = 0
-  | x >= b = 0
-  | otherwise = Exp 0
+  | x < a = 0
+  | x > b = 0
+  | otherwise = 1.0
 
 -- | Poisson distributed prior.
 poisson :: Rate -> PriorFunction Int
