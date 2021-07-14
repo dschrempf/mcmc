@@ -17,13 +17,12 @@ module Mcmc.Tree.Lens
     forestL,
     branchL,
     subTreeAtL,
+    labelAtL,
 
     -- ** Tree zippers
     currentL,
 
-    -- ** Height and length lenses
-    hasHeightL,
-    heightL,
+    -- ** Length lenses
     hasLengthL,
     lengthL,
   )
@@ -31,7 +30,6 @@ where
 
 import Control.Lens
 import ELynx.Tree
-import Mcmc.Tree.Types
 
 -- | Branch attached to the root node.
 branchL :: Lens' (Tree e a) e
@@ -75,6 +73,12 @@ subTreeAtL pth f s = go s pth
     assemble :: e -> a -> Forest e a -> Forest e a -> Tree e a -> Tree e a
     assemble br lb ls rs c = Node br lb $ ls ++ (c : rs)
 
+-- | Node label at path on the tree.
+--
+-- Call 'error' if the path is invalid.
+labelAtL :: Path -> Lens' (Tree e a) a
+labelAtL p = subTreeAtL p . labelL
+
 -- -- The following function is left here for reference.
 -- --
 -- -- Around 10 percent slower for trees with five to ten levels, because they
@@ -91,23 +95,6 @@ subTreeAtL pth f s = go s pth
 -- | Current focus of a zipper.
 currentL :: Lens' (TreePos e a) (Tree e a)
 currentL = lens current (\x t -> x {current = t})
-
--- | Height.
-hasHeightL :: HasHeight a => Lens' a Height
-hasHeightL = lens getHeight (flip setHeight)
-
--- Possibly faster.
--- hasHeightL f hh = (`setHeight` hh) <$> f (getHeight hh)
-
--- | Height.
---
--- Call 'error' if the height is negative.
-heightL :: Lens' Height Double
-heightL f h = g <$> f (fromHeight h)
-  where
-    g x
-      | x < 0 = error "heightL: Height is negative."
-      | otherwise = toHeightUnsafe x
 
 -- | Length of measurable types.
 hasLengthL :: HasLength a => Lens' a Length

@@ -36,7 +36,7 @@ slideNodesAtContrarilySimple ::
   Path ->
   StandardDeviation ->
   TuningParameter ->
-  ProposalSimple (HeightTree a, Tree Length b)
+  ProposalSimple (Tree a Double, Tree Double b)
 slideNodesAtContrarilySimple pth sd t (tTr, rTr) g
   | null tTrChildren =
     error "slideNodesAtContrarilySimple: Sub tree of ultrametric tree is a leaf."
@@ -45,7 +45,7 @@ slideNodesAtContrarilySimple pth sd t (tTr, rTr) g
   | otherwise = do
     (hTTrNode', q) <- truncatedNormalSample hTTrNode sd t hTTrOldestChild hTTrParent g
     -- Time tree.
-    let setNodeHeight x = x & labelL . nodeHeightL . heightL .~ hTTrNode'
+    let setNodeHeight x = x & labelL .~ hTTrNode'
         tTr' = toTree $ modifyTree setNodeHeight tTrPos
     -- Rate tree.
     let -- Scaling factor of rate tree stem.
@@ -73,12 +73,12 @@ slideNodesAtContrarilySimple pth sd t (tTr, rTr) g
     tTrPos = goPathUnsafe pth $ fromTree tTr
     tTrFocus = current tTrPos
     tTrParent = current $ goParentUnsafe tTrPos
-    hTTrNode = fromHeight $ nodeHeight $ label tTrFocus
+    hTTrNode = label tTrFocus
     -- If the root node is handled, set the upper bound to +Infinity because no
     -- parent node exists.
-    hTTrParent = if null pth then 1 / 0 else fromHeight $ nodeHeight $ label tTrParent
+    hTTrParent = if null pth then 1 / 0 else label tTrParent
     tTrChildren = forest tTrFocus
-    hsTTrChildren = map (fromHeight . nodeHeight . label) tTrChildren
+    hsTTrChildren = map label tTrChildren
     hTTrOldestChild = maximum hsTTrChildren
     -- Rate tree.
     rTrPos = goPathUnsafe pth $ fromTree rTr
@@ -127,7 +127,7 @@ slideNodesAtContrarily ::
   PName ->
   PWeight ->
   Tune ->
-  Proposal (HeightTree b, Tree Length c)
+  Proposal (Tree b Double, Tree Double c)
 slideNodesAtContrarily tr pth sd
   | not $ isValidPath tr pth = error $ "slideNodesAtContrarily: Path is invalid: " <> show pth <> "."
   | isLeafPath tr pth = error $ "slideNodesAtContrarily: Path leads to a leaf: " <> show pth <> "."
@@ -161,7 +161,7 @@ slideNodesContrarily ::
   -- | Maximum weight.
   PWeight ->
   Tune ->
-  [Proposal (HeightTree b, Tree Length c)]
+  [Proposal (Tree b Double, Tree Double c)]
 slideNodesContrarily tr hn s n wMin wMax t =
   [ slideNodesAtContrarily tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
@@ -198,7 +198,7 @@ slideRootSimple ::
   Int ->
   StandardDeviation ->
   TuningParameter ->
-  ProposalSimple (Double, HeightTree a, Tree Length b)
+  ProposalSimple (Double, Tree a Double, Tree Double b)
 slideRootSimple n s t (ht, tTr, rTr) g = do
   let tTrHeight = getHeightOfTree tTr
   when
@@ -218,13 +218,13 @@ slideRootSimple n s t (ht, tTr, rTr) g = do
   let getXi h = (1 - h) / (u - h)
       xis = map getXi htsChildren
   -- Compute new state.
-  let tTr' = tTr & forestL %~ map (second $ nodeHeightL . heightL //~ u)
+  let tTr' = tTr & forestL %~ map (second (/ u))
       rTr' = rTr & forestL %~ zipWith scaleUnconstrainedStem xis
       j = slideRootContrarilyJacobian n u xis
       x' = (ht', tTr', rTr')
   return (x', q, j)
   where
-    getHeightOfTree = fromHeight . view (labelL . nodeHeightL)
+    getHeightOfTree = view labelL
     htsChildren = map getHeightOfTree $ forest tTr
     -- Absolute height of oldest child.
     htOldestChild = ht * maximum htsChildren
@@ -257,7 +257,7 @@ slideRootContrarily ::
   PName ->
   PWeight ->
   Tune ->
-  Proposal (Double, HeightTree b, Tree Length c)
+  Proposal (Double, Tree b Double, Tree Double c)
 slideRootContrarily tr s =
   createProposal
     description
@@ -280,7 +280,7 @@ scaleSubTreeAtContrarilySimple ::
   Path ->
   StandardDeviation ->
   TuningParameter ->
-  ProposalSimple (HeightTree a, Tree Length b)
+  ProposalSimple (Tree a Double, Tree Double b)
 scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
   | null tTrChildren =
     error "scaleSubTreeAtContrarilySimple: Sub tree of ultrametric tree is a leaf."
@@ -316,10 +316,10 @@ scaleSubTreeAtContrarilySimple nNodes nBranches pth sd t (tTr, rTr) g
     tTrFocus = current tTrPos
     tTrParent = current $ goParentUnsafe tTrPos
     tTrChildren = forest tTrFocus
-    hTTrNode = fromHeight $ nodeHeight $ label tTrFocus
+    hTTrNode = label tTrFocus
     -- If the root node is handled, set the upper bound to +Infinity because no
     -- parent node exists.
-    hTTrParent = if null pth then 1 / 0 else fromHeight $ nodeHeight $ label tTrParent
+    hTTrParent = if null pth then 1 / 0 else label tTrParent
     -- Rate tree.
     rTrPos = goPathUnsafe pth $ fromTree rTr
     rTrFocus = current rTrPos
@@ -368,7 +368,7 @@ scaleSubTreesAtContrarily ::
   PName ->
   PWeight ->
   Tune ->
-  Proposal (HeightTree b, Tree Length c)
+  Proposal (Tree b Double, Tree Double c)
 scaleSubTreesAtContrarily tr pth sd
   | not $ isValidPath tr pth = error $ "scaleSubTreesAtContrarily: Path is invalid: " <> show pth <> "."
   | isLeafPath tr pth = error $ "scaleSubTreesAtContrarily: Path leads to a leaf: " <> show pth <> "."
@@ -400,7 +400,7 @@ scaleSubTreesContrarily ::
   -- | Maximum weight.
   PWeight ->
   Tune ->
-  [Proposal (HeightTree b, Tree Length c)]
+  [Proposal (Tree b Double, Tree Double c)]
 scaleSubTreesContrarily tr hn s n wMin wMax t =
   [ scaleSubTreesAtContrarily tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,

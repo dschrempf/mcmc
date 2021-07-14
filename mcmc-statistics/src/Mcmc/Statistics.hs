@@ -20,10 +20,7 @@ module Mcmc.Statistics
   )
 where
 
-import Data.Vector.Unboxed
-  ( Unbox,
-    Vector,
-  )
+import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 import Statistics.Autocorrelation
 import Statistics.Gcm
@@ -45,13 +42,13 @@ gammaTruncated c = V.takeWhile (> 0) (gamma c) `V.snoc` 0
 
 -- | Initial convex sequence estimator of the asymptotic variance. Eq. (1.19),
 -- page 16.
-initSeq :: (Real a, Unbox a) => Vector a -> Double
+initSeq :: Vector Double -> Double
 initSeq v =
   (- V.head c) + 2
     * V.sum
       (smooth (V.fromList gcmIs) (V.fromList gcmVals))
   where
-    c = autocovariance (V.map realToFrac v)
+    c = autocovariance v
     gs = gammaTruncated c
     is = V.fromList [1 .. V.length gs]
     (gcmIs, gcmVals, _) = gcm is gs

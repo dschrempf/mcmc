@@ -35,16 +35,15 @@ module Mcmc.Tree.Prior.Branch.RelaxedClock
 where
 
 import Data.Maybe
-import qualified Data.Vector.Unboxed as V
 import ELynx.Tree
-import Mcmc.Chain.Chain
+import Mcmc.Internal.Gamma
 import Mcmc.Prior
+import Mcmc.Prior.General
 import Mcmc.Statistics.Types
 import Mcmc.Tree.Prior.Branch
 import Mcmc.Tree.Types
 import Numeric.Log hiding (sum)
 import Numeric.MathFunctions.Constants
-import Statistics.Distribution.Dirichlet
 
 -- | Gamma Dirichlet prior.
 --
@@ -81,11 +80,61 @@ import Statistics.Distribution.Dirichlet
 -- - The \(\alpha\) parameter is negative or zero.
 --
 -- - The number of partitions is smaller than two.
-gammaDirichlet :: Shape -> Scale -> Double -> Mean -> PriorFunction (V.Vector Double)
-gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmetric ddSym xs
+gammaDirichlet ::
+  RealFloat a =>
+  ShapeG a ->
+  ScaleG a ->
+  -- | Alpha of Dirichlet distribution.
+  a ->
+  MeanG a ->
+  PriorFunctionG [a] a
+gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmetricG ddSym xs
   where
-    muPrior = gamma alphaMu betaMu muMean
-    ddSym = either error id $ dirichletDistributionSymmetric (V.length xs) alpha
+    muPrior = gammaG alphaMu betaMu muMean
+    ddSym = either error id $ dirichletDistributionSymmetricG (length xs) alpha
+
+data DirichletDistributionSymmetricG a = DirichletDistributionSymmetricG
+  { ddSymGetParameter :: a,
+    _symGetDimension :: Int,
+    _symGetNormConst :: Log a
+  }
+  deriving (Eq, Show)
+
+invBetaSymG :: RealFloat a => Int -> a -> Log a
+invBetaSymG k a = Exp $ logDenominator - logNominator
+  where
+    logNominator = fromIntegral k * logGammaG a
+    logDenominator = logGammaG (fromIntegral k * a)
+
+dirichletDistributionSymmetricG ::
+  RealFloat a =>
+  Int ->
+  a ->
+  Either String (DirichletDistributionSymmetricG a)
+dirichletDistributionSymmetricG k a
+  | k < 2 =
+    Left "dirichletDistributionSymmetric: The dimension is smaller than two."
+  | a <= 0 =
+    Left "dirichletDistributionSymmetric: The parameter is negative or zero."
+  | otherwise = Right $ DirichletDistributionSymmetricG a k (invBetaSymG k a)
+
+eps :: RealFloat a => a
+eps = 1e-14
+
+-- Check if vector is normalized with tolerance 'eps'.
+isNormalized :: RealFloat a => [a] -> Bool
+isNormalized v
+  | abs (sum v - 1.0) > eps = False
+  | otherwise = True
+
+dirichletDensitySymmetricG :: RealFloat a => DirichletDistributionSymmetricG a -> [a] -> Log a
+dirichletDensitySymmetricG (DirichletDistributionSymmetricG a k c) xs
+  | k /= length xs = 0.0
+  | any (<= 0) xs = 0.0
+  | not (isNormalized xs) = 0.0
+  | otherwise = c * Exp logXsPow
+  where
+    logXsPow = sum $ map (\x -> log $ x ** (a - 1.0)) xs
 
 -- | Uncorrelated gamma model.
 --
@@ -95,16 +144,21 @@ gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmet
 -- NOTE: For convenience, the mean and variance are used as parameters for this
 -- relaxed molecular clock model. They are used to calculate the shape and the
 -- scale of the underlying gamma distribution.
-uncorrelatedGamma :: HandleStem -> Mean -> Variance -> PriorFunction (Tree Length a)
-uncorrelatedGamma hs m v = branchesWith hs (gamma k th . fromLength)
+uncorrelatedGamma ::
+  RealFloat a =>
+  HandleStem ->
+  MeanG a ->
+  VarianceG a ->
+  PriorFunctionG (Tree a b) a
+uncorrelatedGamma hs m v = branchesWith hs (gammaG k th)
   where
     (k, th) = gammaMeanVarianceToShapeScale m v
 
 -- A variant of the log normal distribution. See Yang 2006, equation (7.23).
-logNormal' :: Mean -> Variance -> Double -> Log Double
-logNormal' mu var r = Exp $ negate t - e
+logNormalG' :: RealFloat a => MeanG a -> VarianceG a -> a -> Log a
+logNormalG' mu var r = Exp $ negate t - e
   where
-    t = m_ln_sqrt_2_pi + log (r * sqrt var)
+    t = realToFrac m_ln_sqrt_2_pi + log (r * sqrt var)
     a = recip $ 2 * var
     b = log (r / mu) + 0.5 * var
     e = a * (b ** 2)
@@ -115,8 +169,13 @@ logNormal' mu var r = Exp $ negate t - e
 -- mean and variance.
 --
 -- See Computational Molecular Evolution (Yang, 2006), Section 7.4.
-uncorrelatedLogNormal :: HandleStem -> Mean -> Variance -> PriorFunction (Tree Length a)
-uncorrelatedLogNormal hs mu var = branchesWith hs (logNormal' mu var . fromLength)
+uncorrelatedLogNormal ::
+  RealFloat a =>
+  HandleStem ->
+  MeanG a ->
+  VarianceG a ->
+  PriorFunctionG (Tree a e) a
+uncorrelatedLogNormal hs mu var = branchesWith hs (logNormalG' mu var)
 
 -- | White noise model.
 --
@@ -143,7 +202,7 @@ uncorrelatedLogNormal hs mu var = branchesWith hs (logNormal' mu var . fromLengt
 -- 2669–2680 (2007). http://dx.doi.org/10.1093/molbev/msm193
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
-whiteNoise :: HandleStem -> Variance -> Tree Length a -> PriorFunction (Tree Length a)
+whiteNoise :: RealFloat a => HandleStem -> VarianceG a -> Tree a b -> PriorFunctionG (Tree a b) a
 whiteNoise hs v tTr rTr = branchesWith hs f zTr
   where
     zTr =
@@ -152,7 +211,7 @@ whiteNoise hs v tTr rTr = branchesWith hs f zTr
         (zipTrees tTr rTr)
     -- This is correct. The mean of b=tr is t, the variance of b is
     -- Var(tr) = t^2Var(r) = t^2 v/t = vt, as required in Lepage, 2006.
-    f (t, r) = let k = fromLength t / v in gamma k (recip k) (fromLength r)
+    f (t, r) = let k = t / v in gammaG k (recip k) r
 
 -- | Auto-correlated gamma model.
 --
@@ -177,11 +236,12 @@ whiteNoise hs v tTr rTr = branchesWith hs f zTr
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
 autocorrelatedGamma ::
+  RealFloat a =>
   HandleStem ->
-  Mean ->
-  Variance ->
-  Tree Length a ->
-  PriorFunction (Tree Length a)
+  MeanG a ->
+  VarianceG a ->
+  Tree a c ->
+  PriorFunctionG (Tree a b) a
 autocorrelatedGamma hs mu var tTr rTr = branchesWith hs f zTr
   where
     zTr =
@@ -189,9 +249,10 @@ autocorrelatedGamma hs mu var tTr rTr = branchesWith hs f zTr
         (error "autocorrelatedGamma: Topologies of time and rate trees do not match.")
         (zipTrees tTr rTr)
     f (t, r) =
-      let var' = fromLength t * var
+      let var' = t * var
           (shape, scale) = gammaMeanVarianceToShapeScale mu var'
-       in gamma shape scale $ fromLength r
+       in gammaG shape scale r
+
 -- autocorrelatedGamma WithStem mu var tTr rTr =
 --   gamma shape scale r * autocorrelatedGamma WithoutStem r var tTr rTr
 --   where
@@ -224,18 +285,20 @@ autocorrelatedGamma hs mu var tTr rTr = branchesWith hs f zTr
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
 autocorrelatedLogNormal ::
+  RealFloat a =>
   HandleStem ->
-  Mean ->
-  Variance ->
-  Tree Length a ->
-  PriorFunction (Tree Length a)
+  MeanG a ->
+  VarianceG a ->
+  Tree a c ->
+  PriorFunctionG (Tree a b) a
 autocorrelatedLogNormal hs mu var tTr rTr = branchesWith hs f zTr
   where
     zTr =
       fromMaybe
         (error "autocorrelatedLogNormal: Topologies of time and rate trees do not match.")
         (zipTrees tTr rTr)
-    f (t, r) = let var' = fromLength t * var in logNormal' mu var' $ fromLength r
+    f (t, r) = let var' = t * var in logNormalG' mu var' r
+
 -- autocorrelatedLogNormal WithStem mu var tTr rTr =
 --   logNormal' mu var' r * autocorrelatedLogNormal WithoutStem r var tTr rTr
 --   where

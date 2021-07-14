@@ -55,8 +55,8 @@ scaleBranch ::
   PName ->
   PWeight ->
   Tune ->
-  Proposal (Tree Length a)
-scaleBranch s n w t = (branchL . lengthL) @~ scaleUnbiased s n w t
+  Proposal (Tree Double a)
+scaleBranch s n w t = branchL @~ scaleUnbiased s n w t
 
 -- | Scale the branches of a given tree.
 --
@@ -69,7 +69,7 @@ scaleBranches ::
   PName ->
   PWeight ->
   Tune ->
-  [Proposal (Tree Length b)]
+  [Proposal (Tree Double b)]
 scaleBranches tr hn s n w t =
   [ subTreeAtL pth
       @~ scaleBranch s (name lb) w t
@@ -93,7 +93,7 @@ scaleTreeSimple ::
   Int ->
   Shape ->
   TuningParameter ->
-  ProposalSimple (Tree Length a)
+  ProposalSimple (Tree Double a)
 scaleTreeSimple n k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
@@ -115,12 +115,12 @@ scaleTreeSimple n k t =
 -- - A branch length is zero or negative.
 scaleTree ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
-  Tree e b ->
+  Tree e a ->
   Shape ->
   PName ->
   PWeight ->
   Tune ->
-  Proposal (Tree Length a)
+  Proposal (Tree Double b)
 scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
   where
     description = PDescription $ "Scale tree; shape: " ++ show k
@@ -145,7 +145,7 @@ scaleSubTrees ::
   -- | Maximum weight.
   PWeight ->
   Tune ->
-  [Proposal (Tree Length b)]
+  [Proposal (Tree Double b)]
 scaleSubTrees tr hn s n wMin wMax t =
   [ subTreeAtL pth
       @~ scaleTree focus s (name lb) w t
@@ -165,7 +165,7 @@ scaleSubTrees tr hn s n wMin wMax t =
 -- See 'truncatedNormalSample'. U is added to the left branch. I.e., if u is
 -- positive, the left branch is elongated.
 pulleyTruncatedNormalSample ::
-  StandardDeviation -> TuningParameter -> Tree Length a -> GenIO -> IO (Double, Log Double)
+  StandardDeviation -> TuningParameter -> Tree Double a -> GenIO -> IO (Double, Log Double)
 pulleyTruncatedNormalSample s t (Node _ _ [l, r])
   | brL <= 0 =
     error $
@@ -177,19 +177,19 @@ pulleyTruncatedNormalSample s t (Node _ _ [l, r])
   where
     brL = branch l
     brR = branch r
-    a = fromLength $ negate brL
-    b = fromLength brR
+    a = negate brL
+    b = brR
 pulleyTruncatedNormalSample _ _ _ = error "pulleyTruncatedNormalSample: Node is not bifurcating."
 
-pulleySimple :: StandardDeviation -> TuningParameter -> ProposalSimple (Tree Length a)
+pulleySimple :: StandardDeviation -> TuningParameter -> ProposalSimple (Tree Double a)
 pulleySimple s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyTruncatedNormalSample s t tr g
   let tr' =
         Node
           br
           lb
-          [ l & branchL . lengthL +~ u,
-            r & branchL . lengthL -~ u
+          [ l & branchL +~ u,
+            r & branchL -~ u
           ]
   -- The determinant of the Jacobian matrix is (-1).
   return (tr', q, 1.0)
@@ -210,15 +210,15 @@ pulley ::
   PName ->
   PWeight ->
   Tune ->
-  Proposal (Tree Length a)
+  Proposal (Tree Double a)
 pulley s = createProposal description (pulleySimple s) (PDimension 2)
   where
     description = PDescription $ "Pulley; sd: " ++ show s
 
 scaleNormAndTreeContrarilyFunction ::
-  (Double, Tree Length a) ->
+  (Double, Tree Double a) ->
   Double ->
-  (Double, Tree Length a)
+  (Double, Tree Double a)
 -- Do not touch the stem, because this leads to problems with negative stem
 -- lengths (or NaNs).
 scaleNormAndTreeContrarilyFunction (x, tr) u = (x / u, scaleUnconstrainedTreeWithoutStemF u tr)
@@ -228,7 +228,7 @@ scaleNormAndTreeContrarilySimple ::
   Int ->
   Shape ->
   TuningParameter ->
-  ProposalSimple (Double, Tree Length a)
+  ProposalSimple (Double, Tree Double a)
 scaleNormAndTreeContrarilySimple n k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
@@ -258,7 +258,7 @@ scaleNormAndTreeContrarily ::
   PName ->
   PWeight ->
   Tune ->
-  Proposal (Double, Tree Length b)
+  Proposal (Double, Tree Double b)
 scaleNormAndTreeContrarily tr sd =
   createProposal
     description
@@ -271,19 +271,19 @@ scaleNormAndTreeContrarily tr sd =
 
 scaleVarianceAndTreeFunction ::
   Int ->
-  (Double, Tree Length a) ->
+  (Double, Tree Double a) ->
   Double ->
-  (Double, Tree Length a)
+  (Double, Tree Double a)
 -- Do not touch the stem, this leads to problems with negative stem lengths (or
 -- NaNs).
 scaleVarianceAndTreeFunction n (x, tr) u =
-  (x * u * u, tr & forestL %~ map (first (lengthL %~ f)))
+  (x * u * u, tr & forestL %~ map (first f))
   where
     -- The calculation of sample mean requires a separate traversal of the tree.
     -- This may be slow.
     --
     -- Specifically ignore the stem.
-    s = fromLength $ sum $ concatMap branches $ forest tr
+    s = sum $ concatMap branches $ forest tr
     -- Sample mean. We assume that 'n' does not count the stem.
     mu = s / fromIntegral n
     -- Force NaN when new value is negative. This avoids numerical problems with
@@ -295,7 +295,7 @@ scaleVarianceAndTreeSimple ::
   Int ->
   Shape ->
   TuningParameter ->
-  ProposalSimple (Double, Tree Length a)
+  ProposalSimple (Double, Tree Double a)
 scaleVarianceAndTreeSimple n k t =
   genericContinuous
     (gammaDistr (k / t) (t / k))
@@ -336,7 +336,7 @@ scaleVarianceAndTree ::
   PName ->
   PWeight ->
   Tune ->
-  Proposal (Double, Tree Length b)
+  Proposal (Double, Tree Double b)
 scaleVarianceAndTree tr sd =
   createProposal
     description
@@ -348,13 +348,13 @@ scaleVarianceAndTree tr sd =
     nBranches = length tr - 1
 
 -- | Scale the branches of an unconstrained tree.
-scaleUnconstrainedTreeF :: Double -> Tree Length a -> Tree Length a
-scaleUnconstrainedTreeF u = first (lengthL *~ u)
+scaleUnconstrainedTreeF :: Double -> Tree Double a -> Tree Double a
+scaleUnconstrainedTreeF u = first (* u)
 
 -- | Scale the branches of an unconstrained tree. Do not scale the stem.
-scaleUnconstrainedTreeWithoutStemF :: Double -> Tree Length a -> Tree Length a
-scaleUnconstrainedTreeWithoutStemF u tr = tr & forestL %~ map (first $ lengthL *~ u)
+scaleUnconstrainedTreeWithoutStemF :: Double -> Tree Double a -> Tree Double a
+scaleUnconstrainedTreeWithoutStemF u tr = tr & forestL %~ map (scaleUnconstrainedTreeF u)
 
 -- | Scale the stem of an unconstrained tree.
-scaleUnconstrainedStem :: Double -> Tree Length a -> Tree Length a
-scaleUnconstrainedStem u tr = tr & branchL %~ lengthL *~ u
+scaleUnconstrainedStem :: Double -> Tree Double a -> Tree Double a
+scaleUnconstrainedStem u tr = tr & branchL *~ u

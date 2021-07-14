@@ -31,6 +31,7 @@ module Mcmc.Tree.Prior.Node.Calibration
   )
 where
 
+import Control.Lens
 import Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Csv hiding (Name)
@@ -39,78 +40,74 @@ import Data.List
 import qualified Data.Vector as V
 import ELynx.Tree hiding (partition)
 import GHC.Generics
-import Mcmc.Chain.Chain
+import Mcmc.Prior.General
 import Mcmc.Statistics.Types
 import Mcmc.Tree.Mrca
-import Mcmc.Tree.Prior.Node.Common
-import Mcmc.Tree.Types
-import Numeric.Log
-import Statistics.Distribution
-import Statistics.Distribution.Normal
+import Mcmc.Tree.Lens
 import Text.Read
 
 -- | Non-negative number.
-newtype NonNegative = NonNegative {fromNonNegative :: Double}
+newtype NonNegative a = NonNegative {fromNonNegative :: a}
   deriving (Eq)
 
-nonNegative :: Double -> NonNegative
+nonNegative :: (Ord a, Num a) => a -> NonNegative a
 nonNegative x
   | x < 0 = error "nonNegative: Negative value."
   | otherwise = NonNegative x
 
-instance Read NonNegative where
+instance (RealFloat a, Read a) => Read (NonNegative a) where
   readPrec = nonNegative <$> readPrec
 
-instance Show NonNegative where
+instance Show a => Show (NonNegative a) where
   showsPrec p (NonNegative x) = showsPrec p x
 
 -- | Positive number or infinity.
-data ExtendedPositive = Positive Double | Infinity
+data ExtendedPositive a = Positive a | Infinity
   deriving (Eq)
 
-positive :: Double -> ExtendedPositive
+positive :: (Ord a, Num a) => a -> ExtendedPositive a
 positive x
   | x <= 0 = error "positive: Zero or negative value."
   | otherwise = Positive x
 
-positiveReadPrec :: ReadPrec ExtendedPositive
+positiveReadPrec :: (Ord a, Num a, Read a) => ReadPrec (ExtendedPositive a)
 positiveReadPrec = positive <$> readPrec
 
-infinityReadPrec :: ReadPrec ExtendedPositive
+infinityReadPrec :: ReadPrec (ExtendedPositive a)
 infinityReadPrec = do
   Ident "Infinity" <- lexP
   return Infinity
 
-instance Read ExtendedPositive where
+instance (Ord a, Num a, Read a) => Read (ExtendedPositive a) where
   readPrec = positiveReadPrec <++ infinityReadPrec
 
-instance Show ExtendedPositive where
+instance Show a => Show (ExtendedPositive a) where
   showsPrec p (Positive x) = showsPrec p x
   showsPrec _ Infinity = showString "Infinity"
 
 -- | Open interval \((a,b)\) with \(a < b\), \(a \in [0, \infty)\) and \(b \in
 -- (0, \infty]\).
-data Interval = Interval NonNegative ExtendedPositive
+data Interval a = Interval (NonNegative a) (ExtendedPositive a)
   deriving (Eq)
 
-instance Show Interval where
+instance Show a => Show (Interval a) where
   show (Interval a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
 
 -- | Specify a lower and an upper bound.
-properInterval :: LowerBoundary -> UpperBoundary -> Interval
+properInterval :: (Ord a, Num a) => LowerBoundaryG a -> UpperBoundaryG a -> Interval a
 properInterval a b
   | a < b = Interval (nonNegative a) (positive b)
   | otherwise = error "properInterval: Left bound equal or larger right bound."
 
 -- | Specify a lower bound only. The upper bound is set to infinity.
-lowerBoundOnly :: LowerBoundary -> Interval
+lowerBoundOnly :: (Ord a, Num a) => LowerBoundaryG a -> Interval a
 lowerBoundOnly a = Interval (nonNegative a) Infinity
 
 -- | Transform an interval by applying a multiplicative change.
 --
 -- Useful when the tree is normalized and height values have to be converted
 -- from relative heights to absolute heights.
-transformInterval :: Double -> Interval -> Interval
+transformInterval :: RealFloat a => a -> Interval a -> Interval a
 transformInterval x (Interval a b)
   | x <= 0 = error "transform: Multiplier is zero or negative."
   | otherwise = Interval a' b'
@@ -121,7 +118,7 @@ transformInterval x (Interval a b)
       Infinity -> Infinity
 
 -- No number is bigger than a non-existing upper bound..
-(>*) :: Double -> ExtendedPositive -> Bool
+(>*) :: (Ord a, Fractional a) => a -> ExtendedPositive a -> Bool
 _ >* Infinity = False
 h >* Positive b = h > b
 
@@ -135,15 +132,15 @@ h >* Positive b = h > b
 -- @
 --
 -- ensures that the root node is older than @YOUNG@, and younger than @OLD@.
-data Calibration = Calibration
+data Calibration a = Calibration
   { calibrationName :: String,
     calibrationNodePath :: Path,
     calibrationNodeIndex :: Int,
-    calibrationInterval :: Interval
+    calibrationInterval :: Interval a
   }
   deriving (Eq, Show)
 
-prettyPrintCalibration :: Calibration -> String
+prettyPrintCalibration :: Show a => Calibration a -> String
 prettyPrintCalibration (Calibration n p i l) =
   "Calibration: "
     <> n
@@ -167,8 +164,8 @@ calibration ::
   String ->
   -- | The most recent common ancestor of the given leaves is the calibrated node.
   [a] ->
-  Interval ->
-  Calibration
+  Interval b ->
+  Calibration b
 calibration t n xs = Calibration n p i
   where
     err msg = error $ "calibration: " ++ n ++ ": " ++ msg
@@ -178,18 +175,18 @@ calibration t n xs = Calibration n p i
     i = label $ getSubTreeUnsafe p $ identify t
 
 -- Used to decode the CSV file.
-data CalibrationData
+data CalibrationData a
   = CalibrationData
       String -- Calibration name.
       String -- Leaf a.
       String -- Leaf b.
-      Double -- Lef boundary.
-      (Maybe Double) -- Maybe right boundary.
+      a -- Lef boundary.
+      (Maybe a) -- Maybe right boundary.
   deriving (Generic, Show)
 
-instance FromRecord CalibrationData
+instance FromField a => FromRecord (CalibrationData a)
 
-calibrationDataToCalibration :: Tree e Name -> CalibrationData -> Calibration
+calibrationDataToCalibration :: (Ord a, Num a) => Tree e Name -> CalibrationData a -> Calibration a
 calibrationDataToCalibration t (CalibrationData n a b l mr) = calibration t n [a', b'] i
   where
     a' = Name $ BL.pack a
@@ -231,10 +228,10 @@ findDupsBy eq (x : xs) = case partition (eq x) xs of
 --
 -- - Redundant or conflicting calibrations are found (i.e., multiple
 --   calibrations affect single nodes).
-loadCalibrations :: Tree e Name -> FilePath -> IO (V.Vector Calibration)
+loadCalibrations :: Tree e Name -> FilePath -> IO (V.Vector (Calibration Double))
 loadCalibrations t f = do
   d <- BL.readFile f
-  let mr = decode NoHeader d :: Either String (V.Vector CalibrationData)
+  let mr = decode NoHeader d :: Either String (V.Vector (CalibrationData Double))
       cds = either error id mr
   when (V.null cds) $ error $ "loadCalibrations: No calibrations found in file: " <> f <> "."
   let calsAll = V.map (calibrationDataToCalibration t) cds
@@ -244,8 +241,9 @@ loadCalibrations t f = do
     then putStrLn "No duplicates and no conflicting calibrations have been detected."
     else do
       -- Calibrations could also be removed. But then, which one should be removed?
-      let render xs = unlines $
-            "Redundant and/or conflicting calibration:" : map prettyPrintCalibration xs
+      let render xs =
+            unlines $
+              "Redundant and/or conflicting calibration:" : map prettyPrintCalibration xs
       mapM_ (putStr . render) calsDupl
       error "loadCalibrations: Duplicates and/or conflicting calibrations have been detected."
   return calsAll
@@ -259,16 +257,16 @@ loadCalibrations t f = do
 --
 -- Call 'error' if the path is invalid.
 calibrateHard ::
-  HasHeight a =>
-  Calibration ->
-  PriorFunction (Tree e a)
+  RealFloat a =>
+  Calibration a ->
+  PriorFunctionG (Tree e a) a
 calibrateHard c t
-  | h <= a' = 0
-  | h >* b = 0
-  | otherwise = 1
+  | h <= a' = 0.0
+  | h >* b = 0.0
+  | otherwise = 1.0
   where
-    a' = fromNonNegative a
-    h = fromHeight $ getHeightFromNode p t
+    a' = realToFrac $ fromNonNegative a
+    h = t ^. labelAtL p
     (Interval a b) = calibrationInterval c
     p = calibrationNodePath c
 
@@ -288,28 +286,27 @@ calibrateHard c t
 --
 -- Call 'error' if the path is invalid.
 calibrateSoft ::
-  HasHeight a =>
-  StandardDeviation ->
-  Calibration ->
-  PriorFunction (Tree e a)
+  RealFloat a =>
+  StandardDeviationG a ->
+  Calibration a ->
+  PriorFunctionG (Tree e a) a
 calibrateSoft s c t = calibrateSoftF s l h
   where
     p = calibrationNodePath c
-    h = getHeightFromNode p t
+    h = t ^. labelAtL p
     l = calibrationInterval c
 
 -- | See 'calibrateSoft'.
-calibrateSoftF :: StandardDeviation -> Interval -> PriorFunction Height
-calibrateSoftF s (Interval a b) h
-  | h' <= a' = Exp $ logDensity d (a' - h') - logDensity d 0
-  | h' >* b = case b of
+calibrateSoftF :: RealFloat a => StandardDeviationG a -> Interval a -> PriorFunctionG a a
+calibrateSoftF s (Interval a' b) h
+  | h <= a = d (a - h) / d 0
+  | h >* b = case b of
     Infinity -> 1.0
-    Positive b' -> Exp $ logDensity d (h' - b') - logDensity d 0
+    Positive b' -> d (h - b') / d 0
   | otherwise = 1
   where
-    h' = fromHeight h
-    a' = fromNonNegative a
-    d = normalDistr 0 s
+    a = fromNonNegative a'
+    d = normalG 0 s
 
 -- | Calibrate nodes of a tree using 'calibrateSoft'.
 --
@@ -326,16 +323,16 @@ calibrateSoftF s (Interval a b) h
 --
 -- - The height multiplier is zero or negative.
 calibrate ::
-  HasHeight a =>
+  RealFloat a =>
   -- | Standard deviation of the calibrations before scaling with the height
   -- multiplier.
   --
   -- NOTE: The same standard deviation is used for all calibrations.
-  StandardDeviation ->
-  V.Vector Calibration ->
+  StandardDeviationG a ->
+  V.Vector (Calibration a) ->
   -- | Height multiplier of tree. Useful when working on normalized trees.
-  Double ->
-  PriorFunction (Tree e a)
+  a ->
+  PriorFunctionG (Tree e a) a
 calibrate sd cs h t
   | h <= 0 = error "calibrate: Height multiplier is zero or negative."
   | otherwise = V.product $ V.map f cs

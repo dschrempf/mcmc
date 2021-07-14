@@ -41,8 +41,10 @@ import Mcmc.Chain.Link
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
 import Mcmc.Cycle
+import Mcmc.Likelihood
 import Mcmc.Monitor
 import Mcmc.Posterior
+import Mcmc.Prior hiding (uniform)
 import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log

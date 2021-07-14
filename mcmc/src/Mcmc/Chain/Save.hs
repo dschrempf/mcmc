@@ -38,7 +38,9 @@ import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
 import Mcmc.Cycle
 import Mcmc.Internal.Random
+import Mcmc.Likelihood
 import Mcmc.Monitor
+import Mcmc.Prior
 import Mcmc.Proposal
 import Prelude hiding (cycle)
 

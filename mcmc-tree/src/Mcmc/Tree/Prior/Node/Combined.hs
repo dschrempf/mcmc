@@ -14,33 +14,39 @@ module Mcmc.Tree.Prior.Node.Combined
   )
 where
 
-import qualified Data.Vector as V
-import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector as VB
 import ELynx.Tree
-import Mcmc.Chain.Chain
+import Mcmc.Prior.General
 import Mcmc.Statistics.Types
 import Mcmc.Tree.Prior.Node.Calibration
 import Mcmc.Tree.Prior.Node.Constraint
-import Mcmc.Tree.Types
 
 -- Get the heights of all nodes and store them in a vector.
-getAllHeights :: HasHeight a => Tree e a -> VU.Vector Height
-getAllHeights = VU.fromList . map getHeight . labels
+getAllHeights :: Tree e a -> VB.Vector a
+getAllHeights = VB.fromList . labels
 
-calibrateV :: StandardDeviation -> Calibration -> PriorFunction (VU.Vector Height)
+calibrateV ::
+  (RealFloat a) =>
+  StandardDeviationG a ->
+  Calibration a ->
+  PriorFunctionG (VB.Vector a) a
 calibrateV s c hs = calibrateSoftF s l h
   where
     l = calibrationInterval c
     i = calibrationNodeIndex c
-    h = hs VU.! i
+    h = hs VB.! i
 
-constrainV :: StandardDeviation -> Constraint -> PriorFunction (VU.Vector Height)
+constrainV ::
+  (RealFloat a) =>
+  StandardDeviationG a ->
+  Constraint ->
+  PriorFunctionG (VB.Vector a) a
 constrainV s k hs = constrainSoftF s (hY, hO)
   where
     iY = constraintYoungNodeIndex k
-    hY = hs VU.! iY
+    hY = hs VB.! iY
     iO = constraintOldNodeIndex k
-    hO = hs VU.! iO
+    hO = hs VB.! iO
 
 -- | Calibrate and constrain nodes.
 --
@@ -53,23 +59,23 @@ constrainV s k hs = constrainSoftF s (hY, hO)
 --
 -- Do not use, if only a few calibrations and constraints have to be checked.
 calibrateAndConstrain ::
-  HasHeight a =>
+  (RealFloat a) =>
   -- | Standard deviation of calibrations.
-  StandardDeviation ->
-  V.Vector Calibration ->
+  StandardDeviationG a ->
+  VB.Vector (Calibration a) ->
   -- | Height multiplier of tree for calibrations.
-  Double ->
+  a ->
   -- | Standard deviation of constraints.
-  StandardDeviation ->
-  V.Vector Constraint ->
-  PriorFunction (Tree e a)
+  StandardDeviationG a ->
+  VB.Vector Constraint ->
+  PriorFunctionG (Tree e a) a
 calibrateAndConstrain sdC cs h sdK ks t
   | h <= 0 = error "calibrate: Height multiplier is zero or negative."
-  | otherwise = V.product csPr * V.product ksPr
+  | otherwise = VB.product csPr * VB.product ksPr
   where
     hs = getAllHeights t
     transform (Calibration n x i l) =
       let l' = if h == 1.0 then l else transformInterval (recip h) l
        in Calibration n x i l'
-    csPr = V.map ((\c -> calibrateV sdC c hs) . transform) cs
-    ksPr = V.map (\k -> constrainV sdK k hs) ks
+    csPr = VB.map ((\c -> calibrateV sdC c hs) . transform) cs
+    ksPr = VB.map (\k -> constrainV sdK k hs) ks

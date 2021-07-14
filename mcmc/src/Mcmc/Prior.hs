@@ -122,12 +122,12 @@ gammaMeanOne k = Exp . S.logDensity d
 
 -- | Calculate mean and variance of the gamma distribution given the shape and
 -- the scale.
-gammaShapeScaleToMeanVariance :: Shape -> Scale -> (Mean, Variance)
+gammaShapeScaleToMeanVariance :: Num a => ShapeG a -> ScaleG a -> (MeanG a, VarianceG a)
 gammaShapeScaleToMeanVariance k t = let m = k * t in (m, m * t)
 
 -- | Calculate shape and scale of the gamma distribution given the mean and
 -- the variance.
-gammaMeanVarianceToShapeScale :: Mean -> Variance -> (Shape, Scale)
+gammaMeanVarianceToShapeScale :: Fractional a => MeanG a -> VarianceG a -> (ShapeG a, ScaleG a)
 gammaMeanVarianceToShapeScale m v = (m * m / v, v / m)
 
 -- | Normal distributed prior.

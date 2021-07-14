@@ -10,11 +10,7 @@
 --
 -- Creation date: Tue May  5 18:01:15 2020.
 module Mcmc.Chain.Chain
-  ( PriorFunction,
-    noPrior,
-    LikelihoodFunction,
-    noLikelihood,
-    InitialState,
+  ( InitialState,
     Chain (..),
   )
 where

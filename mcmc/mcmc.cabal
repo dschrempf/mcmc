@@ -49,6 +49,7 @@ library
       Mcmc.Chain.Trace
       Mcmc.Cycle
       Mcmc.Environment
+      Mcmc.Internal.Gamma
       Mcmc.Likelihood
       Mcmc.Logger
       Mcmc.MarginalLikelihood
@@ -72,7 +73,6 @@ library
       Mcmc.Statistics.Types
   other-modules:
       Mcmc.Internal.ByteString
-      Mcmc.Internal.Gamma
       Mcmc.Internal.Random
       Mcmc.Internal.Shuffle
       Paths_mcmc

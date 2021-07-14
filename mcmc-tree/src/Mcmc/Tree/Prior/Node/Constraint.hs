@@ -23,21 +23,18 @@ module Mcmc.Tree.Prior.Node.Constraint
   )
 where
 
+import Control.Lens
 import Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Csv hiding (Name)
 import Data.List
-import qualified Data.Vector as V
+import qualified Data.Vector as VB
 import ELynx.Tree
 import GHC.Generics
-import Mcmc.Chain.Chain
+import Mcmc.Prior.General
 import Mcmc.Statistics.Types
+import Mcmc.Tree.Lens
 import Mcmc.Tree.Mrca
-import Mcmc.Tree.Prior.Node.Common
-import Mcmc.Tree.Types
-import Numeric.Log
-import Statistics.Distribution
-import Statistics.Distribution.Normal
 
 -- | Constraints define node orders.
 --
@@ -259,13 +256,13 @@ describeRedundant (l, r) =
 -- - An MRCA cannot be found.
 --
 -- - Conflicting constraints are found.
-loadConstraints :: Tree e Name -> FilePath -> IO (V.Vector Constraint)
+loadConstraints :: Tree e Name -> FilePath -> IO (VB.Vector Constraint)
 loadConstraints t f = do
   d <- BL.readFile f
-  let mr = decode NoHeader d :: Either String (V.Vector ConstraintData)
+  let mr = decode NoHeader d :: Either String (VB.Vector ConstraintData)
       cds = either error id mr
-  when (V.null cds) $ error $ "loadConstraints: No constraints found in file: " <> f <> "."
-  let allConstraints = V.toList $ V.map (constraintDataToConstraint t) cds
+  when (VB.null cds) $ error $ "loadConstraints: No constraints found in file: " <> f <> "."
+  let allConstraints = VB.toList $ VB.map (constraintDataToConstraint t) cds
   putStrLn $ "The total number constraints is: " <> show (length allConstraints) <> "."
   -- Call 'error' when constraints are conflicting. We don't want to repair
   -- this.
@@ -317,7 +314,7 @@ loadConstraints t f = do
       <> "."
   putStrLn "The informative constraints are:"
   mapM_ (putStrLn . prettyPrintConstraint) informativeConstraints
-  return $ V.fromList informativeConstraints
+  return $ VB.fromList informativeConstraints
 
 -- | Hard constrain order of nodes with given paths.
 --
@@ -326,11 +323,11 @@ loadConstraints t f = do
 -- For reasons of computational efficiency, the paths are not checked for
 -- validity. Please do so beforehand using 'constraint'.
 constrainHard ::
-  HasHeight a =>
+  RealFloat a =>
   Constraint ->
-  PriorFunction (Tree e a)
+  PriorFunctionG (Tree e a) a
 constrainHard c t
-  | getHeightFromNode y t < getHeightFromNode o t = 1
+  | (t ^. labelAtL y) < (t ^. labelAtL o) = 1
   | otherwise = 0
   where
     y = constraintYoungNodePath c
@@ -348,28 +345,28 @@ constrainHard c t
 -- For reasons of computational efficiency, the paths are not checked for
 -- validity. Please do so beforehand using 'constraint'.
 constrainSoft ::
-  HasHeight a =>
-  StandardDeviation ->
+  RealFloat a =>
+  StandardDeviationG a ->
   Constraint ->
-  PriorFunction (Tree e a)
+  PriorFunctionG (Tree e a) a
 constrainSoft s c t = constrainSoftF s (hY, hO)
   where
-    hY = getHeightFromNode y t
-    hO = getHeightFromNode o t
+    hY = t ^. labelAtL y
+    hO = t ^. labelAtL o
     y = constraintYoungNodePath c
     o = constraintOldNodePath c
 
 -- | See 'constrainSoft'.
 constrainSoftF ::
-  StandardDeviation ->
-  PriorFunction (Height, Height)
-constrainSoftF s (hY, hO)
-  | hY' < hO' = 1
-  | otherwise = Exp $ logDensity d (hY' - hO') - logDensity d 0
+  RealFloat a =>
+  StandardDeviationG a ->
+  PriorFunctionG (a, a) a
+constrainSoftF s' (hY, hO)
+  | hY < hO = 1
+  | otherwise = d (hY - hO) - d 0
   where
-    hY' = fromHeight hY
-    hO' = fromHeight hO
-    d = normalDistr 0 s
+    s = realToFrac s'
+    d = normalG 0 s
 
 -- | Constrain nodes of a tree using 'constrainSoft'.
 --
@@ -382,10 +379,10 @@ constrainSoftF s (hY, hO)
 --
 -- Call 'error' if a path is invalid.
 constrain ::
-  HasHeight a =>
-  StandardDeviation ->
-  V.Vector Constraint ->
-  PriorFunction (Tree e a)
-constrain sd cs t = V.product $ V.map f cs
+  RealFloat a =>
+  StandardDeviationG a ->
+  VB.Vector Constraint ->
+  PriorFunctionG (Tree e a) a
+constrain sd cs t = VB.product $ VB.map f cs
   where
     f x = constrainSoft sd x t

@@ -22,17 +22,17 @@ where
 -- compared the results to RevBayes, see below.
 
 import ELynx.Tree
-import Mcmc.Chain.Chain
+import Mcmc.Prior.General
 import Numeric.Log
 
 -- | Type synonym to indicate a birth rate.
-type BirthRate = Double
+type BirthRate a = a
 
 -- | Type synonym to indicate a death rate.
-type DeathRate = Double
+type DeathRate a = a
 
 -- | Type synonym to indicate a sampling rate.
-type SamplingRate = Double
+type SamplingRate a = a
 
 -- Compute probabilities D and E at the top of the branch.
 --
@@ -48,18 +48,19 @@ type SamplingRate = Double
 -- >>> computeDE 1.2 3.2 1.0 0.3
 -- (7.283127121752474e-2,0.9305035687810801)
 computeDE ::
+  RealFloat a =>
   -- Lambda.
-  BirthRate ->
+  BirthRate a ->
   -- Mu.
-  DeathRate ->
+  DeathRate a ->
   -- Rho.
-  SamplingRate ->
+  SamplingRate a ->
   -- Branch length.
-  Double ->
+  a ->
   -- E at bottom of branch. Storage in log domain not necessary.
-  Double ->
+  a ->
   -- D, E. Storage in log domain not necessary.
-  (Double, Double)
+  (a, a)
 computeDE la mu rho dt e0 = (nomD / denom / denom, nomE / denom)
   where
     d = la - mu
@@ -74,18 +75,19 @@ computeDE la mu rho dt e0 = (nomD / denom / denom, nomE / denom)
 
 -- Compute probabilities D and E at the top of the branch for la ~= mu.
 computeDENearCritical ::
+  RealFloat a =>
   -- Lambda.
-  BirthRate ->
+  BirthRate a ->
   -- Mu.
-  DeathRate ->
+  DeathRate a ->
   -- Rho.
-  SamplingRate ->
+  SamplingRate a ->
   -- Branch length.
-  Double ->
+  a ->
   -- E at bottom of branch. Storage in log domain not necessary.
-  Double ->
+  a ->
   -- D, E. Storage in log domain not necessary.
-  (Double, Double)
+  (a, a)
 computeDENearCritical la mu rho dt e0 = (nomD / denom / denom, nomE / denom)
   where
     d = la - mu
@@ -97,7 +99,7 @@ computeDENearCritical la mu rho dt e0 = (nomD / denom / denom, nomE / denom)
 {-# INLINE computeDENearCritical #-}
 
 -- Require near critical process if birth and death rates are closer than this value.
-epsNearCritical :: Double
+epsNearCritical :: Fractional a => a
 epsNearCritical = 1e-6
 
 -- | Condition on the time of origin or the time of the most recent common
@@ -131,11 +133,12 @@ data ConditionOn = ConditionOnTimeOfOrigin | ConditionOnTimeOfMrca
 --
 -- - The tree is not bifurcating.
 birthDeath ::
+  RealFloat a =>
   ConditionOn ->
-  BirthRate ->
-  DeathRate ->
-  SamplingRate ->
-  PriorFunction (Tree Length a)
+  BirthRate a ->
+  DeathRate a ->
+  SamplingRate a ->
+  PriorFunctionG (Tree a b) a
 birthDeath ConditionOnTimeOfOrigin la mu rho t
   | la < 0.0 = error "birthDeath: Birth rate is negative."
   | mu < 0.0 = error "birthDeath: Death rate is negative."
@@ -149,15 +152,17 @@ birthDeath ConditionOnTimeOfMrca _ _ _ _ =
   error "birthDeath: Tree is not bifurcating."
 
 birthDeathWith ::
+  RealFloat a =>
   -- Computation of D and E. Set to normal or near critical formula.
-  (BirthRate -> DeathRate -> SamplingRate -> Double -> Double -> (Double, Double)) ->
-  BirthRate ->
-  DeathRate ->
-  SamplingRate ->
-  Tree Length a ->
-  (Log Double, Double)
+  (BirthRate a -> DeathRate a -> SamplingRate a -> a -> a -> (a, a)) ->
+  BirthRate a ->
+  DeathRate a ->
+  SamplingRate a ->
+  Tree a b ->
+  -- Return (log D, E).
+  (Log a, a)
 -- First case of the boundary conditions given after Eq. [4].
-birthDeathWith f la mu rho (Node br _ [l, r]) = (Exp (log $ dT * la) * dL * dR, eT)
+birthDeathWith f la mu rho (Node br _ [l, r]) = (Exp (log (dT * la)) * dL + dR, eT)
   where
     (dL, eL) = birthDeathWith f la mu rho l
     -- (dR, eR) = birthDeathWith f la mu rho r
@@ -173,18 +178,18 @@ birthDeathWith f la mu rho (Node br _ [l, r]) = (Exp (log $ dT * la) * dL * dR, 
     -- nodes here, we use rho=1.0. In the future, one may also allow values
     -- below 1.0 modeling, for example, catastrophes killing a certain
     -- percentage of all living species.
-    (dT, eT) = f la mu 1.0 (fromLength br) eL
+    (dT, eT) = f la mu 1.0 br eL
 -- Second case of the boundary conditions given after Eq. [4].
-birthDeathWith f la mu rho (Node br _ [c]) = (Exp (log $ dT * rho) * d, eT)
+birthDeathWith f la mu rho (Node br _ [c]) = (Exp (log (dT * rho)) * d, eT)
   where
     (d, e) = birthDeathWith f la mu rho c
-    (dT, eT) = f la mu 1.0 (fromLength br) e
+    (dT, eT) = f la mu 1.0 br e
 -- Third case of the boundary conditions given after Eq. [4].
 birthDeathWith f la mu rho (Node br _ []) = (Exp $ log $ dT * rho, eT)
   where
     -- D and E at the top of the external branch. We use the given sampling
     -- probability here.
-    (dT, eT) = f la mu rho (fromLength br) 0
+    (dT, eT) = f la mu rho br 0
 birthDeathWith _ _ _ _ _ = error "birthDeathWith: Tree is multifurcating."
 
 -- * Tests

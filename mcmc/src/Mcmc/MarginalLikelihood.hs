@@ -42,6 +42,7 @@ import Mcmc.Likelihood
 import Mcmc.Logger
 import Mcmc.Mcmc
 import Mcmc.Monitor
+import Mcmc.Prior
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Directory

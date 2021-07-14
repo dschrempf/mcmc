@@ -18,11 +18,11 @@ where
 
 import Data.List
 import ELynx.Tree
-import Mcmc.Chain.Chain
+import Mcmc.Prior.General
 import Mcmc.Tree.Types
 
 -- | Branch wise prior with given prior function.
-branchesWith :: HandleStem -> PriorFunction e -> PriorFunction (Tree e a)
+branchesWith :: RealFloat a => HandleStem -> PriorFunctionG e a -> PriorFunctionG (Tree e b) a
 branchesWith WithStem f (Node br _ ts) = foldl' (*) (f br) $ map (branchesWith WithStem f) ts
 branchesWith WithoutStem f (Node _ _ ts) = foldl1' (*) $ map (branchesWith WithStem f) ts
 

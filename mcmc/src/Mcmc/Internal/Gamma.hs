@@ -25,6 +25,7 @@ mSqrtEps = 1.4901161193847656e-8
 mEulerMascheroni :: RealFloat a => a
 mEulerMascheroni = 0.5772156649015328606065121
 
+-- | See 'Numeric.SpecFunctions.logGamma'.
 logGammaG :: RealFloat a => a -> a
 logGammaG z
   | z <= 0 = 1 / 0
@@ -180,7 +181,7 @@ tableLanczos =
     ]
 {-# NOINLINE tableLanczos #-}
 
-data L a = L {-# UNPACK #-} !a {-# UNPACK #-} !a
+data L a = L !a !a
 
 evalRatio :: RealFloat a => VB.Vector (a, a) -> a -> a
 evalRatio coef x

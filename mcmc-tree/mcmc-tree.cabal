@@ -50,7 +50,6 @@ library
       Mcmc.Tree.Prior.Branch.RelaxedClock
       Mcmc.Tree.Prior.Node.Calibration
       Mcmc.Tree.Prior.Node.Combined
-      Mcmc.Tree.Prior.Node.Common
       Mcmc.Tree.Prior.Node.Constraint
       Mcmc.Tree.Proposal.Contrary
       Mcmc.Tree.Proposal.Ultrametric
@@ -64,14 +63,11 @@ library
       Paths_mcmc_tree
   hs-source-dirs: src
   build-depends:
-      aeson
-    , attoparsec
+      attoparsec
     , base >=4.7 && <5
     , bytestring
     , cassava
     , containers
-    , deepseq
-    , dirichlet
     , elynx-tree
     , lens
     , log-domain
@@ -80,7 +76,6 @@ library
     , mwc-random
     , statistics
     , vector
-    , vector-th-unbox
     , zlib
 
 benchmark tree-bench
