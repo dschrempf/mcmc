@@ -63,7 +63,7 @@ type PriorFunction a = PriorFunctionG a Double
 type PriorFunctionG a b = a -> PriorG b
 
 -- | Flat prior function. Useful for testing and debugging.
-noPrior :: RealFloat a => PriorFunctionG a a
+noPrior :: RealFloat b => PriorFunctionG a b
 noPrior = const 1.0
 {-# SPECIALIZE noPrior :: PriorFunction Double #-}
 
