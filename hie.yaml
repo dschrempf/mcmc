@@ -25,10 +25,3 @@ cradle:
     # mcmc-statistics
     - path: "mcmc-statistics/src"
       component: "mcmc-statistics:lib"
-
-    # mcmc-tree
-    - path: "mcmc-tree/src"
-      component: "mcmc-tree:lib"
-    - path: "mcmc-tree/bench"
-      component: "mcmc-tree:bench:tree-bench"
-

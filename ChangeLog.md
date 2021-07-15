@@ -9,10 +9,7 @@
 
 ### mcmc-tree
 
--   Remove parallel branch prior. Improve speed of sequential branch prior.
--   Remove unsafe suffix of various functions (mrca).
--   Change height and length lenses.
--   Combined calibrations and constraints.
+-   Moved to another repository: <https://github.com/dschrempf/mcmc-dating>.
 
 
 ## 0.5.0.0
