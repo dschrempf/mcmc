@@ -175,6 +175,7 @@ module Mcmc
     -- * Prior, likelihood, and posterior values and functions
     module Mcmc.Prior,
     module Mcmc.Likelihood,
+    module Mcmc.Posterior,
 
     -- * MCMC samplers
     mcmc,
@@ -205,6 +206,7 @@ import Mcmc.Mcmc
 import Mcmc.Monitor
 import Mcmc.Monitor.Parameter
 import Mcmc.Monitor.ParameterBatch
+import Mcmc.Posterior
 import Mcmc.Prior
 import Mcmc.Proposal
 import Mcmc.Proposal.Bactrian
