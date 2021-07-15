@@ -9,7 +9,7 @@
 
 ### mcmc-tree
 
--   Moved to another repository: <https://github.com/dschrempf/mcmc-dating>.
+-   Moved to another repository: <https://github.com/dschrempf/mcmc-date>.
 
 
 ## 0.5.0.0
