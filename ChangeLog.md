@@ -5,6 +5,8 @@
 ## Unreleased changes
 
 -   Improve documentation.
+-   Generalized priors allowing automatic differentiation.
+-   Hamiltonian proposal (will be improved).
 
 
 ### mcmc-tree
