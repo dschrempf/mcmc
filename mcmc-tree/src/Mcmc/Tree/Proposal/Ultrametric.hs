@@ -55,25 +55,25 @@ import System.Random.MWC
 
 slideNodeAtUltrametricSimple ::
   Path ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   TuningParameter ->
-  ProposalSimple (Tree a Double)
+  ProposalSimple (HeightTree Double)
 slideNodeAtUltrametricSimple pth s t tr g
   | null children = error "slideNodeAtUltrametricSimple: Cannot slide leaf."
   | otherwise = do
     (hNode', q) <- truncatedNormalSample hNode s t hChild hParent g
-    let setNodeHeight x = x & labelL .~ hNode'
+    let setNodeHeight x = x & branchL .~ hNode'
     -- The absolute value of the determinant of the Jacobian is 1.0.
-    return (toTree $ modifyTree setNodeHeight trPos, q, 1.0)
+    return (HeightTree $ toTree $ modifyTree setNodeHeight trPos, q, 1.0)
   where
-    trPos = goPathUnsafe pth $ fromTree tr
+    trPos = goPathUnsafe pth $ fromTree $ fromHeightTree tr
     focus = current trPos
     children = forest focus
-    hNode = label focus
-    hChild = maximum $ map label children
+    hNode = branch focus
+    hChild = maximum $ map branch children
     parent = current $ goParentUnsafe trPos
     -- Set the upper bound to +Infinity if no parent node exists.
-    hParent = if null pth then 1 / 0 else label parent
+    hParent = if null pth then 1 / 0 else branch parent
 
 -- | Slide node (for ultrametric trees).
 --
@@ -100,11 +100,11 @@ slideNodeAtUltrametric ::
   -- | A zipper with given 'Path' has to be used for this proposal, because we
   -- need access to the parent.
   Path ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->
-  Proposal (Tree b Double)
+  Proposal (HeightTree Double)
 slideNodeAtUltrametric tr pth ds
   | not $ isValidPath tr pth = error $ "slideNodeAtUltrametric: Path is invalid: " <> show pth <> "."
   | isLeafPath tr pth = error $ "slideNodeAtUltrametric: Path leads to a leaf: " <> show pth <> "."
@@ -120,12 +120,12 @@ slideNodeAtUltrametric tr pth ds
 slideNodesUltrametric ::
   Tree e a ->
   HandleNode ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
   Tune ->
-  [Proposal (Tree b Double)]
+  [Proposal (HeightTree Double)]
 slideNodesUltrametric tr hn s n w t =
   [ slideNodeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
@@ -141,9 +141,9 @@ scaleSubTreeAtUltrametricSimple ::
   -- Number of inner nodes.
   Int ->
   Path ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   TuningParameter ->
-  ProposalSimple (Tree a Double)
+  ProposalSimple (HeightTree Double)
 scaleSubTreeAtUltrametricSimple n pth sd t tr g
   | null children = error "scaleSubTreeAtUltrametricSimple: Sub tree is a leaf."
   | otherwise = do
@@ -152,15 +152,15 @@ scaleSubTreeAtUltrametricSimple n pth sd t tr g
     let xi = hNode' / hNode
         -- (-1) because the root height has an additive change.
         jacobian = Exp $ fromIntegral (n - 1) * log xi
-    return (toTree $ modifyTree (scaleUltrametricTreeF hNode' xi) trPos, q, jacobian)
+    return (HeightTree $ toTree $ modifyTree (scaleUltrametricTreeF hNode' xi) trPos, q, jacobian)
   where
-    trPos = goPathUnsafe pth $ fromTree tr
+    trPos = goPathUnsafe pth $ fromTree $ fromHeightTree tr
     focus = current trPos
     children = forest focus
-    hNode = label focus
+    hNode = branch focus
     parent = current $ goParentUnsafe trPos
     -- Set the upper bound to +Infinity if no parent node exists.
-    hParent = if null pth then 1 / 0 else label parent
+    hParent = if null pth then 1 / 0 else branch parent
 
 -- | Scale the node heights of the sub tree at given path.
 --
@@ -182,11 +182,11 @@ scaleSubTreeAtUltrametric ::
   -- | A zipper with given 'Path' has to be used for this proposal, because we need
   -- access to the parent.
   Path ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->
-  Proposal (Tree b Double)
+  Proposal (HeightTree Double)
 scaleSubTreeAtUltrametric tr pth sd
   | not $ isValidPath tr pth = error $ "scaleSubTreeAtUltrametric: Path is invalid: " <> show pth <> "."
   | isLeafPath tr pth = error $ "scaleSubTreeAtUltrametric: Path leads to a leaf: " <> show pth <> "."
@@ -210,7 +210,7 @@ scaleSubTreeAtUltrametric tr pth sd
 scaleSubTreesUltrametric ::
   Tree e a ->
   HandleNode ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   -- | Base name of proposals.
   PName ->
   -- | Minimum weight at the leaves. If the minimum weight is larger than the
@@ -219,7 +219,7 @@ scaleSubTreesUltrametric ::
   -- | Maximum weight for nodes closer to the root.
   PWeight ->
   Tune ->
-  [Proposal (Tree b Double)]
+  [Proposal (HeightTree Double)]
 scaleSubTreesUltrametric tr hn s n wMin wMax t =
   [ scaleSubTreeAtUltrametric tr pth s (name lb) w t
     | (pth, lb) <- itoList $ identify tr,
@@ -238,12 +238,12 @@ scaleSubTreesUltrametric tr hn s n wMin wMax t =
 -- See 'pulleyTruncatedNormalSample'. However, we have to honor more constraints
 -- in the ultrametric case.
 pulleyUltrametricTruncatedNormalSample ::
-  StandardDeviation ->
+  StandardDeviation Double ->
   TuningParameter ->
-  Tree a Double ->
+  HeightTree Double ->
   GenIO ->
   IO (Double, Log Double)
-pulleyUltrametricTruncatedNormalSample s t (Node _ ht [l, r])
+pulleyUltrametricTruncatedNormalSample s t (HeightTree (Node ht _ [l, r]))
   | brL <= 0 =
     error $
       "pulleyUltrametricTruncatedNormalSample: Left branch is zero or negative: " ++ show brL ++ "."
@@ -255,8 +255,8 @@ pulleyUltrametricTruncatedNormalSample s t (Node _ ht [l, r])
     -- The new branch lengths are not allowed to exceed the height of the node.
     --
     -- Left and right branch length.
-    brL = ht - label l
-    brR = ht - label r
+    brL = ht - branch l
+    brR = ht - branch r
     -- The constraints are larger than 0.
     constraintRightBoundary = ht - brL
     constraintLeftBoundary = ht - brR
@@ -270,18 +270,18 @@ pulleyUltrametricSimple ::
   Int ->
   -- Number of inner nodes of right tree.
   Int ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   TuningParameter ->
-  ProposalSimple (Tree a Double)
-pulleyUltrametricSimple nL nR s t tr@(Node br lb [l, r]) g = do
+  ProposalSimple (HeightTree Double)
+pulleyUltrametricSimple nL nR s t tr@(HeightTree (Node br lb [l, r])) g = do
   (u, q) <- pulleyUltrametricTruncatedNormalSample s t tr g
   -- Left.
-  let hL = label l
+  let hL = branch l
       hL' = hL - u
       -- Scaling factor left. (hL - u)/hL = (1.0 - u/hL).
       xiL = hL' / hL
   -- Right.
-  let hR = label r
+  let hR = branch r
       hR' = hR + u
       -- Scaling factor right. (hR + u)/hR = (1.0 + u/hR).
       xiR = hR' / hR
@@ -294,7 +294,7 @@ pulleyUltrametricSimple nL nR s t tr@(Node br lb [l, r]) g = do
   -- (-1) because the root height has an additive change.
   let jacobianL = Exp $ fromIntegral (nL - 1) * log xiL
       jacobianR = Exp $ fromIntegral (nR - 1) * log xiR
-  return (tr', q, jacobianL * jacobianR)
+  return (HeightTree tr', q, jacobianL * jacobianR)
 pulleyUltrametricSimple _ _ _ _ _ _ = error "pulleyUltrametricSimple: Node is not bifurcating."
 
 -- | Use a node as a pulley.
@@ -312,11 +312,11 @@ pulleyUltrametricSimple _ _ _ _ _ _ = error "pulleyUltrametricSimple: Node is no
 pulleyUltrametric ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e a ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->
-  Proposal (Tree b Double)
+  Proposal (HeightTree Double)
 pulleyUltrametric (Node _ _ [l, r]) d
   | null (forest l) = error "pulleyUltrametric: Left sub tree is a leaf."
   | null (forest r) = error "pulleyUltrametric: Right sub tree is a leaf."
@@ -339,10 +339,10 @@ scaleUltrametricTreeF ::
   -- | Scaling factor for other nodes. The scaling factor for inner node heights
   -- is also given, since it is calculated anyways by the calling functions.
   Double ->
-  Tree a Double ->
-  Tree a Double
-scaleUltrametricTreeF h xi (Node br _ ts) =
-  Node br h' $ map (second (* xi')) ts
+  Tree Double Name ->
+  Tree Double Name
+scaleUltrametricTreeF h xi (Node _ lb ts) =
+  Node h' lb $ map (first (* xi')) ts
   where
     xi' = assert (xi > 0) xi
     h' = assert (h > 0) h

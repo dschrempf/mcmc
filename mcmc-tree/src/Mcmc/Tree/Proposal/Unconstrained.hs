@@ -51,7 +51,7 @@ import System.Random.MWC
 --
 -- See 'scaleUnbiased'.
 scaleBranch ::
-  Shape ->
+  Shape Double ->
   PName ->
   PWeight ->
   Tune ->
@@ -64,7 +64,7 @@ scaleBranch s n w t = branchL @~ scaleUnbiased s n w t
 scaleBranches ::
   Tree e a ->
   HandleNode ->
-  Shape ->
+  Shape Double ->
   -- | Base name of proposals.
   PName ->
   PWeight ->
@@ -91,7 +91,7 @@ scaleTreeJacobian n _ u = Exp $ fromIntegral (n - 2) * log u
 scaleTreeSimple ::
   -- Number of branches.
   Int ->
-  Shape ->
+  Shape Double ->
   TuningParameter ->
   ProposalSimple (Tree Double a)
 scaleTreeSimple n k t =
@@ -116,7 +116,7 @@ scaleTreeSimple n k t =
 scaleTree ::
   -- | The topology of the tree is used to precompute the number of inner nodes.
   Tree e a ->
-  Shape ->
+  Shape Double ->
   PName ->
   PWeight ->
   Tune ->
@@ -137,7 +137,7 @@ scaleTree tr k = createProposal description (scaleTreeSimple n k) (PDimension n)
 scaleSubTrees ::
   Tree e a ->
   HandleNode ->
-  Shape ->
+  Shape Double ->
   -- | Base name of proposals.
   PName ->
   -- | Minimum weight.
@@ -165,7 +165,11 @@ scaleSubTrees tr hn s n wMin wMax t =
 -- See 'truncatedNormalSample'. U is added to the left branch. I.e., if u is
 -- positive, the left branch is elongated.
 pulleyTruncatedNormalSample ::
-  StandardDeviation -> TuningParameter -> Tree Double a -> GenIO -> IO (Double, Log Double)
+  StandardDeviation Double ->
+  TuningParameter ->
+  Tree Double a ->
+  GenIO ->
+  IO (Double, Log Double)
 pulleyTruncatedNormalSample s t (Node _ _ [l, r])
   | brL <= 0 =
     error $
@@ -181,7 +185,7 @@ pulleyTruncatedNormalSample s t (Node _ _ [l, r])
     b = brR
 pulleyTruncatedNormalSample _ _ _ = error "pulleyTruncatedNormalSample: Node is not bifurcating."
 
-pulleySimple :: StandardDeviation -> TuningParameter -> ProposalSimple (Tree Double a)
+pulleySimple :: StandardDeviation Double -> TuningParameter -> ProposalSimple (Tree Double a)
 pulleySimple s t tr@(Node br lb [l, r]) g = do
   (u, q) <- pulleyTruncatedNormalSample s t tr g
   let tr' =
@@ -206,7 +210,7 @@ pulleySimple _ _ _ _ = error "pulleySimple: Node is not bifurcating."
 --
 -- - The node is not bifurcating.
 pulley ::
-  StandardDeviation ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->
@@ -226,7 +230,7 @@ scaleNormAndTreeContrarilyFunction (x, tr) u = (x / u, scaleUnconstrainedTreeWit
 scaleNormAndTreeContrarilySimple ::
   -- Number of branches.
   Int ->
-  Shape ->
+  Shape Double ->
   TuningParameter ->
   ProposalSimple (Double, Tree Double a)
 scaleNormAndTreeContrarilySimple n k t =
@@ -254,7 +258,7 @@ scaleNormAndTreeContrarilySimple n k t =
 scaleNormAndTreeContrarily ::
   -- | The topology of the tree is used to precompute the number of inner branches.
   Tree e a ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->
@@ -293,7 +297,7 @@ scaleVarianceAndTreeFunction n (x, tr) u =
 scaleVarianceAndTreeSimple ::
   -- Number of branches.
   Int ->
-  Shape ->
+  Shape Double ->
   TuningParameter ->
   ProposalSimple (Double, Tree Double a)
 scaleVarianceAndTreeSimple n k t =
@@ -332,7 +336,7 @@ scaleVarianceAndTreeSimple n k t =
 scaleVarianceAndTree ::
   -- | The topology of the tree is used to precompute the number of inner branches.
   Tree e a ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->

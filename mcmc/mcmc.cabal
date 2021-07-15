@@ -61,7 +61,6 @@ library
       Mcmc.Monitor.Time
       Mcmc.Posterior
       Mcmc.Prior
-      Mcmc.Prior.General
       Mcmc.Proposal
       Mcmc.Proposal.Bactrian
       Mcmc.Proposal.Generic

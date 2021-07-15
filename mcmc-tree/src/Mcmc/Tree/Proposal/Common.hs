@@ -29,11 +29,11 @@ import System.Random.MWC
 -- NOTE: No Jacobian is computed, because it is not known how the proposal will
 -- be used.
 truncatedNormalSample ::
-  Mean ->
-  StandardDeviation ->
+  Mean Double ->
+  StandardDeviation Double ->
   TuningParameter ->
-  LowerBoundary ->
-  UpperBoundary ->
+  LowerBoundary Double ->
+  UpperBoundary Double ->
   GenIO ->
   -- | (NewValue, MHGRatioWithoutJacobian)
   IO (Double, Log Double)

@@ -31,10 +31,11 @@ import Data.List
 import qualified Data.Vector as VB
 import ELynx.Tree
 import GHC.Generics
-import Mcmc.Prior.General
+import Mcmc.Prior
 import Mcmc.Statistics.Types
 import Mcmc.Tree.Lens
 import Mcmc.Tree.Mrca
+import Mcmc.Tree.Types
 
 -- | Constraints define node orders.
 --
@@ -325,9 +326,9 @@ loadConstraints t f = do
 constrainHard ::
   RealFloat a =>
   Constraint ->
-  PriorFunctionG (Tree e a) a
-constrainHard c t
-  | (t ^. labelAtL y) < (t ^. labelAtL o) = 1
+  PriorFunctionG (HeightTree a) a
+constrainHard c (HeightTree t)
+  | (t ^. subTreeAtL y . branchL) < (t ^. subTreeAtL o . branchL) = 1
   | otherwise = 0
   where
     y = constraintYoungNodePath c
@@ -346,27 +347,27 @@ constrainHard c t
 -- validity. Please do so beforehand using 'constraint'.
 constrainSoft ::
   RealFloat a =>
-  StandardDeviationG a ->
+  StandardDeviation a ->
   Constraint ->
-  PriorFunctionG (Tree e a) a
-constrainSoft s c t = constrainSoftF s (hY, hO)
+  PriorFunctionG (HeightTree a) a
+constrainSoft s c (HeightTree t) = constrainSoftF s (hY, hO)
   where
-    hY = t ^. labelAtL y
-    hO = t ^. labelAtL o
+    hY = t ^. subTreeAtL y . branchL
+    hO = t ^. subTreeAtL o . branchL
     y = constraintYoungNodePath c
     o = constraintOldNodePath c
 
 -- | See 'constrainSoft'.
 constrainSoftF ::
   RealFloat a =>
-  StandardDeviationG a ->
+  StandardDeviation a ->
   PriorFunctionG (a, a) a
 constrainSoftF s' (hY, hO)
   | hY < hO = 1
   | otherwise = d (hY - hO) - d 0
   where
     s = realToFrac s'
-    d = normalG 0 s
+    d = normal 0 s
 
 -- | Constrain nodes of a tree using 'constrainSoft'.
 --
@@ -380,9 +381,9 @@ constrainSoftF s' (hY, hO)
 -- Call 'error' if a path is invalid.
 constrain ::
   RealFloat a =>
-  StandardDeviationG a ->
+  StandardDeviation a ->
   VB.Vector Constraint ->
-  PriorFunctionG (Tree e a) a
+  PriorFunctionG (HeightTree a) a
 constrain sd cs t = VB.product $ VB.map f cs
   where
     f x = constrainSoft sd x t

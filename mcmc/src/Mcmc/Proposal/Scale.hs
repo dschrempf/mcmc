@@ -26,7 +26,7 @@ import Statistics.Distribution.Gamma
 
 -- The actual proposal with tuning parameter. The tuning parameter does not
 -- change the mean.
-scaleSimple :: Shape -> Scale -> TuningParameter -> ProposalSimple Double
+scaleSimple :: Shape Double -> Scale Double -> TuningParameter -> ProposalSimple Double
 scaleSimple k th t =
   genericContinuous
     (gammaDistr (k / t) (th * t))
@@ -46,8 +46,8 @@ scaleSimple k th t =
 -- Consider using 'Mcmc.Proposal.Slide.slide' to allow proposition of values
 -- having opposite sign.
 scale ::
-  Shape ->
-  Scale ->
+  Shape Double ->
+  Scale Double ->
   PName ->
   PWeight ->
   Tune ->
@@ -61,7 +61,7 @@ scale k th = createProposal description (scaleSimple k th) (PDimension 1)
 -- The scale of the gamma distribution is set to (shape)^{-1}, so that the mean
 -- of the gamma distribution is 1.0.
 scaleUnbiased ::
-  Shape ->
+  Shape Double ->
   PName ->
   PWeight ->
   Tune ->
@@ -70,7 +70,11 @@ scaleUnbiased k = createProposal description (scaleSimple k (1 / k)) (PDimension
   where
     description = PDescription $ "Scale unbiased; shape: " ++ show k
 
-scaleContrarilySimple :: Shape -> Scale -> TuningParameter -> ProposalSimple (Double, Double)
+scaleContrarilySimple ::
+  Shape Double ->
+  Scale Double ->
+  TuningParameter ->
+  ProposalSimple (Double, Double)
 scaleContrarilySimple k th t =
   genericContinuous
     (gammaDistr (k / t) (th * t))
@@ -86,8 +90,8 @@ scaleContrarilySimple k th t =
 -- The two values are scaled contrarily so that their product stays constant.
 -- Contrary proposals are useful when parameters are confounded.
 scaleContrarily ::
-  Shape ->
-  Scale ->
+  Shape Double ->
+  Scale Double ->
   PName ->
   PWeight ->
   Tune ->

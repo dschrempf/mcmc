@@ -11,12 +11,11 @@
 -- Creation date: Sat Jul 25 14:06:14 2020.
 module Mcmc.Tree.Monitor
   ( monitorTree,
-    monitorTreeWith,
+    monitorTree',
   )
 where
 
 import Data.Bifunctor
-import Data.Maybe
 import ELynx.Tree
 import Mcmc
 
@@ -29,17 +28,13 @@ monitorTree ::
 monitorTree n = MonitorParameter n (toNewickBuilder . lengthToPhyloTree)
 
 -- | Monitor a tree in Newick format.
-monitorTreeWith ::
-  -- | Node names in pre-order.
-  [Name] ->
+monitorTree' ::
   -- | Name.
   String ->
-  MonitorParameter (Tree Double ())
-monitorTreeWith ns n =
+  MonitorParameter (Tree Double Name)
+monitorTree' n =
   MonitorParameter
     n
-    (toNewickBuilder . lengthToPhyloTree . checkLengths . setNames)
+    (toNewickBuilder . lengthToPhyloTree . setLengths)
   where
-    checkLengths = first (either error id . toLength)
-    setNames =
-      fromMaybe (error "monitorTreeWith: Too few or too many node labels.") . setLabels ns
+    setLengths = first (toLengthUnsafe)

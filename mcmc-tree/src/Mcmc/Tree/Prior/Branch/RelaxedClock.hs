@@ -38,7 +38,6 @@ import Data.Maybe
 import ELynx.Tree
 import Mcmc.Internal.Gamma
 import Mcmc.Prior
-import Mcmc.Prior.General
 import Mcmc.Statistics.Types
 import Mcmc.Tree.Prior.Branch
 import Mcmc.Tree.Types
@@ -82,15 +81,15 @@ import Numeric.MathFunctions.Constants
 -- - The number of partitions is smaller than two.
 gammaDirichlet ::
   RealFloat a =>
-  ShapeG a ->
-  ScaleG a ->
+  Shape a ->
+  Scale a ->
   -- | Alpha of Dirichlet distribution.
   a ->
-  MeanG a ->
+  Mean a ->
   PriorFunctionG [a] a
 gammaDirichlet alphaMu betaMu alpha muMean xs = muPrior * dirichletDensitySymmetricG ddSym xs
   where
-    muPrior = gammaG alphaMu betaMu muMean
+    muPrior = gamma alphaMu betaMu muMean
     ddSym = either error id $ dirichletDistributionSymmetricG (length xs) alpha
 
 data DirichletDistributionSymmetricG a = DirichletDistributionSymmetricG
@@ -144,18 +143,29 @@ dirichletDensitySymmetricG (DirichletDistributionSymmetricG a k c) xs
 -- NOTE: For convenience, the mean and variance are used as parameters for this
 -- relaxed molecular clock model. They are used to calculate the shape and the
 -- scale of the underlying gamma distribution.
+
+-- TODO. This is causing the trouble (among other things I guess).
+
+-- uncorrelatedGamma ::
+--   RealFloat a =>
+--   HandleStem ->
+--   MeanG a ->
+--   VarianceG a ->
+--   PriorFunctionG (Tree a b) a
+-- uncorrelatedGamma hs m v = branchesWith hs (gammaG k th)
+--   where
+--     (k, th) = gammaMeanVarianceToShapeScale m v
 uncorrelatedGamma ::
-  RealFloat a =>
   HandleStem ->
-  MeanG a ->
-  VarianceG a ->
-  PriorFunctionG (Tree a b) a
-uncorrelatedGamma hs m v = branchesWith hs (gammaG k th)
+  Mean Double ->
+  Variance Double ->
+  PriorFunction (Tree Double b)
+uncorrelatedGamma hs m v = branchesWith hs (gamma k th)
   where
     (k, th) = gammaMeanVarianceToShapeScale m v
 
 -- A variant of the log normal distribution. See Yang 2006, equation (7.23).
-logNormalG' :: RealFloat a => MeanG a -> VarianceG a -> a -> Log a
+logNormalG' :: RealFloat a => Mean a -> Variance a -> a -> Log a
 logNormalG' mu var r = Exp $ negate t - e
   where
     t = realToFrac m_ln_sqrt_2_pi + log (r * sqrt var)
@@ -172,8 +182,8 @@ logNormalG' mu var r = Exp $ negate t - e
 uncorrelatedLogNormal ::
   RealFloat a =>
   HandleStem ->
-  MeanG a ->
-  VarianceG a ->
+  Mean a ->
+  Variance a ->
   PriorFunctionG (Tree a e) a
 uncorrelatedLogNormal hs mu var = branchesWith hs (logNormalG' mu var)
 
@@ -202,7 +212,7 @@ uncorrelatedLogNormal hs mu var = branchesWith hs (logNormalG' mu var)
 -- 2669–2680 (2007). http://dx.doi.org/10.1093/molbev/msm193
 --
 -- Call 'error' if the topologies of the time and rate trees do not match.
-whiteNoise :: RealFloat a => HandleStem -> VarianceG a -> Tree a b -> PriorFunctionG (Tree a b) a
+whiteNoise :: RealFloat a => HandleStem -> Variance a -> Tree a b -> PriorFunctionG (Tree a b) a
 whiteNoise hs v tTr rTr = branchesWith hs f zTr
   where
     zTr =
@@ -211,7 +221,7 @@ whiteNoise hs v tTr rTr = branchesWith hs f zTr
         (zipTrees tTr rTr)
     -- This is correct. The mean of b=tr is t, the variance of b is
     -- Var(tr) = t^2Var(r) = t^2 v/t = vt, as required in Lepage, 2006.
-    f (t, r) = let k = t / v in gammaG k (recip k) r
+    f (t, r) = let k = t / v in gamma k (recip k) r
 
 -- | Auto-correlated gamma model.
 --
@@ -238,8 +248,8 @@ whiteNoise hs v tTr rTr = branchesWith hs f zTr
 autocorrelatedGamma ::
   RealFloat a =>
   HandleStem ->
-  MeanG a ->
-  VarianceG a ->
+  Mean a ->
+  Variance a ->
   Tree a c ->
   PriorFunctionG (Tree a b) a
 autocorrelatedGamma hs mu var tTr rTr = branchesWith hs f zTr
@@ -251,7 +261,7 @@ autocorrelatedGamma hs mu var tTr rTr = branchesWith hs f zTr
     f (t, r) =
       let var' = t * var
           (shape, scale) = gammaMeanVarianceToShapeScale mu var'
-       in gammaG shape scale r
+       in gamma shape scale r
 
 -- autocorrelatedGamma WithStem mu var tTr rTr =
 --   gamma shape scale r * autocorrelatedGamma WithoutStem r var tTr rTr
@@ -287,8 +297,8 @@ autocorrelatedGamma hs mu var tTr rTr = branchesWith hs f zTr
 autocorrelatedLogNormal ::
   RealFloat a =>
   HandleStem ->
-  MeanG a ->
-  VarianceG a ->
+  Mean a ->
+  Variance a ->
   Tree a c ->
   PriorFunctionG (Tree a b) a
 autocorrelatedLogNormal hs mu var tTr rTr = branchesWith hs f zTr

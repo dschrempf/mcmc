@@ -17,7 +17,6 @@ module Mcmc.Tree.Lens
     forestL,
     branchL,
     subTreeAtL,
-    labelAtL,
 
     -- ** Tree zippers
     currentL,
@@ -72,12 +71,6 @@ subTreeAtL pth f s = go s pth
        in assemble lb br ls rs <$> go c xs
     assemble :: e -> a -> Forest e a -> Forest e a -> Tree e a -> Tree e a
     assemble br lb ls rs c = Node br lb $ ls ++ (c : rs)
-
--- | Node label at path on the tree.
---
--- Call 'error' if the path is invalid.
-labelAtL :: Path -> Lens' (Tree e a) a
-labelAtL p = subTreeAtL p . labelL
 
 -- -- The following function is left here for reference.
 -- --

@@ -35,10 +35,10 @@ import qualified Statistics.Distribution as D
 --
 -- See https://en.wikipedia.org/wiki/Truncated_normal_distribution.
 data TruncatedNormalDistribution = TND
-  { mean :: {-# UNPACK #-} !Mean,
-    stdDev :: {-# UNPACK #-} !StandardDeviation,
-    lowerB :: {-# UNPACK #-} !LowerBoundary,
-    upperB :: {-# UNPACK #-} !UpperBoundary,
+  { mean :: {-# UNPACK #-} !(Mean Double),
+    stdDev :: {-# UNPACK #-} !(StandardDeviation Double),
+    lowerB :: {-# UNPACK #-} !(LowerBoundary Double),
+    upperB :: {-# UNPACK #-} !(UpperBoundary Double),
     tndPhi2Alpha :: {-# UNPACK #-} !Double,
     tndDenom :: {-# UNPACK #-} !Double
   }
@@ -53,10 +53,10 @@ instance D.ContDistr TruncatedNormalDistribution where
 
 -- | Create a truncated normal distribution from parameters.
 truncatedNormalDistr ::
-  Mean ->
-  StandardDeviation ->
-  LowerBoundary ->
-  UpperBoundary ->
+  Mean Double ->
+  StandardDeviation Double ->
+  LowerBoundary Double ->
+  UpperBoundary Double ->
   TruncatedNormalDistribution
 truncatedNormalDistr m s a b
   | s <= 0 = error "truncatedNormalDistr: Standard deviation must be positive."

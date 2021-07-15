@@ -37,9 +37,6 @@ type Node = Int
 -- Branch length.
 type Length = Double
 
--- Standard deviation.
-type StdDev = Double
-
 -- The state space is a tree. We apply the branch length to the 'Distance'
 -- data constructor. In this way, we tell the graph algorithms that
 --
@@ -82,14 +79,14 @@ pr :: PriorFunction a
 pr = const 1
 
 -- Branch likelihood, a normal distribution with given mean and standard deviation.
-lhBranch :: Mean -> StdDev -> Length -> Likelihood
+lhBranch :: Mean Double -> StandardDeviation Double -> Length -> Likelihood
 lhBranch m s l
   | l <= 0 = 0
   | otherwise = Exp $ logDensity (normalDistr m s) l
 
 -- Likelihood of the tree for two given trees containing the branch length
 -- means and standard deviations.
-lh :: Tree Mean -> Tree StdDev -> Tree Length -> Likelihood
+lh :: Tree (Mean Double) -> Tree (StandardDeviation Double) -> Tree Length -> Likelihood
 lh mt st lt = product $ zipWith3 lhBranch (getEdgeLabels mt) (getEdgeLabels st) (getEdgeLabels lt)
 
 -- Get a list of edge labels of a tree.
@@ -133,11 +130,11 @@ startingTree :: Tree Length
 startingTree = (0 -< toD 1.0 >- 1) + (0 -< toD 2.0 >- 2)
 
 -- Tree storing the (true) posterior means.
-meanTree :: Tree Mean
+meanTree :: Tree (Mean Double)
 meanTree = (0 -< toD 5.0 >- 1) + (0 -< toD 10.0 >- 2)
 
 -- Tree storing the (true) posterior standard deviations.
-stdDevTree :: Tree StdDev
+stdDevTree :: Tree (StandardDeviation Double)
 stdDevTree = (0 -< toD 2.0 >- 1) + (0 -< toD 2.0 >- 2)
 
 -- Branch length monitors.

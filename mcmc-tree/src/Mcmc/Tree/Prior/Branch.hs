@@ -18,13 +18,15 @@ where
 
 import Data.List
 import ELynx.Tree
-import Mcmc.Prior.General
+import Mcmc.Prior
 import Mcmc.Tree.Types
 
 -- | Branch wise prior with given prior function.
 branchesWith :: RealFloat a => HandleStem -> PriorFunctionG e a -> PriorFunctionG (Tree e b) a
 branchesWith WithStem f (Node br _ ts) = foldl' (*) (f br) $ map (branchesWith WithStem f) ts
 branchesWith WithoutStem f (Node _ _ ts) = foldl1' (*) $ map (branchesWith WithStem f) ts
+{-# INLINE branchesWith #-}
+{-# SPECIALIZE branchesWith :: HandleStem -> PriorFunction e -> PriorFunction (Tree e b) #-}
 
 -- -- NOTE: Somehow I never used the parallelized version, because computing
 -- -- priors on branches is just too fast. I leave the implementation for

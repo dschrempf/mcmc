@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -27,12 +28,15 @@ module Mcmc.Tree.Types
     withoutRootNode,
 
     -- ** Ultrametric trees
+    HeightTree (..),
     toHeightTreeUltrametric,
-    fromHeightTree,
+    heightTreeToLengthTree,
   )
 where
 
+import Data.Aeson
 import ELynx.Tree
+import GHC.Generics
 
 -- | Should the stem be handled, when traversing branches of a tree?
 data HandleStem = WithStem | WithoutStem
@@ -62,6 +66,14 @@ allNodes = const True
 withoutRootNode :: HandleNode
 withoutRootNode = not . null
 
+-- | Tree with node heights.
+newtype HeightTree a = HeightTree {fromHeightTree :: Tree a Name}
+  deriving (Generic)
+
+instance ToJSON a => ToJSON (HeightTree a)
+
+instance FromJSON a => FromJSON (HeightTree a)
+
 -- | Calculate node heights for a given tree.
 --
 -- The __node labels__ and the __stem length__ are __removed__.
@@ -75,25 +87,27 @@ withoutRootNode = not . null
 --   tree is not ultrametric, the node heights are not defined and the height
 --   tree has to be instantiated manually.
 toHeightTreeUltrametric ::
-  (HasLength a, Fractional c, Ord c, Show c) =>
-  Tree a b ->
-  Either String (Tree () c)
+  HasLength a =>
+  Tree a Name ->
+  HeightTree Double
 -- A leaf.
 toHeightTreeUltrametric t
-  | ultrametric t = Right $ toHeightTreeUltrametric' t
-  | otherwise = Left "toHeightTreeUltrametric: Tree is not ultrametric."
+  | ultrametric t = HeightTree $ toHeightTreeUltrametric' t
+  | otherwise = error "toHeightTreeUltrametric: Tree is not ultrametric."
 
 -- Assume the tree is ultrametric.
-toHeightTreeUltrametric' :: (HasLength a, Fractional c, Ord c, Show c) => Tree a b -> Tree () c
-toHeightTreeUltrametric' t@(Node _ _ ts) =
-  Node () (assertNonNegative "toHeightTreeUltrametric'" $ (realToFrac . rootHeight) t) $ map toHeightTreeUltrametric' ts
+toHeightTreeUltrametric' :: HasLength a => Tree a Name -> Tree Double Name
+toHeightTreeUltrametric' t@(Node _ lb ts) =
+  Node (assertNonNegative "toHeightTreeUltrametric'" $ (realToFrac . rootHeight) t) lb $
+    map toHeightTreeUltrametric' ts
 
 -- | Remove information about node height from node label.
-fromHeightTree :: (Ord a, Num a, Show a) => Tree () a -> Tree a ()
-fromHeightTree t = go (label t) t
+heightTreeToLengthTree :: HeightTree Double -> Tree Double Name
+heightTreeToLengthTree t' = go (branch t) t
   where
-    go hParent (Node () hNode ts) =
-      Node (assertNonNegative "fromHeightTree" (hParent - hNode)) () $ map (go hNode) ts
+    t = fromHeightTree t'
+    go hParent (Node hNode lb ts) =
+      Node (assertNonNegative "heightTreeToLengthTree" (hParent - hNode)) lb $ map (go hNode) ts
 
 assertNonNegative :: (Ord a, Num a, Show a) => String -> a -> a
 assertNonNegative n val

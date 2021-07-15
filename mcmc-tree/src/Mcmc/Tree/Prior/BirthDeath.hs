@@ -22,7 +22,7 @@ where
 -- compared the results to RevBayes, see below.
 
 import ELynx.Tree
-import Mcmc.Prior.General
+import Mcmc.Prior
 import Numeric.Log
 
 -- | Type synonym to indicate a birth rate.
@@ -150,6 +150,13 @@ birthDeath ConditionOnTimeOfMrca la mu rho (Node _ _ [l, r]) =
   birthDeath ConditionOnTimeOfOrigin la mu rho l * birthDeath ConditionOnTimeOfOrigin la mu rho r
 birthDeath ConditionOnTimeOfMrca _ _ _ _ =
   error "birthDeath: Tree is not bifurcating."
+{-# SPECIALIZE birthDeath ::
+  ConditionOn ->
+  Double ->
+  Double ->
+  Double ->
+  PriorFunction (Tree Double b)
+  #-}
 
 birthDeathWith ::
   RealFloat a =>

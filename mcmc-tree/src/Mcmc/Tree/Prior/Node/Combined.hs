@@ -16,18 +16,19 @@ where
 
 import qualified Data.Vector as VB
 import ELynx.Tree
-import Mcmc.Prior.General
+import Mcmc.Prior
 import Mcmc.Statistics.Types
 import Mcmc.Tree.Prior.Node.Calibration
 import Mcmc.Tree.Prior.Node.Constraint
+import Mcmc.Tree.Types
 
 -- Get the heights of all nodes and store them in a vector.
-getAllHeights :: Tree e a -> VB.Vector a
-getAllHeights = VB.fromList . labels
+getAllHeights :: HeightTree a -> VB.Vector a
+getAllHeights = VB.fromList . branches . fromHeightTree
 
 calibrateV ::
   (RealFloat a) =>
-  StandardDeviationG a ->
+  StandardDeviation a ->
   Calibration a ->
   PriorFunctionG (VB.Vector a) a
 calibrateV s c hs = calibrateSoftF s l h
@@ -38,7 +39,7 @@ calibrateV s c hs = calibrateSoftF s l h
 
 constrainV ::
   (RealFloat a) =>
-  StandardDeviationG a ->
+  StandardDeviation a ->
   Constraint ->
   PriorFunctionG (VB.Vector a) a
 constrainV s k hs = constrainSoftF s (hY, hO)
@@ -61,14 +62,14 @@ constrainV s k hs = constrainSoftF s (hY, hO)
 calibrateAndConstrain ::
   (RealFloat a) =>
   -- | Standard deviation of calibrations.
-  StandardDeviationG a ->
+  StandardDeviation a ->
   VB.Vector (Calibration a) ->
   -- | Height multiplier of tree for calibrations.
   a ->
   -- | Standard deviation of constraints.
-  StandardDeviationG a ->
+  StandardDeviation a ->
   VB.Vector Constraint ->
-  PriorFunctionG (Tree e a) a
+  PriorFunctionG (HeightTree a) a
 calibrateAndConstrain sdC cs h sdK ks t
   | h <= 0 = error "calibrate: Height multiplier is zero or negative."
   | otherwise = VB.product csPr * VB.product ksPr

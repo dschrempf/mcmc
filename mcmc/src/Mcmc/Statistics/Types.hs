@@ -11,61 +11,35 @@
 -- Creation date: Tue Feb 23 14:51:06 2021.
 module Mcmc.Statistics.Types
   ( Mean,
-    MeanG,
     StandardDeviation,
-    StandardDeviationG,
     Variance,
-    VarianceG,
     Shape,
-    ShapeG,
     Scale,
-    ScaleG,
     Rate,
-    RateG,
     Dimension,
     Size,
     LowerBoundary,
-    LowerBoundaryG,
     UpperBoundary,
-    UpperBoundaryG,
   )
 where
 
 -- | Mean of a distribution.
-type Mean = Double
-
--- | Generalized 'Mean'.
-type MeanG a = a
+type Mean a = a
 
 -- | Standard deviation of a distribution.
-type StandardDeviation = Double
-
--- | Generalized 'StandardDeviation'.
-type StandardDeviationG a = a
+type StandardDeviation a = a
 
 -- | Variance of a distribution.
-type Variance = Double
-
--- | Generalized 'Variance'.
-type VarianceG a = a
+type Variance a = a
 
 -- | Shape of a distribution.
-type Shape = Double
-
--- | Generalized 'Shape'.
-type ShapeG a = a
+type Shape a = a
 
 -- | Scale of a distribution.
-type Scale = Double
-
--- | Generalized 'Scale'
-type ScaleG a = a
+type Scale a = a
 
 -- | Rate of a distribution.
-type Rate = Double
-
--- | Generalized 'Rate'.
-type RateG a = a
+type Rate a = a
 
 -- | Dimension of a distribution.
 type Dimension = Int
@@ -76,13 +50,7 @@ type Dimension = Int
 type Size = Double
 
 -- | Lower boundary of a distribution.
-type LowerBoundary = Double
-
--- | Generalized 'LowerBoundary'.
-type LowerBoundaryG a = a
+type LowerBoundary a = a
 
 -- | Upper boundary of a distribution.
-type UpperBoundary = Double
-
--- | Generalized 'UpperBoundary'.
-type UpperBoundaryG a = a
+type UpperBoundary a = a

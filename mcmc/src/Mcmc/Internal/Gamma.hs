@@ -36,6 +36,7 @@ logGammaG z
   | z < 2 = lgamma15_2 (z - 1) (z - 2)
   | z < 15 = lgammaSmall z
   | otherwise = lanczosApprox z
+{-# SPECIALIZE logGammaG :: Double -> Double #-}
 
 lgamma1_15 :: RealFloat a => a -> a -> a
 lgamma1_15 zm1 zm2 =

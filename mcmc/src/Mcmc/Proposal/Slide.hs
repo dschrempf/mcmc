@@ -26,7 +26,7 @@ import Statistics.Distribution.Normal
 import Statistics.Distribution.Uniform
 
 -- The actual proposal with tuning parameter.
-slideSimple :: Mean -> StandardDeviation -> TuningParameter -> ProposalSimple Double
+slideSimple :: Mean Double -> StandardDeviation Double -> TuningParameter -> ProposalSimple Double
 slideSimple m s t =
   genericContinuous (normalDistr m (s * t)) (+) (Just negate) Nothing
 
@@ -34,8 +34,8 @@ slideSimple m s t =
 --
 -- A normal distribution is used to sample the addend.
 slide ::
-  Mean ->
-  StandardDeviation ->
+  Mean Double ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->
@@ -45,7 +45,7 @@ slide m s = createProposal description (slideSimple m s) (PDimension 1)
     description = PDescription $ "Slide; mean: " ++ show m ++ ", sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
-slideSymmetricSimple :: StandardDeviation -> TuningParameter -> ProposalSimple Double
+slideSymmetricSimple :: StandardDeviation Double -> TuningParameter -> ProposalSimple Double
 slideSymmetricSimple s t =
   genericContinuous (normalDistr 0.0 (s * t)) (+) Nothing Nothing
 
@@ -55,7 +55,7 @@ slideSymmetricSimple s t =
 -- Metropolis-Hastings-Green ratio does not include calculation of the forwards
 -- and backwards kernels.
 slideSymmetric ::
-  StandardDeviation ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->
@@ -88,8 +88,8 @@ contra :: (Double, Double) -> Double -> (Double, Double)
 contra (x, y) u = (x + u, y - u)
 
 slideContrarilySimple ::
-  Mean ->
-  StandardDeviation ->
+  Mean Double ->
+  StandardDeviation Double ->
   TuningParameter ->
   ProposalSimple (Double, Double)
 slideContrarilySimple m s t =
@@ -102,8 +102,8 @@ slideContrarilySimple m s t =
 -- The two values are slid contrarily so that their sum stays constant. Contrary
 -- proposals are useful when parameters are confounded.
 slideContrarily ::
-  Mean ->
-  StandardDeviation ->
+  Mean Double ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->

@@ -40,10 +40,11 @@ import Data.List
 import qualified Data.Vector as V
 import ELynx.Tree hiding (partition)
 import GHC.Generics
-import Mcmc.Prior.General
+import Mcmc.Prior hiding (positive)
 import Mcmc.Statistics.Types
-import Mcmc.Tree.Mrca
 import Mcmc.Tree.Lens
+import Mcmc.Tree.Mrca
+import Mcmc.Tree.Types
 import Text.Read
 
 -- | Non-negative number.
@@ -94,14 +95,16 @@ instance Show a => Show (Interval a) where
   show (Interval a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
 
 -- | Specify a lower and an upper bound.
-properInterval :: (Ord a, Num a) => LowerBoundaryG a -> UpperBoundaryG a -> Interval a
+properInterval :: (Ord a, Num a) => LowerBoundary a -> UpperBoundary a -> Interval a
 properInterval a b
   | a < b = Interval (nonNegative a) (positive b)
   | otherwise = error "properInterval: Left bound equal or larger right bound."
+{-# SPECIALIZE properInterval :: Double -> Double -> Interval Double #-}
 
 -- | Specify a lower bound only. The upper bound is set to infinity.
-lowerBoundOnly :: (Ord a, Num a) => LowerBoundaryG a -> Interval a
+lowerBoundOnly :: (Ord a, Num a) => LowerBoundary a -> Interval a
 lowerBoundOnly a = Interval (nonNegative a) Infinity
+{-# SPECIALIZE lowerBoundOnly :: Double -> Interval Double #-}
 
 -- | Transform an interval by applying a multiplicative change.
 --
@@ -116,6 +119,7 @@ transformInterval x (Interval a b)
     b' = case b of
       Positive bVal -> Positive $ x * bVal
       Infinity -> Infinity
+{-# SPECIALIZE transformInterval :: Double -> Interval Double -> Interval Double #-}
 
 -- No number is bigger than a non-existing upper bound..
 (>*) :: (Ord a, Fractional a) => a -> ExtendedPositive a -> Bool
@@ -173,6 +177,14 @@ calibration t n xs = Calibration n p i
     -- NOTE: Identifying the tree multiple times may be slow when creating many
     -- calibrations. But this is only done once in the beginning.
     i = label $ getSubTreeUnsafe p $ identify t
+{-# SPECIALIZE calibration ::
+  (Ord a, Show a) =>
+  Tree e a ->
+  String ->
+  [a] ->
+  Interval Double ->
+  Calibration Double
+  #-}
 
 -- Used to decode the CSV file.
 data CalibrationData a
@@ -259,14 +271,14 @@ loadCalibrations t f = do
 calibrateHard ::
   RealFloat a =>
   Calibration a ->
-  PriorFunctionG (Tree e a) a
-calibrateHard c t
+  PriorFunctionG (HeightTree a) a
+calibrateHard c (HeightTree t)
   | h <= a' = 0.0
   | h >* b = 0.0
   | otherwise = 1.0
   where
     a' = realToFrac $ fromNonNegative a
-    h = t ^. labelAtL p
+    h = t ^. subTreeAtL p . branchL
     (Interval a b) = calibrationInterval c
     p = calibrationNodePath c
 
@@ -287,17 +299,17 @@ calibrateHard c t
 -- Call 'error' if the path is invalid.
 calibrateSoft ::
   RealFloat a =>
-  StandardDeviationG a ->
+  StandardDeviation a ->
   Calibration a ->
-  PriorFunctionG (Tree e a) a
-calibrateSoft s c t = calibrateSoftF s l h
+  PriorFunctionG (HeightTree a) a
+calibrateSoft s c (HeightTree t) = calibrateSoftF s l h
   where
     p = calibrationNodePath c
-    h = t ^. labelAtL p
+    h = t ^. subTreeAtL p . branchL
     l = calibrationInterval c
 
 -- | See 'calibrateSoft'.
-calibrateSoftF :: RealFloat a => StandardDeviationG a -> Interval a -> PriorFunctionG a a
+calibrateSoftF :: RealFloat a => StandardDeviation a -> Interval a -> PriorFunctionG a a
 calibrateSoftF s (Interval a' b) h
   | h <= a = d (a - h) / d 0
   | h >* b = case b of
@@ -306,7 +318,7 @@ calibrateSoftF s (Interval a' b) h
   | otherwise = 1
   where
     a = fromNonNegative a'
-    d = normalG 0 s
+    d = normal 0 s
 
 -- | Calibrate nodes of a tree using 'calibrateSoft'.
 --
@@ -328,11 +340,11 @@ calibrate ::
   -- multiplier.
   --
   -- NOTE: The same standard deviation is used for all calibrations.
-  StandardDeviationG a ->
+  StandardDeviation a ->
   V.Vector (Calibration a) ->
   -- | Height multiplier of tree. Useful when working on normalized trees.
   a ->
-  PriorFunctionG (Tree e a) a
+  PriorFunctionG (HeightTree a) a
 calibrate sd cs h t
   | h <= 0 = error "calibrate: Height multiplier is zero or negative."
   | otherwise = V.product $ V.map f cs

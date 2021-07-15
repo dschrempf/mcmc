@@ -31,7 +31,7 @@ type SpikeParameter = Double
 
 genBactrian ::
   SpikeParameter ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   GenIO ->
   IO Double
 genBactrian m s g = do
@@ -42,7 +42,7 @@ genBactrian m s g = do
   b <- bernoulli 0.5 g
   return $ if b then x else - x
 
-logDensityBactrian :: SpikeParameter -> StandardDeviation  -> Double -> Log Double
+logDensityBactrian :: SpikeParameter -> StandardDeviation Double -> Double -> Log Double
 logDensityBactrian m s x = Exp $ log $ kernel1 + kernel2
   where
     mn = m * s
@@ -54,7 +54,7 @@ logDensityBactrian m s x = Exp $ log $ kernel1 + kernel2
 
 bactrianAdditive ::
   SpikeParameter ->
-  StandardDeviation  ->
+  StandardDeviation Double ->
   ProposalSimple Double
 bactrianAdditive m s x g = do
   dx <- genBactrian m s g
@@ -63,8 +63,8 @@ bactrianAdditive m s x g = do
 -- bactrianSimple lens spike stdDev tune forwardOp backwardOp
 bactrianAdditiveSimple ::
   SpikeParameter ->
-  StandardDeviation  ->
-  TuningParameter  ->
+  StandardDeviation Double ->
+  TuningParameter ->
   ProposalSimple Double
 bactrianAdditiveSimple m s t
   | m < 0 = error "bactrianAdditiveSimple: Spike parameter negative."
@@ -85,7 +85,7 @@ bactrianAdditiveSimple m s t
 -- See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3845170/.
 slideBactrian ::
   SpikeParameter ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->
@@ -105,7 +105,7 @@ fInv dx = recip (1 - dx) - 1
 
 bactrianMult ::
   SpikeParameter ->
-  StandardDeviation  ->
+  StandardDeviation Double ->
   ProposalSimple Double
 bactrianMult m s x g = do
   du <- genBactrian m s g
@@ -115,7 +115,11 @@ bactrianMult m s x g = do
       jac = Exp $ log $ recip u
   return (x * u, qYX / qXY, jac)
 
-bactrianMultSimple :: SpikeParameter -> StandardDeviation  -> TuningParameter  -> ProposalSimple Double
+bactrianMultSimple ::
+  SpikeParameter ->
+  StandardDeviation Double ->
+  TuningParameter ->
+  ProposalSimple Double
 bactrianMultSimple m s t
   | m < 0 = error "bactrianMultSimple: Spike parameter negative."
   | m >= 1 = error "bactrianMultSimple: Spike parameter 1.0 or larger."
@@ -128,7 +132,7 @@ bactrianMultSimple m s t
 -- See 'Mcmc.Proposal.Scale.scale', and 'slideBactrian'.
 scaleBactrian ::
   SpikeParameter ->
-  StandardDeviation ->
+  StandardDeviation Double ->
   PName ->
   PWeight ->
   Tune ->
