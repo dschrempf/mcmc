@@ -11,10 +11,23 @@
 -- Creation date: Fri May 28 12:26:35 2021.
 module Mcmc.Posterior
   ( Posterior,
+    PosteriorG,
+    PosteriorFunction,
+    PosteriorFunctionG,
   )
 where
 
 import Numeric.Log
 
 -- | Posterior values are stored in log domain.
-type Posterior = Log Double
+type Posterior = PosteriorG Double
+
+-- | Generalized posterior.
+type PosteriorG a = Log a
+
+-- | Posterior function.
+type PosteriorFunction a = PosteriorFunctionG a Double
+
+-- | Generalized posterior function.
+type PosteriorFunctionG a b = a -> PosteriorG b
+

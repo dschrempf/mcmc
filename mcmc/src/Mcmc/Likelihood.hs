@@ -11,7 +11,9 @@
 -- Creation date: Wed Mar  3 11:39:04 2021.
 module Mcmc.Likelihood
   ( Likelihood,
+    LikelihoodG,
     LikelihoodFunction,
+    LikelihoodFunctionG,
     noLikelihood,
   )
 where
