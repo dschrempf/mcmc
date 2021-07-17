@@ -25,7 +25,9 @@ import Mcmc
 import Numeric.AD (grad)
 import System.Random.MWC hiding (uniform)
 
-type I = ZipList Double
+type IG a = ZipList a
+
+type I = IG Double
 
 instance ToJSON a => ToJSON (ZipList a)
 
@@ -69,8 +71,8 @@ lhfI = Exp . llhf . getZipList
 gradientI :: I -> I
 gradientI = ZipList . gradient . getZipList
 
-masses :: I
-masses = ZipList $ replicate dimension 1
+masses :: IG (Maybe Double)
+masses = ZipList $ replicate dimension (Just 1)
 
 hmcSettings :: HmcSettings ZipList
 hmcSettings = HmcSettings gradientI masses 10 0.1 HmcTuneMassesAndLeapfrog

@@ -38,6 +38,7 @@ where
 
 import Data.Foldable
 import qualified Data.Matrix as M
+import Data.Maybe
 import Data.Traversable
 import qualified Data.Vector as VB
 import Mcmc.Prior
@@ -65,6 +66,9 @@ type Gradient f = f Double -> f Double
 -- NOTE: Full specification of a mass matrix including off-diagonal elements is
 -- not supported.
 --
+-- NOTE: Parameters without masses ('Nothing') are not changed by the
+-- Hamiltonian proposal.
+--
 -- The masses roughly describe how reluctant the particle moves through the
 -- state space. If a parameter has higher mass, the momentum in this direction
 -- will be changed less by the provided gradient, than when the same parameter
@@ -81,10 +85,11 @@ type Gradient f = f Double -> f Double
 -- unknown. Often, it is sufficient to
 --
 -- - set the masses to identical values roughly scaled with the inverted
---   estimated average variance of the posterior function;
+--   estimated average variance of the posterior function; or even to
 --
--- - set all masses to 1.0.
-type Masses f = f Double
+-- - set all masses to 1.0, and trust the tuning algorithm (see
+--   'HmcTuneMassesAndLeapfrog') to find the correct values.
+type Masses f = f (Maybe Double)
 
 -- | Mean leapfrog trajectory length \(L\).
 --
@@ -122,7 +127,7 @@ type LeapfrogScalingFactor = Double
 type Positions f = f Double
 
 -- Momenta of the parameters.
-type Momenta f = f Double
+type Momenta f = f (Maybe Double)
 
 -- | Tuning settings.
 --
@@ -162,10 +167,12 @@ data HmcSettings f = HmcSettings
 
 checkHmcSettings :: Foldable f => HmcSettings f -> Maybe String
 checkHmcSettings (HmcSettings _ masses l eps _)
-  | any (<= 0) masses = Just "checkHmcSettings: One or more masses are zero or negative."
+  | any f masses = Just "checkHmcSettings: One or more masses are zero or negative."
   | l < 1 = Just "checkHmcSettings: Leapfrog trajectory length is zero or negative."
   | eps <= 0 = Just "checkHmcSettings: Leapfrog scaling factor is zero or negative."
   | otherwise = Nothing
+  where f (Just m) = m <= 0
+        f Nothing = False
 
 generateMomenta ::
   Traversable f =>
@@ -174,7 +181,8 @@ generateMomenta ::
   IO (Momenta f)
 generateMomenta masses gen = traverse (generateWith gen) masses
   where
-    generateWith g m = let d = normalDistr 0 (sqrt m) in genContVar d g
+    generateWith g (Just m) = let d = normalDistr 0 (sqrt m) in Just <$> genContVar d g
+    generateWith _ Nothing = pure Nothing
 
 priorMomenta ::
   (Applicative f, Foldable f) =>
@@ -183,7 +191,9 @@ priorMomenta ::
   Prior
 priorMomenta masses phi = foldl' (*) 1.0 $ f <$> masses <*> phi
   where
-    f m p = let d = normalDistr 0 (sqrt m) in Exp $ logDensity d p
+    f (Just m) (Just p) = let d = normalDistr 0 (sqrt m) in Exp $ logDensity d p
+    f Nothing Nothing = 1.0
+    f _ _ = error "priorMomenta: Got just a mass and no momentum or the other way around."
 
 leapfrog ::
   Applicative f =>
@@ -223,7 +233,12 @@ leapfrogStepMomenta ::
   Momenta f ->
   -- New momenta.
   Momenta f
-leapfrogStepMomenta xi eps grad theta phi = phi .+. ((xi * eps) .* grad theta)
+leapfrogStepMomenta xi eps grad theta phi = phi <+. ((xi * eps) .* grad theta)
+  where
+    (<+.) :: Applicative f => f (Maybe Double) -> f Double -> f (Maybe Double)
+    (<+.) xs ys = f <$> xs <*> ys
+    f Nothing _ = Nothing
+    f (Just x) y = Just $ x + y
 
 leapfrogStepPositions ::
   Applicative f =>
@@ -234,28 +249,29 @@ leapfrogStepPositions ::
   -- Current momenta.
   Momenta f ->
   Positions f
-leapfrogStepPositions eps masses theta phi = theta .+. (mScaledReversed .*. phi)
+-- The arguments are flipped to encounter the maybe momentum.
+leapfrogStepPositions eps masses theta phi = theta <+. (mScaledReversed .*> phi)
   where
-    mScaledReversed = (* eps) . (** (-1)) <$> masses
+    (<+.) :: Applicative f => f Double -> f (Maybe Double) -> f Double
+    (<+.) xs ys = f <$> xs <*> ys
+    f x Nothing = x
+    f x (Just y) = x + y
+    mScaledReversed = (fmap . fmap) ((* eps) . (** (-1))) masses
+    (.*>) :: Applicative f => f (Maybe Double) -> f (Maybe Double) -> f (Maybe Double)
+    (.*>) xs ys = g <$> xs <*> ys
+    g (Just x) (Just y) = Just $ x * y
+    g Nothing Nothing = Nothing
+    g _ _ = error "leapfrogStepPositions: Got just a mass and no momentum or the other way around."
 
 -- Scalar-vector multiplication.
 (.*) :: Applicative f => Double -> f Double -> f Double
 (.*) x ys = (* x) <$> ys
 
--- Applicative element-wise vector-vector addition.
---
--- Assume a zip-like applicative instance.
-(.+.) :: Applicative f => f Double -> f Double -> f Double
-(.+.) xs ys = (+) <$> xs <*> ys
-
--- Applicative element-wise vector-vector multiplication.
---
--- Assume a zip-like applicative instance.
-(.*.) :: Applicative f => f Double -> f Double -> f Double
-(.*.) xs ys = (*) <$> xs <*> ys
-
+-- NOTE: Fixed parameters without mass have a tuning parameter of NaN.
 massesToTuningParameters :: Foldable f => Masses f -> AuxiliaryTuningParameters
-massesToTuningParameters = VB.fromList . toList
+massesToTuningParameters = VB.fromList . map (fromMaybe nan) . toList
+  where
+    nan = 0 / 0
 
 -- We need the structure in order to fill it with the given parameters.
 tuningParametersToMasses ::
@@ -270,7 +286,8 @@ tuningParametersToMasses xs ms =
   where
     (xs', msE) = mapAccumL setValue (VB.toList xs) ms
     setValue [] _ = ([], Left "tuningParametersToMasses: Too few values.")
-    setValue (y : ys) _ = (ys, Right y)
+    -- NOTE: Recover fixed parameters and unset their mass.
+    setValue (y : ys) _ = let y' = if isNaN y then Nothing else Just y in (ys, Right y')
 
 hmcTuningParametersToSettings ::
   Traversable f =>
@@ -294,7 +311,7 @@ hmcTuningParametersToSettings t ts (HmcSettings g m l e tn) =
     eTuned = t * e
 
 hmcSimpleWithTuningParameters ::
-  (Applicative f, Traversable f, Show (f Double)) =>
+  (Applicative f, Traversable f) =>
   HmcSettings f ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
@@ -304,7 +321,7 @@ hmcSimpleWithTuningParameters s t ts = case hmcTuningParametersToSettings t ts s
   Right s' -> Right $ hmcSimple s'
 
 hmcSimple ::
-  (Applicative f, Traversable f, Show (f Double)) =>
+  (Applicative f, Traversable f) =>
   HmcSettings f ->
   ProposalSimple (Positions f)
 hmcSimple (HmcSettings gradient masses l e _) theta g = do
@@ -349,12 +366,12 @@ computeAuxiliaryTuningParameters xss ts =
     calcSamplesAndVariance xs = (VB.length $ VB.uniq $ S.gsort xs, S.variance xs)
     rescueWith t (sampleSize, var) =
       if var < minVariance || maxVariance < var || sampleSize < minSamples
-        -- then traceShow ("Rescue with " <> show t) t
-        then t
+        then -- then traceShow ("Rescue with " <> show t) t
+          t
         else
           let t' = sqrt (t * recip var)
-           -- in traceShow ("Old mass " <> show t <> " new mass " <> show t') t'
-           in t'
+           in -- in traceShow ("Old mass " <> show t <> " new mass " <> show t') t'
+              t'
 
 -- | Hamiltonian Monte Carlo proposal.
 --
@@ -370,7 +387,7 @@ computeAuxiliaryTuningParameters xss ts =
 -- NOTE: The speed of this proposal can change drastically when tuned because
 -- the leapfrog trajectory length is changed.
 hmc ::
-  (Applicative f, Traversable f, Show (f Double)) =>
+  (Applicative f, Traversable f) =>
   -- | The sample state is used to calculate the dimension of the proposal.
   f Double ->
   HmcSettings f ->
