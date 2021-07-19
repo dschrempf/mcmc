@@ -163,7 +163,7 @@ normal m s x
 -- | Uniform prior on [a, b].
 uniform :: RealFloat a => LowerBoundary a -> UpperBoundary a -> PriorFunctionG a a
 uniform a b x
-  | a > b = error "unifrom: Lower boundary is larger than upper boundary."
+  | a > b = error "unifrom: Lower boundary is greater than upper boundary."
   | x < a = 0.0
   | x > b = 0.0
   | otherwise = 1.0
