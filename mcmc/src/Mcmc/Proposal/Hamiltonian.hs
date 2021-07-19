@@ -306,8 +306,9 @@ hmcTuningParametersToSettings t ts (HmcSettings g m l e tn) =
     -- expected acceptance ratio.
     --
     -- Further, we roughly keep \( L * \epsilon = 1.0 \). The equation is not
-    -- correct, because we pull L closer to the original value.
-    lTuned = ceiling $ fromIntegral l / (t ** 0.8) :: Int
+    -- correct, because we pull L closer to the original value to keep the
+    -- runtime somewhat acceptable.
+    lTuned = ceiling $ fromIntegral l / (t ** 0.9) :: Int
     eTuned = t * e
 
 hmcSimpleWithTuningParameters ::
