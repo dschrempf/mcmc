@@ -74,21 +74,21 @@ gradientI = ZipList . gradient . getZipList
 masses :: IG (Maybe Double)
 masses = ZipList $ replicate dimension (Just 1)
 
-hmcSettings :: HmcSettings ZipList
-hmcSettings = HmcSettings gradientI masses 10 0.1 HmcTuneMassesAndLeapfrog
+hSettings :: HSettings ZipList
+hSettings = HSettings gradientI masses 10 0.1 HTuneMassesAndLeapfrog
 
 initialState :: I
 initialState = ZipList $ replicate dimension 1
 
-hmcProposal :: Proposal I
-hmcProposal = hmc initialState hmcSettings n w
+hamiltonianProposal :: Proposal I
+hamiltonianProposal = hamiltonian initialState hSettings n w
   where
     n = PName "Space"
     w = pWeight 1
 
 cc :: Cycle I
 cc =
-  cycleFromList [hmcProposal]
+  cycleFromList [hamiltonianProposal]
 
 monPs :: [MonitorParameter I]
 monPs = [(view (singular (ix i)) . getZipList) >$< monitorDouble (n i) | i <- [0 .. (dimension -1)]]

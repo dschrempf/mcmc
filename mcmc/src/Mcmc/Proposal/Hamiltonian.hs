@@ -12,7 +12,7 @@
 --
 -- Creation date: Mon Jul  5 12:59:42 2021.
 --
--- The Hamiltonian Monte Carlo (HMC, see 'hmc') proposal.
+-- The Hamiltonian Monte Carlo (HMC) proposal.
 --
 -- For references, see:
 --
@@ -30,9 +30,9 @@ module Mcmc.Proposal.Hamiltonian
     Masses,
     LeapfrogTrajectoryLength,
     LeapfrogScalingFactor,
-    HmcTune (..),
-    HmcSettings (..),
-    hmc,
+    HTune (..),
+    HSettings (..),
+    hamiltonian,
   )
 where
 
@@ -88,7 +88,7 @@ type Gradient f = f Double -> f Double
 --   estimated average variance of the posterior function; or even to
 --
 -- - set all masses to 1.0, and trust the tuning algorithm (see
---   'HmcTuneMassesAndLeapfrog') to find the correct values.
+--   'HTuneMassesAndLeapfrog') to find the correct values.
 type Masses f = f (Maybe Double)
 
 -- | Mean leapfrog trajectory length \(L\).
@@ -147,29 +147,29 @@ type Momenta f = f (Maybe Double)
 -- the old masses and the inverted variances. If, for a specific coordinate, the
 -- sample size is too low, or if the calculated variance is out of predefined
 -- bounds, the mass of the affected position is not changed.
-data HmcTune
+data HTune
   = -- | Tune masses and leapfrog parameters.
-    HmcTuneMassesAndLeapfrog
+    HTuneMassesAndLeapfrog
   | -- | Tune leapfrog parameters only.
-    HmcTuneLeapfrogOnly
+    HTuneLeapfrogOnly
   | -- | Do not tune at all.
-    HmcNoTune
+    HNoTune
   deriving (Eq, Show)
 
 -- | Specifications for Hamilton Monte Carlo proposal.
-data HmcSettings f = HmcSettings
-  { hmcGradient :: Gradient f,
-    hmcMasses :: Masses f,
-    hmcLeapfrogTrajectoryLength :: LeapfrogTrajectoryLength,
-    hmcLeapfrogScalingFactor :: LeapfrogScalingFactor,
-    hmcTune :: HmcTune
+data HSettings f = HSettings
+  { hGradient :: Gradient f,
+    hMasses :: Masses f,
+    hLeapfrogTrajectoryLength :: LeapfrogTrajectoryLength,
+    hLeapfrogScalingFactor :: LeapfrogScalingFactor,
+    hTune :: HTune
   }
 
-checkHmcSettings :: Foldable f => HmcSettings f -> Maybe String
-checkHmcSettings (HmcSettings _ masses l eps _)
-  | any f masses = Just "checkHmcSettings: One or more masses are zero or negative."
-  | l < 1 = Just "checkHmcSettings: Leapfrog trajectory length is zero or negative."
-  | eps <= 0 = Just "checkHmcSettings: Leapfrog scaling factor is zero or negative."
+checkHSettings :: Foldable f => HSettings f -> Maybe String
+checkHSettings (HSettings _ masses l eps _)
+  | any f masses = Just "checkHSettings: One or more masses are zero or negative."
+  | l < 1 = Just "checkHSettings: Leapfrog trajectory length is zero or negative."
+  | eps <= 0 = Just "checkHSettings: Leapfrog scaling factor is zero or negative."
   | otherwise = Nothing
   where f (Just m) = m <= 0
         f Nothing = False
@@ -289,18 +289,18 @@ tuningParametersToMasses xs ms =
     -- NOTE: Recover fixed parameters and unset their mass.
     setValue (y : ys) _ = let y' = if isNaN y then Nothing else Just y in (ys, Right y')
 
-hmcTuningParametersToSettings ::
+hTuningParametersToSettings ::
   Traversable f =>
   TuningParameter ->
   AuxiliaryTuningParameters ->
-  HmcSettings f ->
-  Either String (HmcSettings f)
-hmcTuningParametersToSettings t ts (HmcSettings g m l e tn) =
-  if tn == HmcTuneMassesAndLeapfrog
+  HSettings f ->
+  Either String (HSettings f)
+hTuningParametersToSettings t ts (HSettings g m l e tn) =
+  if tn == HTuneMassesAndLeapfrog
     then case tuningParametersToMasses ts m of
       Left err -> Left err
-      Right m' -> Right $ HmcSettings g m' lTuned eTuned tn
-    else Right $ HmcSettings g m lTuned eTuned tn
+      Right m' -> Right $ HSettings g m' lTuned eTuned tn
+    else Right $ HSettings g m lTuned eTuned tn
   where
     -- The larger epsilon, the larger the proposal step size and the lower the
     -- expected acceptance ratio.
@@ -311,21 +311,21 @@ hmcTuningParametersToSettings t ts (HmcSettings g m l e tn) =
     lTuned = ceiling $ fromIntegral l / (t ** 0.9) :: Int
     eTuned = t * e
 
-hmcSimpleWithTuningParameters ::
+hamiltonianSimpleWithTuningParameters ::
   (Applicative f, Traversable f) =>
-  HmcSettings f ->
+  HSettings f ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
   Either String (ProposalSimple (Positions f))
-hmcSimpleWithTuningParameters s t ts = case hmcTuningParametersToSettings t ts s of
+hamiltonianSimpleWithTuningParameters s t ts = case hTuningParametersToSettings t ts s of
   Left err -> Left err
-  Right s' -> Right $ hmcSimple s'
+  Right s' -> Right $ hamiltonianSimple s'
 
-hmcSimple ::
+hamiltonianSimple ::
   (Applicative f, Traversable f) =>
-  HmcSettings f ->
+  HSettings f ->
   ProposalSimple (Positions f)
-hmcSimple (HmcSettings gradient masses l e _) theta g = do
+hamiltonianSimple (HSettings gradient masses l e _) theta g = do
   phi <- generateMomenta masses g
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
@@ -387,28 +387,28 @@ computeAuxiliaryTuningParameters xss ts =
 --
 -- NOTE: The speed of this proposal can change drastically when tuned because
 -- the leapfrog trajectory length is changed.
-hmc ::
+hamiltonian ::
   (Applicative f, Traversable f) =>
   -- | The sample state is used to calculate the dimension of the proposal.
   f Double ->
-  HmcSettings f ->
+  HSettings f ->
   PName ->
   PWeight ->
   Proposal (f Double)
-hmc x s n w = case checkHmcSettings s of
+hamiltonian x s n w = case checkHSettings s of
   Just err -> error err
   Nothing ->
     let desc = PDescription "Hamiltonian Monte Carlo (HMC)"
         dim = PSpecial (length x) 0.65
-        ts = massesToTuningParameters (hmcMasses s)
-        ps = hmcSimple s
+        ts = massesToTuningParameters (hMasses s)
+        ps = hamiltonianSimple s
         p' = Proposal n desc dim w ps
         fT = defaultTuningFunction dim
-        tS = hmcTune s
+        tS = hTune s
         fTs =
-          if tS == HmcTuneMassesAndLeapfrog
+          if tS == HTuneMassesAndLeapfrog
             then computeAuxiliaryTuningParameters
             else \_ xs -> xs
      in case tS of
-          HmcNoTune -> p' Nothing
-          _ -> p' $ Just $ Tuner 1.0 fT ts fTs (hmcSimpleWithTuningParameters s)
+          HNoTune -> p' Nothing
+          _ -> p' $ Just $ Tuner 1.0 fT ts fTs (hamiltonianSimpleWithTuningParameters s)
