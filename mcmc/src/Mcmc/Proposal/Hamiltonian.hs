@@ -50,9 +50,10 @@ import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
 import System.Random.MWC
 
--- TODO: At the moment, the HMC proposal is agnostic of the posterior function.
--- This means, that it cannot know when it reaches a point with zero posterior
--- probability. This also affects restricted parameters. See Gelman p. 303.
+-- TODO: At the moment, the HMC proposal is agnostic of the prior and
+-- likelihood, that is, the posterior function. This means, that it cannot know
+-- when it reaches a point with zero posterior probability. This also affects
+-- restricted or constrained parameters. See Gelman p. 303.
 
 -- TODO: No-U-turn sampler.
 
