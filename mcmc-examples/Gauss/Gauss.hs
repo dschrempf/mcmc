@@ -74,5 +74,6 @@ main = do
           Info
       i0 = replicate d 0
   _ <- marginalLikelihood ss prf lhf cc (simpleMonitor 1000) i0 g
-  putStrLn $ "The correct value is: "  ++ show corVal
-  where corVal = 0.5 * fromIntegral d * (log v - log (1+v))
+  putStrLn $ "The correct value is: " ++ show corVal
+  where
+    corVal = 0.5 * fromIntegral d * (log v - log (1 + v))

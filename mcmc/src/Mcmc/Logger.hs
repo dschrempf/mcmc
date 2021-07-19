@@ -42,10 +42,10 @@ import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Time.Clock
-import Mcmc.Monitor.Time
-import System.IO
-import Paths_mcmc (version)
 import Data.Version (showVersion)
+import Mcmc.Monitor.Time
+import Paths_mcmc (version)
+import System.IO
 
 -- | Define where the log output should be directed to.
 --

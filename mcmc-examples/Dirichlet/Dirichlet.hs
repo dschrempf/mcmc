@@ -124,10 +124,11 @@ start = I as s
     -- Bad starting value.
     s = 1.0
     as = simplexUniform (V.length alphasTrue)
-    -- -- Good starting value.
-    -- s = V.sum alphasTrue
-    -- normalize = V.map (/ s)
-    -- as = either error id $ simplexFromVector $ normalize alphasTrue
+
+-- -- Good starting value.
+-- s = V.sum alphasTrue
+-- normalize = V.map (/ s)
+-- as = either error id $ simplexFromVector $ normalize alphasTrue
 
 main :: IO ()
 main = do

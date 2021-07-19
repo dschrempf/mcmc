@@ -133,13 +133,13 @@ gammaMeanOne k = gamma k (recip k)
 -- the scale.
 gammaShapeScaleToMeanVariance :: Num a => Shape a -> Scale a -> (Mean a, Variance a)
 gammaShapeScaleToMeanVariance k t = let m = k * t in (m, m * t)
-{-# SPECIALIZE gammaShapeScaleToMeanVariance :: Double  -> Double -> (Double, Double) #-}
+{-# SPECIALIZE gammaShapeScaleToMeanVariance :: Double -> Double -> (Double, Double) #-}
 
 -- | Calculate shape and scale of the gamma distribution given the mean and
 -- the variance.
 gammaMeanVarianceToShapeScale :: Fractional a => Mean a -> Variance a -> (Shape a, Scale a)
 gammaMeanVarianceToShapeScale m v = (m * m / v, v / m)
-{-# SPECIALIZE gammaMeanVarianceToShapeScale :: Double  -> Double -> (Double, Double) #-}
+{-# SPECIALIZE gammaMeanVarianceToShapeScale :: Double -> Double -> (Double, Double) #-}
 
 mLnSqrt2Pi :: RealFloat a => a
 mLnSqrt2Pi = 0.9189385332046727417803297364056176398613974736377834128171

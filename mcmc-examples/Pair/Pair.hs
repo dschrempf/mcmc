@@ -38,7 +38,7 @@ pr (x, y) = greaterThan 0.00001 x * greaterThan 0.00001 y
 
 f :: I -> Double
 -- f (x, y)= 3*x + 5*y
-f (x, y)= x + y
+f (x, y) = x + y
 
 -- Likelihood function only acts on the sum of x and y, so we will need a custom
 -- Jacobian in our proposals.
@@ -56,8 +56,7 @@ jacobian = Exp . log . recip . f
 cc :: Cycle I
 cc =
   cycleFromList
-    [
-      -- The proposals require a custom Jacobian.
+    [ -- The proposals require a custom Jacobian.
       liftProposalWith jacobian _1 (scaleUnbiased 1.0 (PName "x") (pWeight 1) Tune),
       liftProposalWith jacobian _2 (scaleUnbiased 1.0 (PName "y") (pWeight 1) Tune),
       -- Sliding the pair contrarily will not change the sum z, and so, no

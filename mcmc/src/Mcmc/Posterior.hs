@@ -30,4 +30,3 @@ type PosteriorFunction a = PosteriorFunctionG a Double
 
 -- | Generalized posterior function.
 type PosteriorFunctionG a b = a -> PosteriorG b
-

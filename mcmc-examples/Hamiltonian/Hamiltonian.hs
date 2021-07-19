@@ -60,6 +60,7 @@ gradient = grad llhf
 
 prf :: PriorFunction I
 prf _ = 1.0
+
 -- prf (ZipList [x, y]) = uniform (-2) 2 x * uniform (-1) 3 y
 -- prf _ = error "prf: Number of parameters has changed."
 

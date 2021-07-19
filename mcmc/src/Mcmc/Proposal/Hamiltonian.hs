@@ -172,8 +172,9 @@ checkHSettings (HSettings _ masses l eps _)
   | l < 1 = Just "checkHSettings: Leapfrog trajectory length is zero or negative."
   | eps <= 0 = Just "checkHSettings: Leapfrog scaling factor is zero or negative."
   | otherwise = Nothing
-  where f (Just m) = m <= 0
-        f Nothing = False
+  where
+    f (Just m) = m <= 0
+    f Nothing = False
 
 generateMomenta ::
   Traversable f =>
