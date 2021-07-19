@@ -92,6 +92,8 @@ negative = lessThan 0
 {-# SPECIALIZE negative :: PriorFunction Double #-}
 
 -- | Exponential distributed prior.
+--
+-- Call 'error' if the rate is zero or negative.
 exponential :: RealFloat a => Rate a -> PriorFunctionG a a
 exponential l x
   | l <= 0 = error "exponential: Rate is zero or negative."
@@ -102,6 +104,8 @@ exponential l x
 {-# SPECIALIZE exponential :: Double -> PriorFunction Double #-}
 
 -- | Gamma distributed prior.
+--
+-- Call 'error' if the shape or scale are zero or negative.
 gamma :: RealFloat a => Shape a -> Scale a -> PriorFunctionG a a
 gamma k t x
   | k <= 0 = error "gamma: Shape is zero or negative."
@@ -151,6 +155,8 @@ mLnSqrt2Pi = 0.9189385332046727417803297364056176398613974736377834128171
 {-# INLINE mLnSqrt2Pi #-}
 
 -- | Normal distributed prior.
+--
+-- Call 'error' if the standard deviation is zero or negative.
 normal :: RealFloat a => Mean a -> StandardDeviation a -> PriorFunctionG a a
 normal m s x
   | s <= 0 = error "normal: Standard deviation is zero or negative."
@@ -161,15 +167,19 @@ normal m s x
 {-# SPECIALIZE normal :: Double -> Double -> PriorFunction Double #-}
 
 -- | Uniform prior on [a, b].
+--
+-- Call 'error' if the lower boundary is greather than the upper boundary.
 uniform :: RealFloat a => LowerBoundary a -> UpperBoundary a -> PriorFunctionG a a
 uniform a b x
-  | a > b = error "unifrom: Lower boundary is greater than upper boundary."
+  | a > b = error "uniform: Lower boundary is greater than upper boundary."
   | x < a = 0.0
   | x > b = 0.0
   | otherwise = 1.0
 {-# SPECIALIZE uniform :: Double -> Double -> PriorFunction Double #-}
 
 -- | Poisson distributed prior.
+--
+-- Call 'error' if the rate is zero or negative.
 poisson :: Rate Double -> PriorFunction Int
 poisson l
   | l <= 0 = error "poisson: Rate is zero or negative."
