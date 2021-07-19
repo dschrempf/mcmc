@@ -50,6 +50,8 @@ import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
 import System.Random.MWC
 
+-- TODO: Provide the Hamiltonian proposal with a function checking constraints.
+
 -- TODO: At the moment, the HMC proposal is agnostic of the prior and
 -- likelihood, that is, the posterior function. This means, that it cannot know
 -- when it reaches a point with zero posterior probability. This also affects
