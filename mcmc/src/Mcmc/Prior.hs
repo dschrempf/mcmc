@@ -93,7 +93,10 @@ negative = lessThan 0
 
 -- | Exponential distributed prior.
 exponential :: RealFloat a => Rate a -> PriorFunctionG a a
-exponential l x = ll * Exp (negate l * x)
+exponential l x
+  | l <= 0 = error "exponential: Rate is zero or negative."
+  | x < 0 = 0.0
+  | otherwise = ll * Exp (negate l * x)
   where
     ll = Exp $ log l
 {-# SPECIALIZE exponential :: Double -> PriorFunction Double #-}
@@ -101,6 +104,8 @@ exponential l x = ll * Exp (negate l * x)
 -- | Gamma distributed prior.
 gamma :: RealFloat a => Shape a -> Scale a -> PriorFunctionG a a
 gamma k t x
+  | k <= 0 = error "gamma: Shape is zero or negative."
+  | t <= 0 = error "gamma: Scale is zero or negative."
   | x <= 0 = 0.0
   | otherwise = Exp $ log x * (k - 1) - (x / t) - logGammaG k - log t * k
 {-# SPECIALIZE gamma :: Double -> Double -> PriorFunction Double #-}
@@ -147,7 +152,9 @@ mLnSqrt2Pi = 0.9189385332046727417803297364056176398613974736377834128171
 
 -- | Normal distributed prior.
 normal :: RealFloat a => Mean a -> StandardDeviation a -> PriorFunctionG a a
-normal m s x = Exp $ (- xm * xm / (2 * s * s)) - denom
+normal m s x
+  | s <= 0 = error "normal: Standard deviation is zero or negative."
+  | otherwise = Exp $ (- xm * xm / (2 * s * s)) - denom
   where
     xm = x - m
     denom = mLnSqrt2Pi + log s
@@ -156,6 +163,7 @@ normal m s x = Exp $ (- xm * xm / (2 * s * s)) - denom
 -- | Uniform prior on [a, b].
 uniform :: RealFloat a => LowerBoundary a -> UpperBoundary a -> PriorFunctionG a a
 uniform a b x
+  | a > b = error "unifrom: Lower boundary is larger than upper boundary."
   | x < a = 0.0
   | x > b = 0.0
   | otherwise = 1.0
@@ -163,7 +171,9 @@ uniform a b x
 
 -- | Poisson distributed prior.
 poisson :: Rate Double -> PriorFunction Int
-poisson l = Exp . S.logProbability d
+poisson l
+  | l <= 0 = error "poisson: Rate is zero or negative."
+  | otherwise = Exp . S.logProbability d
   where
     d = S.poisson l
 
