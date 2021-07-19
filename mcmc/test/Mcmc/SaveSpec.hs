@@ -47,24 +47,27 @@ monStd = monitorStdOut [monitorDouble "mu"] 10
 mon :: Monitor Double
 mon = Monitor monStd [] []
 
+settings :: Settings
+settings =
+  Settings
+    (AnalysisName "SaveSpec")
+    (BurnInWithAutoTuning 20 10)
+    (Iterations 100)
+    TraceAuto
+    Overwrite
+    Sequential
+    NoSave
+    LogStdOutOnly
+    Quiet
+
 spec :: Spec
 spec = do
   describe "save and load" $
     it "doesn't change the MCMC chain" $
       do
         gen <- R.create
-        let s =
-              Settings
-                (AnalysisName "SaveSpec")
-                (BurnInWithAutoTuning 20 10)
-                (Iterations 200)
-                TraceAuto
-                Overwrite
-                Sequential
-                NoSave
-                LogStdOutOnly
-                Quiet
-        c <- fromMHG <$> mhg s noPrior lh proposals mon 0 gen
+        a <- mhg settings noPrior lh proposals mon 0 gen
+        c <- fromMHG <$> mcmc settings a
         savedChain <- toSavedChain c
         c' <- fromSavedChain noPrior lh proposals mon savedChain
         putStrLn "@load . save@ should be @id@."
@@ -77,8 +80,8 @@ spec = do
         -- g1' <- R.save $ generator c'
         -- g1 `shouldBe` g1'
         putStrLn "Sampling from the chains should be the same."
-        r <- fromMHG <$> mcmc s (MHG c)
-        r' <- fromMHG <$> mcmc s (MHG c')
+        r <- fromMHG <$> mcmcContinue (Iterations 100) settings (MHG c)
+        r' <- fromMHG <$> mcmcContinue (Iterations 100) settings (MHG c')
         link r `shouldBe` link r'
         iteration r `shouldBe` iteration r'
         frozenT2 <- freezeT (trace c)
@@ -88,20 +91,22 @@ spec = do
         g2' <- R.save $ generator r'
         g2 `shouldBe` g2'
 
--- -- TODO: 'mhContinue'.
--- describe "mhContinue"
---   $ it "mh 200 + mhContinue 200 == mh 400"
---   $ do
---     gen1 <- create
---     let s1 = chain "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 400 gen1
---     r1 <- mh s1
---     gen2 <- create
---     let s2 = chain "SaveSpec" (const 1) likelihood proposals mon 0 nBurn nAutoTune 200 gen2
---     r2' <- mh s2
---     r2 <- mhContinue 200 r2'
---     link r1 `shouldBe` link r2
---     iteration r1 `shouldBe` iteration r2
---     trace r1 `shouldBe` trace r2
---     g <- save $ generator r1
---     g' <- save $ generator r2
---     g `shouldBe` g'
+  describe "mhContinue" $
+    it "mcmc 50 + mcmcContinue 50 == mcmc 100" $
+      do
+        gen1 <- R.create
+        a1 <- mhg settings noPrior lh proposals mon 0 gen1
+        r1 <- fromMHG <$> mcmc settings a1
+        gen2 <- R.create
+        let settings' = settings { sIterations = Iterations 50 }
+        a2 <- mhg settings' noPrior lh proposals mon 0 gen2
+        r2' <- mcmc settings' a2
+        r2 <- fromMHG <$> mcmcContinue (Iterations 50) settings' r2'
+        link r1 `shouldBe` link r2
+        iteration r1 `shouldBe` iteration r2
+        frozenT1 <- freezeT (trace r1)
+        frozenT2 <- freezeT (trace r2)
+        frozenT1 `shouldBe` frozenT2
+        g <- R.save $ generator r1
+        g' <- R.save $ generator r2
+        g `shouldBe` g'
