@@ -89,11 +89,17 @@ mcmcNewRun a = do
 mcmcContinueRun :: Algorithm a => a -> MCMC a
 mcmcContinueRun a = do
   s <- reader settings
-  let iTotal = fromIterations (sIterations s) + burnInIterations (sBurnIn s)
+  let
+    iBurnIn = burnInIterations (sBurnIn s)
+    iNormal = fromIterations (sIterations s)
+    iTotal = iBurnIn + iNormal
   logInfoB "Continuation of MCMC sampler."
   let iCurrent = aIteration a
-  logInfoS $ "Current iteration: " ++ show iCurrent ++ "."
+  logInfoS $ "Burn in iterations: " ++ show iBurnIn ++ "."
+  logInfoS $ "Normal iterations: " ++ show iNormal ++ "."
   logInfoS $ "Total iterations: " ++ show iTotal ++ "."
+  logInfoS $ "Current iteration: " ++ show iCurrent ++ "."
+  when (iCurrent < iBurnIn) $ error "mcmcContinueRun: Can not continue burn in."
   let di = iTotal - iCurrent
   logInfoB $ aSummarizeCycle a
   logInfoS $ "Run chain for " ++ show di ++ " iterations."
