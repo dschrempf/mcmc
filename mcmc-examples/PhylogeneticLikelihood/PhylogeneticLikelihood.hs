@@ -192,7 +192,7 @@ main = do
               Sequential
               Save
               LogStdOutAndFile
-              Debug
+              Info
       -- Initialize the Metropolis-Hastings-Green algorithm.
       a <- mhg s pr (lh meanTree stdDevTree) cc mon startingTree g
       -- Run the MCMC sampler.

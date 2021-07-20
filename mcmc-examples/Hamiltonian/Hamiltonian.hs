@@ -117,6 +117,6 @@ main = do
           Sequential
           Save
           LogStdOutAndFile
-          Debug
+          Info
   a <- mhg s prf lhfI cc mon initialState g
   void $ mcmc s a
