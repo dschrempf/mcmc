@@ -121,8 +121,8 @@ mcmcBurnIn a = do
       logInfoS $ "Auto tuning is enabled with a period of " ++ show t ++ "."
       logInfoB $ aStdMonitorHeader a
       let (m, r) = n `divMod` t
-          -- Don't add if 0. Because then we auto tune without acceptance counts
-          -- and get NaNs.
+          -- Don't add another auto tune period if r == 0, because then we auto
+          -- tune without acceptance counts and get NaNs.
           xs = replicate m t <> [r | r > 0]
       a' <- mcmcBurnInWithAutoTuning xs a
       logInfoB "Burn in finished."
