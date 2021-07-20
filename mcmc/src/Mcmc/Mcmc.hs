@@ -21,6 +21,8 @@ module Mcmc.Mcmc
   )
 where
 
+import System.Exit
+import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
@@ -51,6 +53,27 @@ mcmcResetAcceptance a = do
   logDebugB "Reset acceptance rates."
   return $ aResetAcceptance a
 
+mcmcExceptionHandler :: Algorithm a => Environment Settings -> a -> AsyncException -> IO b
+mcmcExceptionHandler e a UserInterrupt = do
+  putStrLn "USER INTERRUPT."
+  putStrLn "Close output files."
+  _ <- aCloseMonitors a
+  closeEnvironment e
+  putStrLn "Try to save settings."
+  let s = settings e
+  settingsSave s
+  putStrLn "Try to save compressed MCMC analysis."
+  putStrLn "For long traces, or complex objects, this may take a while."
+  let nm = sAnalysisName s
+  aSave nm a
+  putStrLn "Markov chain saved. Analysis can be continued."
+  putStrLn "Terminate gracefully."
+  exitWith $ ExitFailure 1
+mcmcExceptionHandler _ _ e = throw e
+
+-- XXX: Exception handling. Is it enough to mask execution of monitors and catch
+-- UserInterrupt during iterations?
+
 mcmcExecuteMonitors :: Algorithm a => a -> MCMC ()
 mcmcExecuteMonitors a = do
   e <- ask
@@ -58,7 +81,8 @@ mcmcExecuteMonitors a = do
       vb = sVerbosity s
       t0 = startingTime e
       iTotal = burnInIterations (sBurnIn s) + fromIterations (sIterations s)
-  mStdLog <- liftIO (aExecuteMonitors vb t0 iTotal a)
+  -- NOTE: Mask asynchronous exceptions when writing monitor files.
+  mStdLog <- liftIO $ mask_ $ aExecuteMonitors vb t0 iTotal a
   forM_ mStdLog (logOutB "   ")
 
 mcmcIterate :: Algorithm a => Int -> a -> MCMC a
@@ -66,8 +90,10 @@ mcmcIterate n a
   | n < 0 = error "mcmcIterate: Number of iterations is negative."
   | n == 0 = return a
   | otherwise = do
+    e <- ask
     p <- sParallelizationMode . settings <$> ask
-    a' <- liftIO $ aIterate p a
+    -- NOTE: User interrupt is handled during iterations.
+    a' <- liftIO $ catch (aIterate p a) (mcmcExceptionHandler e a)
     mcmcExecuteMonitors a'
     mcmcIterate (n -1) a'
 
