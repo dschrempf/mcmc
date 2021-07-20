@@ -55,7 +55,10 @@ mcmcResetAcceptance a = do
 
 mcmcExceptionHandler :: Algorithm a => Environment Settings -> a -> AsyncException -> IO b
 mcmcExceptionHandler e a UserInterrupt = do
-  putStrLn "USER INTERRUPT."
+  putStrLn ""
+  putStrLn "USER INTERRUPT!"
+  putStrLn "Try to terminate gracefully and save chain for continuation."
+  putStrLn "Press CTRL-C again to terminate now."
   putStrLn "Close output files."
   _ <- aCloseMonitors a
   closeEnvironment e
