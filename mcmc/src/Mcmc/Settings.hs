@@ -40,8 +40,8 @@ where
 
 import Data.Aeson
 import Data.Aeson.TH
-import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Lazy.Char8 as BL
 import Mcmc.Logger
 import System.Directory
 import System.IO
@@ -332,16 +332,16 @@ logModePrettyPrint LogStdOutOnly = "Log to standard output only."
 logModePrettyPrint LogFileOnly = "Log to file only."
 
 settingsPrettyPrint :: Settings -> BL.ByteString
-settingsPrettyPrint (Settings nm bi is tl em pm sm lm vb) = BL.unlines
-  [
-    "The MCMC settings are:"
-  , "  Analysis name:        " <> BL.pack (fromAnalysisName nm) <> "."
-  , "  Burn in:              " <> burnInPrettyPrint bi
-  , "  Iterations:           " <> bsInt (fromIterations is) <> " iterations."
-  , "  Trace length:         " <> traceLengthPrettyPrint tl
-  , "  Execution mode:       " <> executionModePrettyPrint em
-  , "  Parallelization mode: " <> BL.pack (show pm) <> "."
-  , "  Save mode:            " <> saveModePrettyPrint sm
-  , "  Log mode:             " <> logModePrettyPrint lm
-  , "  Verbosity:            " <> BL.pack (show vb)<> "."
-  ]
+settingsPrettyPrint (Settings nm bi is tl em pm sm lm vb) =
+  BL.unlines
+    [ "The MCMC settings are:",
+      "  Analysis name:        " <> BL.pack (fromAnalysisName nm) <> ".",
+      "  Burn in:              " <> burnInPrettyPrint bi,
+      "  Iterations:           " <> bsInt (fromIterations is) <> " iterations.",
+      "  Trace length:         " <> traceLengthPrettyPrint tl,
+      "  Execution mode:       " <> executionModePrettyPrint em,
+      "  Parallelization mode: " <> BL.pack (show pm) <> ".",
+      "  Save mode:            " <> saveModePrettyPrint sm,
+      "  Log mode:             " <> logModePrettyPrint lm,
+      "  Verbosity:            " <> BL.pack (show vb) <> "."
+    ]

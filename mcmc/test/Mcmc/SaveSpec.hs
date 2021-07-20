@@ -98,7 +98,7 @@ spec = do
         a1 <- mhg settings noPrior lh proposals mon 0 gen1
         r1 <- fromMHG <$> mcmc settings a1
         gen2 <- R.create
-        let settings' = settings { sIterations = Iterations 50 }
+        let settings' = settings {sIterations = Iterations 50}
         a2 <- mhg settings' noPrior lh proposals mon 0 gen2
         r2' <- mcmc settings' a2
         r2 <- fromMHG <$> mcmcContinue (Iterations 50) settings' r2'

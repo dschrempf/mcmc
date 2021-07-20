@@ -21,7 +21,6 @@ module Mcmc.Mcmc
   )
 where
 
-import System.Exit
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
@@ -30,6 +29,7 @@ import Mcmc.Algorithm
 import Mcmc.Environment
 import Mcmc.Logger
 import Mcmc.Settings
+import System.Exit
 import System.IO
 import Prelude hiding (cycle)
 
@@ -115,10 +115,9 @@ mcmcNewRun a = do
 mcmcContinueRun :: Algorithm a => a -> MCMC a
 mcmcContinueRun a = do
   s <- reader settings
-  let
-    iBurnIn = burnInIterations (sBurnIn s)
-    iNormal = fromIterations (sIterations s)
-    iTotal = iBurnIn + iNormal
+  let iBurnIn = burnInIterations (sBurnIn s)
+      iNormal = fromIterations (sIterations s)
+      iTotal = iBurnIn + iNormal
   logInfoB "Continuation of MCMC sampler."
   let iCurrent = aIteration a
   logInfoS $ "Burn in iterations: " ++ show iBurnIn ++ "."
