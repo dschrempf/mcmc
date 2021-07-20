@@ -34,15 +34,20 @@ module Mcmc.Settings
     settingsSave,
     settingsLoad,
     settingsCheck,
+    settingsPrettyPrint,
   )
 where
 
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.ByteString.Builder as BB
 import Mcmc.Logger
 import System.Directory
 import System.IO
+
+bsInt :: Int -> BL.ByteString
+bsInt = BB.toLazyByteString . BB.intDec
 
 -- | Analysis name of the MCMC sampler.
 newtype AnalysisName = AnalysisName {fromAnalysisName :: String}
@@ -76,6 +81,16 @@ data BurnInSettings
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''BurnInSettings)
+
+burnInPrettyPrint :: BurnInSettings -> BL.ByteString
+burnInPrettyPrint NoBurnIn =
+  "None."
+burnInPrettyPrint (BurnInWithoutAutoTuning x) =
+  bsInt x <> " iterations; no auto tune."
+burnInPrettyPrint (BurnInWithAutoTuning x y) =
+  bsInt x <> " iterations; auto tune with a period of " <> bsInt y <> "."
+burnInPrettyPrint (BurnInWithCustomAutoTuning xs) =
+  bsInt (sum xs) <> " iterations; custom auto tune periods."
 
 -- Check if the burn in settings are valid.
 burnInValid :: BurnInSettings -> Bool
@@ -117,6 +132,10 @@ data TraceLength
 
 $(deriveJSON defaultOptions ''TraceLength)
 
+traceLengthPrettyPrint :: TraceLength -> BL.ByteString
+traceLengthPrettyPrint TraceAuto = "Determined automatically."
+traceLengthPrettyPrint (TraceMinimum x) = "Minimum length of " <> bsInt x <> "."
+
 validTraceLength :: TraceLength -> Bool
 validTraceLength (TraceMinimum n) = n > 0
 validTraceLength _ = True
@@ -142,6 +161,11 @@ $(deriveJSON defaultOptions ''ExecutionMode)
 -- | Types with execution modes.
 class HasExecutionMode s where
   getExecutionMode :: s -> ExecutionMode
+
+executionModePrettyPrint :: ExecutionMode -> BL.ByteString
+executionModePrettyPrint Fail = "Fail if output files exist."
+executionModePrettyPrint Overwrite = "Overwrite existing output files."
+executionModePrettyPrint Continue = "Expect output files exist."
 
 -- | Open a file honoring the execution mode.
 --
@@ -204,6 +228,10 @@ data SaveMode
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''SaveMode)
+
+saveModePrettyPrint :: SaveMode -> BL.ByteString
+saveModePrettyPrint NoSave = "Do not save analysis."
+saveModePrettyPrint Save = "Save analysis."
 
 -- | Settings of an MCMC sampler.
 data Settings = Settings
@@ -297,3 +325,23 @@ settingsCheck s@(Settings nm bi i tl em _ _ _ _) iCurrent
   | otherwise = return ()
   where
     serr = settingsError s iCurrent
+
+logModePrettyPrint :: LogMode -> BL.ByteString
+logModePrettyPrint LogStdOutAndFile = "Log to standard output and file."
+logModePrettyPrint LogStdOutOnly = "Log to standard output only."
+logModePrettyPrint LogFileOnly = "Log to file only."
+
+settingsPrettyPrint :: Settings -> BL.ByteString
+settingsPrettyPrint (Settings nm bi is tl em pm sm lm vb) = BL.unlines
+  [
+    "The MCMC settings are:"
+  , "  Analysis name:        " <> BL.pack (fromAnalysisName nm) <> "."
+  , "  Burn in:              " <> burnInPrettyPrint bi
+  , "  Iterations:           " <> bsInt (fromIterations is) <> " iterations."
+  , "  Trace length:         " <> traceLengthPrettyPrint tl
+  , "  Execution mode:       " <> executionModePrettyPrint em
+  , "  Parallelization mode: " <> BL.pack (show pm) <> "."
+  , "  Save mode:            " <> saveModePrettyPrint sm
+  , "  Log mode:             " <> logModePrettyPrint lm
+  , "  Verbosity:            " <> BL.pack (show vb)<> "."
+  ]

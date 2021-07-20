@@ -29,7 +29,6 @@ import Mcmc.Environment
 import Mcmc.Logger
 import Mcmc.Settings
 import System.IO
-import Text.Show.Pretty
 import Prelude hiding (cycle)
 
 -- The MCMC algorithm has read access to an environment and uses an algorithm
@@ -200,11 +199,9 @@ mcmcClose a = do
 -- Initialize the run, execute the run, and close the run.
 mcmcRun :: Algorithm a => a -> MCMC a
 mcmcRun a = do
+  -- Header.
   logInfoHeader
-
-  -- Debug settings.
-  logDebugB "The MCMC settings are:"
-  reader settings >>= logDebugS . ppShow
+  reader settings >>= logInfoB . settingsPrettyPrint
 
   -- Initialize.
   a' <- mcmcInitialize a
