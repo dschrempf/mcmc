@@ -76,7 +76,7 @@ masses :: IG (Maybe Double)
 masses = ZipList $ replicate dimension (Just 1)
 
 hSettings :: HSettings ZipList
-hSettings = HSettings gradientI masses 10 0.1 HTuneMassesAndLeapfrog
+hSettings = HSettings gradientI Nothing masses 10 0.1 HTuneMassesAndLeapfrog
 
 initialState :: I
 initialState = ZipList $ replicate dimension 1

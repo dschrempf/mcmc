@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- |
@@ -50,8 +51,6 @@ import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
 import System.Random.MWC
 
--- TODO: Provide the Hamiltonian proposal with a function checking constraints.
-
 -- TODO: At the moment, the HMC proposal is agnostic of the prior and
 -- likelihood, that is, the posterior function. This means, that it cannot know
 -- when it reaches a point with zero posterior probability. This also affects
@@ -63,6 +62,11 @@ import System.Random.MWC
 
 -- | Gradient of the log posterior function.
 type Gradient f = f Double -> f Double
+
+-- | Function validating the state.
+--
+-- Useful if parameters are constrained.
+type Validate f = f Double -> Bool
 
 -- | Masses of parameters.
 --
@@ -162,6 +166,7 @@ data HTune
 -- | Specifications for Hamilton Monte Carlo proposal.
 data HSettings f = HSettings
   { hGradient :: Gradient f,
+    hMaybeValidate :: Maybe (Validate f),
     hMasses :: Masses f,
     hLeapfrogTrajectoryLength :: LeapfrogTrajectoryLength,
     hLeapfrogScalingFactor :: LeapfrogScalingFactor,
@@ -169,7 +174,7 @@ data HSettings f = HSettings
   }
 
 checkHSettings :: Foldable f => HSettings f -> Maybe String
-checkHSettings (HSettings _ masses l eps _)
+checkHSettings (HSettings _ _ masses l eps _)
   | any f masses = Just "checkHSettings: One or more masses are zero or negative."
   | l < 1 = Just "checkHSettings: Leapfrog trajectory length is zero or negative."
   | eps <= 0 = Just "checkHSettings: Leapfrog scaling factor is zero or negative."
@@ -201,29 +206,37 @@ priorMomenta masses phi = foldl' (*) 1.0 $ f <$> masses <*> phi
 
 leapfrog ::
   Applicative f =>
+  Gradient f ->
+  Maybe (Validate f) ->
+  Masses f ->
   LeapfrogTrajectoryLength ->
   LeapfrogScalingFactor ->
-  Masses f ->
-  Gradient f ->
   Positions f ->
   Momenta f ->
-  -- (Positions', Momenta').
-  (Positions f, Momenta f)
-leapfrog l eps masses grad theta phi = (thetaL, phiL)
+  -- Maybe (Positions', Momenta').
+  Maybe (Positions f, Momenta f)
+leapfrog grad mVal masses l eps theta phi = do
+  let -- The first half step of the momenta.
+      phiHalf = leapfrogStepMomenta 0.5 eps grad theta phi
+  -- L-1 full steps. This gives the positions theta_{L-1}, and the momenta
+  -- phi_{L-1/2}.
+  (thetaLM1, phiLM1Half) <- go (l - 1) (Just (theta, phiHalf))
+  -- The last full step of the positions.
+  thetaL <- valF $ leapfrogStepPositions eps masses thetaLM1 phiLM1Half
+  let -- The last half step of the momenta.
+      phiL = leapfrogStepMomenta 0.5 eps grad thetaL phiLM1Half
+  return (thetaL, phiL)
   where
-    -- The first half step of the momenta.
-    phiHalf = leapfrogStepMomenta 0.5 eps grad theta phi
-    -- L-1 full steps. This gives the positions theta_{L-1}, and the momenta
-    -- phi_{L-1/2}.
-    (thetaLM1, phiLM1Half) = go (l - 1) (theta, phiHalf)
-    -- The last full step of the positions.
-    thetaL = leapfrogStepPositions eps masses thetaLM1 phiLM1Half
-    -- The last half step of the momenta.
-    phiL = leapfrogStepMomenta 0.5 eps grad thetaL phiLM1Half
-    go 0 (t, p) = (t, p)
-    go n (t, p) =
+    valF x = case mVal of
+      Nothing -> Just x
+      Just f -> if f x then Just x else Nothing
+    go _ Nothing = Nothing
+    go 0 (Just (t, p)) = Just (t, p)
+    go n (Just (t, p)) =
       let t' = leapfrogStepPositions eps masses t p
-       in go (n - 1) (t', leapfrogStepMomenta 1.0 eps grad t' p)
+          p' = leapfrogStepMomenta 1.0 eps grad t' p
+          r = (,p') <$> valF t'
+       in go (n - 1) r
 
 leapfrogStepMomenta ::
   Applicative f =>
@@ -299,12 +312,12 @@ hTuningParametersToSettings ::
   AuxiliaryTuningParameters ->
   HSettings f ->
   Either String (HSettings f)
-hTuningParametersToSettings t ts (HSettings g m l e tn) =
+hTuningParametersToSettings t ts (HSettings g v m l e tn) =
   if tn == HTuneMassesAndLeapfrog
     then case tuningParametersToMasses ts m of
       Left err -> Left err
-      Right m' -> Right $ HSettings g m' lTuned eTuned tn
-    else Right $ HSettings g m lTuned eTuned tn
+      Right m' -> Right $ HSettings g v m' lTuned eTuned tn
+    else Right $ HSettings g v m lTuned eTuned tn
   where
     -- The larger epsilon, the larger the proposal step size and the lower the
     -- expected acceptance ratio.
@@ -329,20 +342,22 @@ hamiltonianSimple ::
   (Applicative f, Traversable f) =>
   HSettings f ->
   ProposalSimple (Positions f)
-hamiltonianSimple (HSettings gradient masses l e _) theta g = do
+hamiltonianSimple (HSettings gradient mVal masses l e _) theta g = do
   phi <- generateMomenta masses g
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
-  let (theta', phi') = leapfrog lRan eRan masses gradient theta phi
-      prPhi = priorMomenta masses phi
-      -- NOTE: Neal page 12: In order for the proposal to be in detailed
-      -- balance, the momenta have to be negated before proposing the new value.
-      -- This is not required here since the prior involves normal distributions
-      -- centered around 0. However, if the multivariate normal distribution is
-      -- used, it makes a difference.
-      prPhi' = priorMomenta masses phi'
-      kernelR = prPhi' / prPhi
-  return (theta', kernelR, 1.0)
+  case leapfrog gradient mVal masses lRan eRan theta phi of
+    Nothing -> return (theta, 0.0, 1.0)
+    Just (theta', phi') ->
+      let prPhi = priorMomenta masses phi
+          -- NOTE: Neal page 12: In order for the proposal to be in detailed
+          -- balance, the momenta have to be negated before proposing the new value.
+          -- This is not required here since the prior involves normal distributions
+          -- centered around 0. However, if the multivariate normal distribution is
+          -- used, it makes a difference.
+          prPhi' = priorMomenta masses phi'
+          kernelR = prPhi' / prPhi
+       in return (theta', kernelR, 1.0)
   where
     lL = maximum [1 :: Int, floor $ (0.8 :: Double) * fromIntegral l]
     lR = maximum [lL, ceiling $ (1.2 :: Double) * fromIntegral l]
