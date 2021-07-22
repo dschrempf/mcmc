@@ -26,6 +26,21 @@
 --
 -- - [3] Review by Betancourt and notes: Betancourt, M., A conceptual
 --   introduction to Hamiltonian Monte Carlo, arXiv, 1701–02434 (2017).
+--
+-- NOTE on implementation:
+--
+-- - The implementation assumes the existence of the gradient. Like so, the user
+--   can use automatic or manual differentiation, depending on the problem at
+--   hand.
+--
+-- - The state needs to be list like or 'Traversable' so that the structure of
+--   the state space is available. A 'Traversable' constraint on the data type
+--   is nice because it is more general than, for example, a list, and specific
+--   data structures can be used.
+--
+-- - The state needs to have a zip-like 'Applicative' instance so that
+-- - matrix/vector operations can be performed.
+
 module Mcmc.Proposal.Hamiltonian
   ( Gradient,
     Masses,
