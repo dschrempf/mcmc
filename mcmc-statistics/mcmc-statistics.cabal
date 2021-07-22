@@ -62,3 +62,4 @@ test-suite mcmc-statistics-test
   -- ghc-options:
   build-depends:
       base >=4.7 && <5
+    , hspec
