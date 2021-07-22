@@ -97,7 +97,7 @@ negative = lessThan 0
 exponential :: RealFloat a => Rate a -> PriorFunctionG a a
 exponential l x
   | l <= 0 = error "exponential: Rate is zero or negative."
-  | x < 0 = 0.0
+  | x < 0 = error "exponential: Negative value."
   | otherwise = ll * Exp (negate l * x)
   where
     ll = Exp $ log l
@@ -110,7 +110,8 @@ gamma :: RealFloat a => Shape a -> Scale a -> PriorFunctionG a a
 gamma k t x
   | k <= 0 = error "gamma: Shape is zero or negative."
   | t <= 0 = error "gamma: Scale is zero or negative."
-  | x <= 0 = 0.0
+  | x < 0 = error "gamma: Negative value."
+  | x == 0 = 0.0
   | otherwise = Exp $ log x * (k - 1) - (x / t) - logGammaG k - log t * k
 {-# SPECIALIZE gamma :: Double -> Double -> PriorFunction Double #-}
 
@@ -181,9 +182,10 @@ uniform a b x
 --
 -- Call 'error' if the rate is zero or negative.
 poisson :: Rate Double -> PriorFunction Int
-poisson l
+poisson l n
   | l <= 0 = error "poisson: Rate is zero or negative."
-  | otherwise = Exp . S.logProbability d
+  | n < 0 = error "poisson: Negative value."
+  | otherwise = Exp $ S.logProbability d n
   where
     d = S.poisson l
 
