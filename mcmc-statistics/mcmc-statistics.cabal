@@ -20,7 +20,24 @@ source-repository head
   type: git
   location: https://github.com/dschrempf/mcmc
 
+common lib
+  default-language: Haskell2010
+  ghc-options: -Wall -Wunused-packages
+
+common test
+  default-language: Haskell2010
+  ghc-options: -Wall -Wunused-packages -Werror
+
+common bench
+  default-language: Haskell2010
+  ghc-options: -Wall -Wunused-packages -Werror
+
+common exec
+  default-language: Haskell2010
+  ghc-options: -Wall -Wunused-packages -Werror -threaded -rtsopts -with-rtsopts=-N
+
 library
+  import: lib
   exposed-modules:
       Mcmc.Statistics
   other-modules:
@@ -29,10 +46,19 @@ library
       Paths_mcmc_statistics
   hs-source-dirs:
       src
-  ghc-options: -Wall
   build-depends:
       base >=4.7 && <5
     , pava
     , statistics
     , vector
-  default-language: Haskell2010
+
+test-suite mcmc-statistics-test
+  import: test
+  main-is: Spec.hs
+  type: exitcode-stdio-1.0
+  hs-source-dirs:  test
+  -- other-modules:
+  -- autogen-modules:
+  -- ghc-options:
+  build-depends:
+      base >=4.7 && <5

@@ -25,3 +25,5 @@ cradle:
     # mcmc-statistics
     - path: "mcmc-statistics/src"
       component: "mcmc-statistics:lib"
+    - path: "mcmc-statistics/test"
+      component: "mcmc-statistics:test:mcmc-statistics-test"
