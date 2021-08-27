@@ -1,0 +1,5 @@
+packages:
+  mcmc/*.cabal
+  mcmc-examples/*.cabal
+  mcmc-statistics/*.cabal
+

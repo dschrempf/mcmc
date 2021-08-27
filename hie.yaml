@@ -1,29 +1,34 @@
 cradle:
-  stack:
-    # mcmc
-    - path: "./mcmc/src"
-      component: "mcmc:lib"
-    - path: "./mcmc/test"
+  cabal:
+    - path: "mcmc/src"
+      component: "lib:mcmc"
+
+    - path: "mcmc/test"
       component: "mcmc:test:mcmc-test"
-    - path: "./mcmc/bench"
+
+    - path: "mcmc/bench"
       component: "mcmc:bench:mcmc-bench"
 
-    # mcmc-examples
-    - path: "./mcmc-examples/Archery"
+    - path: "mcmc-examples/Archery/Archery.hs"
       component: "mcmc-examples:exe:archery"
-    - path: "./mcmc-examples/Dirichlet"
+
+    - path: "mcmc-examples/Dirichlet/Dirichlet.hs"
       component: "mcmc-examples:exe:dirichlet"
-    - path: "./mcmc-examples/Gauss"
+
+    - path: "mcmc-examples/Gauss/Gauss.hs"
       component: "mcmc-examples:exe:gauss"
-    - path: "./mcmc-examples/Hamiltonian"
+
+    - path: "mcmc-examples/Hamiltonian/Hamiltonian.hs"
       component: "mcmc-examples:exe:hamiltonian"
-    - path: "./mcmc-examples/Pair"
+
+    - path: "mcmc-examples/Pair/Pair.hs"
       component: "mcmc-examples:exe:pair"
-    - path: "./mcmc-examples/PhylogeneticLikelihood"
+
+    - path: "mcmc-examples/PhylogeneticLikelihood/PhylogeneticLikelihood.hs"
       component: "mcmc-examples:exe:plh"
 
-    # mcmc-statistics
-    - path: "./mcmc-statistics/src"
-      component: "mcmc-statistics:lib"
-    - path: "./mcmc-statistics/test"
+    - path: "mcmc-statistics/src"
+      component: "lib:mcmc-statistics"
+
+    - path: "mcmc-statistics/test"
       component: "mcmc-statistics:test:mcmc-statistics-test"
