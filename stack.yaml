@@ -8,14 +8,8 @@ packages:
 extra-deps:
   # - circular-0.4.0.0
   # - dirichlet-0.1.0.4
-  # - elynx-nexus-0.5.1.0
-  # - elynx-tools-0.5.1.0
-  # - elynx-tree-0.5.1.0
   - ../circular
   - ../dirichlet
-  - ../elynx/elynx-nexus
-  - ../elynx/elynx-tools
-  - ../elynx/elynx-tree
 
 # # LLVM.
 # ghc-options: {"$everything": -O2 -fllvm}
@@ -24,4 +18,3 @@ nix:
   add-gc-roots: true
   packages:
     - zlib
-  path: [nixpkgs=/home/dominik/Nix/Nixpkgs]
