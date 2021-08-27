@@ -26,7 +26,11 @@
             }
           );
           overlays = [ mcmc-overlay ];
-          pkgs = import nixpkgs { inherit system overlays; };
+          pkgs = import nixpkgs {
+            inherit system overlays;
+            # TODO: Remove when circular is unbroken.
+            config = { allowBroken = true; };
+          };
           # Set with packages.
           mcmc = lib.genAttrs packageNames (n: pkgs.haskellPackages.${n});
           # List with packages with benchmark dependencies for development
@@ -35,6 +39,8 @@
         in
           {
             packages = mcmc;
+
+            defaultPackage = mcmc.mcmc;
 
             devShell = pkgs.haskellPackages.shellFor {
               packages = _: (builtins.attrValues mcmc-dev);
