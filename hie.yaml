@@ -6,7 +6,13 @@ cradle:
     - path: "mcmc/test"
       component: "mcmc:test:mcmc-test"
 
-    - path: "mcmc/bench"
+    - path: "mcmc/bench/Bench.hs"
+      component: "mcmc:bench:mcmc-bench"
+
+    - path: "mcmc/bench/Normal.hs"
+      component: "mcmc:bench:mcmc-bench"
+
+    - path: "mcmc/bench/Poisson.hs"
       component: "mcmc:bench:mcmc-bench"
 
     - path: "mcmc-examples/Archery/Archery.hs"

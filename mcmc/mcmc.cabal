@@ -128,6 +128,8 @@ benchmark mcmc-bench
       Normal
       Poisson
       Paths_mcmc
+  autogen-modules:
+      Paths_mcmc
   hs-source-dirs: bench
   build-depends:
       base >=4.7 && <5
