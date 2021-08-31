@@ -35,8 +35,8 @@
 --
 -- - The state needs to be list like or 'Traversable' so that the structure of
 --   the state space is available. A 'Traversable' constraint on the data type
---   is nice because it is more general than, for example, a list, and specific
---   data structures can be used.
+--   is nice because it is more general than, for example, a list, and
+--   user-defined data structures can be used.
 --
 -- - The state needs to have a zip-like 'Applicative' instance so that
 -- - matrix/vector operations can be performed.
