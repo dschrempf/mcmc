@@ -331,6 +331,7 @@ logModePrettyPrint LogStdOutAndFile = "Log to standard output and file."
 logModePrettyPrint LogStdOutOnly = "Log to standard output only."
 logModePrettyPrint LogFileOnly = "Log to file only."
 
+-- | Pretty print settings.
 settingsPrettyPrint :: Settings -> BL.ByteString
 settingsPrettyPrint (Settings nm bi is tl em pm sm lm vb) =
   BL.unlines
