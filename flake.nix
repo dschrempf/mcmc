@@ -63,11 +63,13 @@
               devShell = pkgs.haskellPackages.shellFor {
                 packages = _: (builtins.attrValues mcmc-dev);
                 buildInputs = with pkgs; [
+                  bashInteractive
                   haskellPackages.cabal-install
                   haskellPackages.haskell-language-server
                   haskellPackages.stack
                 ];
                 doBenchmark = true;
+                withHoogle = true;
               };
             }
       );
