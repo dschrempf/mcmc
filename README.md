@@ -10,6 +10,7 @@ At the moment, the following algorithms are available:
 -   Metropolis-Hastings-Green <sup><a id="fnr.1" class="footref" href="#fn.1">1</a></sup>;
 -   Metropolis-coupled Markov chain Monte Carlo (also known as parallel
     tempering) <sup><a id="fnr.2" class="footref" href="#fn.2">2</a></sup> <sup>, </sup><sup><a id="fnr.3" class="footref" href="#fn.3">3</a></sup>.
+-   Hamilton Monte Carlo proposal <sup><a id="fnr.4" class="footref" href="#fn.4">4</a></sup>.
 
 
 ## Documentation
@@ -41,8 +42,11 @@ Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
 
 <sup><a id="fn.2" href="#fnr.2">2</a></sup> Geyer, C. J., Markov chain monte carlo maximum likelihood, Computing
 Science and Statistics, Proceedings of the 23rd Symposium on the Interface,
-(), (1991).
+(1991).
 
 <sup><a id="fn.3" href="#fnr.3">3</a></sup> Altekar, G., Dwarkadas, S., Huelsenbeck, J. P., & Ronquist, F., Parallel
 metropolis coupled markov chain monte carlo for bayesian phylogenetic inference,
 Bioinformatics, 20(3), 407–415 (2004).
+
+<sup><a id="fn.4" href="#fnr.4">4</a></sup> Neal, R. M., Mcmc Using Hamiltonian Dynamics, In S. Brooks, A. Gelman, G.
+Jones, & X. Meng (Eds.), Handbook of Markov Chain Monte Carlo (2011). CRC press.

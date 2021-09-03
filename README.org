@@ -8,6 +8,7 @@ At the moment, the following algorithms are available:
 - Metropolis-Hastings-Green [fn:1];
 - Metropolis-coupled Markov chain Monte Carlo (also known as parallel
   tempering) [fn:2] [fn:3].
+- Hamilton Monte Carlo proposal [fn:4].
 
 ** Documentation
 The [[https://hackage.haskell.org/package/mcmc][source code]] contains detailed documentation about general concepts as well
@@ -46,14 +47,16 @@ General questions: How do we handle changing topologies? Then, the node paths
 change, and everything is messed up.
 
 * Footnotes
+[fn:4] Neal, R. M., Mcmc Using Hamiltonian Dynamics, In S. Brooks, A. Gelman, G.
+Jones, & X. Meng (Eds.), Handbook of Markov Chain Monte Carlo (2011). CRC press.
 
 [fn:3] Altekar, G., Dwarkadas, S., Huelsenbeck, J. P., & Ronquist, F., Parallel
 metropolis coupled markov chain monte carlo for bayesian phylogenetic inference,
 Bioinformatics, 20(3), 407–415 (2004).
 
 [fn:2] Geyer, C. J., Markov chain monte carlo maximum likelihood, Computing
-  Science and Statistics, Proceedings of the 23rd Symposium on the Interface,
-  (), (1991).
+Science and Statistics, Proceedings of the 23rd Symposium on the Interface,
+(1991).
 
 [fn:1] Geyer, C. J., Introduction to Markov chain Monte Carlo, In Handbook of
-  Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
+Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
