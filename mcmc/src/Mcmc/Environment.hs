@@ -18,7 +18,7 @@ where
 
 import Control.Concurrent.MVar
 import Control.Monad
-import Data.Time.Clock
+import Data.Time
 import Mcmc.Logger
 import Mcmc.Settings
 import System.IO

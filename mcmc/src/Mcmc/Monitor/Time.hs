@@ -20,8 +20,7 @@ where
 
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Time.Clock
-import Data.Time.Format
+import Data.Time
 import Mcmc.Internal.ByteString
 
 -- | Adapted from System.ProgressBar.renderDuration of package

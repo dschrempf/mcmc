@@ -35,7 +35,7 @@ import Prelude hiding (cycle)
 
 -- The MCMC algorithm has read access to an environment and uses an algorithm
 -- transforming the state @a@.
-type MCMC a = ReaderT (Environment Settings) IO a
+type MCMC = ReaderT (Environment Settings) IO
 
 mcmcExecute :: Algorithm a => a -> MCMC a
 mcmcExecute a = do
