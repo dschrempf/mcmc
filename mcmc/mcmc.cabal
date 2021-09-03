@@ -1,6 +1,6 @@
 cabal-version:  2.2
 name:           mcmc
-version:        0.5.0.0
+version:        0.6.0.0
 synopsis:       Sample from a posterior using Markov chain Monte Carlo
 description:    Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
 category:       Math, Statistics
