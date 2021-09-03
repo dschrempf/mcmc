@@ -20,8 +20,8 @@ as specific functions.
 
 ## Examples
 
-[Example MCMC analyses](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples) can be built with [Stack](https://docs.haskellstack.org/en/stable/README/) and are attached to this
-repository.
+[Example MCMC analyses](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples) can be built with [cabal-install](https://cabal.readthedocs.io/en/latest/cabal-commands.html#) or [Stack](https://docs.haskellstack.org/en/stable/README/) and are attached
+to this repository.
 
     git clone https://github.com/dschrempf/mcmc.git
     cd mcmc
@@ -30,6 +30,8 @@ repository.
 For example, estimate the [accuracy of an archer](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Archery/Archery.hs) with
 
     stack exec archery
+
+For a more involved example, have a look at the [phylogenetic dating project](https://github.com/dschrempf/mcmc-dating).
 
 
 # Footnotes

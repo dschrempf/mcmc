@@ -40,3 +40,4 @@ dist-*
 /**/TAGS
 /.rsync-project
 /.direnv/
+/result

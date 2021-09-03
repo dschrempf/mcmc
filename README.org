@@ -14,8 +14,9 @@ The [[https://hackage.haskell.org/package/mcmc][source code]] contains detailed 
 as specific functions.
 
 ** Examples
-[[https://github.com/dschrempf/mcmc/tree/master/mcmc-examples][Example MCMC analyses]] can be built with [[https://docs.haskellstack.org/en/stable/README/][Stack]] and are attached to this
-repository.
+[[https://github.com/dschrempf/mcmc/tree/master/mcmc-examples][Example MCMC analyses]] can be built with [[https://cabal.readthedocs.io/en/latest/cabal-commands.html#][cabal-install]] or [[https://docs.haskellstack.org/en/stable/README/][Stack]] and are attached
+to this repository.
+
 #+name: Build
 #+begin_src sh :exports code :results none
 git clone https://github.com/dschrempf/mcmc.git
