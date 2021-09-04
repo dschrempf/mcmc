@@ -43,6 +43,7 @@
 
 module Mcmc.Proposal.Hamiltonian
   ( Gradient,
+    Validate,
     Masses,
     LeapfrogTrajectoryLength,
     LeapfrogScalingFactor,
