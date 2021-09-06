@@ -89,6 +89,7 @@ library
     , directory
     , dirichlet
     , double-conversion
+    , hmatrix
     , log-domain
     , math-functions
     , matrices
