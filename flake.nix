@@ -2,9 +2,11 @@
   description = "Development environment for Mcmc";
 
   inputs.circular.url = "github:dschrempf/circular";
+  inputs.circular.inputs.flake-utils.follows = "flake-utils";
   inputs.circular.inputs.nixpkgs.follows = "nixpkgs";
 
   inputs.dirichlet.url = "github:dschrempf/dirichlet";
+  inputs.dirichlet.inputs.flake-utils.follows = "flake-utils";
   inputs.dirichlet.inputs.nixpkgs.follows = "nixpkgs";
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
@@ -12,6 +14,7 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   inputs.pava.url = "github:dschrempf/pava";
+  inputs.pava.inputs.flake-utils.follows = "flake-utils";
   inputs.pava.inputs.nixpkgs.follows = "nixpkgs";
 
   outputs =
