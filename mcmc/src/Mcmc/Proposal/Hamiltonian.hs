@@ -56,8 +56,10 @@ where
 
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
+import qualified Data.Vector.Unboxed as VU
 import Mcmc.Proposal
 import qualified Numeric.LinearAlgebra as L
+import qualified Numeric.LinearAlgebra.Devel as L
 import Numeric.Log
 import Numeric.MathFunctions.Constants
 import qualified Statistics.Function as S
@@ -419,15 +421,31 @@ hamiltonianSimple s = hamiltonianSimpleWithMemoizedCovariance s hd
   where
     hd = getHData s
 
--- TODO: Print warning if tuning hits boundaries.
-minVariance :: Double
-minVariance = 1e-6
+minMass :: Double
+minMass = 1e-6
 
-maxVariance :: Double
-maxVariance = 1e6
+maxMass :: Double
+maxMass = 1e6
 
 minSamples :: Int
 minSamples = 60
+
+getSampleSize :: VS.Vector Double -> Int
+getSampleSize = VS.length . VS.uniq . S.gsort
+
+-- TODO: Print warning rescue is necessary.
+getNewMassWithRescue :: Double -> Int -> Double -> Double
+getNewMassWithRescue massOld sampleSize massEstimate =
+  if minMass > massEstimate
+    || massEstimate > maxMass
+    || sampleSize < minSamples
+    || isNaN massEstimate
+    then -- then traceShow ("Rescue with " <> show t) t
+      massOld
+    else
+      let massNew = sqrt (massOld * massEstimate)
+       in -- in traceShow ("Old mass " <> show t <> " new mass " <> show t') t'
+          massNew
 
 -- XXX: Here, we lose time because we convert the states to vectors again,
 -- something that has already been done.
@@ -439,24 +457,44 @@ tuneDiagonalMassesOnly ::
   AuxiliaryTuningParameters
 tuneDiagonalMassesOnly dim toVec xs ts =
   -- Replace the diagonal.
-  massesToTuningParameters $ L.trustSym $ masses - L.diag diagonalOld + L.diag diagonalNew
+  massesToTuningParameters $ L.trustSym $ massesOld - L.diag diagonalOld + L.diag diagonalNew
   where
+    -- xs: Each vector entry contains all parameters of one iteration.
+    -- xsT: Each list entry contains samples of the same parameter across iterations.
     xsT = L.toColumns $ L.fromRows $ VB.toList $ VB.map toVec xs
-    calcSamplesAndVariance x = (VS.length $ VS.uniq $ S.gsort x, S.variance x)
-    rescueWith t (sampleSize, var) =
-      -- TODO: Print warning if tuning hits boundaries.
-      if var < minVariance || maxVariance < var || sampleSize < minSamples
-        then -- then traceShow ("Rescue with " <> show t) t
-          t
-        else
-          let t' = sqrt (t * recip var)
-           in -- in traceShow ("Old mass " <> show t <> " new mass " <> show t') t'
-              t'
-    masses = L.unSym $ tuningParametersToMasses dim ts
-    diagonalOld = L.takeDiag masses
+    calcSamplesAndNewMass x = (getSampleSize x, recip $ S.variance x)
+    massesOld = L.unSym $ tuningParametersToMasses dim ts
+    diagonalOld = L.takeDiag massesOld
     diagonalNew =
       L.fromList $
-        zipWith (\t -> rescueWith t . calcSamplesAndVariance) (L.toList diagonalOld) xsT
+        zipWith
+          (\massOld -> uncurry (getNewMassWithRescue massOld) . calcSamplesAndNewMass)
+          (L.toList diagonalOld)
+          xsT
+
+-- XXX: Here, we lose time because we convert the states to vectors again,
+-- something that has already been done.
+tuneAllMasses ::
+  Int ->
+  (a -> Positions) ->
+  VB.Vector a ->
+  AuxiliaryTuningParameters ->
+  AuxiliaryTuningParameters
+tuneAllMasses dim toVec xs ts = massesToTuningParameters $ L.trustSym massesNew
+  where
+    -- xs: Each vector entry contains all parameters of one iteration.
+    -- xsT: Each row contains samples of the same parameter across iterations.
+    xsT = L.fromColumns $ VB.toList $ VB.map toVec xs
+    sampleSizes = VU.fromList $ map getSampleSize $ L.toRows xsT
+    (_, sigma) = L.meanCov xsT
+    massesOld = L.unSym $ tuningParametersToMasses dim ts
+    massesEstimate = L.inv $ L.unSym sigma
+    -- Use 'mapMatrixWithIndex'.
+    massNewF (i, j) massEstimate =
+      let massOld = massesOld `L.atIndex` (i, j)
+          sampleSize = min (sampleSizes VU.! i) (sampleSizes VU.! j)
+       in getNewMassWithRescue massOld sampleSize massEstimate
+    massesNew = L.mapMatrixWithIndex massNewF massesEstimate
 
 -- TODO: Documentation.
 
@@ -492,8 +530,7 @@ hamiltonian x s n w = case checkHSettings x s of
         tFunAux = case tms of
           HNoTuneMasses -> noAuxiliaryTuningFunction
           HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly dim toVec
-          -- TODO: HTuneAllMasses.
-          HTuneAllMasses -> error "hamiltonian: HTuneAllMasses not implemented yet."
+          HTuneAllMasses -> tuneAllMasses dim toVec
      in case tSet of
           (HTune HNoTuneLeapfrog HNoTuneMasses) -> hamiltonianWith Nothing
           _ ->
