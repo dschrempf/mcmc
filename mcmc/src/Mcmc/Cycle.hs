@@ -171,7 +171,7 @@ summarizeCycle a c =
              (prName p)
              (prDescription p)
              (prWeight p)
-             (tGetTuningParameter <$> prTuner p)
+             (tTuningParameter <$> prTuner p)
              (prDimension p)
              (ar p)
            | p <- ps

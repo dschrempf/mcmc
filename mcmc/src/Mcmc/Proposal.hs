@@ -30,10 +30,12 @@ module Mcmc.Proposal
     ProposalSimple,
     Tuner (..),
     Tune (..),
-    defaultTuningFunction,
-    createProposal,
     TuningParameter,
     AuxiliaryTuningParameters,
+    defaultTuningFunctionWith,
+    noTuningFunction,
+    noAuxiliaryTuningFunction,
+    createProposal,
     tuningParameterMin,
     tuningParameterMax,
     tuneWithTuningParameters,
@@ -51,6 +53,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.Double.Conversion.ByteString as BC
 import Data.Function
 import qualified Data.Vector as VB
+import qualified Data.Vector.Unboxed as VU
 import Lens.Micro
 import Lens.Micro.Extras
 import Mcmc.Acceptance
@@ -241,11 +244,11 @@ liftProposalSimple jf l s = s'
 
 -- | Required information to tune 'Proposal's.
 data Tuner a = Tuner
-  { tGetTuningParameter :: TuningParameter,
+  { tTuningParameter :: TuningParameter,
     -- | Instruction about how to compute new tuning parameter from a given
     -- acceptance rate and the old tuning parameter.
     tComputeTuningParameter :: AcceptanceRate -> TuningParameter -> TuningParameter,
-    tGetAuxiliaryTuningParameters :: AuxiliaryTuningParameters,
+    tAuxiliaryTuningParameters :: AuxiliaryTuningParameters,
     -- | Instruction about how to compute new auxiliary tuning parameters from a
     -- given trace and the old auxiliary tuning parameters.
     tComputeAuxiliaryTuningParameters ::
@@ -281,21 +284,29 @@ data Tune = Tune | NoTune
 type TuningParameter = Double
 
 -- | Auxiliary tuning parameters; vector may be empty.
-type AuxiliaryTuningParameters = VB.Vector TuningParameter
+type AuxiliaryTuningParameters = VU.Vector TuningParameter
 
 -- | Default tuning function.
 --
 -- Subject to change.
-defaultTuningFunction ::
+defaultTuningFunctionWith ::
   -- Optimal acceptance rate.
   PDimension ->
   AcceptanceRate ->
   TuningParameter ->
   TuningParameter
-defaultTuningFunction d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
+defaultTuningFunctionWith d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 
+-- | Do no tune.
+--
+-- Useful if auxiliary tuning parameters are tuned, but not the main tuning
+-- parameter.
+noTuningFunction :: AcceptanceRate -> TuningParameter -> TuningParameter
+noTuningFunction _ = id
+
+-- | Do not tune auxiliary parameters.
 noAuxiliaryTuningFunction :: VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters
-noAuxiliaryTuningFunction _ ts = ts
+noAuxiliaryTuningFunction _ = id
 
 -- | Create a proposal with a single tuning parameter.
 --
@@ -318,10 +329,10 @@ createProposal ::
 createProposal r f d n w Tune =
   Proposal n r d w (f 1.0) (Just tuner)
   where
-    fT = defaultTuningFunction d
+    fT = defaultTuningFunctionWith d
     fTs = noAuxiliaryTuningFunction
     g t _ = Right $ f t
-    tuner = Tuner 1.0 fT VB.empty fTs g
+    tuner = Tuner 1.0 fT VU.empty fTs g
 createProposal r f d n w NoTune =
   Proposal n r d w (f 1.0) Nothing
 

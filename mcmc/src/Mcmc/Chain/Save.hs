@@ -72,7 +72,7 @@ toSavedChain (Chain ci it i tr ac g _ _ _ cc _) = do
     ps = ccProposals cc
     ac' = transformKeysA ps [0 ..] ac
     ts =
-      [ (\t -> (tGetTuningParameter t, tGetAuxiliaryTuningParameters t)) <$> mt
+      [ (\t -> (tTuningParameter t, tAuxiliaryTuningParameters t)) <$> mt
         | mt <- map prTuner ps
       ]
 

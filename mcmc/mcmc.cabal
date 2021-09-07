@@ -92,7 +92,6 @@ library
     , hmatrix
     , log-domain
     , math-functions
-    , matrices
     , microlens
     , mwc-random
     , monad-parallel
