@@ -33,13 +33,15 @@
 --   can use automatic or manual differentiation, depending on the problem at
 --   hand.
 --
--- - The state needs to be list like or 'Traversable' so that the structure of
---   the state space is available. A 'Traversable' constraint on the data type
---   is nice because it is more general than, for example, a list, and
---   user-defined data structures can be used.
+-- - The Hamiltonian proposal acts on a vector of storable values. Functions
+--   converting the state to and from this vector have to be provided. See
+--   'HSettings'.
 --
--- - The state needs to have a zip-like 'Applicative' instance so that
--- - matrix/vector operations can be performed.
+-- - The desired acceptance rate is 0.65, although the dimension of the proposal
+--   is high.
+--
+-- - The speed of this proposal can change drastically when tuned because the
+--   leapfrog trajectory length is changed.
 module Mcmc.Proposal.Hamiltonian
   ( Gradient,
     Validate,
@@ -54,6 +56,7 @@ module Mcmc.Proposal.Hamiltonian
   )
 where
 
+import Control.Monad
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
@@ -150,10 +153,10 @@ type LeapfrogTrajectoryLength = Int
 -- NOTE: Call 'error' if value is zero or negative.
 type LeapfrogScalingFactor = Double
 
--- Target state containing parameters.
+-- Internal. Target state containing parameters.
 type Positions = L.Vector Double
 
--- Momenta of the parameters.
+-- Internal. Momenta of the parameters.
 type Momenta = L.Vector Double
 
 -- | Tuning of leapfrog parameters:
@@ -213,17 +216,25 @@ checkHSettings x (HSettings toV fromV _ _ masses l eps _)
     ncols = L.cols ms
     xVec = toV x
 
+-- Internal. mean vector containing zeroes.
+type HMu = L.Vector Double
+
+-- Internal. Symmetric, inverted covariance/mass matrix.
+type HSigmaInv = L.Herm Double
+
+-- Internal. Symmetric, inverted covariance/mass matrix scaled with the leapfrog step
+-- size epsilon.
+type HSigmaInvEps = L.Herm Double
+
+-- Internal. Logarithm of the determinant of the covariance/mass matrix.
+type HLogSigmaDet = Double
+
 -- Internal data type containing memoized values.
 data HData = HData
-  { -- Mean vector containing zeroes.
-    _hMu :: L.Vector Double,
-    -- Symmetric, inverted covariance/mass matrix.
-    _hSigmaInv :: L.Herm Double,
-    -- Symmetric, inverted covariance/mass matrix scaled with the leapfrog step
-    -- size epsilon.
-    _hSigmaInvEps :: L.Herm Double,
-    -- Logarithm of the determinant of the covariance/mass matrix.
-    _hLogSigmaDet :: Double
+  { _hMu :: HMu,
+    _hSigmaInv :: HSigmaInv,
+    _hSigmaInvEps :: HSigmaInvEps,
+    _hLogSigmaDet :: HLogSigmaDet
   }
 
 -- Call 'error' if the determinant of the covariance matrix is negative.
@@ -245,8 +256,8 @@ getHData s =
     sigmaInvEpsH = L.scale eps sigmaInvH
 
 generateMomenta ::
-  -- Mean vector (zeroes). Provided so that it does not have to be created.
-  L.Vector Double ->
+  -- Provided so that it does not have to be recreated.
+  HMu ->
   Masses ->
   GenIO ->
   IO Momenta
@@ -260,12 +271,9 @@ generateMomenta mu masses gen = do
 -- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Density_function.
 logDensityMultivariateNormal ::
-  -- Mean vector.
-  L.Vector Double ->
-  -- Inverted covariance matrix.
-  L.Herm Double ->
-  -- Log of determinant of covariance matrix.
-  Double ->
+  HMu ->
+  HSigmaInv ->
+  HLogSigmaDet ->
   -- Value vector.
   L.Vector Double ->
   Log Double
@@ -280,9 +288,7 @@ logDensityMultivariateNormal mu sigmaInvH logSigmaDet xs =
 leapfrog ::
   Gradient ->
   Maybe Validate ->
-  -- Symmetric, inverted covariance/mass matrix scaled with the leapfrog step
-  -- size epsilon.
-  L.Herm Double ->
+  HSigmaInvEps ->
   LeapfrogTrajectoryLength ->
   LeapfrogScalingFactor ->
   Positions ->
@@ -326,9 +332,7 @@ leapfrogStepMomenta ::
 leapfrogStepMomenta xi eps grad theta phi = phi + L.scale (xi * eps) (grad theta)
 
 leapfrogStepPositions ::
-  -- Symmetric, inverted covariance/mass matrix scaled with the leapfrog step
-  -- size epsilon.
-  L.Herm Double ->
+  HSigmaInvEps ->
   -- Current positions.
   Positions ->
   -- Current momenta.
@@ -349,22 +353,30 @@ hTuningParametersToSettings ::
   TuningParameter ->
   AuxiliaryTuningParameters ->
   Either String (HSettings a)
-hTuningParametersToSettings s t ts =
-  -- TODO: Error checking.
-  Right $
-    s
-      { hMasses = msTuned,
-        hLeapfrogTrajectoryLength = lTuned,
-        hLeapfrogScalingFactor = eTuned
-      }
+hTuningParametersToSettings s t ts
+  | nTsNotOK =
+    Left "hTuningParametersToSettings: Auxiliary variables do not have correct dimension."
+  | otherwise =
+    Right $
+      s
+        { hMasses = msTuned,
+          hLeapfrogTrajectoryLength = lTuned,
+          hLeapfrogScalingFactor = eTuned
+        }
   where
     ms = hMasses s
+    d = L.rows $ L.unSym ms
     l = hLeapfrogTrajectoryLength s
     e = hLeapfrogScalingFactor s
     (HTune tlf tms) = hTune s
+    nTsNotOK =
+      let nTs = VU.length ts
+       in case tms of
+            HNoTuneMasses -> nTs /= 0
+            _ -> nTs /= d * d
     msTuned = case tms of
       HNoTuneMasses -> ms
-      _ -> let d = L.rows $ L.unSym ms in tuningParametersToMasses d ts
+      _ -> tuningParametersToMasses d ts
     -- The larger epsilon, the larger the proposal step size and the lower the
     -- expected acceptance ratio.
     --
@@ -433,7 +445,7 @@ minSamples = 60
 getSampleSize :: VS.Vector Double -> Int
 getSampleSize = VS.length . VS.uniq . S.gsort
 
--- TODO: Print warning rescue is necessary.
+-- XXX: Maybe print warning if rescue is necessary.
 getNewMassWithRescue :: Double -> Int -> Double -> Double
 getNewMassWithRescue massOld sampleSize massEstimate =
   if minMass > massEstimate
@@ -496,15 +508,7 @@ tuneAllMasses dim toVec xs ts = massesToTuningParameters $ L.trustSym massesNew
        in getNewMassWithRescue massOld sampleSize massEstimate
     massesNew = L.mapMatrixWithIndex massNewF massesEstimate
 
--- TODO: Documentation.
-
 -- | Hamiltonian Monte Carlo proposal.
---
--- NOTE: The desired acceptance rate is 0.65, although the dimension of the
--- proposal is high.
---
--- NOTE: The speed of this proposal can change drastically when tuned because
--- the leapfrog trajectory length is changed.
 hamiltonian ::
   Eq a =>
   -- | The sample state is used to calculate the dimension of the proposal.
