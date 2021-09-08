@@ -56,6 +56,7 @@ module Mcmc.Proposal.Hamiltonian
   )
 where
 
+import Data.Maybe
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
@@ -197,7 +198,7 @@ data HSettings a = HSettings
 
 checkHSettings :: Eq a => a -> HSettings a -> Maybe String
 checkHSettings x (HSettings toV fromV _ _ masses l eps _)
-  | any (<= 0) diagonals = Just "checkHSettings: Some diagonal entries of the mass matrix are zero or negative."
+  | any (<= 0) diagonalMasses = Just "checkHSettings: Some diagonal entries of the mass matrix are zero or negative."
   | nrows /= ncols =
     Just "checkHSettings: Mass matrix is not square."
   | fromV x xVec /= x =
@@ -211,30 +212,30 @@ checkHSettings x (HSettings toV fromV _ _ masses l eps _)
   | otherwise = Nothing
   where
     ms = L.unSym masses
-    diagonals = L.toList $ L.takeDiag ms
+    diagonalMasses = L.toList $ L.takeDiag ms
     nrows = L.rows ms
     ncols = L.cols ms
     xVec = toV x
 
--- Internal. mean vector containing zeroes.
+-- Internal. Mean vector containing zeroes.
 type HMu = L.Vector Double
 
--- Internal. Symmetric, inverted covariance/mass matrix.
-type HSigmaInv = L.Herm Double
+-- Internal. Symmetric, inverted mass matrix.
+type HMassesInv = L.Herm Double
 
--- Internal. Symmetric, inverted covariance/mass matrix scaled with the leapfrog step
--- size epsilon.
-type HSigmaInvEps = L.Herm Double
+-- Internal. Symmetric, inverted mass matrix scaled with the leapfrog step size
+-- epsilon.
+type HMassesInvEps = L.Herm Double
 
--- Internal. Logarithm of the determinant of the covariance/mass matrix.
-type HLogSigmaDet = Double
+-- Internal. Logarithm of the determinant of the mass matrix.
+type HLogDetMasses = Double
 
 -- Internal data type containing memoized values.
 data HData = HData
   { _hMu :: HMu,
-    _hSigmaInv :: HSigmaInv,
-    _hSigmaInvEps :: HSigmaInvEps,
-    _hLogSigmaDet :: HLogSigmaDet
+    _hMassesInv :: HMassesInv,
+    _hMassesInvEps :: HMassesInvEps,
+    _hLogDetMasses :: HLogDetMasses
   }
 
 -- Call 'error' if the determinant of the covariance matrix is negative.
@@ -243,24 +244,25 @@ getHData s =
   -- The multivariate normal distribution requires a positive definite matrix
   -- with positive determinant.
   if sign == 1.0
-    then HData mu sigmaInvH sigmaInvEpsH logSigmaDet
+    then HData mu massesInvH massesInvEpsH logDetMasses
     else
       let msg =
-            "hamiltonianSimple: Determinant of covariance matrix is negative: "
-              <> show (sign * exp logSigmaDet)
+            "hamiltonianSimple: Determinant of covariance matrix is negative."
+              <> " The logarithm of the absolute value of the determinant is: "
+              <> show logDetMasses
               <> "."
        in error msg
   where
     ms = hMasses s
     nrows = L.rows $ L.unSym ms
     mu = L.fromList $ replicate nrows 0.0
-    (sigmaInv, (logSigmaDet, sign)) = L.invlndet $ L.unSym ms
+    (massesInv, (logDetMasses, sign)) = L.invlndet $ L.unSym ms
     -- In theory we can trust that the matrix is symmetric here, because the
     -- inverse of a symmetric matrix is symmetric. However, one may want to
     -- implement a check anyways.
-    sigmaInvH = L.trustSym sigmaInv
+    massesInvH = L.trustSym massesInv
     eps = hLeapfrogScalingFactor s
-    sigmaInvEpsH = L.scale eps sigmaInvH
+    massesInvEpsH = L.scale eps massesInvH
 
 generateMomenta ::
   -- Provided so that it does not have to be recreated.
@@ -278,14 +280,14 @@ generateMomenta mu masses gen = do
 -- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Density_function.
 logDensityMultivariateNormal ::
-  HMu ->
-  HSigmaInv ->
-  HLogSigmaDet ->
+  L.Vector Double ->
+  L.Herm Double ->
+  Double ->
   -- Value vector.
   L.Vector Double ->
   Log Double
-logDensityMultivariateNormal mu sigmaInvH logSigmaDet xs =
-  Exp $ c + (-0.5) * (logSigmaDet + ((dxs L.<# sigmaInv) L.<.> dxs))
+logDensityMultivariateNormal mu sigmaInvH logDetSigma xs =
+  Exp $ c + (-0.5) * (logDetSigma + ((dxs L.<# sigmaInv) L.<.> dxs))
   where
     dxs = xs - mu
     k = fromIntegral $ L.size mu
@@ -295,21 +297,21 @@ logDensityMultivariateNormal mu sigmaInvH logSigmaDet xs =
 leapfrog ::
   Gradient ->
   Maybe Validate ->
-  HSigmaInvEps ->
+  HMassesInvEps ->
   LeapfrogTrajectoryLength ->
   LeapfrogScalingFactor ->
   Positions ->
   Momenta ->
   -- Maybe (Positions', Momenta').
   Maybe (Positions, Momenta)
-leapfrog grad mVal hSigmaInvEps l eps theta phi = do
+leapfrog grad mVal hMassesInvEps l eps theta phi = do
   let -- The first half step of the momenta.
       phiHalf = leapfrogStepMomenta 0.5 eps grad theta phi
   -- L-1 full steps. This gives the positions theta_{L-1}, and the momenta
   -- phi_{L-1/2}.
   (thetaLM1, phiLM1Half) <- go (l - 1) (Just (theta, phiHalf))
   -- The last full step of the positions.
-  thetaL <- valF $ leapfrogStepPositions hSigmaInvEps thetaLM1 phiLM1Half
+  thetaL <- valF $ leapfrogStepPositions hMassesInvEps thetaLM1 phiLM1Half
   let -- The last half step of the momenta.
       phiL = leapfrogStepMomenta 0.5 eps grad thetaL phiLM1Half
   return (thetaL, phiL)
@@ -320,7 +322,7 @@ leapfrog grad mVal hSigmaInvEps l eps theta phi = do
     go _ Nothing = Nothing
     go 0 (Just (t, p)) = Just (t, p)
     go n (Just (t, p)) =
-      let t' = leapfrogStepPositions hSigmaInvEps t p
+      let t' = leapfrogStepPositions hMassesInvEps t p
           p' = leapfrogStepMomenta 1.0 eps grad t' p
           r = (,p') <$> valF t'
        in go (n - 1) r
@@ -339,14 +341,14 @@ leapfrogStepMomenta ::
 leapfrogStepMomenta xi eps grad theta phi = phi + L.scale (xi * eps) (grad theta)
 
 leapfrogStepPositions ::
-  HSigmaInvEps ->
+  HMassesInvEps ->
   -- Current positions.
   Positions ->
   -- Current momenta.
   Momenta ->
   Positions
 -- The arguments are flipped to encounter the maybe momentum.
-leapfrogStepPositions hSigmaInvEps theta phi = theta + (L.unSym hSigmaInvEps L.#> phi)
+leapfrogStepPositions hMassesInvEps theta phi = theta + (L.unSym hMassesInvEps L.#> phi)
 
 massesToTuningParameters :: Masses -> AuxiliaryTuningParameters
 massesToTuningParameters = VB.convert . L.flatten . L.unSym
@@ -412,16 +414,16 @@ hamiltonianSimpleWithMemoizedCovariance st dt x g = do
   phi <- generateMomenta mu masses g
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
-  case leapfrog gradient mVal sigmaInvEps lRan eRan theta phi of
+  case leapfrog gradient mVal massesInvEps lRan eRan theta phi of
     Nothing -> return (x, 0.0, 1.0)
     Just (theta', phi') ->
       let -- Prior of momenta.
-          prPhi = logDensityMultivariateNormal mu sigmaInv logSigmaDet phi
+          prPhi = logDensityMultivariateNormal mu massesInv logDetMasses phi
           -- NOTE: Neal page 12: In order for the proposal to be in detailed
           -- balance, the momenta have to be negated before proposing the new
           -- value. This is not required here since the prior involves a
           -- multivariate normal distribution with means 0.
-          prPhi' = logDensityMultivariateNormal mu sigmaInv logSigmaDet phi'
+          prPhi' = logDensityMultivariateNormal mu massesInv logDetMasses phi'
           kernelR = prPhi' / prPhi
        in return (fromVec x theta', kernelR, 1.0)
   where
@@ -431,7 +433,7 @@ hamiltonianSimpleWithMemoizedCovariance st dt x g = do
     lR = maximum [lL, ceiling $ (1.2 :: Double) * fromIntegral l]
     eL = 0.8 * e
     eR = 1.2 * e
-    (HData mu sigmaInv sigmaInvEps logSigmaDet) = dt
+    (HData mu massesInv massesInvEps logDetMasses) = dt
 
 hamiltonianSimple ::
   HSettings a ->
@@ -440,31 +442,51 @@ hamiltonianSimple s = hamiltonianSimpleWithMemoizedCovariance s hd
   where
     hd = getHData s
 
-minMass :: Double
-minMass = 1e-6
+massMin :: Double
+massMin = 1e-6
 
-maxMass :: Double
-maxMass = 1e6
+massMax :: Double
+massMax = 1e6
 
-minSamples :: Int
-minSamples = 60
+samplesMin :: Int
+samplesMin = 60
 
 getSampleSize :: VS.Vector Double -> Int
 getSampleSize = VS.length . VS.uniq . S.gsort
 
--- XXX: Maybe print warning if rescue is necessary.
-getNewMassWithRescue :: Double -> Int -> Double -> Double
-getNewMassWithRescue massOld sampleSize massEstimate =
-  if minMass > massEstimate
-    || massEstimate > maxMass
-    || sampleSize < minSamples
-    || isNaN massEstimate
-    then -- then traceShow ("Rescue with " <> show t) t
-      massOld
-    else
-      let massNew = 0.5 * (massOld + massEstimate)
-       in -- in traceShow ("Old mass " <> show t <> " new mass " <> show t') t'
-          massNew
+-- Diagonal elements are variances which are strictly positive.
+getNewMassDiagonalWithRescue :: Int -> Double -> Double -> Double
+getNewMassDiagonalWithRescue sampleSize massOld massEstimate
+  | sampleSize < samplesMin = massOld
+  -- NaN and negative masses could be errors.
+  | isNaN massEstimate = massOld
+  | massEstimate <= 0 = massOld
+  | massMin > massNew = massMin
+  | massNew > massMax = massMax
+  | otherwise = massNew
+  where
+    massNewSqrt = recip 3 * (sqrt massOld + 2 * sqrt massEstimate)
+    massNew = massNewSqrt ** 2
+
+-- Off diagonal elements are covariances which can be zero or negative.
+getNewMassOffDiagonalWithRescue :: Int -> Double -> Double -> Double
+getNewMassOffDiagonalWithRescue sampleSize massOld massEstimate
+  | sampleSize < samplesMin = massOld
+  -- NaN masses could be errors.
+  | isNaN massEstimate = massOld
+  | massMin > massNewAbs = 0
+  | massNewAbs > massMax = massNewSign * massMax
+  | otherwise = massNew
+  where
+    massOldNonZero = if massOld == 0.0 then massEstimate else massOld
+    massOldNonZeroAbs = abs massOldNonZero
+    massOldNonZeroSign = signum massOldNonZero
+    massEstimateAbs = abs massEstimate
+    massEstimateSign = signum massEstimate
+    massNewSqrt = massOldNonZeroSign * sqrt massOldNonZeroAbs + 2 * massEstimateSign * sqrt massEstimateAbs
+    massNewSign = signum massNewSqrt
+    massNewAbs = massNewSqrt ** 2
+    massNew = massNewSign * massNewAbs
 
 -- XXX: Here, we lose time because we convert the states to vectors again,
 -- something that has already been done.
@@ -474,22 +496,27 @@ tuneDiagonalMassesOnly ::
   VB.Vector a ->
   AuxiliaryTuningParameters ->
   AuxiliaryTuningParameters
-tuneDiagonalMassesOnly dim toVec xs ts =
-  -- Replace the diagonal.
-  massesToTuningParameters $ L.trustSym $ massesOld - L.diag diagonalOld + L.diag diagonalNew
+tuneDiagonalMassesOnly dim toVec xs ts
+  -- If not enough data is available, do not tune.
+  | VB.length xs <= samplesMin = ts
+  | otherwise =
+    -- Replace the diagonal.
+    massesToTuningParameters $
+      L.trustSym $ massesOld - L.diag massesDiagonalOld + L.diag massesDiagonalNew
   where
-    -- xs: Each vector entry contains all parameters of one iteration.
-    -- xsT: Each list entry contains samples of the same parameter across iterations.
-    xsT = L.toColumns $ L.fromRows $ VB.toList $ VB.map toVec xs
-    calcSamplesAndNewMass x = (getSampleSize x, recip $ S.variance x)
+    -- xs: Each vector entry contains all parameter values of one iteration.
+    -- xs': Each row contains all parameter values of one iteration.
+    xs' = L.fromRows $ VB.toList $ VB.map toVec xs
+    sampleSizes = VS.fromList $ map getSampleSize $ L.toColumns xs'
     massesOld = L.unSym $ tuningParametersToMasses dim ts
-    diagonalOld = L.takeDiag massesOld
-    diagonalNew =
-      L.fromList $
-        zipWith
-          (\massOld -> uncurry (getNewMassWithRescue massOld) . calcSamplesAndNewMass)
-          (L.toList diagonalOld)
-          xsT
+    massesDiagonalOld = L.takeDiag massesOld
+    massesDiagonalEstimate = VS.fromList $ map (recip . S.variance) $ L.toColumns xs'
+    massesDiagonalNew =
+      VS.zipWith3
+        getNewMassDiagonalWithRescue
+        sampleSizes
+        massesDiagonalOld
+        massesDiagonalEstimate
 
 -- XXX: Here, we lose time because we convert the states to vectors again,
 -- something that has already been done.
@@ -499,29 +526,28 @@ tuneAllMasses ::
   VB.Vector a ->
   AuxiliaryTuningParameters ->
   AuxiliaryTuningParameters
-tuneAllMasses dim toVec xs ts =
+tuneAllMasses dim toVec xs ts
+  -- If not enough data is available, do not tune.
+  | VB.length xs <= samplesMin = ts
   -- If not enough data is available, only the diagonal masses are tuned.
-  if L.rank xsT /= dim
-    then tuneDiagonalMassesOnly dim toVec xs ts
-    -- TODO: Where does the error actually happen? Why is the matrix not positive definite?
-    else traceShow sampleSizes $ massesToTuningParameters $ traceShowId $ L.trustSym massesNew
+  | L.rank xs' /= dim = fallbackDiagonal
+  -- This is a little stupid but somehow the estimated mass matrix is not always
+  -- positive definite.
+  -- -- | isNothing (L.mbChol sigma) = fallbackDiagonal
+  | isNothing (L.mbChol $ L.trustSym massesNew) = fallbackDiagonal
+  | otherwise = massesToTuningParameters $ L.trustSym massesNew
   where
-    -- xs: Each vector entry contains all parameters of one iteration.
-    -- xsT: Each row contains samples of the same parameter across iterations.
-    -- TODO: Check this (but otherwise I get problems with singularities).
-    -- xsT = L.fromColumns $ VB.toList $ VB.map toVec xs
-    xsT = L.fromRows $ VB.toList $ VB.map toVec xs
-    sampleSizes = VU.fromList $ map getSampleSize $ L.toColumns xsT
-    (_, sigma) = traceShow "Huhu" $ L.meanCov xsT
+    fallbackDiagonal = tuneDiagonalMassesOnly dim toVec xs ts
+    xs' = L.fromRows $ VB.toList $ VB.map toVec xs
+    sampleSizes = VU.fromList $ map getSampleSize $ L.toColumns xs'
     massesOld = L.unSym $ tuningParametersToMasses dim ts
-    -- TODO: Reciprocal values of the covariances or matrix inverse?
-    -- massesEstimate = L.inv $ L.unSym sigma
-    massesEstimate = L.cmap recip $ L.unSym sigma
-    -- Use 'mapMatrixWithIndex'.
+    (_, sigma) = traceShowId $ L.meanCov xs'
+    massesEstimate = L.inv $ L.unSym sigma
     massNewF (i, j) massEstimate =
       let massOld = massesOld `L.atIndex` (i, j)
           sampleSize = min (sampleSizes VU.! i) (sampleSizes VU.! j)
-       in getNewMassWithRescue massOld sampleSize massEstimate
+          f = if i == j then getNewMassDiagonalWithRescue else getNewMassOffDiagonalWithRescue
+       in f sampleSize massOld massEstimate
     massesNew = L.mapMatrixWithIndex massNewF massesEstimate
 
 -- | Hamiltonian Monte Carlo proposal.

@@ -49,6 +49,7 @@ logGaussN ss xs = VG.foldl' (+) 0.0 (VG.zipWith logGauss1 ss xs)
 
 standardDeviations :: (VG.Vector v a, Enum a, RealFloat a) => v a
 standardDeviations = VG.fromList $ [0.02, 0.04 .. 1.0] ++ [2, 4 .. 100]
+-- standardDeviations = VG.fromList [1, 2 .. 10]
 
 dimension :: Int
 dimension = VS.length (standardDeviations :: I)
@@ -86,7 +87,7 @@ hSettings =
     masses
     10
     0.05
-    (HTune HTuneLeapfrog HTuneAllMasses)
+    (HTune HTuneLeapfrog HTuneDiagonalMassesOnly)
 
 initialState :: I
 initialState = VS.fromList $ replicate dimension 1
