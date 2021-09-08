@@ -56,10 +56,10 @@ module Mcmc.Proposal.Hamiltonian
   )
 where
 
-import Control.Monad
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
+import Debug.Trace
 import Mcmc.Proposal
 import qualified Numeric.LinearAlgebra as L
 import qualified Numeric.LinearAlgebra.Devel as L
@@ -128,10 +128,10 @@ type Masses = L.Herm Double
 -- For a discussion of ergodicity and reasons why randomization is important,
 -- see [1] p. 15; also mentioned in [2] p. 304.
 --
+-- Usually set to 10, but larger values may be desirable.
+--
 -- NOTE: To avoid errors, the left bound has an additional hard minimum of 1,
 -- and the right bound is required to be larger equal than the left bound.
---
--- Usually set to 10, but larger values may be desirable.
 --
 -- NOTE: Call 'error' if value is less than 1.
 type LeapfrogTrajectoryLength = Int
@@ -240,9 +240,16 @@ data HData = HData
 -- Call 'error' if the determinant of the covariance matrix is negative.
 getHData :: HSettings a -> HData
 getHData s =
+  -- The multivariate normal distribution requires a positive definite matrix
+  -- with positive determinant.
   if sign == 1.0
     then HData mu sigmaInvH sigmaInvEpsH logSigmaDet
-    else error "hamiltonianSimple: Determinant of covariance matrix is negative?"
+    else
+      let msg =
+            "hamiltonianSimple: Determinant of covariance matrix is negative: "
+              <> show (sign * exp logSigmaDet)
+              <> "."
+       in error msg
   where
     ms = hMasses s
     nrows = L.rows $ L.unSym ms
@@ -455,7 +462,7 @@ getNewMassWithRescue massOld sampleSize massEstimate =
     then -- then traceShow ("Rescue with " <> show t) t
       massOld
     else
-      let massNew = sqrt (massOld * massEstimate)
+      let massNew = 0.5 * (massOld + massEstimate)
        in -- in traceShow ("Old mass " <> show t <> " new mass " <> show t') t'
           massNew
 
@@ -492,15 +499,24 @@ tuneAllMasses ::
   VB.Vector a ->
   AuxiliaryTuningParameters ->
   AuxiliaryTuningParameters
-tuneAllMasses dim toVec xs ts = massesToTuningParameters $ L.trustSym massesNew
+tuneAllMasses dim toVec xs ts =
+  -- If not enough data is available, only the diagonal masses are tuned.
+  if L.rank xsT /= dim
+    then tuneDiagonalMassesOnly dim toVec xs ts
+    -- TODO: Where does the error actually happen? Why is the matrix not positive definite?
+    else traceShow sampleSizes $ massesToTuningParameters $ traceShowId $ L.trustSym massesNew
   where
     -- xs: Each vector entry contains all parameters of one iteration.
     -- xsT: Each row contains samples of the same parameter across iterations.
-    xsT = L.fromColumns $ VB.toList $ VB.map toVec xs
-    sampleSizes = VU.fromList $ map getSampleSize $ L.toRows xsT
-    (_, sigma) = L.meanCov xsT
+    -- TODO: Check this (but otherwise I get problems with singularities).
+    -- xsT = L.fromColumns $ VB.toList $ VB.map toVec xs
+    xsT = L.fromRows $ VB.toList $ VB.map toVec xs
+    sampleSizes = VU.fromList $ map getSampleSize $ L.toColumns xsT
+    (_, sigma) = traceShow "Huhu" $ L.meanCov xsT
     massesOld = L.unSym $ tuningParametersToMasses dim ts
-    massesEstimate = L.inv $ L.unSym sigma
+    -- TODO: Reciprocal values of the covariances or matrix inverse?
+    -- massesEstimate = L.inv $ L.unSym sigma
+    massesEstimate = L.cmap recip $ L.unSym sigma
     -- Use 'mapMatrixWithIndex'.
     massNewF (i, j) massEstimate =
       let massOld = massesOld `L.atIndex` (i, j)

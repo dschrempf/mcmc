@@ -95,11 +95,12 @@ executable hamiltonian
       Hamiltonian
   build-depends:
       ad
-    , aeson
     , base
+    , hmatrix
     , lens
     , mcmc
     , mwc-random
+    , vector
 
 executable pair
   import: exec

@@ -16,22 +16,23 @@ module Main
   )
 where
 
-import Control.Applicative
 import Control.Lens
 import Control.Monad
-import Data.Aeson
-import Data.Foldable
+import qualified Data.Vector as VB
+import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Storable as VS
 import Mcmc
 import Numeric.AD (grad)
+import qualified Numeric.LinearAlgebra as L
 import System.Random.MWC hiding (uniform)
 
-type IG a = ZipList a
+type IB = VB.Vector Double
 
-type I = IG Double
+type I = VS.Vector Double
 
-instance ToJSON a => ToJSON (ZipList a)
+-- instance ToJSON a => ToJSON (ZipList a)
 
-instance FromJSON a => FromJSON (ZipList a)
+-- instance FromJSON a => FromJSON (ZipList a)
 
 -- The Rosenbrock function is really hard to estimate. It works somewhat, but
 -- the example is a little bit frustrating.
@@ -43,20 +44,23 @@ instance FromJSON a => FromJSON (ZipList a)
 logGauss1 :: RealFloat a => a -> a -> a
 logGauss1 s x = log (recip $ s * sqrt (2 * pi)) - 0.5 * x * x / s / s
 
-logGaussN :: RealFloat a => [a] -> [a] -> a
-logGaussN ss xs = foldl' (+) 0.0 (zipWith logGauss1 ss xs)
+logGaussN :: (VG.Vector v a, RealFloat a) => v a -> v a -> a
+logGaussN ss xs = VG.foldl' (+) 0.0 (VG.zipWith logGauss1 ss xs)
 
-standardDeviations :: (Enum a, RealFloat a) => [a]
-standardDeviations = [0.02, 0.04 .. 1.0] ++ [2, 4 .. 100]
+standardDeviations :: (VG.Vector v a, Enum a, RealFloat a) => v a
+standardDeviations = VG.fromList $ [0.02, 0.04 .. 1.0] ++ [2, 4 .. 100]
 
 dimension :: Int
-dimension = length (standardDeviations :: [Double])
+dimension = VS.length (standardDeviations :: I)
 
-llhf :: (RealFloat a, Enum a) => [a] -> a
+llhf :: (VG.Vector v a, RealFloat a, Enum a) => v a -> a
 llhf = logGaussN standardDeviations
 
-gradient :: [Double] -> [Double]
-gradient = grad llhf
+gradientG :: IB -> IB
+gradientG = grad llhf
+
+gradient :: I -> I
+gradient = VS.convert . gradientG . VS.convert
 
 prf :: PriorFunction I
 prf _ = 1.0
@@ -66,20 +70,26 @@ prf _ = 1.0
 
 -- The Likelihood function on I is less general, and does not allow for
 -- automatic differentiation.
-lhfI :: LikelihoodFunction I
-lhfI = Exp . llhf . getZipList
+lhf :: LikelihoodFunction I
+lhf = Exp . llhf
 
-gradientI :: I -> I
-gradientI = ZipList . gradient . getZipList
+masses :: Masses
+masses = L.trustSym $ L.diag $ L.fromList $ replicate dimension 1.0
 
-masses :: IG (Maybe Double)
-masses = ZipList $ replicate dimension (Just 1)
-
-hSettings :: HSettings ZipList
-hSettings = HSettings gradientI Nothing masses 10 0.1 HTuneMassesAndLeapfrog
+hSettings :: HSettings I
+hSettings =
+  HSettings
+    VB.convert
+    (const VB.convert)
+    gradient
+    Nothing
+    masses
+    10
+    0.05
+    (HTune HTuneLeapfrog HTuneAllMasses)
 
 initialState :: I
-initialState = ZipList $ replicate dimension 1
+initialState = VS.fromList $ replicate dimension 1
 
 hamiltonianProposal :: Proposal I
 hamiltonianProposal = hamiltonian initialState hSettings n w
@@ -92,7 +102,7 @@ cc =
   cycleFromList [hamiltonianProposal]
 
 monPs :: [MonitorParameter I]
-monPs = [(view (singular (ix i)) . getZipList) >$< monitorDouble (n i) | i <- [0 .. (dimension -1)]]
+monPs = [view (singular (ix i)) >$< monitorDouble (n i) | i <- [0 .. (dimension -1)]]
   where
     n j = show j
 
@@ -118,5 +128,5 @@ main = do
           Save
           LogStdOutAndFile
           Info
-  a <- mhg s prf lhfI cc mon initialState g
+  a <- mhg s prf lhf cc mon initialState g
   void $ mcmc s a
