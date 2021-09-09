@@ -56,18 +56,16 @@ module Mcmc.Proposal.Hamiltonian
   )
 where
 
-import Data.Maybe
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
-import Debug.Trace
 import Mcmc.Proposal
 import qualified Numeric.LinearAlgebra as L
-import qualified Numeric.LinearAlgebra.Devel as L
 import Numeric.Log
 import Numeric.MathFunctions.Constants
 import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
+import Statistics.Covariance.LedoitWolf
 import System.Random.MWC
 
 -- TODO: At the moment, the HMC proposal is agnostic of the prior and
@@ -468,26 +466,6 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
     massNewSqrt = recip 3 * (sqrt massOld + 2 * sqrt massEstimate)
     massNew = massNewSqrt ** 2
 
--- Off diagonal elements are covariances which can be zero or negative.
-getNewMassOffDiagonalWithRescue :: Int -> Double -> Double -> Double
-getNewMassOffDiagonalWithRescue sampleSize massOld massEstimate
-  | sampleSize < samplesMin = massOld
-  -- NaN masses could be errors.
-  | isNaN massEstimate = massOld
-  | massMin > massNewAbs = 0
-  | massNewAbs > massMax = massNewSign * massMax
-  | otherwise = massNew
-  where
-    massOldNonZero = if massOld == 0.0 then massEstimate else massOld
-    massOldNonZeroAbs = abs massOldNonZero
-    massOldNonZeroSign = signum massOldNonZero
-    massEstimateAbs = abs massEstimate
-    massEstimateSign = signum massEstimate
-    massNewSqrt = massOldNonZeroSign * sqrt massOldNonZeroAbs + 2 * massEstimateSign * sqrt massEstimateAbs
-    massNewSign = signum massNewSqrt
-    massNewAbs = massNewSqrt ** 2
-    massNew = massNewSign * massNewAbs
-
 -- XXX: Here, we lose time because we convert the states to vectors again,
 -- something that has already been done.
 tuneDiagonalMassesOnly ::
@@ -531,24 +509,14 @@ tuneAllMasses dim toVec xs ts
   | VB.length xs <= samplesMin = ts
   -- If not enough data is available, only the diagonal masses are tuned.
   | L.rank xs' /= dim = fallbackDiagonal
-  -- This is a little stupid but somehow the estimated mass matrix is not always
-  -- positive definite.
-  -- -- | isNothing (L.mbChol sigma) = fallbackDiagonal
-  | isNothing (L.mbChol $ L.trustSym massesNew) = fallbackDiagonal
   | otherwise = massesToTuningParameters $ L.trustSym massesNew
   where
     fallbackDiagonal = tuneDiagonalMassesOnly dim toVec xs ts
+    -- xs: Each vector entry contains all parameter values of one iteration.
+    -- xs': Each row contains all parameter values of one iteration.
     xs' = L.fromRows $ VB.toList $ VB.map toVec xs
-    sampleSizes = VU.fromList $ map getSampleSize $ L.toColumns xs'
-    massesOld = L.unSym $ tuningParametersToMasses dim ts
-    (_, sigma) = traceShowId $ L.meanCov xs'
-    massesEstimate = L.inv $ L.unSym sigma
-    massNewF (i, j) massEstimate =
-      let massOld = massesOld `L.atIndex` (i, j)
-          sampleSize = min (sampleSizes VU.! i) (sampleSizes VU.! j)
-          f = if i == j then getNewMassDiagonalWithRescue else getNewMassOffDiagonalWithRescue
-       in f sampleSize massOld massEstimate
-    massesNew = L.mapMatrixWithIndex massNewF massesEstimate
+    sigma = ledoitWolf xs'
+    massesNew = L.inv $ L.unSym sigma
 
 -- | Hamiltonian Monte Carlo proposal.
 hamiltonian ::

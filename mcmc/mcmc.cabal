@@ -84,6 +84,7 @@ library
     , bytestring
     , circular
     , containers
+    , covariance
     , data-default
     , deepseq
     , directory
