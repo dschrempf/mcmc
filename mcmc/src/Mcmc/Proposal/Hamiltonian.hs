@@ -163,7 +163,7 @@ type Positions = Values
 -- Internal. Momenta of the parameters.
 type Momenta = L.Vector Double
 
--- | Tuning of leapfrog parameters.
+-- | Tune leapfrog parameters.
 --
 -- We expect that the larger the leapfrog step size the larger the proposal step
 -- size and the lower the acceptance ratio. Consequently, if the acceptance rate
@@ -173,7 +173,7 @@ type Momenta = L.Vector Double
 data HTuneLeapfrog = HNoTuneLeapfrog | HTuneLeapfrog
   deriving (Eq, Show)
 
--- | Tuning of masses.
+-- | Tune masses.
 --
 -- The masses are tuned according to the (co)variances of the parameters
 -- obtained from the posterior distribution over the last auto tuning interval.
@@ -201,10 +201,10 @@ data HTuneMasses = HNoTuneMasses | HTuneDiagonalMassesOnly | HTuneAllMasses
 data HTune = HTune HTuneLeapfrog HTuneMasses
   deriving (Eq, Show)
 
--- | Specifications for Hamilton Monte Carlo proposal.
+-- | Specifications of the Hamilton Monte Carlo proposal.
 data HSettings a = HSettings
   {
-    -- | Function extracting the values to be manipulated by the Hamiltonian proposal.
+    -- | Function extracting values to be manipulated by the Hamiltonian proposal.
     hToVector :: a -> Values,
     -- | Function putting those values back into the complete state.
     hFromVectorWith :: a -> Values -> a,
