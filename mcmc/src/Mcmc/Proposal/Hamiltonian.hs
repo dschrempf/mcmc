@@ -43,7 +43,8 @@
 -- - The speed of this proposal can change drastically when tuned because the
 --   leapfrog trajectory length is changed.
 module Mcmc.Proposal.Hamiltonian
-  ( Gradient,
+  ( V,
+    Gradient,
     Validate,
     Masses,
     LeapfrogTrajectoryLength,
@@ -81,13 +82,16 @@ import System.Random.MWC
 
 -- TODO: Riemannian adaptation.
 
+-- | The Hamiltonian proposal acts on a vector of floating values.
+type V = L.Vector Double
+
 -- | Gradient of the log posterior function.
-type Gradient = L.Vector Double -> L.Vector Double
+type Gradient = V -> V
 
 -- | Function validating the state.
 --
 -- Useful if parameters are constrained.
-type Validate = L.Vector Double -> Bool
+type Validate = V -> Bool
 
 -- | Parameter mass matrix.
 --
@@ -154,10 +158,10 @@ type LeapfrogTrajectoryLength = Int
 type LeapfrogScalingFactor = Double
 
 -- Internal. Target state containing parameters.
-type Positions = L.Vector Double
+type Positions = V
 
 -- Internal. Momenta of the parameters.
-type Momenta = L.Vector Double
+type Momenta = V
 
 -- | Tuning of leapfrog parameters.
 --
@@ -198,10 +202,8 @@ data HTune = HTune HTuneLeapfrog HTuneMasses
   deriving (Eq, Show)
 
 -- | Specifications for Hamilton Monte Carlo proposal.
-data HSettings a = HSettings
-  { hToVector :: a -> L.Vector Double,
-    hFromVectorWith :: a -> L.Vector Double -> a,
-    hGradient :: Gradient,
+data HSettings = HSettings
+  { hGradient :: Gradient,
     hMaybeValidate :: Maybe Validate,
     hMasses :: Masses,
     hLeapfrogTrajectoryLength :: LeapfrogTrajectoryLength,
@@ -209,14 +211,12 @@ data HSettings a = HSettings
     hTune :: HTune
   }
 
-checkHSettings :: Eq a => a -> HSettings a -> Maybe String
-checkHSettings x (HSettings toV fromV _ _ masses l eps _)
+checkHSettings :: V -> HSettings -> Maybe String
+checkHSettings x (HSettings _ _ masses l eps _)
   | any (<= 0) diagonalMasses = Just "checkHSettings: Some diagonal entries of the mass matrix are zero or negative."
   | nrows /= ncols =
     Just "checkHSettings: Mass matrix is not square."
-  | fromV x xVec /= x =
-    Just "checkHSettings: 'fromVectorWith x (toVector x) /= x' for sample state."
-  | L.size xVec /= nrows =
+  | L.size x /= nrows =
     Just "checkHSettings: Mass matrix has different size than 'toVector x', where x is sample state."
   | l < 1 =
     Just "checkHSettings: Leapfrog trajectory length is zero or negative."
@@ -228,10 +228,9 @@ checkHSettings x (HSettings toV fromV _ _ masses l eps _)
     diagonalMasses = L.toList $ L.takeDiag ms
     nrows = L.rows ms
     ncols = L.cols ms
-    xVec = toV x
 
 -- Internal. Mean vector containing zeroes.
-type HMu = L.Vector Double
+type HMu = V
 
 -- Internal. Symmetric, inverted mass matrix.
 type HMassesInv = L.Herm Double
@@ -252,7 +251,7 @@ data HData = HData
   }
 
 -- Call 'error' if the determinant of the covariance matrix is negative.
-getHData :: HSettings a -> HData
+getHData :: HSettings -> HData
 getHData s =
   -- The multivariate normal distribution requires a positive definite matrix
   -- with positive determinant.
@@ -293,11 +292,11 @@ generateMomenta mu masses gen = do
 -- Log of density of multivariate normal distribution with given parameters.
 -- https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Density_function.
 logDensityMultivariateNormal ::
-  L.Vector Double ->
+  V ->
   L.Herm Double ->
   Double ->
   -- Value vector.
-  L.Vector Double ->
+  V ->
   Log Double
 logDensityMultivariateNormal mu sigmaInvH logDetSigma xs =
   Exp $ c + (-0.5) * (logDetSigma + ((dxs L.<# sigmaInv) L.<.> dxs))
@@ -371,10 +370,10 @@ tuningParametersToMasses :: Int -> AuxiliaryTuningParameters -> Masses
 tuningParametersToMasses d = L.trustSym . L.reshape d . VB.convert
 
 hTuningParametersToSettings ::
-  HSettings a ->
+  HSettings ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
-  Either String (HSettings a)
+  Either String HSettings
 hTuningParametersToSettings s t ts
   | nTsNotOK =
     Left "hTuningParametersToSettings: Auxiliary variables do not have correct dimension."
@@ -410,25 +409,25 @@ hTuningParametersToSettings s t ts
       HTuneLeapfrog -> (ceiling $ fromIntegral l / (t ** 0.9) :: Int, t * e)
 
 hamiltonianSimpleWithTuningParameters ::
-  HSettings a ->
+  HSettings ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
-  Either String (ProposalSimple a)
+  Either String (ProposalSimple V)
 hamiltonianSimpleWithTuningParameters s t ts =
   hamiltonianSimple <$> hTuningParametersToSettings s t ts
 
 -- The inverted covariance matrix and the log determinant of the covariance
 -- matrix are calculated by 'hamiltonianSimple'.
 hamiltonianSimpleWithMemoizedCovariance ::
-  HSettings a ->
+  HSettings ->
   HData ->
-  ProposalSimple a
-hamiltonianSimpleWithMemoizedCovariance st dt x g = do
+  ProposalSimple V
+hamiltonianSimpleWithMemoizedCovariance st dt theta g = do
   phi <- generateMomenta mu masses g
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
   case leapfrog gradient mVal massesInvEps lRan eRan theta phi of
-    Nothing -> return (x, 0.0, 1.0)
+    Nothing -> return (theta, 0.0, 1.0)
     Just (theta', phi') ->
       let -- Prior of momenta.
           prPhi = logDensityMultivariateNormal mu massesInv logDetMasses phi
@@ -438,10 +437,9 @@ hamiltonianSimpleWithMemoizedCovariance st dt x g = do
           -- multivariate normal distribution with means 0.
           prPhi' = logDensityMultivariateNormal mu massesInv logDetMasses phi'
           kernelR = prPhi' / prPhi
-       in return (fromVec x theta', kernelR, 1.0)
+       in return (theta', kernelR, 1.0)
   where
-    (HSettings toVec fromVec gradient mVal masses l e _) = st
-    theta = toVec x
+    (HSettings gradient mVal masses l e _) = st
     lL = maximum [1 :: Int, floor $ (0.8 :: Double) * fromIntegral l]
     lR = maximum [lL, ceiling $ (1.2 :: Double) * fromIntegral l]
     eL = 0.8 * e
@@ -449,8 +447,8 @@ hamiltonianSimpleWithMemoizedCovariance st dt x g = do
     (HData mu massesInv massesInvEps logDetMasses) = dt
 
 hamiltonianSimple ::
-  HSettings a ->
-  ProposalSimple a
+  HSettings ->
+  ProposalSimple V
 hamiltonianSimple s = hamiltonianSimpleWithMemoizedCovariance s hd
   where
     hd = getHData s
@@ -497,11 +495,10 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
 -- something that has already been done.
 tuneDiagonalMassesOnly ::
   Int ->
-  (a -> Positions) ->
-  VB.Vector a ->
+  VB.Vector V ->
   AuxiliaryTuningParameters ->
   AuxiliaryTuningParameters
-tuneDiagonalMassesOnly dim toVec xs ts
+tuneDiagonalMassesOnly dim xs ts
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesMinDiagonal = ts
   | otherwise =
@@ -511,7 +508,7 @@ tuneDiagonalMassesOnly dim toVec xs ts
   where
     -- xs: Each vector entry contains all parameter values of one iteration.
     -- xs': Each row contains all parameter values of one iteration.
-    xs' = L.fromRows $ VB.toList $ VB.map toVec xs
+    xs' = L.fromRows $ VB.toList xs
     sampleSizes = VS.fromList $ map getSampleSize $ L.toColumns xs'
     massesOld = L.unSym $ tuningParametersToMasses dim ts
     massesDiagonalOld = L.takeDiag massesOld
@@ -525,9 +522,9 @@ tuneDiagonalMassesOnly dim toVec xs ts
 
 normalizeWith ::
   -- Vector of means (length P).
-  L.Vector Double ->
+  V ->
   -- Vector of standard deviations (length P)
-  L.Vector Double ->
+  V ->
   -- Data matrix of dimension N x P.
   L.Matrix Double ->
   -- Data matrix with means 0 and variance 1.0.
@@ -536,7 +533,7 @@ normalizeWith ms ss = L.mapMatrixWithIndex (\(_, j) x -> (x - ms VS.! j) / (ss V
 
 rescaleWith ::
   -- Vector of standard deviations (length P)
-  L.Vector Double ->
+  V ->
   -- Correlation matrix.
   L.Matrix Double ->
   -- Covariance matrix.
@@ -547,11 +544,10 @@ rescaleWith ss = L.mapMatrixWithIndex (\(i, j) x -> x * (ss VS.! i) * (ss VS.! j
 -- something that has already been done.
 tuneAllMasses ::
   Int ->
-  (a -> Positions) ->
-  VB.Vector a ->
+  VB.Vector V ->
   AuxiliaryTuningParameters ->
   AuxiliaryTuningParameters
-tuneAllMasses dim toVec xs ts
+tuneAllMasses dim xs ts
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesMinDiagonal = ts
   -- If not enough data is available, only the diagonal masses are tuned.
@@ -559,10 +555,10 @@ tuneAllMasses dim toVec xs ts
   | L.rank xs' /= dim = fallbackDiagonal
   | otherwise = massesToTuningParameters $ L.trustSym massesNew
   where
-    fallbackDiagonal = tuneDiagonalMassesOnly dim toVec xs ts
+    fallbackDiagonal = tuneDiagonalMassesOnly dim xs ts
     -- xs: Each vector entry contains all parameter values of one iteration.
     -- xs': Each row contains all parameter values of one iteration.
-    xs' = L.fromRows $ VB.toList $ VB.map toVec xs
+    xs' = L.fromRows $ VB.toList xs
     -- Means, variances and standard deviations.
     msVs = map S.meanVariance $ L.toColumns xs'
     ms = L.fromList $ map fst msVs
@@ -578,19 +574,17 @@ tuneAllMasses dim toVec xs ts
 
 -- | Hamiltonian Monte Carlo proposal.
 hamiltonian ::
-  Eq a =>
   -- | The sample state is used to calculate the dimension of the proposal.
-  a ->
-  HSettings a ->
+  V ->
+  HSettings ->
   PName ->
   PWeight ->
-  Proposal a
+  Proposal V
 hamiltonian x s n w = case checkHSettings x s of
   Just err -> error err
   Nothing ->
     let desc = PDescription "Hamiltonian Monte Carlo (HMC)"
-        toVec = hToVector s
-        dim = (L.size $ toVec x)
+        dim = L.size x
         pDim = PSpecial dim 0.65
         ts = massesToTuningParameters (hMasses s)
         ps = hamiltonianSimple s
@@ -601,8 +595,8 @@ hamiltonian x s n w = case checkHSettings x s of
           HTuneLeapfrog -> defaultTuningFunctionWith pDim
         tFunAux = case tms of
           HNoTuneMasses -> noAuxiliaryTuningFunction
-          HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly dim toVec
-          HTuneAllMasses -> tuneAllMasses dim toVec
+          HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly dim
+          HTuneAllMasses -> tuneAllMasses dim
      in case tSet of
           (HTune HNoTuneLeapfrog HNoTuneMasses) -> hamiltonianWith Nothing
           _ ->

@@ -79,11 +79,9 @@ lhf = Exp . llhf
 masses :: Masses
 masses = L.trustSym $ L.diag $ L.fromList $ replicate dimension 1.0
 
-hSettings :: HSettings I
+hSettings :: HSettings
 hSettings =
   HSettings
-    VB.convert
-    (const VB.convert)
     gradient
     Nothing
     masses
