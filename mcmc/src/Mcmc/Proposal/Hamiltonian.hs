@@ -61,11 +61,12 @@ import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
 import Mcmc.Proposal
 import qualified Numeric.LinearAlgebra as L
+import qualified Numeric.LinearAlgebra.Devel as L
 import Numeric.Log
 import Numeric.MathFunctions.Constants
+import qualified Statistics.Covariance as S
 import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
-import Statistics.Covariance.LedoitWolf
 import System.Random.MWC
 
 -- TODO: At the moment, the HMC proposal is agnostic of the prior and
@@ -112,8 +113,8 @@ type Validate = L.Vector Double -> Bool
 --   function; or even to
 --
 -- - set all diagonal entries of the mass matrix to 1.0, and all other entries
---   to 0.0, and trust the tuning algorithm (see 'HTuneMassesAndLeapfrog') to
---   find the correct values.
+--   to 0.0, and trust the tuning algorithm (see 'HTune') to find the correct
+--   values.
 type Masses = L.Herm Double
 
 -- | Mean leapfrog trajectory length \(L\).
@@ -158,7 +159,7 @@ type Positions = L.Vector Double
 -- Internal. Momenta of the parameters.
 type Momenta = L.Vector Double
 
--- | Tuning of leapfrog parameters:
+-- | Tuning of leapfrog parameters.
 --
 -- We expect that the larger the leapfrog step size the larger the proposal step
 -- size and the lower the acceptance ratio. Consequently, if the acceptance rate
@@ -168,13 +169,27 @@ type Momenta = L.Vector Double
 data HTuneLeapfrog = HNoTuneLeapfrog | HTuneLeapfrog
   deriving (Eq, Show)
 
--- | Tuning of masses:
+-- | Tuning of masses.
 --
--- The variances of all parameters of the posterior distribution obtained over
--- the last auto tuning interval is calculated and the masses are amended using
--- the old masses and the inverted variances. If, for a specific coordinate, the
--- sample size is too low, or if the calculated variance is out of predefined
--- bounds, the mass of the affected position is not changed.
+-- The masses are tuned according to the (co)variances of the parameters
+-- obtained from the posterior distribution over the last auto tuning interval.
+--
+-- Diagonal only: The variances of the parameters are calculated and the masses
+-- are amended using the old masses and the inverted variances. If, for a
+-- specific coordinate, the sample size is 60 or lower, or if the calculated
+-- variance is out of predefined bounds [1e-6, 1e6], the mass of the affected
+-- position is not changed.
+--
+-- All masses: The covariance matrix of the parameters is estimated and the
+-- inverted matrix (sometimes called precision matrix) is used as mass matrix.
+-- This procedure is error prone, but models with high correlations between
+-- parameters it is necessary to tune off-diagonal entries. The full mass matrix
+-- is only tuned if more than 200 samples are available. For these reasons, when
+-- tuning all masses it is recommended to use tuning settings such as
+--
+-- @
+-- BurnInWithCustomAutoTuning ([10, 20 .. 200] ++ replicate 5 500)
+-- @
 data HTuneMasses = HNoTuneMasses | HTuneDiagonalMassesOnly | HTuneAllMasses
   deriving (Eq, Show)
 
@@ -440,14 +455,26 @@ hamiltonianSimple s = hamiltonianSimpleWithMemoizedCovariance s hd
   where
     hd = getHData s
 
+-- If changed, also change help text of 'HTuneMasses'.
 massMin :: Double
 massMin = 1e-6
 
+-- If changed, also change help text of 'HTuneMasses'.
 massMax :: Double
 massMax = 1e6
 
-samplesMin :: Int
-samplesMin = 60
+-- Minimal number of unique samples required for tuning the diagonal entries of
+-- the mass matrix.
+--
+-- If changed, also change help text of 'HTuneMasses'.
+samplesMinDiagonal :: Int
+samplesMinDiagonal = 61
+
+-- Minimal number of samples required for tuning all entries of the mass matrix.
+--
+-- If changed, also change help text of 'HTuneMasses'.
+samplesMinAll :: Int
+samplesMinAll = 201
 
 getSampleSize :: VS.Vector Double -> Int
 getSampleSize = VS.length . VS.uniq . S.gsort
@@ -455,7 +482,7 @@ getSampleSize = VS.length . VS.uniq . S.gsort
 -- Diagonal elements are variances which are strictly positive.
 getNewMassDiagonalWithRescue :: Int -> Double -> Double -> Double
 getNewMassDiagonalWithRescue sampleSize massOld massEstimate
-  | sampleSize < samplesMin = massOld
+  | sampleSize < samplesMinDiagonal = massOld
   -- NaN and negative masses could be errors.
   | isNaN massEstimate = massOld
   | massEstimate <= 0 = massOld
@@ -476,7 +503,7 @@ tuneDiagonalMassesOnly ::
   AuxiliaryTuningParameters
 tuneDiagonalMassesOnly dim toVec xs ts
   -- If not enough data is available, do not tune.
-  | VB.length xs <= samplesMin = ts
+  | VB.length xs < samplesMinDiagonal = ts
   | otherwise =
     -- Replace the diagonal.
     massesToTuningParameters $
@@ -496,6 +523,26 @@ tuneDiagonalMassesOnly dim toVec xs ts
         massesDiagonalOld
         massesDiagonalEstimate
 
+normalizeWith ::
+  -- Vector of means (length P).
+  L.Vector Double ->
+  -- Vector of standard deviations (length P)
+  L.Vector Double ->
+  -- Data matrix of dimension N x P.
+  L.Matrix Double ->
+  -- Data matrix with means 0 and variance 1.0.
+  L.Matrix Double
+normalizeWith ms ss = L.mapMatrixWithIndex (\(_, j) x -> (x - ms VS.! j) / (ss VS.! j))
+
+rescaleWith ::
+  -- Vector of standard deviations (length P)
+  L.Vector Double ->
+  -- Correlation matrix.
+  L.Matrix Double ->
+  -- Covariance matrix.
+  L.Matrix Double
+rescaleWith ss = L.mapMatrixWithIndex (\(i, j) x -> x * (ss VS.! i) * (ss VS.! j))
+
 -- XXX: Here, we lose time because we convert the states to vectors again,
 -- something that has already been done.
 tuneAllMasses ::
@@ -506,8 +553,9 @@ tuneAllMasses ::
   AuxiliaryTuningParameters
 tuneAllMasses dim toVec xs ts
   -- If not enough data is available, do not tune.
-  | VB.length xs <= samplesMin = ts
+  | VB.length xs < samplesMinDiagonal = ts
   -- If not enough data is available, only the diagonal masses are tuned.
+  | VB.length xs < samplesMinAll = fallbackDiagonal
   | L.rank xs' /= dim = fallbackDiagonal
   | otherwise = massesToTuningParameters $ L.trustSym massesNew
   where
@@ -515,8 +563,18 @@ tuneAllMasses dim toVec xs ts
     -- xs: Each vector entry contains all parameter values of one iteration.
     -- xs': Each row contains all parameter values of one iteration.
     xs' = L.fromRows $ VB.toList $ VB.map toVec xs
-    sigma = ledoitWolf xs'
-    massesNew = L.inv $ L.unSym sigma
+    -- Means, variances and standard deviations.
+    msVs = map S.meanVariance $ L.toColumns xs'
+    ms = L.fromList $ map fst msVs
+    ss = L.fromList $ map (sqrt . snd) msVs
+    xsNormalized = normalizeWith ms ss xs'
+    -- TODO: Avoid centering twice.
+    sigmaNormalized = L.unSym $ either error id $ S.oracleApproximatingShrinkage xsNormalized
+    sigma = rescaleWith ss sigmaNormalized
+    massesNew = L.inv sigma
+
+-- (_, sigma') = L.meanCov xs'
+-- massesNew = traceShowId $ L.reshape dim $ snd $ glasso dim (L.flatten $ L.unSym sigma') 8
 
 -- | Hamiltonian Monte Carlo proposal.
 hamiltonian ::
