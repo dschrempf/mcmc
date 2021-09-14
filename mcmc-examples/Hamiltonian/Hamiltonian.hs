@@ -50,6 +50,7 @@ logGaussN ss xs = VG.foldl' (+) 0.0 (VG.zipWith logGauss1 ss xs)
 standardDeviations :: (VG.Vector v a, Enum a, RealFloat a) => v a
 -- Hard; dimension = 100.
 standardDeviations = VG.fromList $ [0.02, 0.04 .. 1.0] ++ [2, 4 .. 100]
+
 -- -- Easy; dimension = 10.
 -- standardDeviations = VG.fromList [1, 2 .. 10]
 
@@ -79,9 +80,11 @@ lhf = Exp . llhf
 masses :: Masses
 masses = L.trustSym $ L.diag $ L.fromList $ replicate dimension 1.0
 
-hSettings :: HSettings
+hSettings :: HSettings I
 hSettings =
   HSettings
+    VS.convert
+    (const VS.convert)
     gradient
     Nothing
     masses
