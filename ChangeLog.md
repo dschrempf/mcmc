@@ -5,6 +5,13 @@
 ## Unreleased changes
 
 
+## 0.6.1.0
+
+-   Revamp Hamiltonian proposal (storable vectors).
+-   Use mass matrices; allow tuning of all masses (covariance estimation using
+    specialized estimators).
+
+
 ## 0.6.0.0
 
 -   Improve documentation.

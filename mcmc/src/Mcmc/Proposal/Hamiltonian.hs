@@ -29,11 +29,11 @@
 --
 -- NOTE on implementation:
 --
--- - The implementation assumes the existence of the gradient. Like so, the user
---   can use automatic or manual differentiation, depending on the problem at
---   hand.
+-- - The implementation assumes the existence of the 'Gradient'. Like so, the
+--   user can use automatic or manual differentiation, depending on the problem
+--   at hand.
 --
--- - The Hamiltonian proposal acts on a vector of storable values. Functions
+-- - The Hamiltonian proposal acts on a vector of storable 'Values'. Functions
 --   converting the state to and from this vector have to be provided. See
 --   'HSettings'.
 --
@@ -42,6 +42,12 @@
 --
 -- - The speed of this proposal can change drastically when tuned because the
 --   leapfrog trajectory length is changed.
+--
+-- - The Hamiltonian proposal is agnostic of the actual prior and likelihood
+--   functions, and so, points with zero posterior probability cannot be
+--   detected. This affects models with constrained parameters. See Gelman p.
+--   303. This problem can be ameliorated by providing a 'Validate' function so
+--   that the proposal can gracefully fail as soon as the state becomes invalid.
 module Mcmc.Proposal.Hamiltonian
   ( Values,
     Gradient,
@@ -69,27 +75,28 @@ import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
 import System.Random.MWC
 
--- TODO: At the moment, the HMC proposal is agnostic of the prior and
--- likelihood, that is, the posterior function. This means, that it cannot know
--- when it reaches a point with zero posterior probability. This also affects
--- restricted or constrained parameters. See Gelman p. 303.
---
--- Mon Sep 6 02:22:38 PM CEST 2021: This is not entirely true anymore, see
--- 'Validate'.
+-- TODO: No-U-turn sampler (NUTS). Ameliorates necessity to determine the
+-- leapfrog trajectory length L. (I think this is a necessary extension.)
 
--- TODO: No-U-turn sampler.
+-- TODO: Riemannian adaptation: State-dependent mass matrix. (Seems a little bit
+-- of an overkill.)
 
--- TODO: Riemannian adaptation.
-
--- | The Hamiltonian proposal acts on a vector of floating values.
+-- | The Hamiltonian proposal acts on a vector of floating point values.
 type Values = L.Vector Double
 
 -- | Gradient of the log posterior function.
+--
+-- The gradient has to be provided for the complete state. The reason is that
+-- the gradient may change if parameters untouched by the Hamiltonian proposal
+-- are altered by other proposals.
 type Gradient a = a -> a
 
 -- | Function validating the state.
 --
 -- Useful if parameters are constrained.
+--
+-- Also the validity of the state may depend on parameters untouched by the
+-- Hamiltonian proposal.
 type Validate a = a -> Bool
 
 -- | Parameter mass matrix.
@@ -162,38 +169,41 @@ type Positions = Values
 -- Internal. Momenta of the parameters.
 type Momenta = L.Vector Double
 
--- | Tune leapfrog parameters.
---
--- We expect that the larger the leapfrog step size the larger the proposal step
--- size and the lower the acceptance ratio. Consequently, if the acceptance rate
--- is too low, the leapfrog step size is decreased and vice versa. Further, the
--- leapfrog trajectory length is scaled such that the product of the leapfrog
--- step size and trajectory length stays constant.
-data HTuneLeapfrog = HNoTuneLeapfrog | HTuneLeapfrog
+-- | Tune leapfrog parameters?
+data HTuneLeapfrog
+  = HNoTuneLeapfrog
+  | -- | We expect that the larger the leapfrog scaling factor the lower the
+    -- acceptance ratio. Consequently, if the acceptance rate is too low, the
+    -- leapfrog scaling factor is decreased and vice versa. Further, the leapfrog
+    -- trajectory length is scaled such that the product of the leapfrog scaling
+    -- factor and leapfrog trajectory length stays roughly constant.
+    HTuneLeapfrog
   deriving (Eq, Show)
 
--- | Tune masses.
+-- | Tune masses?
 --
 -- The masses are tuned according to the (co)variances of the parameters
 -- obtained from the posterior distribution over the last auto tuning interval.
---
--- Diagonal only: The variances of the parameters are calculated and the masses
--- are amended using the old masses and the inverted variances. If, for a
--- specific coordinate, the sample size is 60 or lower, or if the calculated
--- variance is out of predefined bounds [1e-6, 1e6], the mass of the affected
--- position is not changed.
---
--- All masses: The covariance matrix of the parameters is estimated and the
--- inverted matrix (sometimes called precision matrix) is used as mass matrix.
--- This procedure is error prone, but models with high correlations between
--- parameters it is necessary to tune off-diagonal entries. The full mass matrix
--- is only tuned if more than 200 samples are available. For these reasons, when
--- tuning all masses it is recommended to use tuning settings such as
---
--- @
--- BurnInWithCustomAutoTuning ([10, 20 .. 200] ++ replicate 5 500)
--- @
-data HTuneMasses = HNoTuneMasses | HTuneDiagonalMassesOnly | HTuneAllMasses
+data HTuneMasses
+  = HNoTuneMasses
+  | -- | Diagonal only: The variances of the parameters are calculated and the
+    -- masses are amended using the old masses and the inverted variances. If, for
+    -- a specific coordinate, the sample size is 60 or lower, or if the calculated
+    -- variance is out of predefined bounds [1e-6, 1e6], the mass of the affected
+    -- position is not changed.
+    HTuneDiagonalMassesOnly
+  | -- | All masses: The covariance matrix of the parameters is estimated and the
+    -- inverted matrix (sometimes called precision matrix) is used as mass matrix.
+    -- This procedure is error prone, but models with high correlations between
+    -- parameters it is necessary to tune off-diagonal entries. The full mass
+    -- matrix is only tuned if more than 200 samples are available. For these
+    -- reasons, when tuning all masses it is recommended to use tuning settings
+    -- such as
+    --
+    -- @
+    -- BurnInWithCustomAutoTuning ([10, 20 .. 200] ++ replicate 5 500)
+    -- @
+    HTuneAllMasses
   deriving (Eq, Show)
 
 -- | Tuning settings.
@@ -202,16 +212,12 @@ data HTune = HTune HTuneLeapfrog HTuneMasses
 
 -- | Specifications of the Hamilton Monte Carlo proposal.
 data HSettings a = HSettings
-  {
-    -- | Function extracting values to be manipulated by the Hamiltonian proposal.
+  { -- | Extract values to be manipulated by the Hamiltonian proposal from the
+    -- state.
     hToVector :: a -> Values,
-    -- | Function putting those values back into the complete state.
+    -- | Put those values back into the state.
     hFromVectorWith :: a -> Values -> a,
-    -- | The gradient has to be provided for the complete state. The reason is
-    -- that the gradient changes if parameters untouched by the Hamiltonian
-    -- proposal are altered by other proposals.
     hGradient :: Gradient a,
-    -- | Also the validation function has to be provided for the complete state.
     hMaybeValidate :: Maybe (Validate a),
     hMasses :: Masses,
     hLeapfrogTrajectoryLength :: LeapfrogTrajectoryLength,
@@ -323,7 +329,7 @@ leapfrog ::
   LeapfrogScalingFactor ->
   Positions ->
   Momenta ->
-  -- Maybe (Positions', Momenta').
+  -- Maybe (Positions', Momenta'); fail if state is not valid.
   Maybe (Positions, Momenta)
 leapfrog grad mVal hMassesInvEps l eps theta phi = do
   let -- The first half step of the momenta.
@@ -367,15 +373,18 @@ leapfrogStepPositions ::
   Positions ->
   -- Current momenta.
   Momenta ->
+  -- New positions.
   Positions
--- The arguments are flipped to encounter the maybe momentum.
 leapfrogStepPositions hMassesInvEps theta phi = theta + (L.unSym hMassesInvEps L.#> phi)
 
 massesToTuningParameters :: Masses -> AuxiliaryTuningParameters
 massesToTuningParameters = VB.convert . L.flatten . L.unSym
 
--- We need the dimension of the mass matrix.
-tuningParametersToMasses :: Int -> AuxiliaryTuningParameters -> Masses
+tuningParametersToMasses ::
+  -- Dimension of the mass matrix.
+  Int ->
+  AuxiliaryTuningParameters ->
+  Masses
 tuningParametersToMasses d = L.trustSym . L.reshape d . VB.convert
 
 hTuningParametersToSettings ::
@@ -565,7 +574,8 @@ tuneAllMasses dim toVec xs ts
 -- | Hamiltonian Monte Carlo proposal.
 hamiltonian ::
   Eq a =>
-  -- | The sample state is used to calculate the dimension of the proposal.
+  -- | The sample state is used for error checks and to calculate the dimension
+  -- of the proposal.
   a ->
   HSettings a ->
   PName ->
