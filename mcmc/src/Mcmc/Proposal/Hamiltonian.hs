@@ -558,7 +558,7 @@ tuneAllMasses dim toVec xs ts
     xs' = L.fromRows $ VB.toList $ VB.map toVec xs
     (_, ss, xsNormalized) = S.scale xs'
     -- sigmaNormalized = L.unSym $ either error id $ S.oracleApproximatingShrinkage xsNormalized
-    sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.3 xsNormalized
+    sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.5 xsNormalized
     sigma = S.rescaleWith ss sigmaNormalized
     massesNew = L.inv sigma
 
