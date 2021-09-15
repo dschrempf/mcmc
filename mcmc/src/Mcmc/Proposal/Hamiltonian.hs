@@ -62,7 +62,6 @@ import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
 import Mcmc.Proposal
 import qualified Numeric.LinearAlgebra as L
-import qualified Numeric.LinearAlgebra.Devel as L
 import Numeric.Log
 import Numeric.MathFunctions.Constants
 import qualified Statistics.Covariance as S
@@ -505,8 +504,9 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
     massNewSqrt = recip 3 * (sqrt massOld + 2 * sqrt massEstimate)
     massNew = massNewSqrt ** 2
 
--- XXX: Here, we lose time because we convert the states to vectors again,
--- something that has already been done.
+-- NOTE: Here, we lose time because we convert the states to vectors again,
+-- something that has already been done. But then, auto tuning is not a runtime
+-- determining factor.
 tuneDiagonalMassesOnly ::
   Int ->
   (a -> Positions) ->
@@ -535,28 +535,9 @@ tuneDiagonalMassesOnly dim toVec xs ts
         massesDiagonalOld
         massesDiagonalEstimate
 
-normalizeWith ::
-  -- Vector of means (length P).
-  L.Vector Double ->
-  -- Vector of standard deviations (length P)
-  L.Vector Double ->
-  -- Data matrix of dimension N x P.
-  L.Matrix Double ->
-  -- Data matrix with means 0 and variance 1.0.
-  L.Matrix Double
-normalizeWith ms ss = L.mapMatrixWithIndex (\(_, j) x -> (x - ms VS.! j) / (ss VS.! j))
-
-rescaleWith ::
-  -- Vector of standard deviations (length P)
-  L.Vector Double ->
-  -- Correlation matrix.
-  L.Matrix Double ->
-  -- Covariance matrix.
-  L.Matrix Double
-rescaleWith ss = L.mapMatrixWithIndex (\(i, j) x -> x * (ss VS.! i) * (ss VS.! j))
-
--- XXX: Here, we lose time because we convert the states to vectors again,
--- something that has already been done.
+-- NOTE: Here, we lose time because we convert the states to vectors again,
+-- something that has already been done. But then, auto tuning is not a runtime
+-- determining factor.
 tuneAllMasses ::
   Int ->
   (a -> Positions) ->
@@ -575,18 +556,11 @@ tuneAllMasses dim toVec xs ts
     -- xs: Each vector entry contains all parameter values of one iteration.
     -- xs': Each row contains all parameter values of one iteration.
     xs' = L.fromRows $ VB.toList $ VB.map toVec xs
-    -- Means, variances and standard deviations.
-    msVs = map S.meanVariance $ L.toColumns xs'
-    ms = L.fromList $ map fst msVs
-    ss = L.fromList $ map (sqrt . snd) msVs
-    xsNormalized = normalizeWith ms ss xs'
-    -- TODO: Avoid centering twice.
-    sigmaNormalized = L.unSym $ either error id $ S.oracleApproximatingShrinkage xsNormalized
-    sigma = rescaleWith ss sigmaNormalized
+    (_, ss, xsNormalized) = S.scale xs'
+    -- sigmaNormalized = L.unSym $ either error id $ S.oracleApproximatingShrinkage xsNormalized
+    sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.3 xsNormalized
+    sigma = S.rescaleWith ss sigmaNormalized
     massesNew = L.inv sigma
-
--- (_, sigma') = L.meanCov xs'
--- massesNew = traceShowId $ L.reshape dim $ snd $ glasso dim (L.flatten $ L.unSym sigma') 8
 
 -- | Hamiltonian Monte Carlo proposal.
 hamiltonian ::
