@@ -333,14 +333,14 @@ leapfrog ::
   Maybe (Positions, Momenta)
 leapfrog grad mVal hMassesInvEps l eps theta phi = do
   let -- The first half step of the momenta.
-      phiHalf = leapfrogStepMomenta 0.5 eps grad theta phi
+      phiHalf = leapfrogStepMomenta (0.5 * eps) grad theta phi
   -- L-1 full steps. This gives the positions theta_{L-1}, and the momenta
   -- phi_{L-1/2}.
   (thetaLM1, phiLM1Half) <- go (l - 1) (Just (theta, phiHalf))
   -- The last full step of the positions.
   thetaL <- valF $ leapfrogStepPositions hMassesInvEps thetaLM1 phiLM1Half
   let -- The last half step of the momenta.
-      phiL = leapfrogStepMomenta 0.5 eps grad thetaL phiLM1Half
+      phiL = leapfrogStepMomenta (0.5 * eps) grad thetaL phiLM1Half
   return (thetaL, phiL)
   where
     valF x = case mVal of
@@ -350,14 +350,13 @@ leapfrog grad mVal hMassesInvEps l eps theta phi = do
     go 0 (Just (t, p)) = Just (t, p)
     go n (Just (t, p)) =
       let t' = leapfrogStepPositions hMassesInvEps t p
-          p' = leapfrogStepMomenta 1.0 eps grad t' p
+          p' = leapfrogStepMomenta eps grad t' p
           r = (,p') <$> valF t'
        in go (n - 1) r
 
 leapfrogStepMomenta ::
-  -- Size of step (half or full step).
+  -- Step size (usually a multiple of the leapfrog scaling factor).
   Double ->
-  LeapfrogScalingFactor ->
   Gradient Positions ->
   -- Current positions.
   Positions ->
@@ -365,7 +364,7 @@ leapfrogStepMomenta ::
   Momenta ->
   -- New momenta.
   Momenta
-leapfrogStepMomenta xi eps grad theta phi = phi + L.scale (xi * eps) (grad theta)
+leapfrogStepMomenta eps grad theta phi = phi + L.scale eps (grad theta)
 
 leapfrogStepPositions ::
   HMassesInvEps ->
