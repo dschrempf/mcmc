@@ -14,7 +14,7 @@
 --
 -- Creation date: Wed May 20 13:42:53 2020.
 module Mcmc.Proposal
-  ( -- * Proposals
+  ( -- * Proposal
     PName (..),
     PDescription (..),
     PWeight (fromPWeight),
@@ -28,6 +28,9 @@ module Mcmc.Proposal
     liftProposal,
     liftProposalWith,
     ProposalSimple,
+    createProposal,
+
+    -- * Tuner
     Tuner (..),
     Tune (..),
     TuningParameter,
@@ -37,7 +40,6 @@ module Mcmc.Proposal
     defaultTuningFunctionWith,
     noTuningFunction,
     noAuxiliaryTuningFunction,
-    createProposal,
     tuningParameterMin,
     tuningParameterMax,
     tuneWithTuningParameters,
@@ -56,7 +58,6 @@ import Data.Function
 import qualified Data.Vector as VB
 import qualified Data.Vector.Unboxed as VU
 import Lens.Micro
-import Lens.Micro.Extras
 import Mcmc.Acceptance
 import Mcmc.Internal.ByteString
 import Numeric.Log hiding (sum)
@@ -246,6 +247,34 @@ liftProposalSimpleWith jf l s = s'
           j' = j * jyx / jxy
       return (y', r, j')
 
+-- | Create a proposal with a single tuning parameter.
+--
+-- Proposals with arbitrary tuning parameters have to be created manually. See
+-- 'Tuner' for more information, and 'Mcmc.Proposal.Hamiltonian' for an example.
+createProposal ::
+  -- | Description of the proposal type and parameters.
+  PDescription ->
+  -- | Function creating a simple proposal for a given tuning parameter.
+  (TuningParameter -> ProposalSimple a) ->
+  -- | Dimension.
+  PDimension ->
+  -- | Name.
+  PName ->
+  -- | Weight.
+  PWeight ->
+  -- | Activate tuning?
+  Tune ->
+  Proposal a
+createProposal r f d n w Tune =
+  Proposal n r d w (f 1.0) (Just tuner)
+  where
+    fT = defaultTuningFunctionWith d
+    fTs = noAuxiliaryTuningFunction
+    g t _ = Right $ f t
+    tuner = Tuner 1.0 fT VU.empty fTs g
+createProposal r f d n w NoTune =
+  Proposal n r d w (f 1.0) Nothing
+
 -- | Required information to tune 'Proposal's.
 data Tuner a = Tuner
   { tTuningParameter :: TuningParameter,
@@ -267,7 +296,7 @@ data Tuner a = Tuner
 liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
 liftTunerWith jf l (Tuner p fP ps fPs g) = Tuner p fP ps fPs' g'
   where
-    fPs' = fPs . VB.map (view l)
+    fPs' = fPs . VB.map (^. l)
     g' x xs = liftProposalSimpleWith jf l <$> g x xs
 
 -- | Tune proposal?
@@ -312,34 +341,6 @@ noTuningFunction _ = id
 -- | Do not tune auxiliary parameters.
 noAuxiliaryTuningFunction :: AuxiliaryTuningFunction a
 noAuxiliaryTuningFunction _ = id
-
--- | Create a proposal with a single tuning parameter.
---
--- Proposals with arbitrary tuning parameters have to be created manually. See
--- 'Tuner' for more information, and 'Mcmc.Proposal.Hamiltonian' for an example.
-createProposal ::
-  -- | Description of the proposal type and parameters.
-  PDescription ->
-  -- | Function creating a simple proposal for a given tuning parameter.
-  (TuningParameter -> ProposalSimple a) ->
-  -- | Dimension.
-  PDimension ->
-  -- | Name.
-  PName ->
-  -- | Weight.
-  PWeight ->
-  -- | Activate tuning?
-  Tune ->
-  Proposal a
-createProposal r f d n w Tune =
-  Proposal n r d w (f 1.0) (Just tuner)
-  where
-    fT = defaultTuningFunctionWith d
-    fTs = noAuxiliaryTuningFunction
-    g t _ = Right $ f t
-    tuner = Tuner 1.0 fT VU.empty fTs g
-createProposal r f d n w NoTune =
-  Proposal n r d w (f 1.0) Nothing
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
 -- proposal with a large tuning parameter is not a problem. But then, if the
