@@ -14,7 +14,7 @@
 --
 -- Creation date: Wed May 20 13:42:53 2020.
 module Mcmc.Proposal
-  ( -- * Proposal
+  ( -- * Proposals
     PName (..),
     PDescription (..),
     PWeight (fromPWeight),
@@ -30,7 +30,7 @@ module Mcmc.Proposal
     ProposalSimple,
     createProposal,
 
-    -- * Tuner
+    -- * Tuners
     Tuner (..),
     Tune (..),
     TuningParameter,
