@@ -71,27 +71,30 @@ newtype PDescription = PDescription {fromPDescription :: String}
   deriving (Show, Eq, Ord)
 
 -- | The positive weight determines how often a 'Proposal' is executed per
--- iteration of the Markov chain.
+-- iteration of the Markov chain. Abstract data type; for construction, see
+-- 'pWeight'.
 newtype PWeight = PWeight {fromPWeight :: Int}
   deriving (Show, Eq, Ord)
 
 -- | Check if the weight is positive.
+--
+-- Call 'error' if weight is zero or negative.
 pWeight :: Int -> PWeight
 pWeight n
-  | n <= 0 = error "pWeight: Proposal weight is zero or negative."
+  | n <= 0 = error $ "pWeight: Proposal weight is zero or negative: " <> show n <> "."
   | otherwise = PWeight n
 
 -- | Proposal dimension.
 --
 -- The number of affected, independent parameters.
 --
--- The optimal acceptance rate of low dimensional proposals is higher than for
--- high dimensional ones.
+-- Usually, the optimal acceptance rate of low dimensional proposals is higher
+-- than for high dimensional ones. However, this is not always true (see below).
 --
--- Optimal acceptance rates are still subject to controversies. As far as I
--- know, research has focused on random walk proposals with multivariate normal
--- distributions of dimension @d@. In this case, the following acceptance rates
--- are desired:
+-- Further, optimal acceptance rates are still subject to controversies. To my
+-- knowledge, research has focused on random walk proposals with multivariate
+-- normal distributions of dimension @d@. In this case, the following acceptance
+-- rates are desired:
 --
 -- - one dimension: 0.44 (numerical results);
 --

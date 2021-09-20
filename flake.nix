@@ -39,7 +39,7 @@
               "mcmc-examples"
               "mcmc-statistics"
             ];
-            mcmc-create-package = f: name: f name (./. + "/${name}") rec {};
+            mcmc-create-package = f: name: f name (./. + "/${name}") rec { };
             mcmc-overlay = (
               selfn: supern: {
                 haskellPackages = supern.haskellPackages.override {
