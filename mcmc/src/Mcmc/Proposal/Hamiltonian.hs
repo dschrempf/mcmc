@@ -518,9 +518,7 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
 tuneDiagonalMassesOnly ::
   Int ->
   (a -> Positions) ->
-  VB.Vector a ->
-  AuxiliaryTuningParameters ->
-  AuxiliaryTuningParameters
+  AuxiliaryTuningFunction a
 tuneDiagonalMassesOnly dim toVec xs ts
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesMinDiagonal = ts
@@ -549,9 +547,7 @@ tuneDiagonalMassesOnly dim toVec xs ts
 tuneAllMasses ::
   Int ->
   (a -> Positions) ->
-  VB.Vector a ->
-  AuxiliaryTuningParameters ->
-  AuxiliaryTuningParameters
+  AuxiliaryTuningFunction a
 tuneAllMasses dim toVec xs ts
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesMinDiagonal = ts

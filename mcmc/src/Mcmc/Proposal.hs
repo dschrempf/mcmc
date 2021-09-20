@@ -14,7 +14,7 @@
 --
 -- Creation date: Wed May 20 13:42:53 2020.
 module Mcmc.Proposal
-  ( -- * Proposals and types
+  ( -- * Proposals
     PName (..),
     PDescription (..),
     PWeight (fromPWeight),
@@ -31,7 +31,9 @@ module Mcmc.Proposal
     Tuner (..),
     Tune (..),
     TuningParameter,
+    TuningFunction,
     AuxiliaryTuningParameters,
+    AuxiliaryTuningFunction,
     defaultTuningFunctionWith,
     noTuningFunction,
     noAuxiliaryTuningFunction,
@@ -39,7 +41,6 @@ module Mcmc.Proposal
     tuningParameterMin,
     tuningParameterMax,
     tuneWithTuningParameters,
-    tuneWithChainParameters,
     getOptimalRate,
 
     -- * Output
@@ -133,8 +134,9 @@ data PDimension
 -- state space @a@. Essentially, it is a probability mass or probability density
 -- conditioned on the current state (i.e., a Markov kernel).
 --
--- A 'Proposal' may be tuneable in that it contains information about how to enlarge
--- or shrink the step size to tune the acceptance rate.
+-- A 'Proposal' may be tuneable in that it contains information about how to
+-- enlarge or shrink the proposal size to decrease or increase the acceptance
+-- rate.
 --
 -- Predefined proposals are provided. To create custom proposals, one may use
 -- the convenience function 'createProposal'.
@@ -168,8 +170,8 @@ instance Ord (Proposal a) where
 -- See also 'Jacobian'.
 --
 -- NOTE: Actually the 'Jacobian' should be part of the 'KernelRatio'. However,
--- it is more declarative to have them separate. It is a constant reminder: Is
--- the Jacobian modifier different from 1.0?
+-- it is more declarative to have them separate. Like so, we are constantly
+-- reminded: Is the Jacobian modifier different from 1.0?
 type KernelRatio = Log Double
 
 -- | Absolute value of the determinant of the Jacobian matrix.
@@ -192,7 +194,7 @@ type JacobianFunction a = a -> Jacobian
 -- scaleFirstEntryOfTuple = _1 @~ scale
 -- @
 --
--- See also 'liftProposal' and 'liftProposalWith'.
+-- See also 'liftProposalWith'.
 infixl 7 @~
 
 (@~) :: Lens' b a -> Proposal a -> Proposal b
@@ -204,14 +206,13 @@ liftProposal = liftProposalWith (const 1.0)
 
 -- | Lift a proposal from one data type to another.
 --
--- A function to calculate the Jacobian has to be provided (see also
--- 'liftProposal').
+-- A function to calculate the Jacobian has to be provided (but see '(@~)').
 --
 -- For further reference, please see the [example
 -- @Pair@](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Pair/Pair.hs).
 liftProposalWith :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
 liftProposalWith jf l (Proposal n r d w s t) =
-  Proposal n r d w (liftProposalSimple jf l s) (liftTuner jf l <$> t)
+  Proposal n r d w (liftProposalSimpleWith jf l s) (liftTunerWith jf l <$> t)
 
 -- | Simple proposal without tuning information.
 --
@@ -234,8 +235,8 @@ liftProposalWith jf l (Proposal n r d w s t) =
 type ProposalSimple a = a -> GenIO -> IO (a, KernelRatio, Jacobian)
 
 -- Lift a simple proposal from one data type to another.
-liftProposalSimple :: JacobianFunction b -> Lens' b a -> ProposalSimple a -> ProposalSimple b
-liftProposalSimple jf l s = s'
+liftProposalSimpleWith :: JacobianFunction b -> Lens' b a -> ProposalSimple a -> ProposalSimple b
+liftProposalSimpleWith jf l s = s'
   where
     s' y g = do
       (x', r, j) <- s (y ^. l) g
@@ -248,16 +249,9 @@ liftProposalSimple jf l s = s'
 -- | Required information to tune 'Proposal's.
 data Tuner a = Tuner
   { tTuningParameter :: TuningParameter,
-    -- | Instruction about how to compute new tuning parameter from a given
-    -- acceptance rate and the old tuning parameter.
-    tComputeTuningParameter :: AcceptanceRate -> TuningParameter -> TuningParameter,
+    tTuningFunction :: TuningFunction,
     tAuxiliaryTuningParameters :: AuxiliaryTuningParameters,
-    -- | Instruction about how to compute new auxiliary tuning parameters from a
-    -- given trace and the old auxiliary tuning parameters.
-    tComputeAuxiliaryTuningParameters ::
-      VB.Vector a ->
-      AuxiliaryTuningParameters ->
-      AuxiliaryTuningParameters,
+    tAuxiliaryTuningFunction :: AuxiliaryTuningFunction a,
     -- | Given the tuning parameter, and the auxiliary tuning parameters, get
     -- the tuned simple proposal.
     --
@@ -270,11 +264,11 @@ data Tuner a = Tuner
   }
 
 -- Lift tuner from one data type to another.
-liftTuner :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
-liftTuner jf l (Tuner p fP ps fPs g) = Tuner p fP ps fPs' g'
+liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
+liftTunerWith jf l (Tuner p fP ps fPs g) = Tuner p fP ps fPs' g'
   where
     fPs' = fPs . VB.map (view l)
-    g' x xs = liftProposalSimple jf l <$> g x xs
+    g' x xs = liftProposalSimpleWith jf l <$> g x xs
 
 -- | Tune proposal?
 data Tune = Tune | NoTune
@@ -286,8 +280,18 @@ data Tune = Tune | NoTune
 -- expected acceptance rate; and vice versa.
 type TuningParameter = Double
 
+-- | Compute new tuning parameter from a given acceptance rate and the old
+-- tuning parameter.
+type TuningFunction = AcceptanceRate -> TuningParameter -> TuningParameter
+
 -- | Auxiliary tuning parameters; vector may be empty.
+--
+-- Auxiliary tuning parameters are not shown in proposal summaries.
 type AuxiliaryTuningParameters = VU.Vector TuningParameter
+
+-- | Compute new auxiliary tuning parameters from a given trace and the old
+-- auxiliary tuning parameters.
+type AuxiliaryTuningFunction a = VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters
 
 -- | Default tuning function.
 --
@@ -295,20 +299,18 @@ type AuxiliaryTuningParameters = VU.Vector TuningParameter
 defaultTuningFunctionWith ::
   -- Optimal acceptance rate.
   PDimension ->
-  AcceptanceRate ->
-  TuningParameter ->
-  TuningParameter
+  TuningFunction
 defaultTuningFunctionWith d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 
--- | Do no tune.
+-- | Do not tune.
 --
 -- Useful if auxiliary tuning parameters are tuned, but not the main tuning
 -- parameter.
-noTuningFunction :: AcceptanceRate -> TuningParameter -> TuningParameter
+noTuningFunction :: TuningFunction
 noTuningFunction _ = id
 
 -- | Do not tune auxiliary parameters.
-noAuxiliaryTuningFunction :: VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters
+noAuxiliaryTuningFunction :: AuxiliaryTuningFunction a
 noAuxiliaryTuningFunction _ = id
 
 -- | Create a proposal with a single tuning parameter.
@@ -344,17 +346,11 @@ createProposal r f d n w NoTune =
 -- tuning parameters are very different from one, a different base proposal
 -- should be chosen.
 
--- | Minimal tuning parameter; @1e-5@, subject to change.
---
--- >>> tuningParameterMin
--- 1e-5
+-- | Minimal tuning parameter; subject to change.
 tuningParameterMin :: TuningParameter
 tuningParameterMin = 1e-5
 
--- | Maximal tuning parameter; @1e3@, subject to change.
---
--- >>> tuningParameterMax
--- 1e3
+-- | Maximal tuning parameter; subject to change.
 tuningParameterMax :: TuningParameter
 tuningParameterMax = 1e3
 
@@ -371,6 +367,8 @@ tuningParameterMax = 1e3
 -- - the 'Proposal' is not tuneable;
 --
 -- - the auxiliary tuning parameters are invalid.
+--
+-- Used by 'Mcmc.Chain.Save.fromSavedChain'.
 tuneWithTuningParameters ::
   TuningParameter ->
   AuxiliaryTuningParameters ->
@@ -386,15 +384,6 @@ tuneWithTuningParameters t ts p = case prTuner p of
      in case psE of
           Left err -> Left $ "tune: " <> err
           Right ps -> Right $ p {prSimple = ps, prTuner = Just $ Tuner t'' fT ts fTs g}
-
--- | See 'tuneWithTuningParameters' and 'Tuner'.
-tuneWithChainParameters :: AcceptanceRate -> VB.Vector a -> Proposal a -> Either String (Proposal a)
-tuneWithChainParameters ar xs p = case prTuner p of
-  Nothing -> Left "tuneWithChainParameters: Proposal is not tunable."
-  Just (Tuner t fT ts fTs _) ->
-    let t' = fT ar t
-        ts' = fTs xs ts
-     in tuneWithTuningParameters t' ts' p
 
 -- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double

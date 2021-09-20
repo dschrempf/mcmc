@@ -138,6 +138,15 @@ getNProposalsPerCycle (Cycle xs o) = case o of
   where
     once = sum $ map (fromPWeight . prWeight) xs
 
+-- See 'tuneWithTuningParameters' and 'Tuner'.
+tuneWithChainParameters :: AcceptanceRate -> VB.Vector a -> Proposal a -> Either String (Proposal a)
+tuneWithChainParameters ar xs p = case prTuner p of
+  Nothing -> Left "tuneWithChainParameters: Proposal is not tunable."
+  Just (Tuner t fT ts fTs _) ->
+    let t' = fT ar t
+        ts' = fTs xs ts
+     in tuneWithTuningParameters t' ts' p
+
 -- | Calculate acceptance rates and auto tunes the 'Proposal's in the 'Cycle'.
 --
 -- Do not change 'Proposal's that are not tuneable.
