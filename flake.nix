@@ -50,8 +50,10 @@
             pkgs = import nixpkgs {
               inherit system overlays;
             };
+            # When changing the package set, the override above also has to be amended.
+            hpkgs = pkgs.haskellPackages;
             # Set with packages.
-            mcmc = lib.genAttrs packageNames (n: pkgs.haskellPackages.${n});
+            mcmc = lib.genAttrs packageNames (n: hpkgs.${n});
             # List with packages with benchmark dependencies for development
             # environment.
             mcmc-dev = builtins.mapAttrs (_: x: pkgs.haskell.lib.doBenchmark x) mcmc;
@@ -61,13 +63,13 @@
 
               defaultPackage = mcmc.mcmc;
 
-              devShell = pkgs.haskellPackages.shellFor {
+              devShell = hpkgs.shellFor {
                 packages = _: (builtins.attrValues mcmc-dev);
                 buildInputs = with pkgs; [
                   bashInteractive
-                  haskellPackages.cabal-install
-                  haskellPackages.haskell-language-server
-                  haskellPackages.stack
+                  hpkgs.cabal-install
+                  hpkgs.haskell-language-server
+                  hpkgs.stack
                 ];
                 doBenchmark = true;
                 withHoogle = true;
