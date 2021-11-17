@@ -26,6 +26,9 @@ import qualified Data.ByteString.Builder as BB
 import qualified Data.Double.Conversion.ByteString as BC
 import Data.Functor.Contravariant
 
+-- XXX: 'MonitorParameter' has a drawback. Extracting and monitoring multiple
+-- parameters in one go is impossible.
+
 -- | Instruction about a parameter to monitor.
 --
 -- Convert a parameter monitor from one data type to another with '(>$<)'.
