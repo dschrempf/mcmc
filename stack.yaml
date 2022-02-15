@@ -1,4 +1,4 @@
-resolver: nightly-2021-09-17
+resolver: lts-18.25
 
 packages:
   - ./mcmc
