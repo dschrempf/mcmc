@@ -116,7 +116,6 @@ test-suite mcmc-test
   build-depends:
       base >=4.7 && <5
     , hspec
-    , log-domain
     , mcmc
     , mwc-random
     , statistics

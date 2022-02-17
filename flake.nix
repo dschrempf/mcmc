@@ -37,6 +37,9 @@
             haskellPackages = supern.haskell.packages.ghc921.override {
               overrides = selfh: superh:
                 {
+                  # TODO: Doctest fails.
+                  ad = supern.haskell.lib.dontCheck superh.ad;
+
                   circular = circular.defaultPackage.${system};
                   covariance = covariance.defaultPackage.${system};
                   dirichlet = dirichlet.defaultPackage.${system};
