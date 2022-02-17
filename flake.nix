@@ -34,7 +34,7 @@
         mcmc-create-package = f: name: f name (./. + "/${name}") rec { };
         mcmc-overlay = (
           selfn: supern: {
-            haskellPackages = supern.haskellPackages.override {
+            haskellPackages = supern.haskell.packages.ghc921.override {
               overrides = selfh: superh:
                 {
                   circular = circular.defaultPackage.${system};
@@ -50,7 +50,6 @@
         pkgs = import nixpkgs {
           inherit system overlays;
         };
-        # When changing the package set, the override above also has to be amended.
         hpkgs = pkgs.haskellPackages;
         # Set with packages.
         mcmc = lib.genAttrs packageNames (n: hpkgs.${n});
