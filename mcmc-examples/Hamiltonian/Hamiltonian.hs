@@ -106,7 +106,7 @@ cc =
   cycleFromList [hamiltonianProposal]
 
 monPs :: [MonitorParameter I]
-monPs = [view (singular (ix i)) >$< monitorDouble (n i) | i <- [0 .. (dimension -1)]]
+monPs = [view (singular (ix i)) >$< monitorDouble (n i) | i <- [0 .. (dimension - 1)]]
   where
     n j = show j
 

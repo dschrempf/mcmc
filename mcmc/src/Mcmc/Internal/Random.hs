@@ -33,8 +33,8 @@ splitGen :: PrimMonad m => Int -> Gen (PrimState m) -> m [Gen (PrimState m)]
 splitGen n gen
   | n <= 0 = return []
   | otherwise = do
-    seeds :: [V.Vector Word32] <- replicateM n $ uniformVector gen 256
-    mapM initialize seeds
+      seeds :: [V.Vector Word32] <- replicateM n $ uniformVector gen 256
+      mapM initialize seeds
 
 -- TODO: Splitmix. Remove or amend these functions as soon as split mix is used
 -- and is available with the statistics package.

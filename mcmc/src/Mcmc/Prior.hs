@@ -161,7 +161,7 @@ mLnSqrt2Pi = 0.9189385332046727417803297364056176398613974736377834128171
 normal :: RealFloat a => Mean a -> StandardDeviation a -> PriorFunctionG a a
 normal m s x
   | s <= 0 = error "normal: Standard deviation is zero or negative."
-  | otherwise = Exp $ (- xm * xm / (2 * s * s)) - denom
+  | otherwise = Exp $ (-xm * xm / (2 * s * s)) - denom
   where
     xm = x - m
     denom = mLnSqrt2Pi + log s

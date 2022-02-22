@@ -77,8 +77,8 @@ tableLogGamma_1_15Q =
 lgamma15_2 :: RealFloat a => a -> a -> a
 lgamma15_2 zm1 zm2 =
   r * y + r
-    * ( evaluatePolynomial (- zm2) tableLogGamma_15_2P
-          / evaluatePolynomial (- zm2) tableLogGamma_15_2Q
+    * ( evaluatePolynomial (-zm2) tableLogGamma_15_2P
+          / evaluatePolynomial (-zm2) tableLogGamma_15_2Q
       )
   where
     r = zm1 * zm2

@@ -91,19 +91,19 @@ fromSavedChain ::
   IO (Chain a)
 fromSavedChain pr lh cc mn (SavedChain ci it i tr ac' g' ts)
   | pr (state it) /= prior it =
-    let msg =
-          unlines
-            [ "fromSave: Provided prior function does not match the saved prior.",
-              "fromSave: Current prior:" <> show (prior it) <> ".",
-              "fromSave: Given prior:" <> show (pr $ state it) <> "."
-            ]
-     in error msg
+      let msg =
+            unlines
+              [ "fromSave: Provided prior function does not match the saved prior.",
+                "fromSave: Current prior:" <> show (prior it) <> ".",
+                "fromSave: Given prior:" <> show (pr $ state it) <> "."
+              ]
+       in error msg
   | lh (state it) /= likelihood it =
-    error "fromSave: Provided likelihood function does not match the saved likelihood."
+      error "fromSave: Provided likelihood function does not match the saved likelihood."
   | otherwise = do
-    g <- loadGen g'
-    tr' <- thawT tr
-    return $ Chain ci it i tr' ac g i pr lh cc' mn
+      g <- loadGen g'
+      tr' <- thawT tr
+      return $ Chain ci it i tr' ac g i pr lh cc' mn
   where
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
     tunePs mt p = case mt of

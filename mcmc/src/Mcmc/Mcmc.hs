@@ -93,12 +93,12 @@ mcmcIterate n a
   | n < 0 = error "mcmcIterate: Number of iterations is negative."
   | n == 0 = return a
   | otherwise = do
-    e <- ask
-    p <- sParallelizationMode . settings <$> ask
-    -- NOTE: User interrupt is handled during iterations.
-    a' <- liftIO $ catch (aIterate p a) (mcmcExceptionHandler e a)
-    mcmcExecuteMonitors a'
-    mcmcIterate (n -1) a'
+      e <- ask
+      p <- sParallelizationMode . settings <$> ask
+      -- NOTE: User interrupt is handled during iterations.
+      a' <- liftIO $ catch (aIterate p a) (mcmcExceptionHandler e a)
+      mcmcExecuteMonitors a'
+      mcmcIterate (n - 1) a'
 
 mcmcNewRun :: Algorithm a => a -> MCMC a
 mcmcNewRun a = do

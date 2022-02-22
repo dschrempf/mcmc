@@ -77,7 +77,7 @@ simpleMonitor :: Period -> Monitor a
 simpleMonitor p
   | p < 1 = error "simpleMonitor: Monitor period must be 1 or larger."
   | otherwise =
-    Monitor (MonitorStdOut [] p) [] []
+      Monitor (MonitorStdOut [] p) [] []
 
 -- | Monitor to standard output; constructed with 'monitorStdOut'.
 data MonitorStdOut a = MonitorStdOut
@@ -208,19 +208,19 @@ mfExec ::
 mfExec i (Link x p l) m
   | i `mod` mfPeriod m /= 0 = return ()
   | otherwise = case mfHandle m of
-    Nothing ->
-      error $
-        "mfExec: No handle available for monitor with name "
-          <> mfName m
-          <> "."
-    Just h ->
-      BL.hPutStrLn h $
-        mfRenderRow $
-          BL.pack (show i) :
-          renderLog p :
-          renderLog l :
-          renderLog (p * l) :
-            [BB.toLazyByteString $ mpFunc mp x | mp <- mfParams m]
+      Nothing ->
+        error $
+          "mfExec: No handle available for monitor with name "
+            <> mfName m
+            <> "."
+      Just h ->
+        BL.hPutStrLn h $
+          mfRenderRow $
+            BL.pack (show i) :
+            renderLog p :
+            renderLog l :
+            renderLog (p * l) :
+              [BB.toLazyByteString $ mpFunc mp x | mp <- mfParams m]
 
 mfClose :: MonitorFile a -> IO ()
 mfClose m = case mfHandle m of
@@ -288,26 +288,26 @@ mbExec ::
 mbExec i t m
   | (i `mod` mbSize m /= 0) || (i == 0) = return ()
   | otherwise = case mbHandle m of
-    Nothing ->
-      error $
-        "mbExec: No handle available for batch monitor with name "
-          <> mbName m
-          <> "."
-    Just h -> do
-      xs <- takeT (mbSize m) t
-      let lps = VB.map prior xs
-          lls = VB.map likelihood xs
-          los = VB.zipWith (*) lps lls
-          mlps = mean lps
-          mlls = mean lls
-          mlos = mean los
-      BL.hPutStrLn h $
-        mfRenderRow $
-          BL.pack (show i) :
-          renderLog mlps :
-          renderLog mlls :
-          renderLog mlos :
-            [BB.toLazyByteString $ mbpFunc mbp (VB.map state xs) | mbp <- mbParams m]
+      Nothing ->
+        error $
+          "mbExec: No handle available for batch monitor with name "
+            <> mbName m
+            <> "."
+      Just h -> do
+        xs <- takeT (mbSize m) t
+        let lps = VB.map prior xs
+            lls = VB.map likelihood xs
+            los = VB.zipWith (*) lps lls
+            mlps = mean lps
+            mlls = mean lls
+            mlos = mean los
+        BL.hPutStrLn h $
+          mfRenderRow $
+            BL.pack (show i) :
+            renderLog mlps :
+            renderLog mlls :
+            renderLog mlos :
+              [BB.toLazyByteString $ mbpFunc mbp (VB.map state xs) | mbp <- mbParams m]
 
 mbClose :: MonitorBatch a -> IO ()
 mbClose m = case mbHandle m of

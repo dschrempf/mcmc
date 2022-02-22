@@ -255,11 +255,11 @@ initMHG prf lhf i beta a
   -- Only set the id for the cold chain.
   | i == 0 = return $ MHG $ c {chainId = Just 0}
   | otherwise = do
-    -- We have to push the current link in the trace, since it is not set by
-    -- 'setReciprocalTemperature'. The other links in the trace are still
-    -- pointing to the link of the cold chain, but this has no effect.
-    t' <- pushT l t
-    return $ MHG $ c {chainId = Just i, trace = t'}
+      -- We have to push the current link in the trace, since it is not set by
+      -- 'setReciprocalTemperature'. The other links in the trace are still
+      -- pointing to the link of the cold chain, but this has no effect.
+      t' <- pushT l t
+      return $ MHG $ c {chainId = Just i, trace = t'}
   where
     a' = setReciprocalTemperature prf lhf beta a
     c = fromMHG a'
@@ -291,11 +291,11 @@ mc3 sMc3 s pr lh cc mn i0 g
   | sp < 1 = error "mc3: The swap period must be strictly positive."
   | sn < 1 || sn > n - 1 = error "mc3: The number of swaps must be in [1, NChains - 1]."
   | otherwise = do
-    -- Split random number generators.
-    gs <- V.fromList <$> splitGen n g
-    cs <- V.mapM (mhg s pr lh cc mn i0) gs
-    hcs <- V.izipWithM (initMHG pr lh) (V.convert bs) cs
-    return $ MC3 sMc3 hcs bs 0 (emptyA [0 .. n - 2]) g
+      -- Split random number generators.
+      gs <- V.fromList <$> splitGen n g
+      cs <- V.mapM (mhg s pr lh cc mn i0) gs
+      hcs <- V.izipWithM (initMHG pr lh) (V.convert bs) cs
+      return $ MC3 sMc3 hcs bs 0 (emptyA [0 .. n - 2]) g
   where
     n = fromNChains $ mc3NChains sMc3
     sp = fromSwapPeriod $ mc3SwapPeriod sMc3

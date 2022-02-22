@@ -40,14 +40,14 @@ genBactrian m s g = do
       d = normalDistr mn sd
   x <- genContVar d g
   b <- bernoulli 0.5 g
-  return $ if b then x else - x
+  return $ if b then x else -x
 
 logDensityBactrian :: SpikeParameter -> StandardDeviation Double -> Double -> Log Double
 logDensityBactrian m s x = Exp $ log $ kernel1 + kernel2
   where
     mn = m * s
     sd = sqrt (1 - m * m) * s
-    dist1 = normalDistr (- mn) sd
+    dist1 = normalDistr (-mn) sd
     dist2 = normalDistr mn sd
     kernel1 = density dist1 x
     kernel2 = density dist2 x

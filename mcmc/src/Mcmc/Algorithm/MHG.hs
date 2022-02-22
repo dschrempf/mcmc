@@ -170,8 +170,8 @@ mhgAccept :: MHGRatio -> GenIO -> IO Bool
 mhgAccept r g
   | ln r >= 0.0 = return True
   | otherwise = do
-    b <- uniform g
-    return $ b < exp (ln r)
+      b <- uniform g
+      return $ b < exp (ln r)
 
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
 mhgPropose (MHG c) p = do

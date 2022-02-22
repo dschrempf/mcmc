@@ -67,7 +67,7 @@ slideSymmetric s = createProposal description (slideSymmetricSimple s) (PDimensi
 -- The actual proposal with tuning parameter.
 slideUniformSimple :: Size -> TuningParameter -> ProposalSimple Double
 slideUniformSimple d t =
-  genericContinuous (uniformDistr (- t * d) (t * d)) (+) Nothing Nothing
+  genericContinuous (uniformDistr (-t * d) (t * d)) (+) Nothing Nothing
 
 -- | See 'slide'.
 --

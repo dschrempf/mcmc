@@ -316,12 +316,12 @@ settingsCheck s@(Settings nm bi i tl em _ _ _ _) iCurrent
   | not $ burnInValid bi = serr $ "Burn in setting invalid: " <> show bi <> "."
   | fromIterations i < 0 = serr "Number of iterations is negative."
   | burnInIterations bi + fromIterations i - iCurrent < 0 =
-    serr "Current iteration is larger than the total number of iterations."
+      serr "Current iteration is larger than the total number of iterations."
   | not $ validTraceLength tl = serr $ "Trace length invalid: " <> show tl <> "."
   | iCurrent /= 0 && em /= Continue =
-    serr "Current iteration is non-zero but execution mode is not 'Continue'."
+      serr "Current iteration is non-zero but execution mode is not 'Continue'."
   | iCurrent == 0 && em == Continue =
-    serr "Current iteration is zero but execution mode is 'Continue'."
+      serr "Current iteration is zero but execution mode is 'Continue'."
   | otherwise = return ()
   where
     serr = settingsError s iCurrent

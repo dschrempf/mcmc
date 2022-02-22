@@ -393,14 +393,14 @@ hTuningParametersToSettings ::
   Either String (HSettings a)
 hTuningParametersToSettings s t ts
   | nTsNotOK =
-    Left "hTuningParametersToSettings: Auxiliary variables do not have correct dimension."
+      Left "hTuningParametersToSettings: Auxiliary variables do not have correct dimension."
   | otherwise =
-    Right $
-      s
-        { hMasses = msTuned,
-          hLeapfrogTrajectoryLength = lTuned,
-          hLeapfrogScalingFactor = eTuned
-        }
+      Right $
+        s
+          { hMasses = msTuned,
+            hLeapfrogTrajectoryLength = lTuned,
+            hLeapfrogScalingFactor = eTuned
+          }
   where
     ms = hMasses s
     d = L.rows $ L.unSym ms
@@ -523,9 +523,9 @@ tuneDiagonalMassesOnly dim toVec xs ts
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesMinDiagonal = ts
   | otherwise =
-    -- Replace the diagonal.
-    massesToTuningParameters $
-      L.trustSym $ massesOld - L.diag massesDiagonalOld + L.diag massesDiagonalNew
+      -- Replace the diagonal.
+      massesToTuningParameters $
+        L.trustSym $ massesOld - L.diag massesDiagonalOld + L.diag massesDiagonalNew
   where
     -- xs: Each vector entry contains all parameter values of one iteration.
     -- xs': Each row contains all parameter values of one iteration.
