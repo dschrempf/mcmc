@@ -5,6 +5,13 @@
 ## Unreleased changes
 
 
+## 0.6.2.0
+
+-   Improve leapfrog integrator.
+-   Update tooling.
+-   Cleanup proposals.
+
+
 ## 0.6.1.0
 
 -   Revamp Hamiltonian proposal (storable vectors).
@@ -70,7 +77,7 @@
 ## 0.2.4
 
 -   **Change order of arguments for proposals**.
--   'slideStem' was renamed to 'slideBranch'.
+-   &rsquo;slideStem&rsquo; was renamed to &rsquo;slideBranch&rsquo;.
 -   Change ProposalSimple from newtype to type.
 -   Contravariant instances of parameter and batch monitors. Use `(>$<)` instead
     of `(@.)` and `(@#)`.
