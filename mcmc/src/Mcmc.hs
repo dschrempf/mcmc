@@ -32,7 +32,7 @@
 --   archer](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples/Archery/Archery.hs)
 --
 -- - [More involved
---   examples](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples/Archery/Archery.hs)
+--   examples](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples/PhylogeneticLikelihood/PhylogeneticLikelihood.hs)
 --
 -- __The import of this module alone should cover most use cases.__
 --
