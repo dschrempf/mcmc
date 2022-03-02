@@ -6,11 +6,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1645115923,
-        "narHash": "sha256-2HEggr1Z8gP4iI8lkv0Au32qCZcr/wgKgsxZDAm3aZ4=",
+        "lastModified": 1645542006,
+        "narHash": "sha256-Z7b8lLSlslKLN3PHYTRYlZAvrxabKoXeNe/MWYUIylA=",
         "owner": "dschrempf",
         "repo": "circular",
-        "rev": "cb17aea6b5099617da93c6d121995956c3ec338b",
+        "rev": "7a6e9ec48c1884457fc748d33057ae3398b0f8e9",
         "type": "github"
       },
       "original": {
@@ -25,11 +25,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1645115932,
-        "narHash": "sha256-6+QLvjl7F9Xc97cGtXQ+Mre53WIHydFz4y0wQasIckI=",
+        "lastModified": 1645542169,
+        "narHash": "sha256-GpAUWEPnykdrEoLvHAW80lf4rRyYt8Nb5z6GLNqUrnM=",
         "owner": "dschrempf",
         "repo": "covariance",
-        "rev": "da0ac897801977b8157165f178c0ff06f79506d2",
+        "rev": "33d74967c9bef2ec8e744a43fe82b2f18200ef32",
         "type": "github"
       },
       "original": {
@@ -44,11 +44,11 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1645115939,
-        "narHash": "sha256-08E/fIY+e0QUjVNDLY6ND9ESpXNU7rOHjqXqg/jddEw=",
+        "lastModified": 1645542275,
+        "narHash": "sha256-2iMKgkb7bVYerhq0TxLX9hVmvhqeJfVf+8v+tiN2Waw=",
         "owner": "dschrempf",
         "repo": "dirichlet",
-        "rev": "38375f0e546b0478b1c7bdf5d1a7d6d7142c054b",
+        "rev": "8bba45055d895c23280bd1039318d9b55ef68bd6",
         "type": "github"
       },
       "original": {
@@ -182,11 +182,11 @@
     },
     "nixpkgs_4": {
       "locked": {
-        "lastModified": 1645036967,
-        "narHash": "sha256-M3n0pUl4f77mjy5SiiQIqhdQlymQFyPgK49dK/vQNf0=",
+        "lastModified": 1646183502,
+        "narHash": "sha256-jjetbAp7kbYjhMFJGlWQump0G58b1rcDLmBBfAXJkDA=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "4c999b91a5fdef78c71d22cefedd4eac34aff5a7",
+        "rev": "ffe64dbfe2034948dcc2d6885199d917c718b14c",
         "type": "github"
       },
       "original": {
@@ -218,11 +218,11 @@
         "nixpkgs": "nixpkgs_5"
       },
       "locked": {
-        "lastModified": 1645115954,
-        "narHash": "sha256-YqUE378Op8aGh0fWRak9f42R35OEV5QAJtQ1VoTffEw=",
+        "lastModified": 1645542455,
+        "narHash": "sha256-l6nhQPtrf2PAC3NFDm87GRAzhSnqCZUnxeDPncHXUU4=",
         "owner": "dschrempf",
         "repo": "pava",
-        "rev": "197f51ae66034107ab7bad375aa327ad02354170",
+        "rev": "c66e42093464c566a38c0d1d8606c2239d234ded",
         "type": "github"
       },
       "original": {
