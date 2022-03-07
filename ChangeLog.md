@@ -5,6 +5,11 @@
 ## Unreleased changes
 
 
+## 0.6.2.1
+
+-   Improve `logGammaG`.
+
+
 ## 0.6.2.0
 
 -   Improve leapfrog integrator.
