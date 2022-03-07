@@ -9,7 +9,7 @@
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/haskell-updates";
 
   inputs.pava.url = "github:dschrempf/pava";
 
@@ -32,6 +32,8 @@
           "mcmc-statistics"
         ];
         mcmc-create-package = f: name: f name (./. + "/${name}") rec { };
+        # TODO: No idea why, but the build of the overlayed callCabal2nix fails.
+        pkgs-no-overlay = import nixpkgs { inherit system; };
         mcmc-overlay = (
           selfn: supern: {
             haskellPackages = supern.haskell.packages.ghc921.override {
@@ -45,7 +47,9 @@
                   dirichlet = dirichlet.defaultPackage.${system};
                   pava = pava.defaultPackage.${system};
                 } // lib.genAttrs packageNames
-                  (mcmc-create-package selfh.callCabal2nix);
+                  # TODO: No idea why, but the build of the overlayed callCabal2nix fails.
+                  # (mcmc-create-package selfh.callCabal2nix);
+                  (mcmc-create-package pkgs-no-overlay.haskell.packages.ghc921.callCabal2nix);
             };
           }
         );
@@ -73,7 +77,7 @@
             hpkgs.haskell-language-server
           ];
           doBenchmark = true;
-          withHoogle = true;
+          # withHoogle = true;
         };
       }
     );
