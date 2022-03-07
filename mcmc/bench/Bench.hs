@@ -14,9 +14,19 @@ module Main
 where
 
 import Criterion.Main
+import Data.List
+import Mcmc.Internal.Gamma
 import Normal
+import Numeric.SpecFunctions
 import Poisson
 import System.Random.MWC
+
+gammaBenchG :: RealFloat a => (a -> a) -> [a] -> a
+gammaBenchG f = foldl' (\acc x -> acc + (f x)) 0
+{-# SPECIALIZE gammaBenchG :: (Double -> Double) -> [Double] -> Double #-}
+
+gammaVals :: [Double]
+gammaVals = [0, 0.01 .. 10000]
 
 main :: IO ()
 main = do
@@ -36,6 +46,13 @@ main = do
           bench "MC3 4" $ nfIO (normalMC3 g 4),
           bench "MC3 5" $ nfIO (normalMC3 g 5),
           bench "MC3 10" $ nfIO (normalMC3 g 10)
+        ],
+      bgroup
+        "probability"
+        [ bench "gamma function general" $
+            nf (gammaBenchG logGammaG) gammaVals,
+          bench "gamma function specialized" $
+            nf (gammaBenchG logGamma) gammaVals
         ]
     ]
 
