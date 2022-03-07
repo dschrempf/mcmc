@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 -- |
 -- Module      :  Mcmc.Acceptance
 -- Description :  Handle acceptance rates
@@ -48,10 +50,20 @@ instance (Ord k, FromJSONKey k) => FromJSON (Acceptance k) where
 emptyA :: Ord k => [k] -> Acceptance k
 emptyA ks = Acceptance $ M.fromList [(k, (0, 0)) | k <- ks]
 
+incrInt :: Int -> Int
+incrInt x = x'
+  where
+    !x' = x + 1
+{-# INLINE incrInt #-}
+
 -- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
 pushA :: Ord k => k -> Bool -> Acceptance k -> Acceptance k
-pushA k True = Acceptance . M.adjust (force . first succ) k . fromAcceptance
-pushA k False = Acceptance . M.adjust (force . second succ) k . fromAcceptance
+pushA k b =
+  Acceptance
+    . M.adjust
+      (\(nA, nR) -> if b then (incrInt nA, nR) else (nA, incrInt nR))
+      k
+    . fromAcceptance
 {-# INLINEABLE pushA #-}
 
 -- | Reset acceptance storage.
