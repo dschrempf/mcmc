@@ -7,7 +7,9 @@
 
 ## 0.6.2.1
 
--   Improve `logGammaG`.
+-   Improve `logGammaG`. The calculation of the gamma function involves vectors;
+    the generalized version needs boxed vectors, and is slow. Using `Typeable`, we
+    now check if the type is `Double`, and use the fast version in this case.
 
 
 ## 0.6.2.0
