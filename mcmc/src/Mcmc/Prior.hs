@@ -44,6 +44,7 @@ where
 
 import Control.Monad
 import Data.Maybe (fromMaybe)
+import Data.Typeable
 import Mcmc.Internal.Gamma
 import Mcmc.Statistics.Types
 import Numeric.Log
@@ -106,7 +107,7 @@ exponential l x
 -- | Gamma distributed prior.
 --
 -- Call 'error' if the shape or scale are zero or negative.
-gamma :: RealFloat a => Shape a -> Scale a -> PriorFunctionG a a
+gamma :: (Typeable a, RealFloat a) => Shape a -> Scale a -> PriorFunctionG a a
 gamma k t x
   | k <= 0 = error "gamma: Shape is zero or negative."
   | t <= 0 = error "gamma: Scale is zero or negative."
@@ -116,14 +117,14 @@ gamma k t x
 {-# SPECIALIZE gamma :: Double -> Double -> PriorFunction Double #-}
 
 -- | See 'gamma' but parametrized using mean and variance.
-gammaMeanVariance :: RealFloat a => Mean a -> Variance a -> PriorFunctionG a a
+gammaMeanVariance :: (Typeable a, RealFloat a) => Mean a -> Variance a -> PriorFunctionG a a
 gammaMeanVariance m v = gamma k t
   where
     (k, t) = gammaMeanVarianceToShapeScale m v
 {-# SPECIALIZE gammaMeanVariance :: Double -> Double -> PriorFunction Double #-}
 
 -- | Gamma disstributed prior with given shape and mean 1.0.
-gammaMeanOne :: RealFloat a => Shape a -> PriorFunctionG a a
+gammaMeanOne :: (Typeable a, RealFloat a) => Shape a -> PriorFunctionG a a
 gammaMeanOne k = gamma k (recip k)
 {-# SPECIALIZE gammaMeanOne :: Double -> PriorFunction Double #-}
 

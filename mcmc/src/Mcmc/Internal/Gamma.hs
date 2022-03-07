@@ -16,8 +16,11 @@ module Mcmc.Internal.Gamma
   )
 where
 
+import Data.Typeable
 import qualified Data.Vector as VB
 import Numeric.Polynomial
+import Numeric.SpecFunctions
+import Unsafe.Coerce
 
 mSqrtEps :: RealFloat a => a
 mSqrtEps = 1.4901161193847656e-8
@@ -25,9 +28,15 @@ mSqrtEps = 1.4901161193847656e-8
 mEulerMascheroni :: RealFloat a => a
 mEulerMascheroni = 0.5772156649015328606065121
 
--- | See 'Numeric.SpecFunctions.logGamma'.
-logGammaG :: RealFloat a => a -> a
+logGammaG :: (Typeable a, RealFloat a) => a -> a
 logGammaG z
+  | typeOf z == typeOf (0 :: Double) = unsafeCoerce logGamma z
+  | otherwise = logGammaNonDouble z
+{-# SPECIALIZE logGammaG :: Double -> Double #-}
+
+-- | See 'Numeric.SpecFunctions.logGamma'.
+logGammaNonDouble :: RealFloat a => a -> a
+logGammaNonDouble z
   | z <= 0 = 1 / 0
   | z < mSqrtEps = log (1 / z - mEulerMascheroni)
   | z < 0.5 = lgamma1_15 z (z - 1) - log z
@@ -36,7 +45,6 @@ logGammaG z
   | z < 2 = lgamma15_2 (z - 1) (z - 2)
   | z < 15 = lgammaSmall z
   | otherwise = lanczosApprox z
-{-# SPECIALIZE logGammaG :: Double -> Double #-}
 
 lgamma1_15 :: RealFloat a => a -> a -> a
 lgamma1_15 zm1 zm2 =
