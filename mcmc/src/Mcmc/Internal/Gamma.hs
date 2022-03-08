@@ -30,7 +30,7 @@ mEulerMascheroni = 0.5772156649015328606065121
 
 logGammaG :: (Typeable a, RealFloat a) => a -> a
 logGammaG z
-  | typeOf z == typeOf (0 :: Double) = unsafeCoerce logGamma z
+  | typeOf z == typeOf (0 :: Double) = unsafeCoerce $ logGamma $ unsafeCoerce z
   | otherwise = logGammaNonDouble z
 {-# SPECIALIZE logGammaG :: Double -> Double #-}
 
@@ -39,25 +39,25 @@ logGammaNonDouble :: RealFloat a => a -> a
 logGammaNonDouble z
   | z <= 0 = 1 / 0
   | z < mSqrtEps = log (1 / z - mEulerMascheroni)
-  | z < 0.5 = lgamma1_15 z (z - 1) - log z
-  | z < 1 = lgamma15_2 z (z - 1) - log z
-  | z <= 1.5 = lgamma1_15 (z - 1) (z - 2)
-  | z < 2 = lgamma15_2 (z - 1) (z - 2)
-  | z < 15 = lgammaSmall z
-  | otherwise = lanczosApprox z
+  | z < 0.5 = lgamma1_15G z (z - 1) - log z
+  | z < 1 = lgamma15_2G z (z - 1) - log z
+  | z <= 1.5 = lgamma1_15G (z - 1) (z - 2)
+  | z < 2 = lgamma15_2G (z - 1) (z - 2)
+  | z < 15 = lgammaSmallG z
+  | otherwise = lanczosApproxG z
 
-lgamma1_15 :: RealFloat a => a -> a -> a
-lgamma1_15 zm1 zm2 =
+lgamma1_15G :: RealFloat a => a -> a -> a
+lgamma1_15G zm1 zm2 =
   r * y + r
-    * ( evaluatePolynomial zm1 tableLogGamma_1_15P
-          / evaluatePolynomial zm1 tableLogGamma_1_15Q
+    * ( evaluatePolynomial zm1 tableLogGamma_1_15PG
+          / evaluatePolynomial zm1 tableLogGamma_1_15QG
       )
   where
     r = zm1 * zm2
     y = 0.52815341949462890625
 
-tableLogGamma_1_15P :: RealFloat a => VB.Vector a
-tableLogGamma_1_15P =
+tableLogGamma_1_15PG :: RealFloat a => VB.Vector a
+tableLogGamma_1_15PG =
   VB.fromList
     [ 0.490622454069039543534e-1,
       -0.969117530159521214579e-1,
@@ -67,10 +67,10 @@ tableLogGamma_1_15P =
       -0.240149820648571559892e-1,
       -0.100346687696279557415e-2
     ]
-{-# NOINLINE tableLogGamma_1_15P #-}
+{-# NOINLINE tableLogGamma_1_15PG #-}
 
-tableLogGamma_1_15Q :: RealFloat a => VB.Vector a
-tableLogGamma_1_15Q =
+tableLogGamma_1_15QG :: RealFloat a => VB.Vector a
+tableLogGamma_1_15QG =
   VB.fromList
     [ 1,
       0.302349829846463038743e1,
@@ -80,20 +80,20 @@ tableLogGamma_1_15Q =
       0.577039722690451849648e-1,
       0.195768102601107189171e-2
     ]
-{-# NOINLINE tableLogGamma_1_15Q #-}
+{-# NOINLINE tableLogGamma_1_15QG #-}
 
-lgamma15_2 :: RealFloat a => a -> a -> a
-lgamma15_2 zm1 zm2 =
+lgamma15_2G :: RealFloat a => a -> a -> a
+lgamma15_2G zm1 zm2 =
   r * y + r
-    * ( evaluatePolynomial (-zm2) tableLogGamma_15_2P
-          / evaluatePolynomial (-zm2) tableLogGamma_15_2Q
+    * ( evaluatePolynomial (-zm2) tableLogGamma_15_2PG
+          / evaluatePolynomial (-zm2) tableLogGamma_15_2QG
       )
   where
     r = zm1 * zm2
     y = 0.452017307281494140625
 
-tableLogGamma_15_2P :: RealFloat a => VB.Vector a
-tableLogGamma_15_2P =
+tableLogGamma_15_2PG :: RealFloat a => VB.Vector a
+tableLogGamma_15_2PG =
   VB.fromList
     [ -0.292329721830270012337e-1,
       0.144216267757192309184e0,
@@ -102,10 +102,10 @@ tableLogGamma_15_2P =
       -0.850535976868336437746e-2,
       0.431171342679297331241e-3
     ]
-{-# NOINLINE tableLogGamma_15_2P #-}
+{-# NOINLINE tableLogGamma_15_2PG #-}
 
-tableLogGamma_15_2Q :: RealFloat a => VB.Vector a
-tableLogGamma_15_2Q =
+tableLogGamma_15_2QG :: RealFloat a => VB.Vector a
+tableLogGamma_15_2QG =
   VB.fromList
     [ 1,
       -0.150169356054485044494e1,
@@ -115,30 +115,30 @@ tableLogGamma_15_2Q =
       -0.100666795539143372762e-2,
       -0.827193521891290553639e-6
     ]
-{-# NOINLINE tableLogGamma_15_2Q #-}
+{-# NOINLINE tableLogGamma_15_2QG #-}
 
-lgammaSmall :: RealFloat a => a -> a
-lgammaSmall = go 0
+lgammaSmallG :: RealFloat a => a -> a
+lgammaSmallG = go 0
   where
     go acc z
-      | z < 3 = acc + lgamma2_3 z
+      | z < 3 = acc + lgamma2_3G z
       | otherwise = go (acc + log zm1) zm1
       where
         zm1 = z - 1
 
-lgamma2_3 :: RealFloat a => a -> a
-lgamma2_3 z =
+lgamma2_3G :: RealFloat a => a -> a
+lgamma2_3G z =
   r * y + r
-    * ( evaluatePolynomial zm2 tableLogGamma_2_3P
-          / evaluatePolynomial zm2 tableLogGamma_2_3Q
+    * ( evaluatePolynomial zm2 tableLogGamma_2_3PG
+          / evaluatePolynomial zm2 tableLogGamma_2_3QG
       )
   where
     r = zm2 * (z + 1)
     zm2 = z - 2
     y = 0.158963680267333984375e0
 
-tableLogGamma_2_3P :: RealFloat a => VB.Vector a
-tableLogGamma_2_3P =
+tableLogGamma_2_3PG :: RealFloat a => VB.Vector a
+tableLogGamma_2_3PG =
   VB.fromList
     [ -0.180355685678449379109e-1,
       0.25126649619989678683e-1,
@@ -148,10 +148,10 @@ tableLogGamma_2_3P =
       -0.541009869215204396339e-3,
       -0.324588649825948492091e-4
     ]
-{-# NOINLINE tableLogGamma_2_3P #-}
+{-# NOINLINE tableLogGamma_2_3PG #-}
 
-tableLogGamma_2_3Q :: RealFloat a => VB.Vector a
-tableLogGamma_2_3Q =
+tableLogGamma_2_3QG :: RealFloat a => VB.Vector a
+tableLogGamma_2_3QG =
   VB.fromList
     [ 1,
       0.196202987197795200688e1,
@@ -162,17 +162,17 @@ tableLogGamma_2_3Q =
       0.224936291922115757597e-3,
       -0.223352763208617092964e-6
     ]
-{-# NOINLINE tableLogGamma_2_3Q #-}
+{-# NOINLINE tableLogGamma_2_3QG #-}
 
-lanczosApprox :: RealFloat a => a -> a
-lanczosApprox z =
+lanczosApproxG :: RealFloat a => a -> a
+lanczosApproxG z =
   (log (z + g - 0.5) - 1) * (z - 0.5)
-    + log (evalRatio tableLanczos z)
+    + log (evalRatioG tableLanczosG z)
   where
     g = 6.024680040776729583740234375
 
-tableLanczos :: RealFloat a => VB.Vector (a, a)
-tableLanczos =
+tableLanczosG :: RealFloat a => VB.Vector (a, a)
+tableLanczosG =
   VB.fromList
     [ (56906521.91347156388090791033559122686859, 0),
       (103794043.1163445451906271053616070238554, 39916800),
@@ -188,16 +188,16 @@ tableLanczos =
       (0.5098416655656676188125178644804694509993, 66),
       (0.006061842346248906525783753964555936883222, 1)
     ]
-{-# NOINLINE tableLanczos #-}
+{-# NOINLINE tableLanczosG #-}
 
-data L a = L !a !a
+data LG a = LG !a !a
 
-evalRatio :: RealFloat a => VB.Vector (a, a) -> a -> a
-evalRatio coef x
-  | x > 1 = fini $ VB.foldl' stepL (L 0 0) coef
-  | otherwise = fini $ VB.foldr' stepR (L 0 0) coef
+evalRatioG :: RealFloat a => VB.Vector (a, a) -> a -> a
+evalRatioG coef x
+  | x > 1 = fini $ VB.foldl' stepL (LG 0 0) coef
+  | otherwise = fini $ VB.foldr' stepR (LG 0 0) coef
   where
-    fini (L num den) = num / den
-    stepR (a, b) (L num den) = L (num * x + a) (den * x + b)
-    stepL (L num den) (a, b) = L (num * rx + a) (den * rx + b)
+    fini (LG num den) = num / den
+    stepR (a, b) (LG num den) = LG (num * x + a) (den * x + b)
+    stepL (LG num den) (a, b) = LG (num * rx + a) (den * rx + b)
     rx = recip x
