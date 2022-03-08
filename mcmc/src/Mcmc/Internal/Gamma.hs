@@ -22,11 +22,11 @@ import Numeric.Polynomial
 import Numeric.SpecFunctions
 import Unsafe.Coerce
 
-mSqrtEps :: RealFloat a => a
-mSqrtEps = 1.4901161193847656e-8
+mSqrtEpsG :: RealFloat a => a
+mSqrtEpsG = 1.4901161193847656e-8
 
-mEulerMascheroni :: RealFloat a => a
-mEulerMascheroni = 0.5772156649015328606065121
+mEulerMascheroniG :: RealFloat a => a
+mEulerMascheroniG = 0.5772156649015328606065121
 
 logGammaG :: (Typeable a, RealFloat a) => a -> a
 logGammaG z
@@ -38,7 +38,7 @@ logGammaG z
 logGammaNonDouble :: RealFloat a => a -> a
 logGammaNonDouble z
   | z <= 0 = 1 / 0
-  | z < mSqrtEps = log (1 / z - mEulerMascheroni)
+  | z < mSqrtEpsG = log (1 / z - mEulerMascheroniG)
   | z < 0.5 = lgamma1_15G z (z - 1) - log z
   | z < 1 = lgamma15_2G z (z - 1) - log z
   | z <= 1.5 = lgamma1_15G (z - 1) (z - 2)
