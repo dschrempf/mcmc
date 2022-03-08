@@ -30,7 +30,7 @@ mEulerMascheroniG = 0.5772156649015328606065121
 
 logGammaG :: (Typeable a, RealFloat a) => a -> a
 logGammaG z
-  | typeOf z == typeOf (0 :: Double) = unsafeCoerce $ logGamma $ unsafeCoerce z
+  | typeOf z == typeOf (0 :: Double) = unsafeCoerce logGamma z
   | otherwise = logGammaNonDouble z
 {-# SPECIALIZE logGammaG :: Double -> Double #-}
 
