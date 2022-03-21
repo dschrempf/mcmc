@@ -23,8 +23,9 @@ where
 
 import Control.Monad
 import Control.Monad.IO.Class
-import qualified Control.Monad.Parallel as P
+import Control.Concurrent.Async hiding (link)
 import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Class
 import Data.Aeson
 import Data.List hiding (cycle)
 import qualified Data.Map.Strict as M
@@ -277,11 +278,11 @@ tiWrapper s prf lhf cc mn i0 g = do
   [g0, g1] <- splitGen 2 g
 
   -- Parallel execution of both path integrals.
-  [lhssForward, lhssBackward] <-
-    P.sequence
-      [ mlRun k bsForward em vb prf lhf cc mn i0 g0,
-        mlRun k bsBackward em vb prf lhf cc mn i0 g1
-      ]
+  r <- ask
+  (lhssForward, lhssBackward) <- lift $
+      concurrently
+      (runReaderT (mlRun k bsForward em vb prf lhf cc mn i0 g0) r)
+      (runReaderT (mlRun k bsBackward em vb prf lhf cc mn i0 g1) r)
   logInfoEndTime
 
   logDebugB "tiWrapper: Calculate mean log likelihoods."

@@ -49,8 +49,8 @@ module Mcmc.Algorithm.MC3
 where
 
 import Codec.Compression.GZip
+import Control.Concurrent.Async hiding (link)
 import Control.Monad
-import qualified Control.Monad.Parallel as P
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Builder as BB
@@ -448,9 +448,8 @@ mc3Iterate pm a = do
   mhgs <- case pm of
     Sequential -> V.mapM (aIterate pm) (mc3MHGChains a')
     Parallel ->
-      -- See 'Control.Monad.Parallel' of package 'monad-parallel'. Go via a
-      -- list, and use 'forkIO'.
-      V.fromList <$> P.mapM (aIterate pm) (V.toList $ mc3MHGChains a')
+      -- Go via a list, and use 'forkIO' ("Control.Concurrent.Async").
+      V.fromList <$> mapConcurrently (aIterate pm) (V.toList $ mc3MHGChains a')
   let i = mc3Iteration a'
   return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
 
