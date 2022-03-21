@@ -5,6 +5,11 @@
 ## Unreleased changes
 
 
+## 0.6.2.2
+
+-   Remove dependency `monad-parallel`. Fix stackage build.
+
+
 ## 0.6.2.1
 
 -   Improve `logGammaG`. The calculation of the gamma function involves vectors;
