@@ -140,7 +140,7 @@ dirichletSimple t (SimplexUnsafe xs) g = do
 -- For high dimensional simplices, this proposal may have low acceptance rates.
 -- In this case, please see the coordinate wise 'beta' proposal.
 dirichlet :: PDimension -> PName -> PWeight -> Tune -> Proposal Simplex
-dirichlet = createProposal (PDescription "Dirichlet") dirichletSimple
+dirichlet = createProposal (PDescription "Dirichlet") dirichletSimple PFast
 
 -- The tuning parameter is the inverted mean of the shape values.
 --
@@ -206,6 +206,6 @@ betaSimple i t (SimplexUnsafe xs) g = do
 -- This proposal has been assigned a dimension of 2. See the discussion at
 -- 'PDimension'.
 beta :: Dimension -> PName -> PWeight -> Tune -> Proposal Simplex
-beta i = createProposal description (betaSimple i) (PDimension 2)
+beta i = createProposal description (betaSimple i) PFast (PDimension 2)
   where
     description = PDescription $ "Beta; coordinate: " ++ show i

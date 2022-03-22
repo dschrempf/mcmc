@@ -20,6 +20,7 @@ module Mcmc.Proposal
     PWeight (fromPWeight),
     pWeight,
     PDimension (..),
+    PSpeed (..),
     Proposal (..),
     KernelRatio,
     Jacobian,
@@ -90,6 +91,9 @@ pWeight n
 --
 -- The number of affected, independent parameters.
 --
+-- The dimension is used to calculate the optimal acceptance rate, and does not
+-- have to be exact.
+--
 -- Usually, the optimal acceptance rate of low dimensional proposals is higher
 -- than for high dimensional ones. However, this is not always true (see below).
 --
@@ -131,6 +135,15 @@ data PDimension
   | -- | Provide dimension ('Int') and desired acceptance rate ('Double').
     PSpecial Int Double
 
+-- | Rough indication whether a proposal is fast or slow.
+--
+-- Useful during burn in. Slow proposals are not executed during fast auto
+-- tuning periods.
+--
+-- See 'Mcmc.Settings.BurnInSettings'.
+data PSpeed = PFast | PSlow
+  deriving (Eq)
+
 -- | A 'Proposal' is an instruction about how the Markov chain will traverse the
 -- state space @a@. Essentially, it is a probability mass or probability density
 -- conditioned on the current state (i.e., a Markov kernel).
@@ -146,8 +159,7 @@ data Proposal a = Proposal
     prName :: PName,
     -- | Description of the proposal type and parameters.
     prDescription :: PDescription,
-    -- | Dimension of the proposal. The dimension is used to calculate the
-    -- optimal acceptance rate, and does not have to be exact.
+    prSpeed :: PSpeed,
     prDimension :: PDimension,
     -- | The weight determines how often a 'Proposal' is executed per iteration of
     -- the Markov chain.
@@ -212,8 +224,8 @@ liftProposal = liftProposalWith (const 1.0)
 -- For further reference, please see the [example
 -- @Pair@](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Pair/Pair.hs).
 liftProposalWith :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
-liftProposalWith jf l (Proposal n r d w s t) =
-  Proposal n r d w (liftProposalSimpleWith jf l s) (liftTunerWith jf l <$> t)
+liftProposalWith jf l (Proposal n r d p w s t) =
+  Proposal n r d p w (liftProposalSimpleWith jf l s) (liftTunerWith jf l <$> t)
 
 -- | Simple proposal without tuning information.
 --
@@ -256,6 +268,8 @@ createProposal ::
   PDescription ->
   -- | Function creating a simple proposal for a given tuning parameter.
   (TuningParameter -> ProposalSimple a) ->
+  -- | Speed.
+  PSpeed ->
   -- | Dimension.
   PDimension ->
   -- | Name.
@@ -265,15 +279,15 @@ createProposal ::
   -- | Activate tuning?
   Tune ->
   Proposal a
-createProposal r f d n w Tune =
-  Proposal n r d w (f 1.0) (Just tuner)
+createProposal r f s d n w Tune =
+  Proposal n r s d w (f 1.0) (Just tuner)
   where
     fT = defaultTuningFunctionWith d
     fTs = noAuxiliaryTuningFunction
     g t _ = Right $ f t
     tuner = Tuner 1.0 fT VU.empty fTs g
-createProposal r f d n w NoTune =
-  Proposal n r d w (f 1.0) Nothing
+createProposal r f s d n w NoTune =
+  Proposal n r s d w (f 1.0) Nothing
 
 -- | Required information to tune 'Proposal's.
 data Tuner a = Tuner

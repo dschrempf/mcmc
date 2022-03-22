@@ -1,5 +1,9 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- Allow burn in with fast proposals only (=BurnInWithCustomAutoTUning=).
+  Sometimes it is advantageous to hold back slow proposals initially, especially
+  when the state is so far off that it does not make sense to compute complex
+  proposals.
 
 ** 0.6.2.2
 - Remove dependency =monad-parallel=. Fix stackage build.

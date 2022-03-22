@@ -40,7 +40,7 @@ slide ::
   PWeight ->
   Tune ->
   Proposal Double
-slide m s = createProposal description (slideSimple m s) (PDimension 1)
+slide m s = createProposal description (slideSimple m s) PFast (PDimension 1)
   where
     description = PDescription $ "Slide; mean: " ++ show m ++ ", sd: " ++ show s
 
@@ -60,7 +60,7 @@ slideSymmetric ::
   PWeight ->
   Tune ->
   Proposal Double
-slideSymmetric s = createProposal description (slideSymmetricSimple s) (PDimension 1)
+slideSymmetric s = createProposal description (slideSymmetricSimple s) PFast (PDimension 1)
   where
     description = PDescription $ "Slide symmetric; sd: " ++ show s
 
@@ -80,7 +80,7 @@ slideUniformSymmetric ::
   PWeight ->
   Tune ->
   Proposal Double
-slideUniformSymmetric d = createProposal description (slideUniformSimple d) (PDimension 1)
+slideUniformSymmetric d = createProposal description (slideUniformSimple d) PFast (PDimension 1)
   where
     description = PDescription $ "Slide uniform symmetric; delta: " ++ show d
 
@@ -108,6 +108,6 @@ slideContrarily ::
   PWeight ->
   Tune ->
   Proposal (Double, Double)
-slideContrarily m s = createProposal description (slideContrarilySimple m s) (PDimension 2)
+slideContrarily m s = createProposal description (slideContrarilySimple m s) PFast (PDimension 2)
   where
     description = PDescription $ "Slide contrarily; mean: " ++ show m ++ ", sd: " ++ show s

@@ -90,7 +90,7 @@ slideBactrian ::
   PWeight ->
   Tune ->
   Proposal Double
-slideBactrian m s = createProposal description (bactrianAdditiveSimple m s) (PDimension 1)
+slideBactrian m s = createProposal description (bactrianAdditiveSimple m s) PFast (PDimension 1)
   where
     description = PDescription $ "Slide Bactrian; spike: " ++ show m ++ ", sd: " ++ show s
 
@@ -137,6 +137,6 @@ scaleBactrian ::
   PWeight ->
   Tune ->
   Proposal Double
-scaleBactrian m s = createProposal description (bactrianMultSimple m s) (PDimension 1)
+scaleBactrian m s = createProposal description (bactrianMultSimple m s) PFast (PDimension 1)
   where
     description = PDescription $ "Scale Bactrian; spike: " ++ show m <> ", sd: " <> show s

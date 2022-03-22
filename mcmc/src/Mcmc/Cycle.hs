@@ -18,6 +18,7 @@ module Mcmc.Cycle
     Cycle (ccProposals),
     cycleFromList,
     setOrder,
+    IterationMode (..),
     prepareProposals,
     autoTuneCycle,
 
@@ -116,9 +117,13 @@ cycleFromList xs =
 setOrder :: Order -> Cycle a -> Cycle a
 setOrder o c = c {ccOrder = o}
 
+-- | Use all proposals, or use fast proposals only?
+data IterationMode = AllProposals | FastProposals
+  deriving (Eq)
+
 -- | Replicate 'Proposal's according to their weights and possibly shuffle them.
-prepareProposals :: Cycle a -> GenIO -> IO [Proposal a]
-prepareProposals (Cycle xs o) g = case o of
+prepareProposals :: IterationMode -> Cycle a -> GenIO -> IO [Proposal a]
+prepareProposals m (Cycle xs o) g = case o of
   RandomO -> shuffle ps g
   SequentialO -> return ps
   RandomReversibleO -> do
@@ -126,7 +131,15 @@ prepareProposals (Cycle xs o) g = case o of
     return $ psR ++ reverse psR
   SequentialReversibleO -> return $ ps ++ reverse ps
   where
-    !ps = concat [replicate (fromPWeight $ prWeight p) p | p <- xs]
+    !ps =
+      concat
+        [ replicate (fromPWeight $ prWeight p) p
+          | p <- xs,
+            case m of
+              AllProposals -> True
+              -- Only use proposal if it is fast.
+              FastProposals -> prSpeed p == PFast
+        ]
 
 -- The number of proposals depends on the order.
 getNProposalsPerCycle :: Cycle a -> Int

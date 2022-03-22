@@ -26,6 +26,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Mcmc.Algorithm
+import Mcmc.Cycle
 import Mcmc.Environment
 import Mcmc.Logger
 import Mcmc.Settings
@@ -88,17 +89,17 @@ mcmcExecuteMonitors a = do
   mStdLog <- liftIO $ mask_ $ aExecuteMonitors vb t0 iTotal a
   forM_ mStdLog (logOutB "   ")
 
-mcmcIterate :: Algorithm a => Int -> a -> MCMC a
-mcmcIterate n a
+mcmcIterate :: Algorithm a => IterationMode -> Int -> a -> MCMC a
+mcmcIterate m n a
   | n < 0 = error "mcmcIterate: Number of iterations is negative."
   | n == 0 = return a
   | otherwise = do
       e <- ask
       p <- sParallelizationMode . settings <$> ask
       -- NOTE: User interrupt is handled during iterations.
-      a' <- liftIO $ catch (aIterate p a) (mcmcExceptionHandler e a)
+      a' <- liftIO $ catch (aIterate m p a) (mcmcExceptionHandler e a)
       mcmcExecuteMonitors a'
-      mcmcIterate (n - 1) a'
+      mcmcIterate m (n - 1) a'
 
 mcmcNewRun :: Algorithm a => a -> MCMC a
 mcmcNewRun a = do
@@ -113,7 +114,7 @@ mcmcNewRun a = do
   let i = fromIterations $ sIterations s
   logInfoS $ "Run chain for " ++ show i ++ " iterations."
   logInfoB $ aStdMonitorHeader a'
-  mcmcIterate i a'
+  mcmcIterate AllProposals i a'
 
 mcmcContinueRun :: Algorithm a => a -> MCMC a
 mcmcContinueRun a = do
@@ -132,7 +133,7 @@ mcmcContinueRun a = do
   logInfoB $ aSummarizeCycle a
   logInfoS $ "Run chain for " ++ show di ++ " iterations."
   logInfoB $ aStdMonitorHeader a
-  mcmcIterate di a
+  mcmcIterate AllProposals di a
 
 mcmcBurnIn :: Algorithm a => a -> MCMC a
 mcmcBurnIn a = do
@@ -145,7 +146,7 @@ mcmcBurnIn a = do
       logInfoS $ "Burn in for " <> show n <> " iterations."
       logInfoS "Auto tuning is disabled."
       logInfoB $ aStdMonitorHeader a
-      a' <- mcmcIterate n a
+      a' <- mcmcIterate AllProposals n a
       logInfoB $ aSummarizeCycle a'
       a'' <- mcmcResetAcceptance a'
       logInfoB "Burn in finished."
@@ -158,16 +159,23 @@ mcmcBurnIn a = do
           -- Don't add another auto tune period if r == 0, because then we auto
           -- tune without acceptance counts and get NaNs.
           xs = replicate m t <> [r | r > 0]
-      a' <- mcmcBurnInWithAutoTuning xs a
+      a' <- mcmcBurnInWithAutoTuning AllProposals xs a
       logInfoB "Burn in finished."
       return a'
-    BurnInWithCustomAutoTuning xs -> do
-      logInfoS $ "Burn in for " ++ show (sum xs) ++ " iterations."
-      logInfoS $ "Custom auto tuning is enabled with periods " ++ show xs ++ "."
+    BurnInWithCustomAutoTuning xs ys -> do
+      logInfoS $ "Burn in for " ++ show (sum xs + sum ys) ++ " iterations."
+      a' <-
+        if null xs
+          then pure a
+          else do
+            logInfoS $ "Fast custom auto tuning with periods " ++ show xs ++ "."
+            logInfoB $ aStdMonitorHeader a
+            mcmcBurnInWithAutoTuning FastProposals xs a
+      logInfoS $ "Full custom auto tuning with periods " ++ show ys ++ "."
       logInfoB $ aStdMonitorHeader a
-      a' <- mcmcBurnInWithAutoTuning xs a
+      a'' <- mcmcBurnInWithAutoTuning AllProposals ys a'
       logInfoB "Burn in finished."
-      return a'
+      return a''
 
 -- Auto tune the proposals.
 mcmcAutotune :: Algorithm a => Int -> a -> MCMC a
@@ -175,23 +183,23 @@ mcmcAutotune n a = do
   logDebugB "Auto tune."
   liftIO $ aAutoTune n a
 
-mcmcBurnInWithAutoTuning :: Algorithm a => [Int] -> a -> MCMC a
-mcmcBurnInWithAutoTuning [] _ = error "mcmcBurnInWithAutoTuning: Empty list."
-mcmcBurnInWithAutoTuning [x] a = do
+mcmcBurnInWithAutoTuning :: Algorithm a => IterationMode -> [Int] -> a -> MCMC a
+mcmcBurnInWithAutoTuning _ [] _ = error "mcmcBurnInWithAutoTuning: Empty list."
+mcmcBurnInWithAutoTuning m [x] a = do
   -- Last round.
-  a' <- mcmcIterate x a
+  a' <- mcmcIterate m x a
   a'' <- mcmcAutotune x a'
   logInfoB $ aSummarizeCycle a''
   logInfoS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   mcmcResetAcceptance a''
-mcmcBurnInWithAutoTuning (x : xs) a = do
-  a' <- mcmcIterate x a
+mcmcBurnInWithAutoTuning m (x : xs) a = do
+  a' <- mcmcIterate m x a
   a'' <- mcmcAutotune x a'
   logDebugB $ aSummarizeCycle a''
   logDebugS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   logDebugB $ aStdMonitorHeader a''
   a''' <- mcmcResetAcceptance a''
-  mcmcBurnInWithAutoTuning xs a'''
+  mcmcBurnInWithAutoTuning m xs a'''
 
 mcmcInitialize :: Algorithm a => a -> MCMC a
 mcmcInitialize a = do

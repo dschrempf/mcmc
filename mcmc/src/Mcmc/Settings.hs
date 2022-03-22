@@ -69,15 +69,24 @@ data BurnInSettings
   | -- | Burn in for a given number of iterations. Enable auto tuning with a
     -- given period.
     BurnInWithAutoTuning Int Int
-  | -- | Burn in with the given list of auto tuning periods.
+  | -- | Burn in with the given list of fast and full auto tuning periods.
     --
-    -- For example, @BurnInWithCustomAutoTuning [100,200]@ performs 300
-    -- iterations with two auto tuning steps. One after 100 iterations, the
-    -- second one after 200 more iterations.
+    -- The list of fast auto tuning periods may be empty. All periods have to be
+    -- strictly positive.
+    --
+    -- See also 'Mcmc.Proposals.PSpeed'.
+    --
+    -- For example, @BurnInWithCustomAutoTuning [50] [100,200]@ performs
+    -- 1a. 50 iterations without any slow proposals such as Hamiltonian proposals;
+    -- 1b. Auto tuning;
+    -- 2a. 100 iterations with all proposals;
+    -- 2b Auto tuning;
+    -- 3a. 200 iterations with all proposals;
+    -- 3b. Auto tuning.
     --
     -- Usually it is useful to auto tune more frequently in the beginning of the
     -- MCMC run.
-    BurnInWithCustomAutoTuning [Int]
+    BurnInWithCustomAutoTuning [Int] [Int]
   deriving (Eq, Read, Show)
 
 $(deriveJSON defaultOptions ''BurnInSettings)
@@ -89,22 +98,24 @@ burnInPrettyPrint (BurnInWithoutAutoTuning x) =
   bsInt x <> " iterations; no auto tune."
 burnInPrettyPrint (BurnInWithAutoTuning x y) =
   bsInt x <> " iterations; auto tune with a period of " <> bsInt y <> "."
-burnInPrettyPrint (BurnInWithCustomAutoTuning xs) =
-  bsInt (sum xs) <> " iterations; custom auto tune periods."
+burnInPrettyPrint (BurnInWithCustomAutoTuning xs ys) =
+  bsInt (sum xs) <> " fast," <> bsInt (sum ys) <> " slow iterations; custom auto tune periods."
 
 -- Check if the burn in settings are valid.
 burnInValid :: BurnInSettings -> Bool
 burnInValid NoBurnIn = True
 burnInValid (BurnInWithoutAutoTuning n) = n > 0
 burnInValid (BurnInWithAutoTuning n t) = n > 0 && t > 0
-burnInValid (BurnInWithCustomAutoTuning xs) = not (null xs) && all (> 0) xs
+-- The list of fast auto tuning periods may be empty, the list of full auto
+-- tuning periods must be non-empty. All periods have to be strictly positive.
+burnInValid (BurnInWithCustomAutoTuning xs ys) = all (> 0) xs && not (null ys) && all (> 0) ys
 
 -- | Get the number of burn in iterations.
 burnInIterations :: BurnInSettings -> Int
 burnInIterations NoBurnIn = 0
 burnInIterations (BurnInWithoutAutoTuning n) = n
 burnInIterations (BurnInWithAutoTuning n _) = n
-burnInIterations (BurnInWithCustomAutoTuning xs) = sum xs
+burnInIterations (BurnInWithCustomAutoTuning xs ys) = sum xs + sum ys
 
 -- | Number of normal iterations after burn in.
 --

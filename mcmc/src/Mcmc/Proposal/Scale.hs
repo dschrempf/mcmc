@@ -52,7 +52,7 @@ scale ::
   PWeight ->
   Tune ->
   Proposal Double
-scale k th = createProposal description (scaleSimple k th) (PDimension 1)
+scale k th = createProposal description (scaleSimple k th) PFast (PDimension 1)
   where
     description = PDescription $ "Scale; shape: " ++ show k ++ ", scale: " ++ show th
 
@@ -66,7 +66,7 @@ scaleUnbiased ::
   PWeight ->
   Tune ->
   Proposal Double
-scaleUnbiased k = createProposal description (scaleSimple k (1 / k)) (PDimension 1)
+scaleUnbiased k = createProposal description (scaleSimple k (1 / k)) PFast (PDimension 1)
   where
     description = PDescription $ "Scale unbiased; shape: " ++ show k
 
@@ -96,6 +96,6 @@ scaleContrarily ::
   PWeight ->
   Tune ->
   Proposal (Double, Double)
-scaleContrarily k th = createProposal description (scaleContrarilySimple k th) (PDimension 2)
+scaleContrarily k th = createProposal description (scaleContrarilySimple k th) PFast (PDimension 2)
   where
     description = PDescription $ "Scale contrariliy; shape: " ++ show k ++ ", scale: " ++ show th

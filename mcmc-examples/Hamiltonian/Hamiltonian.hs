@@ -80,9 +80,13 @@ lhf = Exp . llhf
 masses :: Masses
 masses = L.trustSym $ L.diag $ L.fromList $ replicate dimension 1.0
 
+initialState :: I
+initialState = VS.fromList $ replicate dimension 1
+
 hSettings :: HSettings I
 hSettings =
   HSettings
+    initialState
     VS.convert
     (const VS.convert)
     gradient
@@ -92,11 +96,8 @@ hSettings =
     0.05
     (HTune HTuneLeapfrog HTuneAllMasses)
 
-initialState :: I
-initialState = VS.fromList $ replicate dimension 1
-
 hamiltonianProposal :: Proposal I
-hamiltonianProposal = hamiltonian initialState hSettings n w
+hamiltonianProposal = hamiltonian hSettings n w
   where
     n = PName "Space"
     w = pWeight 1
@@ -124,7 +125,7 @@ main = do
   let s =
         Settings
           (AnalysisName "hamiltonian")
-          (BurnInWithCustomAutoTuning ([10, 20 .. 200] ++ replicate 5 500))
+          (BurnInWithCustomAutoTuning [] ([10, 20 .. 200] ++ replicate 5 500))
           (Iterations 10000)
           TraceAuto
           Overwrite

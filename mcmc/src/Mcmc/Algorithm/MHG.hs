@@ -96,7 +96,7 @@ mhg s pr lh cc mn i0 g = do
       TraceMinimum n -> n
     bi = case sBurnIn s of
       BurnInWithAutoTuning _ n -> n
-      BurnInWithCustomAutoTuning ns -> maximum ns
+      BurnInWithCustomAutoTuning ns ms -> max (maximum $ 0 : ns) (maximum $ 0 : ms)
       _ -> 0
     traceLength = maximum $ minimumTraceLength : bi : batchMonitorSizes
 
@@ -236,9 +236,9 @@ mhgIsInValidState a = check p || check l || check (p * l)
 -- algorithm is just inherently sequential. Parallelization can be achieved by
 -- having parallel prior and/or likelihood functions, or by using algorithms
 -- running parallel chains such as 'MC3'.
-mhgIterate :: ParallelizationMode -> MHG a -> IO (MHG a)
-mhgIterate _ a = do
-  ps <- prepareProposals cc g
+mhgIterate :: IterationMode -> ParallelizationMode -> MHG a -> IO (MHG a)
+mhgIterate m _ a = do
+  ps <- prepareProposals m cc g
   a' <- foldM mhgPropose a ps
   mhgPush a'
   where

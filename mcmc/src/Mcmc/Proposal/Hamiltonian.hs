@@ -212,7 +212,10 @@ data HTune = HTune HTuneLeapfrog HTuneMasses
 
 -- | Specifications of the Hamilton Monte Carlo proposal.
 data HSettings a = HSettings
-  { -- | Extract values to be manipulated by the Hamiltonian proposal from the
+  { -- | The sample state is used for error checks and to calculate the dimension
+    -- of the proposal.
+    hSample :: a,
+    -- | Extract values to be manipulated by the Hamiltonian proposal from the
     -- state.
     hToVector :: a -> Values,
     -- | Put those values back into the state.
@@ -225,8 +228,8 @@ data HSettings a = HSettings
     hTune :: HTune
   }
 
-checkHSettings :: Eq a => a -> HSettings a -> Maybe String
-checkHSettings x (HSettings toVec fromVec _ _ masses l eps _)
+checkHSettings :: Eq a => HSettings a -> Maybe String
+checkHSettings (HSettings x toVec fromVec _ _ masses l eps _)
   | any (<= 0) diagonalMasses = Just "checkHSettings: Some diagonal entries of the mass matrix are zero or negative."
   | nrows /= ncols = Just "checkHSettings: Mass matrix is not square."
   | fromVec x xVec /= x = Just "checkHSettings: 'fromVectorWith x (toVector x) /= x' for sample state."
@@ -456,7 +459,7 @@ hamiltonianSimpleWithMemoizedCovariance st dt x g = do
           kernelR = prPhi' / prPhi
        in return (fromVec x theta', kernelR, 1.0)
   where
-    (HSettings toVec fromVec gradient mVal masses l e _) = st
+    (HSettings _ toVec fromVec gradient mVal masses l e _) = st
     theta = toVec x
     lL = maximum [1 :: Int, floor $ (0.8 :: Double) * fromIntegral l]
     lR = maximum [lL, ceiling $ (1.2 :: Double) * fromIntegral l]
@@ -569,23 +572,20 @@ tuneAllMasses dim toVec xs ts
 -- | Hamiltonian Monte Carlo proposal.
 hamiltonian ::
   Eq a =>
-  -- | The sample state is used for error checks and to calculate the dimension
-  -- of the proposal.
-  a ->
   HSettings a ->
   PName ->
   PWeight ->
   Proposal a
-hamiltonian x s n w = case checkHSettings x s of
+hamiltonian s n w = case checkHSettings s of
   Just err -> error err
   Nothing ->
     let desc = PDescription "Hamiltonian Monte Carlo (HMC)"
         toVec = hToVector s
-        dim = (L.size $ toVec x)
+        dim = (L.size $ toVec $ hSample s)
         pDim = PSpecial dim 0.65
         ts = massesToTuningParameters (hMasses s)
         ps = hamiltonianSimple s
-        hamiltonianWith = Proposal n desc pDim w ps
+        hamiltonianWith = Proposal n desc PSlow pDim w ps
         tSet@(HTune tlf tms) = hTune s
         tFun = case tlf of
           HNoTuneLeapfrog -> noTuningFunction

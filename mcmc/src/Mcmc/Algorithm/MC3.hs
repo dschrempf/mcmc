@@ -426,10 +426,11 @@ mc3IsInValidState a = V.any aIsInValidState mhgs
 -- However, we have to take care of the mutable traces.
 mc3Iterate ::
   ToJSON a =>
+  IterationMode ->
   ParallelizationMode ->
   MC3 a ->
   IO (MC3 a)
-mc3Iterate pm a = do
+mc3Iterate m pm a = do
   -- 1. Maybe propose swaps.
   --
   -- NOTE: Swaps have to be proposed first, because the traces are automatically
@@ -446,10 +447,10 @@ mc3Iterate pm a = do
       else return a
   -- 2. Iterate all chains and increment iteration.
   mhgs <- case pm of
-    Sequential -> V.mapM (aIterate pm) (mc3MHGChains a')
+    Sequential -> V.mapM (aIterate m pm) (mc3MHGChains a')
     Parallel ->
       -- Go via a list, and use 'forkIO' ("Control.Concurrent.Async").
-      V.fromList <$> mapConcurrently (aIterate pm) (V.toList $ mc3MHGChains a')
+      V.fromList <$> mapConcurrently (aIterate m pm) (V.toList $ mc3MHGChains a')
   let i = mc3Iteration a'
   return $ a' {mc3MHGChains = mhgs, mc3Iteration = succ i}
 

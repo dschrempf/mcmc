@@ -16,6 +16,7 @@ where
 
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Time
+import Mcmc.Cycle
 import Mcmc.Settings
 
 -- | Class for algorithms used by MCMC samplers.
@@ -31,7 +32,7 @@ class Algorithm a where
   aIsInValidState :: a -> Bool
 
   -- | Sample the next state.
-  aIterate :: ParallelizationMode -> a -> IO a
+  aIterate :: IterationMode -> ParallelizationMode -> a -> IO a
 
   -- | Auto tune all proposals over the last N iterations.
   --
