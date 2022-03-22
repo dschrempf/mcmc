@@ -22,7 +22,7 @@ import qualified Data.Vector as VB
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
 import Mcmc
-import Numeric.AD (grad)
+import Numeric.AD.Double (grad)
 import qualified Numeric.LinearAlgebra as L
 import System.Random.MWC hiding (uniform)
 
