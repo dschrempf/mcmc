@@ -44,7 +44,7 @@ class Algorithm a where
   aResetAcceptance :: a -> a
 
   -- | Summarize the cycle.
-  aSummarizeCycle :: a -> BL.ByteString
+  aSummarizeCycle :: IterationMode -> a -> BL.ByteString
 
   -- | Open required monitor files and setup corresponding file handles.
   aOpenMonitors :: AnalysisName -> ExecutionMode -> a -> IO a

@@ -109,7 +109,6 @@ mcmcNewRun a = do
   logInfoB $ aStdMonitorHeader a
   mcmcExecuteMonitors a
   when (aIsInValidState a) (logWarnB "The initial state is invalid!")
-  logInfoB $ aSummarizeCycle a
   a' <- mcmcBurnIn a
   let i = fromIterations $ sIterations s
   logInfoS $ "Run chain for " ++ show i ++ " iterations."
@@ -130,7 +129,7 @@ mcmcContinueRun a = do
   logInfoS $ "Current iteration: " ++ show iCurrent ++ "."
   when (iCurrent < iBurnIn) $ error "mcmcContinueRun: Can not continue burn in."
   let di = iTotal - iCurrent
-  logInfoB $ aSummarizeCycle a
+  logInfoB $ aSummarizeCycle AllProposals a
   logInfoS $ "Run chain for " ++ show di ++ " iterations."
   logInfoB $ aStdMonitorHeader a
   mcmcIterate AllProposals di a
@@ -140,18 +139,21 @@ mcmcBurnIn a = do
   s <- reader settings
   case sBurnIn s of
     NoBurnIn -> do
+      logInfoB $ aSummarizeCycle AllProposals a
       logInfoS "No burn in."
       return a
     BurnInWithoutAutoTuning n -> do
+      logInfoB $ aSummarizeCycle AllProposals a
       logInfoS $ "Burn in for " <> show n <> " iterations."
       logInfoS "Auto tuning is disabled."
       logInfoB $ aStdMonitorHeader a
       a' <- mcmcIterate AllProposals n a
-      logInfoB $ aSummarizeCycle a'
+      logInfoB $ aSummarizeCycle AllProposals a'
       a'' <- mcmcResetAcceptance a'
       logInfoB "Burn in finished."
       return a''
     BurnInWithAutoTuning n t -> do
+      logInfoB $ aSummarizeCycle AllProposals a
       logInfoS $ "Burn in for " ++ show n ++ " iterations."
       logInfoS $ "Auto tuning is enabled with a period of " ++ show t ++ "."
       logInfoB $ aStdMonitorHeader a
@@ -166,8 +168,11 @@ mcmcBurnIn a = do
       logInfoS $ "Burn in for " ++ show (sum xs + sum ys) ++ " iterations."
       a' <-
         if null xs
-          then pure a
+          then do
+            logInfoB $ aSummarizeCycle AllProposals a
+            pure a
           else do
+            logInfoB $ aSummarizeCycle FastProposals a
             logInfoS $ "Fast custom auto tuning with periods " ++ show xs ++ "."
             logInfoB $ aStdMonitorHeader a
             mcmcBurnInWithAutoTuning FastProposals xs a
@@ -189,13 +194,13 @@ mcmcBurnInWithAutoTuning m [x] a = do
   -- Last round.
   a' <- mcmcIterate m x a
   a'' <- mcmcAutotune x a'
-  logInfoB $ aSummarizeCycle a''
+  logInfoB $ aSummarizeCycle m a''
   logInfoS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   mcmcResetAcceptance a''
 mcmcBurnInWithAutoTuning m (x : xs) a = do
   a' <- mcmcIterate m x a
   a'' <- mcmcAutotune x a'
-  logDebugB $ aSummarizeCycle a''
+  logDebugB $ aSummarizeCycle m a''
   logDebugS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   logDebugB $ aStdMonitorHeader a''
   a''' <- mcmcResetAcceptance a''
@@ -229,7 +234,7 @@ mcmcSave a = do
 mcmcClose :: Algorithm a => a -> MCMC a
 mcmcClose a = do
   logDebugB "Closing MCMC run."
-  logInfoB $ aSummarizeCycle a
+  logInfoB $ aSummarizeCycle AllProposals a
   logInfoS $ aName a ++ " algorithm finished."
   mcmcSave a
   logInfoEndTime

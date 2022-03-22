@@ -142,14 +142,17 @@ prepareProposals m (Cycle xs o) g = case o of
         ]
 
 -- The number of proposals depends on the order.
-getNProposalsPerCycle :: Cycle a -> Int
-getNProposalsPerCycle (Cycle xs o) = case o of
+getNProposalsPerCycle :: IterationMode -> Cycle a -> Int
+getNProposalsPerCycle m (Cycle xs o) = case o of
   RandomO -> once
   SequentialO -> once
   RandomReversibleO -> 2 * once
   SequentialReversibleO -> 2 * once
   where
-    once = sum $ map (fromPWeight . prWeight) xs
+    xs' = case m of
+      AllProposals -> xs
+      FastProposals -> filter (\x -> prSpeed x == PFast) xs
+    once = sum $ map (fromPWeight . prWeight) xs'
 
 -- See 'tuneWithTuningParameters' and 'Tuner'.
 tuneWithChainParameters :: AcceptanceRate -> VB.Vector a -> Proposal a -> Either String (Proposal a)
@@ -180,8 +183,8 @@ proposalHLine :: BL.ByteString
 proposalHLine = BL.replicate (BL.length proposalHeader) '-'
 
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance rates.
-summarizeCycle :: Acceptance (Proposal a) -> Cycle a -> BL.ByteString
-summarizeCycle a c =
+summarizeCycle :: IterationMode -> Acceptance (Proposal a) -> Cycle a -> BL.ByteString
+summarizeCycle m a c =
   BL.intercalate "\n" $
     [ "Summary of proposal(s) in cycle.",
       nProposalsFullStr,
@@ -201,9 +204,9 @@ summarizeCycle a c =
       ++ [proposalHLine]
   where
     ps = ccProposals c
-    nProposals = getNProposalsPerCycle c
+    nProposals = getNProposalsPerCycle m c
     nProposalsStr = BB.toLazyByteString $ BB.intDec nProposals
     nProposalsFullStr = case nProposals of
       1 -> nProposalsStr <> " proposal is performed per iteration."
       _ -> nProposalsStr <> " proposals are performed per iterations."
-    ar m = acceptanceRate m a
+    ar pr = acceptanceRate pr a

@@ -259,8 +259,8 @@ mhgResetAcceptance (MHG c) = MHG $ c {acceptance = resetA ac}
   where
     ac = acceptance c
 
-mhgSummarizeCycle :: MHG a -> BL.ByteString
-mhgSummarizeCycle (MHG c) = summarizeCycle ac cc
+mhgSummarizeCycle :: IterationMode -> MHG a -> BL.ByteString
+mhgSummarizeCycle m (MHG c) = summarizeCycle m ac cc
   where
     cc = cycle c
     ac = acceptance c

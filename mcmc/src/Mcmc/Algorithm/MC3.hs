@@ -527,8 +527,8 @@ mc3ResetAcceptance a = a'
 -- - The combined acceptance rate of proposals within the hot chains.
 --
 -- - The temperatures of the chains and the acceptance rates of the state swaps.
-mc3SummarizeCycle :: ToJSON a => MC3 a -> BL.ByteString
-mc3SummarizeCycle a =
+mc3SummarizeCycle :: ToJSON a => IterationMode -> MC3 a -> BL.ByteString
+mc3SummarizeCycle m a =
   BL.intercalate "\n" $
     [ "MC3: Cycle of cold chain.",
       coldMHGCycleSummary
@@ -559,7 +559,7 @@ mc3SummarizeCycle a =
       ++ [proposalHLine]
   where
     mhgs = mc3MHGChains a
-    coldMHGCycleSummary = aSummarizeCycle $ V.head mhgs
+    coldMHGCycleSummary = aSummarizeCycle m $ V.head mhgs
     cs = V.map fromMHG mhgs
     -- Acceptance rates may be 'Nothing' when no proposals have been undertaken.
     -- The 'sequence' operations pull the 'Nothing's out of the inner

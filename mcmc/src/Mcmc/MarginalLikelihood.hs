@@ -21,11 +21,11 @@ module Mcmc.MarginalLikelihood
   )
 where
 
+import Control.Concurrent.Async hiding (link)
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Concurrent.Async hiding (link)
-import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Class
+import Control.Monad.Trans.Reader
 import Data.Aeson
 import Data.List hiding (cycle)
 import qualified Data.Map.Strict as M
@@ -152,7 +152,7 @@ sampleAtPoint x ss lhf a = do
       ac = acceptance ch''
       mAr = sequence $ acceptanceRates ac
   logDebugB "sampleAtPoint: Summarize cycle."
-  logDebugB $ summarizeCycle ac $ cycle ch''
+  logDebugB $ summarizeCycle AllProposals ac $ cycle ch''
   case mAr of
     Nothing -> logWarnB "Some acceptance rates are unavailable. The tuning period may be too small."
     Just ar -> do
@@ -279,10 +279,11 @@ tiWrapper s prf lhf cc mn i0 g = do
 
   -- Parallel execution of both path integrals.
   r <- ask
-  (lhssForward, lhssBackward) <- lift $
+  (lhssForward, lhssBackward) <-
+    lift $
       concurrently
-      (runReaderT (mlRun k bsForward em vb prf lhf cc mn i0 g0) r)
-      (runReaderT (mlRun k bsBackward em vb prf lhf cc mn i0 g1) r)
+        (runReaderT (mlRun k bsForward em vb prf lhf cc mn i0 g0) r)
+        (runReaderT (mlRun k bsBackward em vb prf lhf cc mn i0 g1) r)
   logInfoEndTime
 
   logDebugB "tiWrapper: Calculate mean log likelihoods."
