@@ -563,7 +563,7 @@ tuneAllMasses dim toVec xs ts
     (_, ss, xsNormalized) = S.scale xs'
     -- sigmaNormalized = L.unSym $ either error id $ S.oracleApproximatingShrinkage xsNormalized
     sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.5 xsNormalized
-    sigma = S.rescaleWith ss sigmaNormalized
+    sigma = S.rescaleSWith ss sigmaNormalized
     massesNew = L.inv sigma
 
 -- | Hamiltonian Monte Carlo proposal.
