@@ -176,7 +176,7 @@ mcmcAutotune n a = do
   liftIO $ aAutoTune n a
 
 mcmcBurnInWithAutoTuning :: Algorithm a => [Int] -> a -> MCMC a
-mcmcBurnInWithAutoTuning [] _ = error "mcmcBurnInWithAutoTuning: Empty lisst."
+mcmcBurnInWithAutoTuning [] _ = error "mcmcBurnInWithAutoTuning: Empty list."
 mcmcBurnInWithAutoTuning [x] a = do
   -- Last round.
   a' <- mcmcIterate x a
