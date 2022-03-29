@@ -4,10 +4,21 @@
 
 ## Unreleased changes
 
+
+## 0.6.2.4
+
+-   Specify covariance version bounds. Use `covariance-0.2.0.0` (specifically
+    state that sigma is rescaled with `rescaleSWith`).
+
+
+## 0.6.2.3
+
 -   Allow burn in with fast proposals only (`BurnInWithCustomAutoTUning`).
     Sometimes it is advantageous to hold back slow proposals initially, especially
     when the state is so far off that it does not make sense to compute complex
     proposals.
+-   Hamiltonian proposal: Use automatic differentiation specialized to `Double`
+    (roughly 10 percent faster).
 
 
 ## 0.6.2.2
