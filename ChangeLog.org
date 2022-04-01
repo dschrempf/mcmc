@@ -1,5 +1,8 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- Parallel computation of prior and likelihood. Speculative parallelization;
+  this change is not always beneficial, we will see.
+
 ** 0.6.2.4
 - Specify covariance version bounds. Use =covariance-0.2.0.0= (specifically
   state that sigma is rescaled with =rescaleSWith=).

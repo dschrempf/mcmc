@@ -4,6 +4,9 @@
 
 ## Unreleased changes
 
+-   Parallel computation of prior and likelihood. Speculative parallelization;
+    this change is not always beneficial, we will see.
+
 
 ## 0.6.2.4
 
