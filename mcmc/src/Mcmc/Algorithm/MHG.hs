@@ -30,6 +30,7 @@ where
 import Codec.Compression.GZip
 import Control.Monad
 import Control.Monad.IO.Class
+import Control.Parallel.Strategies
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Time
@@ -178,23 +179,15 @@ mhgPropose (MHG c) p = do
   -- 1. Sample new state.
   (!y, !q, !j) <- liftIO $ s x g
   -- 2. Calculate Metropolis-Hastings-Green ratio.
-  let !pY = pF y
-      !lY = lF y
-      !r = mhgRatio (pX * lX) (pY * lY) q j
+  --
+  -- Most often, parallelization is not helpful, because the prior and
+  -- likelihood functions are too fast; see
+  -- https://stackoverflow.com/a/46603680/3536806.
+  let (pY, lY) = (pF y, lF y) `using` parTuple2 rdeepseq rdeepseq
+  -- let !pY = pF y
+  --     !lY = lF y
+  let !r = mhgRatio (pX * lX) (pY * lY) q j
   -- 3. Accept or reject.
-  -- if ln r >= 0.0
-  --   then do
-  --     let !ac' = pushA p True ac
-  --     return $ MHG $ c {link = Link y pY lY, acceptance = ac'}
-  --   else do
-  --     b <- uniform g
-  --     if b < exp (ln r)
-  --       then do
-  --         let !ac' = pushA p True ac
-  --         return $ MHG $ c {link = Link y pY lY, acceptance = ac'}
-  --       else do
-  --         let !ac' = pushA p False ac
-  --         return $ MHG $ c {acceptance = pushA p False ac'}
   accept <- mhgAccept r g
   if accept
     then do

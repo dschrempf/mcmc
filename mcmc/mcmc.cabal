@@ -101,6 +101,7 @@ library
     , math-functions
     , microlens
     , mwc-random
+    , parallel
     , pretty-show
     , primitive
     , statistics
