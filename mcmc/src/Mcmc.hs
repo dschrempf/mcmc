@@ -18,10 +18,16 @@
 -- Markov Chain Monte Carlo (pp. 45), CRC press.
 --
 -- This library focusses on classical Markov chain Monte Carlo algorithms such
--- as the Metropolis-Hastings-Green [1] algorithm, or population methods
+-- as the Metropolis-Hastings-Green (MHG) [1] algorithm, or population methods
 -- involving parallel chains such as the Metropolic-coupled Markov chain Monte
 -- Carlo [2] algorithm. In particular, sequential Monte Carlo [3] algorithms
--- following a moving posterior distribution are not provided.
+-- following a moving posterior distribution are not provided. Recently,
+-- Hamiltonian Monte Carlo (HMC) proposals have been added [4]. HMC proposals
+-- can be used with (automatic
+-- differentiation)[https://hackage.haskell.org/package/ad]. HMC proposals with
+-- automatic differentiation are quite slow for complicated prior or likelihood
+-- functions, but they are incredibly useful when specialized MHG proposals are
+-- not readily available.
 --
 -- An MCMC sampler can be run with 'mcmc', for example using the
 -- Metropolis-Hastings-Green algorithm 'mhg'.
@@ -45,6 +51,9 @@
 --
 -- @[3]@ Sequential monte carlo methods in practice (2001), Editors: Arnaud
 -- Doucet, Nando de Freitas, and Neil Gordon, Springer New York.
+--
+-- @[4]@ Review by Betancourt and notes: Betancourt, M., A conceptual
+-- introduction to Hamiltonian Monte Carlo, arXiv, 1701–02434 (2017).
 module Mcmc
   ( -- * Proposals
 
@@ -172,12 +181,12 @@ module Mcmc
     module Mcmc.Monitor.Parameter,
     module Mcmc.Monitor.ParameterBatch,
 
-    -- * Prior, likelihood, and posterior values and functions
+    -- * Priors, likelihoodl, and posteriors
     module Mcmc.Prior,
     module Mcmc.Likelihood,
     module Mcmc.Posterior,
 
-    -- * MCMC samplers
+    -- * Run MCMC samplers
     mcmc,
     mcmcContinue,
     -- | See also 'settingsLoad', 'mhgLoad', and 'mc3Load'.
@@ -189,7 +198,7 @@ module Mcmc
     -- * Marginal likelihood calculation
     module Mcmc.MarginalLikelihood,
 
-    -- * Useful types
+    -- * Types used in statistics
     module Mcmc.Statistics.Types,
 
     -- * Useful re-exports
