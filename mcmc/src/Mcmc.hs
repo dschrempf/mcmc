@@ -23,8 +23,8 @@
 -- Carlo [2] algorithm. In particular, sequential Monte Carlo [3] algorithms
 -- following a moving posterior distribution are not provided. Recently,
 -- Hamiltonian Monte Carlo (HMC) proposals have been added [4]. HMC proposals
--- can be used with (automatic
--- differentiation)[https://hackage.haskell.org/package/ad]. HMC proposals with
+-- can be used with [automatic
+-- differentiation](https://hackage.haskell.org/package/ad). HMC proposals with
 -- automatic differentiation are quite slow for complicated prior or likelihood
 -- functions, but they are incredibly useful when specialized MHG proposals are
 -- not readily available.
@@ -34,11 +34,11 @@
 --
 -- Usually, it is best to start with an example:
 --
--- - Basic inference of the [accuracy of an
---   archer](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples/Archery/Archery.hs)
+-- - Basic inference of the [accuracy of an archer](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples/Archery/Archery.hs) (see the [statement of the problem](https://revbayes.github.io/tutorials/mcmc/archery.html)).
 --
--- - [More involved
---   examples](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples/PhylogeneticLikelihood/PhylogeneticLikelihood.hs)
+-- - [Other examples](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples).
+--
+-- - More involved example performing [phylogenetic dating](https://github.com/dschrempf/mcmc-date).
 --
 -- __The import of this module alone should cover most use cases.__
 --
