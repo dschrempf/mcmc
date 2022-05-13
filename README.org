@@ -1,5 +1,4 @@
 * Markov chain Monte Carlo sampler
-
 #+html: <p align="center"><img src="https://travis-ci.org/dschrempf/mcmc.svg?branch=master"/></p>
 
 Sample from a posterior using Markov chain Monte Carlo (MCMC) algorithms.
@@ -11,12 +10,12 @@ At the moment, the following algorithms are available:
 - Hamilton Monte Carlo proposal [fn:4].
 
 ** Documentation
-The [[https://hackage.haskell.org/package/mcmc][source code]] contains detailed documentation about general concepts as well
+The [[https://hackage.haskell.org/package/mcmc/docs/Mcmc.html][source code]] contains detailed documentation about general concepts as well
 as specific functions.
 
 ** Examples
-[[https://github.com/dschrempf/mcmc/tree/master/mcmc-examples][Example MCMC analyses]] can be built with [[https://cabal.readthedocs.io/en/latest/cabal-commands.html#][cabal-install]] or [[https://docs.haskellstack.org/en/stable/README/][Stack]] and are attached
-to this repository.
+The Git repository also includes [[https://github.com/dschrempf/mcmc/tree/master/mcmc-examples][example MCMC analyses]]. Build them with
+[[https://cabal.readthedocs.io/en/latest/cabal-commands.html#][cabal-install]] or [[https://docs.haskellstack.org/en/stable/README/][Stack]].
 
 #+name: Build
 #+begin_src sh :exports code :results none
@@ -31,10 +30,9 @@ For example, estimate the [[https://github.com/dschrempf/mcmc/blob/master/mcmc-e
 stack exec archery
 #+end_src
 
-For a more involved example, have a look at the [[https://github.com/dschrempf/mcmc-dating][phylogenetic dating project]].
+For a more involved example, have a look at a [[https://github.com/dschrempf/mcmc-dating][phylogenetic dating project]].
 
 ** Ideas                                                             :noexport:
-
 *** Marginal likelihood
 E.g., stepping stone (see RevBayes).
 

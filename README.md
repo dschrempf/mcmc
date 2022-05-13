@@ -7,22 +7,22 @@ Sample from a posterior using Markov chain Monte Carlo (MCMC) algorithms.
 
 At the moment, the following algorithms are available:
 
--   Metropolis-Hastings-Green <sup><a id="fnr.1" class="footref" href="#fn.1">1</a></sup>;
+-   Metropolis-Hastings-Green <sup><a id="fnr.1" class="footref" href="#fn.1" role="doc-backlink">1</a></sup>;
 -   Metropolis-coupled Markov chain Monte Carlo (also known as parallel
-    tempering) <sup><a id="fnr.2" class="footref" href="#fn.2">2</a></sup> <sup>, </sup><sup><a id="fnr.3" class="footref" href="#fn.3">3</a></sup>.
--   Hamilton Monte Carlo proposal <sup><a id="fnr.4" class="footref" href="#fn.4">4</a></sup>.
+    tempering) <sup><a id="fnr.2" class="footref" href="#fn.2" role="doc-backlink">2</a></sup> <sup>, </sup><sup><a id="fnr.3" class="footref" href="#fn.3" role="doc-backlink">3</a></sup>.
+-   Hamilton Monte Carlo proposal <sup><a id="fnr.4" class="footref" href="#fn.4" role="doc-backlink">4</a></sup>.
 
 
 ## Documentation
 
-The [source code](https://hackage.haskell.org/package/mcmc) contains detailed documentation about general concepts as well
+The [source code](https://hackage.haskell.org/package/mcmc/docs/Mcmc.html) contains detailed documentation about general concepts as well
 as specific functions.
 
 
 ## Examples
 
-[Example MCMC analyses](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples) can be built with [cabal-install](https://cabal.readthedocs.io/en/latest/cabal-commands.html#) or [Stack](https://docs.haskellstack.org/en/stable/README/) and are attached
-to this repository.
+The Git repository also includes [example MCMC analyses](https://github.com/dschrempf/mcmc/tree/master/mcmc-examples). Build them with
+[cabal-install](https://cabal.readthedocs.io/en/latest/cabal-commands.html#) or [Stack](https://docs.haskellstack.org/en/stable/README/).
 
     git clone https://github.com/dschrempf/mcmc.git
     cd mcmc
@@ -32,7 +32,7 @@ For example, estimate the [accuracy of an archer](https://github.com/dschrempf/m
 
     stack exec archery
 
-For a more involved example, have a look at the [phylogenetic dating project](https://github.com/dschrempf/mcmc-dating).
+For a more involved example, have a look at a [phylogenetic dating project](https://github.com/dschrempf/mcmc-dating).
 
 
 # Footnotes
