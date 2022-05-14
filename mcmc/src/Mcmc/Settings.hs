@@ -99,7 +99,7 @@ burnInPrettyPrint (BurnInWithoutAutoTuning x) =
 burnInPrettyPrint (BurnInWithAutoTuning x y) =
   bsInt x <> " iterations; auto tune with a period of " <> bsInt y <> "."
 burnInPrettyPrint (BurnInWithCustomAutoTuning xs ys) =
-  bsInt (sum xs) <> " fast," <> bsInt (sum ys) <> " slow iterations; custom auto tune periods."
+  bsInt (sum xs) <> " fast, " <> bsInt (sum ys) <> " slow iterations; custom auto tune periods."
 
 -- Check if the burn in settings are valid.
 burnInValid :: BurnInSettings -> Bool
