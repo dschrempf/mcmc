@@ -159,6 +159,11 @@ mLnSqrt2Pi = 0.9189385332046727417803297364056176398613974736377834128171
 
 -- | Log normal distributed prior.
 --
+-- NOTE: The log normal distribution is parametrized with the mean \(\mu\) and
+-- the standard deviation \(\sigma\) of the underlying normal distribution. The
+-- mean and variance of the log normal distribution itself are functions of
+-- \(\mu\) and \(\sigma\), but are not the same as \(\mu\) and \(\sigma\)!
+--
 -- Call 'error' if the standard deviation is zero or negative.
 logNormal :: RealFloat a => Mean a -> StandardDeviation a -> PriorFunctionG a a
 logNormal m s x
