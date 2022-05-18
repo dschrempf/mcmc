@@ -31,6 +31,7 @@ module Mcmc.Prior
     gammaMeanOne,
     gammaShapeScaleToMeanVariance,
     gammaMeanVarianceToShapeScale,
+    logNormal,
     normal,
     uniform,
 
@@ -155,6 +156,20 @@ gammaMeanVarianceToShapeScale m v = (m * m / v, v / m)
 mLnSqrt2Pi :: RealFloat a => a
 mLnSqrt2Pi = 0.9189385332046727417803297364056176398613974736377834128171
 {-# INLINE mLnSqrt2Pi #-}
+
+-- | Log normal distributed prior.
+--
+-- Call 'error' if the standard deviation is zero or negative.
+logNormal :: RealFloat a => Mean a -> StandardDeviation a -> PriorFunctionG a a
+logNormal m s x
+  | s <= 0 = error "logNormal: Standard deviation is zero or negative."
+  | x <= 0 = 0
+  | otherwise = Exp $ t + e
+  where
+    t = negate $ mLnSqrt2Pi + log (x * s)
+    a = recip $ 2 * s * s
+    b = log x - m
+    e = negate $ a * b * b
 
 -- | Normal distributed prior.
 --
