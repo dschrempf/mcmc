@@ -4,6 +4,10 @@
 
 ## Unreleased changes
 
+-   Provide unsafe loader for MHG algorithm (useful for initializing chains with
+    different prior or likelihood functions from saves).
+-   Documentation and readme.
+-   Log normal prior distribution.
 -   Parallel computation of prior and likelihood. Speculative parallelization;
     this change is not always beneficial, we will see.
 
