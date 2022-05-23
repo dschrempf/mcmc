@@ -28,6 +28,8 @@ mSqrtEpsG = 1.4901161193847656e-8
 mEulerMascheroniG :: RealFloat a => a
 mEulerMascheroniG = 0.5772156649015328606065121
 
+-- | Generalized version of the log gamma distribution. See
+-- 'Numeric.SpecFunctions.logGamma'.
 logGammaG :: (Typeable a, RealFloat a) => a -> a
 logGammaG z
   | typeOf z == typeOf (0 :: Double) = unsafeCoerce logGamma z
