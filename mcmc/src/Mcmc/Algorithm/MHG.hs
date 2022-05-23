@@ -22,6 +22,7 @@ module Mcmc.Algorithm.MHG
     mhg,
     mhgSave,
     mhgLoad,
+    mhgLoadUnsafe,
     MHGRatio,
     mhgAccept,
   )
@@ -125,9 +126,35 @@ mhgLoad ::
   Monitor a ->
   AnalysisName ->
   IO (MHG a)
-mhgLoad pr lh cc mn nm = do
+mhgLoad = mhgLoadWith fromSavedChain
+
+-- | See 'mhgLoad' but do not perform sanity checks.
+--
+-- Useful when restarting a run with changed prior function, likelihood function
+-- or proposals. Use with care!
+mhgLoadUnsafe ::
+  FromJSON a =>
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  Cycle a ->
+  Monitor a ->
+  AnalysisName ->
+  IO (MHG a)
+mhgLoadUnsafe = mhgLoadWith fromSavedChainUnsafe
+
+-- Nice type :-).
+mhgLoadWith ::
+  FromJSON a =>
+  (PriorFunction a -> LikelihoodFunction a -> Cycle a -> Monitor a -> SavedChain a -> IO (Chain a)) ->
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  Cycle a ->
+  Monitor a ->
+  AnalysisName ->
+  IO (MHG a)
+mhgLoadWith f pr lh cc mn nm = do
   savedChain <- eitherDecode . decompress <$> BL.readFile (mhgFn nm)
-  chain <- either error (fromSavedChain pr lh cc mn) savedChain
+  chain <- either error (f pr lh cc mn) savedChain
   return $ MHG chain
 
 -- | MHG ratios are stored in log domain.

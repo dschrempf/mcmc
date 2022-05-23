@@ -20,6 +20,7 @@ module Mcmc.Chain.Save
   ( SavedChain (..),
     toSavedChain,
     fromSavedChain,
+    fromSavedChainUnsafe,
   )
 where
 
@@ -78,6 +79,10 @@ toSavedChain (Chain ci it i tr ac g _ _ _ cc _) = do
 
 -- | Load a saved chain.
 --
+-- Perform some safety checks:
+--
+-- Check that the number of proposals is equal.
+--
 -- Recompute and check the prior and likelihood for the last state because the
 -- functions may have changed. Of course, we cannot test for the same function,
 -- but having the same prior and likelihood at the last state is already a good
@@ -89,7 +94,7 @@ fromSavedChain ::
   Monitor a ->
   SavedChain a ->
   IO (Chain a)
-fromSavedChain pr lh cc mn (SavedChain ci it i tr ac' g' ts)
+fromSavedChain pr lh cc mn sv
   | pr (state it) /= prior it =
       let msg =
             unlines
@@ -99,11 +104,40 @@ fromSavedChain pr lh cc mn (SavedChain ci it i tr ac' g' ts)
               ]
        in error msg
   | lh (state it) /= likelihood it =
-      error "fromSave: Provided likelihood function does not match the saved likelihood."
-  | otherwise = do
-      g <- loadGen g'
-      tr' <- thawT tr
-      return $ Chain ci it i tr' ac g i pr lh cc' mn
+      let msg =
+            unlines
+              [ "fromSave: Provided likelihood function does not match the saved likelihood function.",
+                "fromSave: Current likelihood:" <> show (likelihood it) <> ".",
+                "fromSave: Given likelihood:" <> show (lh $ state it) <> "."
+              ]
+       in error msg
+  | length (fromAcceptance ac) /= length (ccProposals cc) =
+      let msg =
+            unlines
+              [ "fromSave: The number of proposals does not match.",
+                "fromSave: Number of saved proposals:" <> show (length $ fromAcceptance ac) <> ".",
+                "fromSave: Number of given proposals:" <> show (length $ ccProposals cc) <> "."
+              ]
+       in error msg
+  | otherwise = fromSavedChainUnsafe pr lh cc mn sv
+  where
+    it = savedLink sv
+    ac = savedAcceptance sv
+
+-- | See 'fromSavedChain' but do not perform sanity checks. Useful when
+-- restarting a run with changed prior function, likelihood function or
+-- proposals.
+fromSavedChainUnsafe ::
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  Cycle a ->
+  Monitor a ->
+  SavedChain a ->
+  IO (Chain a)
+fromSavedChainUnsafe pr lh cc mn (SavedChain ci it i tr ac' g' ts) = do
+  g <- loadGen g'
+  tr' <- thawT tr
+  return $ Chain ci it i tr' ac g i pr lh cc' mn
   where
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
     tunePs mt p = case mt of
