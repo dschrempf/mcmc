@@ -4,6 +4,9 @@
 
 ## Unreleased changes
 
+
+## 0.6.2.5
+
 -   Provide unsafe loader for MHG algorithm (useful for initializing chains with
     different prior or likelihood functions from saves).
 -   Documentation and readme.
