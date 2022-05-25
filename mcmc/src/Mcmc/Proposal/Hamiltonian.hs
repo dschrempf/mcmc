@@ -91,9 +91,10 @@ type Values = L.Vector Double
 -- are altered by other proposals.
 type Gradient a = a -> a
 
--- | Function validating the state.
+-- | Function determining the validity of a state.
 --
--- Useful if parameters are constrained.
+-- Useful when parameters are constrained and when calculating the prior or
+-- likelihood functions is slow, but testing for validity is fast.
 --
 -- Also the validity of the state may depend on parameters untouched by the
 -- Hamiltonian proposal.
