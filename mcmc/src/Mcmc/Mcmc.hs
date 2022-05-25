@@ -57,21 +57,21 @@ mcmcResetAcceptance a = do
 mcmcExceptionHandler :: Algorithm a => Environment Settings -> a -> AsyncException -> IO b
 mcmcExceptionHandler e a _ = do
   putStrLn ""
-  putStrLn "USER INTERRUPT!"
+  putStrLn "INTERRUPT!"
   putStrLn "Try to terminate gracefully and save chain for continuation."
-  putStrLn "Press CTRL-C again to terminate now."
-  putStrLn "Close output files."
+  putStrLn "Press CTRL-C (again) to terminate now."
+  putStrLn "Closing output files."
   _ <- aCloseMonitors a
   closeEnvironment e
-  putStrLn "Try to save settings."
+  putStrLn "Saving settings."
   let s = settings e
   settingsSave s
-  putStrLn "Try to save compressed MCMC analysis."
+  putStrLn "Saving compressed MCMC analysis."
   putStrLn "For long traces, or complex objects, this may take a while."
   let nm = sAnalysisName s
   aSave nm a
   putStrLn "Markov chain saved. Analysis can be continued."
-  putStrLn "Terminate gracefully."
+  putStrLn "Graceful termination successful."
   exitWith $ ExitFailure 1
 
 -- XXX: Exception handling. Is it enough to mask execution of monitors and catch
