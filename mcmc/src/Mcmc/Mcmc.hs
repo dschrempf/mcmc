@@ -55,7 +55,7 @@ mcmcResetAcceptance a = do
   return $ aResetAcceptance a
 
 mcmcExceptionHandler :: Algorithm a => Environment Settings -> a -> AsyncException -> IO b
-mcmcExceptionHandler e a UserInterrupt = do
+mcmcExceptionHandler e a _ = do
   putStrLn ""
   putStrLn "USER INTERRUPT!"
   putStrLn "Try to terminate gracefully and save chain for continuation."
@@ -73,7 +73,6 @@ mcmcExceptionHandler e a UserInterrupt = do
   putStrLn "Markov chain saved. Analysis can be continued."
   putStrLn "Terminate gracefully."
   exitWith $ ExitFailure 1
-mcmcExceptionHandler _ _ e = throw e
 
 -- XXX: Exception handling. Is it enough to mask execution of monitors and catch
 -- UserInterrupt during iterations?
