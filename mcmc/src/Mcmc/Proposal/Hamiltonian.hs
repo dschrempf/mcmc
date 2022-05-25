@@ -452,13 +452,14 @@ hamiltonianSimpleWithMemoizedCovariance st dt x g = do
     Just (theta', phi') ->
       let -- Prior of momenta.
           prPhi = logDensityMultivariateNormal mu massesInv logDetMasses phi
-          -- NOTE: Neal page 12: In order for the proposal to be in detailed
-          -- balance, the momenta have to be negated before proposing the new
-          -- value. This is not required here since the prior involves a
-          -- multivariate normal distribution with means 0.
           prPhi' = logDensityMultivariateNormal mu massesInv logDetMasses phi'
           kernelR = prPhi' / prPhi
-       in return (fromVec x theta', kernelR, 1.0)
+       in -- NOTE: For example, Neal page 12: In order for the Hamiltonian proposal
+          -- to be in detailed balance, the momenta have to be negated before
+          -- proposing the new value. That is, the negated momenta would guide the
+          -- chain back to the previous state. However, we are only interested in
+          -- the positions, and are not even storing the momenta.
+          return (fromVec x theta', kernelR, 1.0)
   where
     (HSettings _ toVec fromVec gradient mVal masses l e _) = st
     theta = toVec x
