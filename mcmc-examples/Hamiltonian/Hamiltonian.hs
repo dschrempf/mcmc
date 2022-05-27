@@ -94,7 +94,7 @@ hSettings =
     masses
     10
     0.05
-    (HTune HTuneLeapfrog HTuneAllMasses)
+    (HTuningConf HTuneLeapfrog HTuneAllMasses)
 
 hamiltonianProposal :: Proposal I
 hamiltonianProposal = hamiltonian hSettings n w

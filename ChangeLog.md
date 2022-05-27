@@ -4,6 +4,8 @@
 
 ## Unreleased changes
 
+-   Rename `HTune` to `HTuningConf`.
+
 
 ## 0.6.2.5
 
