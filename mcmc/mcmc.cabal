@@ -69,6 +69,7 @@ library
     Mcmc.Proposal.Bactrian
     Mcmc.Proposal.Generic
     Mcmc.Proposal.Hamiltonian
+    Mcmc.Proposal.Nuts
     Mcmc.Proposal.Scale
     Mcmc.Proposal.Simplex
     Mcmc.Proposal.Slide
