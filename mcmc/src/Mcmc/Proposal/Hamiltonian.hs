@@ -33,9 +33,9 @@
 --   user can use automatic or manual differentiation, depending on the problem
 --   at hand.
 --
--- - The Hamiltonian proposal acts on a vector of storable 'Values'. Functions
---   converting the state to and from this vector have to be provided. See
---   'HSettings'.
+-- - The Hamiltonian proposal acts on a vector of storable 'Position' variables.
+--   Functions converting the state to and from this vector have to be provided.
+--   See 'HSpec'.
 --
 -- - The desired acceptance rate is 0.65, although the dimension of the proposal
 --   is high.
@@ -49,7 +49,8 @@
 --   303. This problem can be ameliorated by providing a 'Validate' function so
 --   that the proposal can gracefully fail as soon as the state becomes invalid.
 module Mcmc.Proposal.Hamiltonian
-  ( Values,
+  ( Positions,
+    Momenta,
     Gradient,
     Validate,
     Masses,
@@ -83,8 +84,15 @@ import System.Random.MWC
 -- TODO: Riemannian adaptation: State-dependent mass matrix. (Seems a little bit
 -- of an overkill.)
 
--- | The Hamiltonian proposal acts on a vector of floating point values.
-type Values = L.Vector Double
+-- | The Hamiltonian proposal acts on a vector of floating point values referred
+-- to as positions.
+--
+-- The positions can represent the complete state or a subset of the state of
+-- the Markov chain.
+type Positions = L.Vector Double
+
+-- Internal. Momenta of the 'Positions'.
+type Momenta = L.Vector Double
 
 -- | Gradient of the log posterior function.
 --
@@ -165,12 +173,6 @@ type LeapfrogTrajectoryLength = Int
 --
 -- NOTE: Call 'error' if value is zero or negative.
 type LeapfrogScalingFactor = Double
-
--- Internal. Values; target state containing parameters.
-type Positions = Values
-
--- Internal. Momenta of the parameters.
-type Momenta = L.Vector Double
 
 -- | Tune leapfrog parameters?
 data HTuneLeapfrog
@@ -253,9 +255,9 @@ data HSpec a = HSpec
     hSample :: a,
     -- | Extract values to be manipulated by the Hamiltonian proposal from the
     -- state.
-    hToVector :: a -> Values,
+    hToVector :: a -> Positions,
     -- | Put those values back into the state.
-    hFromVectorWith :: a -> Values -> a,
+    hFromVectorWith :: a -> Positions -> a,
     hGradient :: Gradient a,
     hMaybeValidate :: Maybe (Validate a)
   }
