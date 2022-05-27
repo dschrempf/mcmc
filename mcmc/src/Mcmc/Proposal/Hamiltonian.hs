@@ -367,6 +367,11 @@ leapfrog grad mVal hMassesInv l eps theta phi = do
   -- The last full step of the positions.
   thetaL <- valF $ leapfrogStepPositions hMassesInv eps thetaLM1 phiLM1Half
   let -- The last half step of the momenta.
+      --
+      -- NOTE: Since the gradient is evaluated at the final thetaL, one could
+      -- use 'grad'', which also calculates the value of the posterior. Of
+      -- course, this is only possible if the proposal data type is changed and
+      -- one can provide a posterior (see comments in "Nuts").
       phiL = leapfrogStepMomenta (0.5 * eps) grad thetaL phiLM1Half
   return (thetaL, phiL)
   where

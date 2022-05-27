@@ -54,20 +54,20 @@ type BuildTreeReturnType = (Positions, Momenta, Positions, Momenta, Positions, N
 -- posterior calculation of the NUTS proposal. I should also check if this
 -- affects the HMC proposal (the prime example is the "Pair" example).
 
-buildTreeWith ::
-  Gradient Positions ->
-  Maybe (Validate Positions) ->
-  HMassesInv ->
-  --
-  Positions ->
-  Momenta ->
-  SliceVariable ->
-  Direction ->
-  DoublingStep ->
-  LeapfrogScalingFactor ->
-  BuildTreeReturnType
-buildTreeWith grad mValidate hMassesInv x p u v j e
-  | j == 0 = case leapfrog grad mValidate hMassesInv 1 e x p of
-      Nothing -> undefined
-      Just _ -> undeefined
-  | otherwise = undefined
+-- buildTreeWith ::
+--   Gradient Positions ->
+--   Maybe (Validate Positions) ->
+--   HMassesInv ->
+--   --
+--   Positions ->
+--   Momenta ->
+--   SliceVariable ->
+--   Direction ->
+--   DoublingStep ->
+--   LeapfrogScalingFactor ->
+--   BuildTreeReturnType
+-- buildTreeWith grad mValidate hMassesInv x p u v j e
+--   | j == 0 = case leapfrog grad mValidate hMassesInv 1 e x p of
+--       Nothing -> undefined
+--       Just _ -> undeefined
+--   | otherwise = undefined
