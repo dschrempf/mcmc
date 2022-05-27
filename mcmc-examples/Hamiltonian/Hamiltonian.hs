@@ -125,8 +125,8 @@ main = do
   let s =
         Settings
           (AnalysisName "hamiltonian")
-          (BurnInWithCustomAutoTuning [] ([10, 20 .. 200] ++ replicate 5 500))
-          (Iterations 10000)
+          (BurnInWithCustomAutoTuning [] ([10, 20 .. 200] ++ replicate 2 500))
+          (Iterations 8000)
           TraceAuto
           Overwrite
           Sequential
