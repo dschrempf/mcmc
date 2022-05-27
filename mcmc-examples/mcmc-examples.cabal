@@ -101,10 +101,16 @@ executable pair
   autogen-modules: Paths_mcmc_examples
   hs-source-dirs:  Pair
   build-depends:
-      base
+    , aeson
+    , base
+    , fixed-vector
     , lens
     , mcmc
     , mwc-random
+
+-- , ad
+-- , hmatrix
+-- , vector
 
 executable plh
   import:          exec

@@ -99,7 +99,7 @@ negative = lessThan 0
 exponential :: RealFloat a => Rate a -> PriorFunctionG a a
 exponential l x
   | l <= 0 = error "exponential: Rate is zero or negative."
-  | x < 0 = error "exponential: Negative value."
+  | x <= 0 = 0
   | otherwise = ll * Exp (negate l * x)
   where
     ll = Exp $ log l

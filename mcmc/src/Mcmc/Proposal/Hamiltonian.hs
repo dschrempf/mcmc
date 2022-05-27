@@ -79,11 +79,13 @@ import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
 import System.Random.MWC
 
--- TODO: No-U-turn sampler (NUTS). Ameliorates necessity to determine the
--- leapfrog trajectory length L. (I think this is a necessary extension.)
+-- TODO (high): The Hamiltonian proposals needs to know about the Jacobian. This
+-- is because the Jacobian has to be part of the gradient (at least I think so;
+-- check this!). Only then, the Hamiltonian proposal can be combined with other
+-- proposals in a setting with a non-unit Jacobian.
 
--- TODO: Riemannian adaptation: State-dependent mass matrix. (Seems a little bit
--- of an overkill.)
+-- NOTE: Implementing the Riemannian adaptation (state-dependent mass matrix).
+-- seems a little bit of an overkill.
 
 -- | The Hamiltonian proposal acts on a vector of floating point values referred
 -- to as positions.
@@ -368,8 +370,8 @@ leapfrog grad mVal hMassesInv l eps theta phi = do
   thetaL <- valF $ leapfrogStepPositions hMassesInv eps thetaLM1 phiLM1Half
   let -- The last half step of the momenta.
       --
-      -- NOTE: Since the gradient is evaluated at the final thetaL, one could
-      -- use 'grad'', which also calculates the value of the posterior. Of
+      -- TODO (low): Since the gradient is evaluated at the final thetaL, one
+      -- could use 'grad'', which also calculates the value of the posterior. Of
       -- course, this is only possible if the proposal data type is changed and
       -- one can provide a posterior (see comments in "Nuts").
       phiL = leapfrogStepMomenta (0.5 * eps) grad thetaL phiLM1Half
