@@ -1,100 +1,92 @@
-cabal-version:  3.0
-name:           mcmc-examples
-version:        0.6.2.5
-synopsis:       Markov chain Monte Carlo examples using the `mcmc` library
-description:    Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
-category:       Math, Statistics
-homepage:       https://github.com/dschrempf/mcmc#readme
-bug-reports:    https://github.com/dschrempf/mcmc/issues
-author:         Dominik Schrempf
-maintainer:     dominik.schrempf@gmail.com
-copyright:      Dominik Schrempf (2021)
-license:        GPL-3.0-or-later
-build-type:     Simple
+cabal-version:      3.0
+name:               mcmc-examples
+version:            0.6.2.5
+synopsis:           Markov chain Monte Carlo examples using the `mcmc` library
+description:
+  Please see the README on GitHub at <https://github.com/dschrempf/mcmc#readme>
 
+category:           Math, Statistics
+homepage:           https://github.com/dschrempf/mcmc#readme
+bug-reports:        https://github.com/dschrempf/mcmc/issues
+author:             Dominik Schrempf
+maintainer:         dominik.schrempf@gmail.com
+copyright:          Dominik Schrempf (2021)
+license:            GPL-3.0-or-later
+build-type:         Simple
 extra-source-files:
-    README.md
-    ChangeLog.md
+  ChangeLog.md
+  README.md
 
 source-repository head
-  type: git
+  type:     git
   location: https://github.com/dschrempf/mcmc
 
 common lib
-  ghc-options: -Wall -Wunused-packages
+  ghc-options:      -Wall -Wunused-packages
   default-language: Haskell2010
 
 common test
-  ghc-options: -Wall -Wunused-packages
+  ghc-options:      -Wall -Wunused-packages
   default-language: Haskell2010
 
 common bench
-  ghc-options: -Wall -Wunused-packages
+  ghc-options:      -Wall -Wunused-packages
   default-language: Haskell2010
 
 common exec
-  ghc-options: -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:
+    -Wall -Wunused-packages -threaded -rtsopts -with-rtsopts=-N
+
   default-language: Haskell2010
 
 executable archery
-  import: exec
-  main-is: Archery.hs
-  other-modules:
-      Paths_mcmc_examples
-  autogen-modules:
-      Paths_mcmc_examples
-  hs-source-dirs: Archery
+  import:          exec
+  main-is:         Archery.hs
+  other-modules:   Paths_mcmc_examples
+  autogen-modules: Paths_mcmc_examples
+  hs-source-dirs:  Archery
   build-depends:
-      base
+    , base
     , mcmc
     , mwc-random
     , statistics
 
 executable dirichlet
-  import: exec
-  main-is: Dirichlet.hs
-  other-modules:
-      Paths_mcmc_examples
-  autogen-modules:
-      Paths_mcmc_examples
-  hs-source-dirs:
-      Dirichlet
+  import:          exec
+  main-is:         Dirichlet.hs
+  other-modules:   Paths_mcmc_examples
+  autogen-modules: Paths_mcmc_examples
+  hs-source-dirs:  Dirichlet
   build-depends:
-      aeson
+    , aeson
     , base
     , dirichlet
     , lens
     , mcmc
     , mwc-random
-    -- , statistics
     , vector
 
+-- , statistics
 executable gauss
-  import: exec
-  main-is: Gauss.hs
-  other-modules:
-      Paths_mcmc_examples
-  autogen-modules:
-      Paths_mcmc_examples
-  hs-source-dirs:
-      Gauss
+  import:          exec
+  main-is:         Gauss.hs
+  other-modules:   Paths_mcmc_examples
+  autogen-modules: Paths_mcmc_examples
+  hs-source-dirs:  Gauss
   build-depends:
-      base
+    , base
     , lens
     , mcmc
     , mwc-random
 
 executable hamiltonian
-  import: exec
-  main-is: Hamiltonian.hs
-  other-modules:
-      Paths_mcmc_examples
-  autogen-modules:
-      Paths_mcmc_examples
-  hs-source-dirs:
-      Hamiltonian
+  import:          exec
+  main-is:         Hamiltonian.hs
+  other-modules:   Paths_mcmc_examples
+  autogen-modules: Paths_mcmc_examples
+  hs-source-dirs:  Hamiltonian
   build-depends:
-      ad
+    , ad
     , base
     , hmatrix
     , lens
@@ -103,13 +95,11 @@ executable hamiltonian
     , vector
 
 executable pair
-  import: exec
-  main-is: Pair.hs
-  other-modules:
-      Paths_mcmc_examples
-  autogen-modules:
-      Paths_mcmc_examples
-  hs-source-dirs: Pair
+  import:          exec
+  main-is:         Pair.hs
+  other-modules:   Paths_mcmc_examples
+  autogen-modules: Paths_mcmc_examples
+  hs-source-dirs:  Pair
   build-depends:
       base
     , lens
@@ -117,16 +107,13 @@ executable pair
     , mwc-random
 
 executable plh
-  import: exec
-  main-is: PhylogeneticLikelihood.hs
-  other-modules:
-      Paths_mcmc_examples
-  autogen-modules:
-      Paths_mcmc_examples
-  hs-source-dirs:
-      PhylogeneticLikelihood
+  import:          exec
+  main-is:         PhylogeneticLikelihood.hs
+  other-modules:   Paths_mcmc_examples
+  autogen-modules: Paths_mcmc_examples
+  hs-source-dirs:  PhylogeneticLikelihood
   build-depends:
-      aeson
+    , aeson
     , algebraic-graphs
     , base
     , mcmc
