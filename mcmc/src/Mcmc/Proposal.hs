@@ -219,7 +219,8 @@ liftProposal = liftProposalWith (const 1.0)
 
 -- | Lift a proposal from one data type to another.
 --
--- A function to calculate the Jacobian has to be provided (but see '(@~)').
+-- A function to calculate the Jacobian has to be provided. If the Jabobian is
+-- 1.0, use 'liftProposal'.
 --
 -- For further reference, please see the [example
 -- @Pair@](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Pair/Pair.hs).

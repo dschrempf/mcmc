@@ -62,6 +62,7 @@ module Mcmc.Proposal.Hamiltonian
     HTuningSpec,
     hTuningSpec,
     HSpec (..),
+    leapfrog,
     hamiltonian,
   )
 where
@@ -346,6 +347,7 @@ logDensityMultivariateNormal mu sigmaInvH logDetSigma xs =
     c = negate $ m_ln_sqrt_2_pi * k
     sigmaInv = L.unSym sigmaInvH
 
+-- | Internal; Leapfrog integrator (also used by NUTS proposal).
 leapfrog ::
   Gradient Positions ->
   Maybe (Validate Positions) ->
