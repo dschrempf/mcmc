@@ -83,21 +83,26 @@ masses = L.trustSym $ L.diag $ L.fromList $ replicate dimension 1.0
 initialState :: I
 initialState = VS.fromList $ replicate dimension 1
 
-hSettings :: HSettings I
-hSettings =
-  HSettings
+tuningSpec :: HTuningSpec
+tuningSpec =
+  either error id $
+    hTuningSpec
+      masses
+      10
+      0.05
+      (HTuningConf HTuneLeapfrog HTuneAllMasses)
+
+hSpec :: HSpec I
+hSpec =
+  HSpec
     initialState
     VS.convert
     (const VS.convert)
     gradient
     Nothing
-    masses
-    10
-    0.05
-    (HTuningConf HTuneLeapfrog HTuneAllMasses)
 
 hamiltonianProposal :: Proposal I
-hamiltonianProposal = hamiltonian hSettings n w
+hamiltonianProposal = hamiltonian tuningSpec hSpec n w
   where
     n = PName "Space"
     w = pWeight 1

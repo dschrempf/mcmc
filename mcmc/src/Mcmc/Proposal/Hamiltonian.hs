@@ -58,7 +58,9 @@ module Mcmc.Proposal.Hamiltonian
     HTuneLeapfrog (..),
     HTuneMasses (..),
     HTuningConf (..),
-    HSettings (..),
+    HTuningSpec,
+    hTuningSpec,
+    HSpec (..),
     hamiltonian,
   )
 where
@@ -207,12 +209,45 @@ data HTuneMasses
     HTuneAllMasses
   deriving (Eq, Show)
 
--- | Tuning configuration.
+-- | Tuning configuration of the Hamilton Monte Carlo proposal.
 data HTuningConf = HTuningConf HTuneLeapfrog HTuneMasses
   deriving (Eq, Show)
 
--- | Specifications of the Hamilton Monte Carlo proposal.
-data HSettings a = HSettings
+-- | Complete tuning specification of the Hamilton Monte Carlo proposal.
+--
+-- Includes tuning parameters and tuning configuration.
+data HTuningSpec = HTuningSpec
+  { hMasses :: Masses,
+    hLeapfrogTrajectoryLength :: LeapfrogTrajectoryLength,
+    hLeapfrogScalingFactor :: LeapfrogScalingFactor,
+    hTuningConf :: HTuningConf
+  }
+  deriving (Show)
+
+-- | See 'HTuningSpec'.
+--
+-- Return 'Left' if an error is found.
+hTuningSpec ::
+  Masses ->
+  LeapfrogTrajectoryLength ->
+  LeapfrogScalingFactor ->
+  HTuningConf ->
+  Either String HTuningSpec
+hTuningSpec masses l eps c
+  | any (<= 0) diagonalMasses = eWith "Some diagonal entries of the mass matrix are zero or negative."
+  | nrows /= ncols = eWith "Mass matrix is not square."
+  | l < 1 = eWith "Leapfrog trajectory length is zero or negative."
+  | eps <= 0 = eWith "Leapfrog scaling factor is zero or negative."
+  | otherwise = Right $ HTuningSpec masses l eps c
+  where
+    eWith m = Left $ "hTuningSpec: " <> m
+    ms = L.unSym masses
+    diagonalMasses = L.toList $ L.takeDiag ms
+    nrows = L.rows ms
+    ncols = L.cols ms
+
+-- | Parameters and functions required by the Hamilton Monte Carlo proposal.
+data HSpec a = HSpec
   { -- | The sample state is used for error checks and to calculate the dimension
     -- of the proposal.
     hSample :: a,
@@ -222,27 +257,18 @@ data HSettings a = HSettings
     -- | Put those values back into the state.
     hFromVectorWith :: a -> Values -> a,
     hGradient :: Gradient a,
-    hMaybeValidate :: Maybe (Validate a),
-    hMasses :: Masses,
-    hLeapfrogTrajectoryLength :: LeapfrogTrajectoryLength,
-    hLeapfrogScalingFactor :: LeapfrogScalingFactor,
-    hTuningConf :: HTuningConf
+    hMaybeValidate :: Maybe (Validate a)
   }
 
-checkHSettings :: Eq a => HSettings a -> Maybe String
-checkHSettings (HSettings x toVec fromVec _ _ masses l eps _)
-  | any (<= 0) diagonalMasses = Just "checkHSettings: Some diagonal entries of the mass matrix are zero or negative."
-  | nrows /= ncols = Just "checkHSettings: Mass matrix is not square."
-  | fromVec x xVec /= x = Just "checkHSettings: 'fromVectorWith x (toVector x) /= x' for sample state."
-  | L.size xVec /= nrows = Just "checkHSettings: Mass matrix has different size than 'toVector x', where x is sample state."
-  | l < 1 = Just "checkHSettings: Leapfrog trajectory length is zero or negative."
-  | eps <= 0 = Just "checkHSettings: Leapfrog scaling factor is zero or negative."
+checkHSpecWith :: Eq a => HTuningSpec -> HSpec a -> Maybe String
+checkHSpecWith tspec (HSpec x toVec fromVec _ _)
+  | fromVec x xVec /= x = eWith "'fromVectorWith x (toVector x) /= x' for sample state."
+  | L.size xVec /= nrows = eWith "Mass matrix and 'toVector x' have different sizes for sample state."
   | otherwise = Nothing
   where
-    ms = L.unSym masses
-    diagonalMasses = L.toList $ L.takeDiag ms
+    eWith m = Just $ "checkHSpecWith: " <> m
+    ms = L.unSym $ hMasses tspec
     nrows = L.rows ms
-    ncols = L.cols ms
     xVec = toVec x
 
 -- Internal. Mean vector containing zeroes.
@@ -262,7 +288,7 @@ data HData = HData
   }
 
 -- Call 'error' if the determinant of the covariance matrix is negative.
-getHData :: HSettings a -> HData
+getHData :: HTuningSpec -> HData
 getHData s =
   -- The multivariate normal distribution requires a positive definite matrix
   -- with positive determinant.
@@ -386,32 +412,22 @@ tuningParametersToMasses ::
   Masses
 tuningParametersToMasses d = L.trustSym . L.reshape d . VB.convert
 
-hTuningParametersToSettings ::
-  HSettings a ->
+hTuningParametersToTuningSpec ::
+  HTuningSpec ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
-  Either String (HSettings a)
-hTuningParametersToSettings s t ts
-  | nTsNotOK =
-      Left "hTuningParametersToSettings: Auxiliary variables do not have correct dimension."
-  | otherwise =
-      Right $
-        s
-          { hMasses = msTuned,
-            hLeapfrogTrajectoryLength = lTuned,
-            hLeapfrogScalingFactor = eTuned
-          }
+  Either String HTuningSpec
+hTuningParametersToTuningSpec (HTuningSpec ms l e c) t ts
+  | not nTsOK = Left "hTuningParametersToSettings: Auxiliary variables dimension mismatch."
+  | otherwise = Right $ HTuningSpec msTuned lTuned eTuned c
   where
-    ms = hMasses s
     d = L.rows $ L.unSym ms
-    l = hLeapfrogTrajectoryLength s
-    e = hLeapfrogScalingFactor s
-    (HTuningConf tlf tms) = hTuningConf s
-    nTsNotOK =
+    (HTuningConf tlf tms) = c
+    nTsOK =
       let nTs = VU.length ts
        in case tms of
-            HNoTuneMasses -> nTs /= 0
-            _ -> nTs /= d * d
+            HNoTuneMasses -> nTs == 0
+            _ -> nTs == d * d
     msTuned = case tms of
       HNoTuneMasses -> ms
       _ -> tuningParametersToMasses d ts
@@ -426,20 +442,23 @@ hTuningParametersToSettings s t ts
       HTuneLeapfrog -> (ceiling $ fromIntegral l / (t ** 0.9) :: Int, t * e)
 
 hamiltonianSimpleWithTuningParameters ::
-  HSettings a ->
+  HTuningSpec ->
+  HSpec a ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
   Either String (ProposalSimple a)
-hamiltonianSimpleWithTuningParameters s t ts =
-  hamiltonianSimple <$> hTuningParametersToSettings s t ts
+hamiltonianSimpleWithTuningParameters tspec hspec t ts = do
+  tspec' <- hTuningParametersToTuningSpec tspec t ts
+  pure $ hamiltonianSimple tspec' hspec
 
 -- The inverted covariance matrix and the log determinant of the covariance
 -- matrix are calculated by 'hamiltonianSimple'.
 hamiltonianSimpleWithMemoizedCovariance ::
-  HSettings a ->
+  HTuningSpec ->
+  HSpec a ->
   HData ->
   ProposalSimple a
-hamiltonianSimpleWithMemoizedCovariance st dt x g = do
+hamiltonianSimpleWithMemoizedCovariance tspec hspec dt x g = do
   phi <- generateMomenta mu masses g
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
@@ -457,7 +476,8 @@ hamiltonianSimpleWithMemoizedCovariance st dt x g = do
           -- the positions, and are not even storing the momenta.
           return (fromVec x theta', kernelR, 1.0)
   where
-    (HSettings _ toVec fromVec gradient mVal masses l e _) = st
+    (HTuningSpec masses l e _) = tspec
+    (HSpec _ toVec fromVec gradient mVal) = hspec
     theta = toVec x
     lL = maximum [1 :: Int, floor $ (0.8 :: Double) * fromIntegral l]
     lR = maximum [lL, ceiling $ (1.2 :: Double) * fromIntegral l]
@@ -468,12 +488,8 @@ hamiltonianSimpleWithMemoizedCovariance st dt x g = do
     gradientVec = toVec . gradient . fromVec x
     mValVec = mVal >>= (\f -> return $ f . fromVec x)
 
-hamiltonianSimple ::
-  HSettings a ->
-  ProposalSimple a
-hamiltonianSimple s = hamiltonianSimpleWithMemoizedCovariance s hd
-  where
-    hd = getHData s
+hamiltonianSimple :: HTuningSpec -> HSpec a -> ProposalSimple a
+hamiltonianSimple tspec hspec = hamiltonianSimpleWithMemoizedCovariance tspec hspec (getHData tspec)
 
 -- If changed, also change help text of 'HTuneMasses'.
 massMin :: Double
@@ -570,21 +586,22 @@ tuneAllMasses dim toVec xs ts
 -- | Hamiltonian Monte Carlo proposal.
 hamiltonian ::
   Eq a =>
-  HSettings a ->
+  HTuningSpec ->
+  HSpec a ->
   PName ->
   PWeight ->
   Proposal a
-hamiltonian s n w = case checkHSettings s of
+hamiltonian tspec hspec n w = case checkHSpecWith tspec hspec of
   Just err -> error err
   Nothing ->
     let desc = PDescription "Hamiltonian Monte Carlo (HMC)"
-        toVec = hToVector s
-        dim = (L.size $ toVec $ hSample s)
+        toVec = hToVector hspec
+        dim = (L.size $ toVec $ hSample hspec)
         pDim = PSpecial dim 0.65
-        ts = massesToTuningParameters (hMasses s)
-        ps = hamiltonianSimple s
+        ts = massesToTuningParameters (hMasses tspec)
+        ps = hamiltonianSimple tspec hspec
         hamiltonianWith = Proposal n desc PSlow pDim w ps
-        tSet@(HTuningConf tlf tms) = hTuningConf s
+        tSet@(HTuningConf tlf tms) = hTuningConf tspec
         tFun = case tlf of
           HNoTuneLeapfrog -> noTuningFunction
           HTuneLeapfrog -> defaultTuningFunctionWith pDim
@@ -595,5 +612,5 @@ hamiltonian s n w = case checkHSettings s of
      in case tSet of
           (HTuningConf HNoTuneLeapfrog HNoTuneMasses) -> hamiltonianWith Nothing
           _ ->
-            let tuner = Tuner 1.0 tFun ts tFunAux (hamiltonianSimpleWithTuningParameters s)
+            let tuner = Tuner 1.0 tFun ts tFunAux (hamiltonianSimpleWithTuningParameters tspec hspec)
              in hamiltonianWith $ Just tuner

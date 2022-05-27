@@ -1,5 +1,6 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- Split =HSettings= into =HTuningSpec= and =HSpec= (preparation for NUTS).
 - Rename =HTune= to =HTuningConf=.
 
 ** 0.6.2.5
