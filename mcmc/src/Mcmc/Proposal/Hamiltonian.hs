@@ -33,9 +33,9 @@
 --   user can use automatic or manual differentiation, depending on the problem
 --   at hand.
 --
--- - The Hamiltonian proposal acts on a vector of storable 'Position' variables.
---   Functions converting the state to and from this vector have to be provided.
---   See 'HSpec'.
+-- - The Hamiltonian proposal acts on a vector of storable 'Positions'
+--   variables. Functions converting the state to and from this vector have to
+--   be provided. See 'HSpec'.
 --
 -- - The desired acceptance rate is 0.65, although the dimension of the proposal
 --   is high.
@@ -62,6 +62,7 @@ module Mcmc.Proposal.Hamiltonian
     HTuningSpec,
     hTuningSpec,
     HSpec (..),
+    HMassesInv,
     leapfrog,
     hamiltonian,
   )
@@ -94,7 +95,7 @@ import System.Random.MWC
 -- the Markov chain.
 type Positions = L.Vector Double
 
--- Internal. Momenta of the 'Positions'.
+-- | Internal. Momenta of the 'Positions'.
 type Momenta = L.Vector Double
 
 -- | Gradient of the log posterior function.
@@ -137,8 +138,8 @@ type Validate a = a -> Bool
 --   function; or even to
 --
 -- - set all diagonal entries of the mass matrix to 1.0, and all other entries
---   to 0.0, and trust the tuning algorithm (see 'HTune') to find the correct
---   values.
+--   to 0.0, and trust the tuning algorithm (see 'HTuningConf') to find the
+--   correct values.
 type Masses = L.Herm Double
 
 -- | Mean leapfrog trajectory length \(L\).
@@ -279,7 +280,7 @@ checkHSpecWith tspec (HSpec x toVec fromVec _ _)
 -- Internal. Mean vector containing zeroes.
 type HMu = L.Vector Double
 
--- Internal. Symmetric, inverted mass matrix.
+-- | Internal. Symmetric, inverted mass matrix.
 type HMassesInv = L.Herm Double
 
 -- Internal. Logarithm of the determinant of the mass matrix.
@@ -598,6 +599,9 @@ tuneAllMasses dim toVec xs ts
     massesNew = L.inv sigma
 
 -- | Hamiltonian Monte Carlo proposal.
+--
+-- Do not use 'liftProposalWith', 'liftProposal', or '(@~)' with the Hamiltonian
+-- Monte Carlo proposal; instead, see 'HSpec'.
 hamiltonian ::
   Eq a =>
   HTuningSpec ->
