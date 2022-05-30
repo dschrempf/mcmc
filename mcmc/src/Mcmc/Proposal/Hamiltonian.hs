@@ -370,7 +370,7 @@ leapfrog grad mVal hMassesInv l eps theta phi = do
   thetaL <- valF $ leapfrogStepPositions hMassesInv eps thetaLM1 phiLM1Half
   let -- The last half step of the momenta.
       --
-      -- TODO (low): Since the gradient is evaluated at the final thetaL, one
+      -- TODO (high): Since the gradient is evaluated at the final thetaL, one
       -- could use 'grad'', which also calculates the value of the posterior. Of
       -- course, this is only possible if the proposal data type is changed and
       -- one can provide a posterior (see comments in "Nuts").
@@ -474,7 +474,8 @@ hamiltonianSimpleWithMemoizedCovariance tspec hspec dt x g = do
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
   case leapfrog gradientVec mValVec massesInv lRan eRan theta phi of
-    Nothing -> return (x, 0.0, 1.0)
+    -- TODO (high): Use the gradient to calculate the prior and the posterior.
+    Nothing -> return (x, 0.0, 1.0, Nothing, Nothing)
     Just (theta', phi') ->
       let -- Prior of momenta.
           prPhi = logDensityMultivariateNormal mu massesInv logDetMasses phi
@@ -485,7 +486,9 @@ hamiltonianSimpleWithMemoizedCovariance tspec hspec dt x g = do
           -- proposing the new value. That is, the negated momenta would guide the
           -- chain back to the previous state. However, we are only interested in
           -- the positions, and are not even storing the momenta.
-          return (fromVec x theta', kernelR, 1.0)
+          --
+          -- TODO (high): Use the gradient to calculate the prior and the posterior.
+          return (fromVec x theta', kernelR, 1.0, Nothing, Nothing)
   where
     (HTuningSpec masses l e _) = tspec
     (HSpec _ toVec fromVec gradient mVal) = hspec

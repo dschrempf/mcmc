@@ -120,7 +120,7 @@ dirichletSimple t (SimplexUnsafe xs) g = do
   -- subset of states is updated a Jacobian would be necessary.
   --
   -- traceShowM mhRatio
-  return (SimplexUnsafe ys, r, 1.0)
+  return (SimplexUnsafe ys, r, 1.0, Nothing, Nothing)
   where
     tf = getTuningFunction t
 
@@ -179,7 +179,7 @@ betaSimple i t (SimplexUnsafe xs) g = do
       -- of the Jacobian above.
       nf x = x * ja1
       ys = V.generate (V.length xs) (\j -> if i == j then yI else nf (xs V.! j))
-  return (either error id $ simplexFromVector ys, r, jac)
+  return (either error id $ simplexFromVector ys, r, jac, Nothing, Nothing)
   where
     xI = xs V.! i
     xsSum = V.sum xs

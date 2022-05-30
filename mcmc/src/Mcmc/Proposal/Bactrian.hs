@@ -58,7 +58,7 @@ bactrianAdditive ::
   ProposalSimple Double
 bactrianAdditive m s x g = do
   dx <- genBactrian m s g
-  return (x + dx, 1.0, 1.0)
+  return (x + dx, 1.0, 1.0, Nothing, Nothing)
 
 -- bactrianSimple lens spike stdDev tune forwardOp backwardOp
 bactrianAdditiveSimple ::
@@ -113,7 +113,7 @@ bactrianMult m s x g = do
       qYX = logDensityBactrian m s (fInv du)
       u = 1.0 + du
       jac = Exp $ log $ recip u
-  return (x * u, qYX / qXY, jac)
+  return (x * u, qYX / qXY, jac, Nothing, Nothing)
 
 bactrianMultSimple ::
   SpikeParameter ->

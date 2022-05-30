@@ -401,7 +401,7 @@ marginalLikelihood s prf lhf cc mn i0 g = do
           ThermodynamicIntegration -> tiWrapper s prf lhf cc mn i0 g
           SteppingStoneSampling -> sssWrapper s prf lhf cc mn i0 g
         logInfoS $ "Marginal log likelihood: " ++ show (ln val)
-        -- TODO: Simulation variance.
+        -- TODO (low): Simulation variance.
         logInfoS "The simulation variance is not yet available."
         return val
     )

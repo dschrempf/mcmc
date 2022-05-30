@@ -83,7 +83,7 @@ genericContinuous d f mInv mJac x g = do
       j = case mJac of
         Nothing -> 1.0
         Just fJac -> fJac x u
-  return (x `f` u, r, j)
+  return (x `f` u, r, j, Nothing, Nothing)
 {-# INLINEABLE genericContinuous #-}
 
 -- | Generic function to create proposals for discrete parameters (e.g., 'Int').
@@ -112,5 +112,5 @@ genericDiscrete d f mfInv x g = do
           let qXY = Exp $ logProbability d u
               qYX = Exp $ logProbability d (fInv u)
            in qYX / qXY
-  return (x `f` u, r, 1.0)
+  return (x `f` u, r, 1.0, Nothing, Nothing)
 {-# INLINEABLE genericDiscrete #-}
