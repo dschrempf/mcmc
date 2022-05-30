@@ -15,7 +15,7 @@ where
 
 import Criterion.Main
 import Data.List
-import Mcmc.Internal.Gamma
+import Mcmc.Internal.SpecFunctions
 import Normal
 import Numeric.SpecFunctions
 import Poisson
@@ -38,7 +38,11 @@ main = do
           bench "Bactrian" $ nfIO (normalBactrianBench g),
           bench "LargeCycle" $ nfIO (normalLargeCycleBench g)
         ],
-      bench "Poisson" $ nfIO (poissonBench g),
+      bgroup
+        "Poisson"
+        [ bench "Random walk" $ nfIO (poissonBench g),
+          bench "Hamiltonian" $ nfIO (poissonHamiltonianBench g)
+        ],
       bgroup
         "MC3"
         [ bench "MC3 2" $ nfIO (normalMC3 g 2),
@@ -123,3 +127,20 @@ main = do
 --                      1.000 R²   (1.000 R² .. 1.000 R²)
 -- mean                 58.83 ms   (58.76 ms .. 58.97 ms)
 -- std dev              168.3 μs   (105.7 μs .. 245.7 μs)
+
+------------------------------------------------------------------
+-- Results Poisson with general state and monitors before changes.
+
+-- benchmarking Poisson/Random walk
+-- time                 130.6 ms   (127.7 ms .. 134.7 ms)
+--                      0.998 R²   (0.993 R² .. 1.000 R²)
+-- mean                 130.0 ms   (128.3 ms .. 132.5 ms)
+-- std dev              3.233 ms   (1.769 ms .. 5.129 ms)
+-- variance introduced by outliers: 11% (moderately inflated)
+
+-- benchmarking Poisson/Hamiltonian
+-- time                 2.822 s    (2.226 s .. 3.209 s)
+--                      0.995 R²   (0.984 R² .. 1.000 R²)
+-- mean                 3.001 s    (2.826 s .. 3.248 s)
+-- std dev              245.8 ms   (4.119 ms .. 326.3 ms)
+-- variance introduced by outliers: 21% (moderately inflated)

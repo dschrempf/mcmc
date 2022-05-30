@@ -1,3 +1,10 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 -- |
 -- Module      :  Poisson
 -- Description :  Poisson regression model for airline fatalities
@@ -13,15 +20,28 @@
 -- See https://revbayes.github.io/tutorials/mcmc/poisson.html.
 module Poisson
   ( poissonBench,
+    poissonHamiltonianBench,
   )
 where
 
 import Control.Monad
-import Lens.Micro
+import Data.Aeson
+import Data.Bifunctor
+import Data.Typeable
+import qualified Data.Vector.Fixed as VB
+import qualified Data.Vector.Fixed.Boxed as VB
+import qualified Data.Vector.Storable as VS
 import Mcmc
+import Numeric.AD.Double
+import qualified Numeric.LinearAlgebra as L
 import System.Random.MWC
 
-type I = (Double, Double)
+type IG a = VB.Vec2 a
+
+type I = IG Double
+
+instance (VB.Arity n, ToJSON a) => ToJSON (VB.Vec n a) where
+  toJSON = toJSON . VB.toList
 
 fatalities :: [Int]
 fatalities = [24, 25, 31, 31, 22, 21, 26, 20, 16, 22]
@@ -32,50 +52,103 @@ normalizedYears = map (subtract m) ys
     ys = [1976.0 .. 1985.0]
     m = sum ys / fromIntegral (length ys)
 
-f :: Int -> Double -> I -> Likelihood
-f ft yr (a, b) = poisson l (fromIntegral ft)
+f :: (RealFloat a, Typeable a) => Int -> Double -> IG a -> LikelihoodG a
+f ft yr xs = poisson l ft
   where
-    l = exp $ a + b * yr
+    a = xs VB.! 0
+    b = xs VB.! 1
+    l = exp $ a + b * realToFrac yr
 
-lh :: LikelihoodFunction I
+lh :: (RealFloat a, Typeable a) => LikelihoodFunctionG (IG a) a
 lh x = product [f ft yr x | (ft, yr) <- zip fatalities normalizedYears]
 
 proposalAlpha :: Proposal I
-proposalAlpha = _1 @~ slideSymmetric 0.2 (PName "Alpha") (pWeight 1) NoTune
+proposalAlpha = (VB.element 0) @~ slideSymmetric 0.2 (PName "Alpha") (pWeight 1) NoTune
 
 proposalBeta :: Proposal I
-proposalBeta = _2 @~ slideSymmetric 0.2 (PName "Beta") (pWeight 1) NoTune
+proposalBeta = (VB.element 1) @~ slideSymmetric 0.2 (PName "Beta") (pWeight 1) NoTune
 
 proposals :: Cycle I
 proposals = cycleFromList [proposalAlpha, proposalBeta]
 
 initial :: I
-initial = (0, 0)
+initial = VB.mk2 0 0
 
 monAlpha :: MonitorParameter I
-monAlpha = fst >$< monitorDouble "alpha"
+monAlpha = (VB.! 0) >$< monitorDouble "alpha"
 
 monBeta :: MonitorParameter I
-monBeta = snd >$< monitorDouble "beta"
+monBeta = (VB.! 1) >$< monitorDouble "beta"
 
 monStd :: MonitorStdOut I
 monStd = monitorStdOut [monAlpha, monBeta] 150
 
+monF :: MonitorFile I
+monF = monitorFile "params" [monAlpha, monBeta] 10
+
 mon :: Monitor I
-mon = Monitor monStd [] []
+mon = Monitor monStd [monF] []
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
   let s =
         Settings
-          (AnalysisName "Poisson")
+          (AnalysisName "PoissonR")
           (BurnInWithAutoTuning 2000 200)
           (Iterations 10000)
           TraceAuto
           Overwrite
           Sequential
           NoSave
-          LogStdOutOnly
-          Quiet
+          -- LogStdOutOnly
+          LogFileOnly
+          -- Quiet
+          Info
   a <- mhg s noPrior lh proposals mon initial g
+  void $ mcmc s a
+
+toVec :: I -> VS.Vector Double
+toVec xs = VS.generate 2 (\i -> xs VB.! i)
+
+fromVec :: I -> VS.Vector Double -> I
+fromVec _ xs = VB.mk2 (xs VS.! 0) (xs VS.! 1)
+
+tspec :: HTuningSpec
+tspec = either error id $ hTuningSpec masses 10 0.1 tconf
+  where
+    masses = L.trustSym $ L.ident $ L.size $ toVec initial
+    tconf = HTuningConf HTuneLeapfrog HTuneAllMasses
+
+-- Value and gradient of log prior.
+prF :: IG Double -> (Maybe (Log Double), IG Double)
+prF = const (Just 1.0, zero)
+  where
+    zero = initial
+
+-- Value and gradient of log likelihood.
+lhF :: IG Double -> (Maybe (Log Double), IG Double)
+lhF = first (Just . Exp) . grad' (ln . lh)
+
+hspec :: HSpec I
+hspec = HSpec initial toVec fromVec prF lhF Nothing Nothing
+
+hmcProposal :: Cycle I
+hmcProposal = cycleFromList [hamiltonian tspec hspec (PName "Hamiltonian") (pWeight 1)]
+
+poissonHamiltonianBench :: GenIO -> IO ()
+poissonHamiltonianBench g = do
+  let s =
+        Settings
+          (AnalysisName "PoissonH")
+          (BurnInWithAutoTuning 2000 200)
+          (Iterations 10000)
+          TraceAuto
+          Overwrite
+          Sequential
+          NoSave
+          -- LogStdOutOnly
+          LogFileOnly
+          -- Quiet
+          Info
+  a <- mhg s noPrior lh hmcProposal mon initial g
   void $ mcmc s a

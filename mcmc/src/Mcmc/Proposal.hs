@@ -251,8 +251,8 @@ liftProposalWith jf l (Proposal n r d p w s t) =
 --
 -- Further, proposals may already compute and provide the prior or the
 -- likelihood of the new state. For example, the Hamilton Monte Carlo proposal
--- can compute the prior and the likelihood for cheap when evaluating the
--- gradient of the log posterior.
+-- can compute the log prior and the log likelihood for cheap when evaluating
+-- the gradient of the log prior and log likelihood, respectively.
 type ProposalSimple a = a -> GenIO -> IO (a, KernelRatio, Jacobian, Maybe Prior, Maybe Likelihood)
 
 -- Lift a simple proposal from one data type to another.

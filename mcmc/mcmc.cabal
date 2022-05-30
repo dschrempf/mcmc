@@ -53,7 +53,7 @@ library
     Mcmc.Chain.Trace
     Mcmc.Cycle
     Mcmc.Environment
-    Mcmc.Internal.Gamma
+    Mcmc.Internal.SpecFunctions
     Mcmc.Likelihood
     Mcmc.Logger
     Mcmc.MarginalLikelihood
@@ -140,9 +140,13 @@ benchmark mcmc-bench
   autogen-modules: Paths_mcmc
   hs-source-dirs:  bench
   build-depends:
+    , ad
+    , aeson
     , base            >=4.7 && <5
     , criterion
+    , fixed-vector
+    , hmatrix
     , math-functions
     , mcmc
-    , microlens
     , mwc-random
+    , vector

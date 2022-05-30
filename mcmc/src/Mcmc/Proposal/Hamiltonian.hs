@@ -27,21 +27,28 @@
 -- - [3] Review by Betancourt and notes: Betancourt, M., A conceptual
 --   introduction to Hamiltonian Monte Carlo, arXiv, 1701–02434 (2017).
 --
--- NOTE on implementation:
+-- Notes on implementation:
 --
--- - The implementation assumes the existence of the 'Gradient'. Like so, the
---   user can use automatic or manual differentiation, depending on the problem
---   at hand.
+-- - The 'Gradient' of the log posterior needs to be provided. Like so, the user
+--   can use automatic or manual differentiation, depending on the problem at
+--   hand.
 --
--- - The Hamiltonian proposal acts on a vector of storable 'Positions'
---   variables. Functions converting the state to and from this vector have to
---   be provided. See 'HSpec'.
+--   Further, the gradient of the complete state needs to be provided, even
+--   though the proposal may only act on a sub-set of the complete state. In
+--   particular, do not use 'liftProposalWith', 'liftProposal', or '(@~)' with
+--   the Hamiltonian Monte Carlo proposal; instead, see the documentation of
+--   'HSpec'.
+--
+-- - The Hamiltonian proposal acts on a vector of storable 'Positions'.
+--   Functions converting the state to and from this vector have to be provided.
+--   See 'HSpec'.
 --
 -- - The desired acceptance rate is 0.65, although the dimension of the proposal
 --   is high.
 --
--- - The speed of this proposal can change drastically when tuned because the
---   leapfrog trajectory length is changed.
+-- - The speed of this proposal changes drastically with the leapfrog trajectory
+--   length and the leapfrog scaling factor. Hence, the speed will change during
+--   burn in.
 --
 -- - The Hamiltonian proposal is agnostic of the actual prior and likelihood
 --   functions, and so, points with zero posterior probability cannot be
@@ -51,6 +58,7 @@
 module Mcmc.Proposal.Hamiltonian
   ( Positions,
     Momenta,
+    ValueAndGradient,
     Gradient,
     Validate,
     Masses,
@@ -68,9 +76,12 @@ module Mcmc.Proposal.Hamiltonian
   )
 where
 
+import Data.Bifunctor
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
+import Mcmc.Likelihood
+import Mcmc.Prior
 import Mcmc.Proposal
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
@@ -98,20 +109,28 @@ type Positions = L.Vector Double
 -- | Internal. Momenta of the 'Positions'.
 type Momenta = L.Vector Double
 
--- | Gradient of the log posterior function.
+-- | Function calculating value and gradient.
 --
--- The gradient has to be provided for the complete state. The reason is that
--- the gradient may change if parameters untouched by the Hamiltonian proposal
--- are altered by other proposals.
+-- The function has to be provided for the complete state. The reason is that
+-- parameters untouched by the Hamiltonian proposal may affect the result or the
+-- gradient.
+--
+-- The result may be included, because sometimes, when computing the gradient,
+-- the result of the function is a (useful) byproduct. If the result is
+-- provided, make sure that it is calculated lazily because many times, only the
+-- gradient is required.
+type ValueAndGradient a = a -> (Maybe (Log Double), a)
+
+-- | Gradient function; see 'ValueAndGradient'; only the gradient.
 type Gradient a = a -> a
 
 -- | Function determining the validity of a state.
 --
--- Useful when parameters are constrained and when calculating the prior or
--- likelihood functions is slow, but testing for validity is fast.
+-- The function has to be provided for the complete state because parameters
+-- untouched by the Hamiltonian proposal may affect the validity of the state.
 --
--- Also the validity of the state may depend on parameters untouched by the
--- Hamiltonian proposal.
+-- Useful when many parameters are constrained and when calculating the prior or
+-- likelihood functions is slow, but testing for validity is fast.
 type Validate a = a -> Bool
 
 -- | Parameter mass matrix.
@@ -262,12 +281,20 @@ data HSpec a = HSpec
     hToVector :: a -> Positions,
     -- | Put those values back into the state.
     hFromVectorWith :: a -> Positions -> a,
-    hGradient :: Gradient a,
+    -- | Function computing the log prior and the gradient thereof.
+    hPriorValueAndGradient :: ValueAndGradient a,
+    -- | Function computing the log likelihood and the gradient thereof.
+    hLikelihoodValueAndGradient :: ValueAndGradient a,
+    -- | Function computing the gradient of the log of the Jacobian. The
+    -- gradient of the log of the Jacobian needs to be provided here, so that
+    -- the Hamiltonian Monte Carlo proposal can be used in combination with
+    -- lifted other proposals.
+    hJacobianGradient :: Maybe (Gradient a),
     hMaybeValidate :: Maybe (Validate a)
   }
 
 checkHSpecWith :: Eq a => HTuningSpec -> HSpec a -> Maybe String
-checkHSpecWith tspec (HSpec x toVec fromVec _ _)
+checkHSpecWith tspec (HSpec x toVec fromVec _ _ _ _)
   | fromVec x xVec /= x = eWith "'fromVectorWith x (toVector x) /= x' for sample state."
   | L.size xVec /= nrows = eWith "Mass matrix and 'toVector x' have different sizes for sample state."
   | otherwise = Nothing
@@ -352,31 +379,32 @@ logDensityMultivariateNormal mu sigmaInvH logDetSigma xs =
 
 -- | Internal; Leapfrog integrator (also used by NUTS proposal).
 leapfrog ::
-  Gradient Positions ->
+  -- | Prior.
+  ValueAndGradient Positions ->
+  -- | Likelihood.
+  ValueAndGradient Positions ->
+  -- | Jacobian.
+  Maybe (Gradient Positions) ->
   Maybe (Validate Positions) ->
   HMassesInv ->
   LeapfrogTrajectoryLength ->
   LeapfrogScalingFactor ->
   Positions ->
   Momenta ->
-  -- Maybe (Positions', Momenta'); fail if state is not valid.
-  Maybe (Positions, Momenta)
-leapfrog grad mVal hMassesInv l eps theta phi = do
+  -- | Fail if state is not valid.
+  Maybe (Positions, Momenta, Maybe Prior, Maybe Likelihood)
+leapfrog prF lhF jF mVal hMassesInv l eps theta phi = do
   let -- The first half step of the momenta.
-      phiHalf = leapfrogStepMomenta (0.5 * eps) grad theta phi
+      (phiHalf, _, _) = leapfrogStepMomenta (0.5 * eps) prF lhF jF theta phi
   -- L-1 full steps. This gives the positions theta_{L-1}, and the momenta
   -- phi_{L-1/2}.
   (thetaLM1, phiLM1Half) <- go (l - 1) (Just (theta, phiHalf))
   -- The last full step of the positions.
   thetaL <- valF $ leapfrogStepPositions hMassesInv eps thetaLM1 phiLM1Half
-  let -- The last half step of the momenta.
-      --
-      -- TODO (high): Since the gradient is evaluated at the final thetaL, one
-      -- could use 'grad'', which also calculates the value of the posterior. Of
-      -- course, this is only possible if the proposal data type is changed and
-      -- one can provide a posterior (see comments in "Nuts").
-      phiL = leapfrogStepMomenta (0.5 * eps) grad thetaL phiLM1Half
-  return (thetaL, phiL)
+  let -- The last half step of the momenta. Here, we simultaneousely calculate
+      -- the function values, if provided.
+      (phiL, mPr, mLh) = leapfrogStepMomenta (0.5 * eps) prF lhF jF thetaL phiLM1Half
+  return (thetaL, phiL, mPr, mLh)
   where
     valF x = case mVal of
       Nothing -> Just x
@@ -386,20 +414,32 @@ leapfrog grad mVal hMassesInv l eps theta phi = do
       | n <= 0 = Just (t, p)
       | otherwise =
           let t' = leapfrogStepPositions hMassesInv eps t p
-              p' = leapfrogStepMomenta eps grad t' p
+              (p', _, _) = leapfrogStepMomenta eps prF lhF jF t' p
               r = (,p') <$> valF t'
            in go (n - 1) r
 
 leapfrogStepMomenta ::
   LeapfrogScalingFactor ->
-  Gradient Positions ->
+  -- Prior.
+  ValueAndGradient Positions ->
+  -- Likelihood.
+  ValueAndGradient Positions ->
+  -- Jacobian.
+  Maybe (Gradient Positions) ->
   -- Current positions.
   Positions ->
   -- Current momenta.
   Momenta ->
-  -- New momenta.
-  Momenta
-leapfrogStepMomenta eps grad theta phi = phi + L.scale eps (grad theta)
+  -- New momenta; also return prior and likelihood to be collected at the end of
+  -- the leapfrog integration.
+  (Momenta, Maybe Prior, Maybe Likelihood)
+leapfrogStepMomenta eps prF lhF mJF theta phi = (phi + L.scale eps gTotal, mPr, mLh)
+  where
+    (mPr, gPr) = prF theta
+    (mLh, gLh) = lhF theta
+    gTotal = case mJF of
+      Nothing -> gPr + gLh
+      Just jF -> gPr + gLh + jF theta
 
 leapfrogStepPositions ::
   HMassesInv ->
@@ -474,10 +514,9 @@ hamiltonianSimpleWithMemoizedCovariance tspec hspec dt x g = do
   phi <- generateMomenta mu masses g
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
-  case leapfrog gradientVec mValVec massesInv lRan eRan theta phi of
-    -- TODO (high): Use the gradient to calculate the prior and the posterior.
-    Nothing -> return (x, 0.0, 1.0, Nothing, Nothing)
-    Just (theta', phi') ->
+  case leapfrog prFVec lhFVec jFVec mValVec massesInv lRan eRan theta phi of
+    Nothing -> return (x, 0.0, 1.0, Just 0.0, Just 0.0)
+    Just (theta', phi', mPr, mLh) ->
       let -- Prior of momenta.
           prPhi = logDensityMultivariateNormal mu massesInv logDetMasses phi
           prPhi' = logDensityMultivariateNormal mu massesInv logDetMasses phi'
@@ -487,20 +526,23 @@ hamiltonianSimpleWithMemoizedCovariance tspec hspec dt x g = do
           -- proposing the new value. That is, the negated momenta would guide the
           -- chain back to the previous state. However, we are only interested in
           -- the positions, and are not even storing the momenta.
-          --
-          -- TODO (high): Use the gradient to calculate the prior and the posterior.
-          return (fromVec x theta', kernelR, 1.0, Nothing, Nothing)
+          return (fromVec x theta', kernelR, 1.0, mPr, mLh)
   where
     (HTuningSpec masses l e _) = tspec
-    (HSpec _ toVec fromVec gradient mVal) = hspec
+    (HSpec _ toVec fromVec prF lhF jF mVal) = hspec
     theta = toVec x
     lL = maximum [1 :: Int, floor $ (0.8 :: Double) * fromIntegral l]
     lR = maximum [lL, ceiling $ (1.2 :: Double) * fromIntegral l]
     eL = 0.8 * e
     eR = 1.2 * e
     (HData mu massesInv logDetMasses) = dt
-    -- Vectorize the gradient and validation functions.
-    gradientVec = toVec . gradient . fromVec x
+    -- TODO (high): Separate gradients are slow! Solution: Use a target
+    -- function, and only split into prior/likelihood when monitoring the state?
+    --
+    -- Vectorize the gradients and validation functions.
+    prFVec = second toVec . prF . fromVec x
+    lhFVec = second toVec . lhF . fromVec x
+    jFVec = (\f -> toVec . f . fromVec x) <$> jF
     mValVec = mVal >>= (\f -> return $ f . fromVec x)
 
 hamiltonianSimple :: HTuningSpec -> HSpec a -> ProposalSimple a
@@ -599,9 +641,6 @@ tuneAllMasses dim toVec xs ts
     massesNew = L.inv sigma
 
 -- | Hamiltonian Monte Carlo proposal.
---
--- Do not use 'liftProposalWith', 'liftProposal', or '(@~)' with the Hamiltonian
--- Monte Carlo proposal; instead, see 'HSpec'.
 hamiltonian ::
   Eq a =>
   HTuningSpec ->

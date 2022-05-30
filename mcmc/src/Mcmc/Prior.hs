@@ -46,11 +46,9 @@ where
 import Control.Monad
 import Data.Maybe (fromMaybe)
 import Data.Typeable
-import Mcmc.Internal.Gamma
+import Mcmc.Internal.SpecFunctions
 import Mcmc.Statistics.Types
 import Numeric.Log
-import qualified Statistics.Distribution as S
-import qualified Statistics.Distribution.Poisson as S
 
 -- | Prior values are stored in log domain.
 type Prior = PriorG Double
@@ -90,7 +88,7 @@ lessThan a x
 
 -- | Improper uniform prior; strictly less than zero.
 negative :: RealFloat a => PriorFunctionG a a
-negative = lessThan 0
+negative = lessThan 0.0
 {-# SPECIALIZE negative :: PriorFunction Double #-}
 
 -- | Exponential distributed prior.
@@ -98,8 +96,8 @@ negative = lessThan 0
 -- Call 'error' if the rate is zero or negative.
 exponential :: RealFloat a => Rate a -> PriorFunctionG a a
 exponential l x
-  | l <= 0 = error "exponential: Rate is zero or negative."
-  | x <= 0 = 0
+  | l <= 0.0 = error "exponential: Rate is zero or negative."
+  | x <= 0.0 = 0.0
   | otherwise = ll * Exp (negate l * x)
   where
     ll = Exp $ log l
@@ -110,11 +108,11 @@ exponential l x
 -- Call 'error' if the shape or scale are zero or negative.
 gamma :: (Typeable a, RealFloat a) => Shape a -> Scale a -> PriorFunctionG a a
 gamma k t x
-  | k <= 0 = error "gamma: Shape is zero or negative."
-  | t <= 0 = error "gamma: Scale is zero or negative."
-  | x < 0 = error "gamma: Negative value."
-  | x == 0 = 0.0
-  | otherwise = Exp $ log x * (k - 1) - (x / t) - logGammaG k - log t * k
+  | k <= 0.0 = error "gamma: Shape is zero or negative."
+  | t <= 0.0 = error "gamma: Scale is zero or negative."
+  | x < 0.0 = error "gamma: Negative value."
+  | x == 0.0 = 0.0
+  | otherwise = Exp $ log x * (k - 1.0) - (x / t) - logGammaG k - log t * k
 {-# SPECIALIZE gamma :: Double -> Double -> PriorFunction Double #-}
 
 -- | See 'gamma' but parametrized using mean and variance.
@@ -167,12 +165,12 @@ mLnSqrt2Pi = 0.9189385332046727417803297364056176398613974736377834128171
 -- Call 'error' if the standard deviation is zero or negative.
 logNormal :: RealFloat a => Mean a -> StandardDeviation a -> PriorFunctionG a a
 logNormal m s x
-  | s <= 0 = error "logNormal: Standard deviation is zero or negative."
-  | x <= 0 = 0
+  | s <= 0.0 = error "logNormal: Standard deviation is zero or negative."
+  | x <= 0.0 = 0.0
   | otherwise = Exp $ t + e
   where
     t = negate $ mLnSqrt2Pi + log (x * s)
-    a = recip $ 2 * s * s
+    a = recip $ 2.0 * s * s
     b = log x - m
     e = negate $ a * b * b
 
@@ -202,13 +200,11 @@ uniform a b x
 -- | Poisson distributed prior.
 --
 -- Call 'error' if the rate is zero or negative.
-poisson :: Rate Double -> PriorFunction Int
+poisson :: (RealFloat a, Typeable a) => Rate a -> PriorFunctionG Int a
 poisson l n
-  | l <= 0 = error "poisson: Rate is zero or negative."
-  | n < 0 = error "poisson: Negative value."
-  | otherwise = Exp $ S.logProbability d n
-  where
-    d = S.poisson l
+  | l < 0.0 = error "poisson: Rate is zero or negative."
+  | n < 0 = 0.0
+  | otherwise = Exp $ log l * fromIntegral n - logFactorialG n - l
 
 -- | Intelligent product that stops when encountering a zero.
 --
@@ -220,5 +216,5 @@ product' = fromMaybe 0 . prodM
 
 -- The type could be generalized to any MonadPlus Integer
 prodM :: RealFloat a => [Log a] -> Maybe (Log a)
-prodM = foldM (\ !acc x -> (acc * x) <$ guard (acc /= 0)) 1
+prodM = foldM (\ !acc x -> (acc * x) <$ guard (acc /= 0.0)) 1.0
 {-# SPECIALIZE prodM :: [Log Double] -> Maybe (Log Double) #-}
