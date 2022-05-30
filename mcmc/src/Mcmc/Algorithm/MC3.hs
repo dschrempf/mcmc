@@ -266,8 +266,9 @@ initMHG prf lhf i beta a
     l = link c
     t = trace c
 
--- TODO: Splitmix. Initialization of the MC3 algorithm is an IO action because
--- the generators have to be split. And also because of the mutable trace.
+-- TODO (medium): Splitmix. Initialization of the MC3 algorithm is an IO action
+-- because the generators have to be split. And also because of the mutable
+-- trace.
 
 -- | Initialize an MC3 algorithm with a given number of chains.
 --
@@ -420,8 +421,9 @@ mc3IsInValidState a = V.any aIsInValidState mhgs
   where
     mhgs = mc3MHGChains a
 
--- TODO: Splitmix. 'mc3Iterate' is actually not parallel, but concurrent because
--- of the IO constraint. Use pure parallel code when we have a pure generator.
+-- TODO (medium): Splitmix. 'mc3Iterate' is actually not parallel, but
+-- concurrent because of the IO constraint. Use pure parallel code when we have
+-- a pure generator.
 --
 -- However, we have to take care of the mutable traces.
 mc3Iterate ::

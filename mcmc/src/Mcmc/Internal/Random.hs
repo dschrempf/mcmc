@@ -36,8 +36,8 @@ splitGen n gen
       seeds :: [V.Vector Word32] <- replicateM n $ uniformVector gen 256
       mapM initialize seeds
 
--- TODO: Splitmix. Remove or amend these functions as soon as split mix is used
--- and is available with the statistics package.
+-- TODO (medium): Splitmix. Remove or amend these functions as soon as split mix
+-- is used and is available with the statistics package.
 
 -- | Save a generator to a seed.
 saveGen :: GenIO -> IO (V.Vector Word32)

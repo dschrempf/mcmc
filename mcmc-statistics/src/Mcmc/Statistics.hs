@@ -37,7 +37,7 @@ gamma c = V.generate l (`sum2` c) where l = V.length c `quot` 2
 
 -- Truncated gamma function; not numbered.
 gammaTruncated :: Vector Double -> Vector Double
--- TODO: Use mutable vector so that not the complete gamma vector needs to be created.
+-- TODO (low): Use mutable vector so that not the complete gamma vector needs to be created.
 gammaTruncated c = V.takeWhile (> 0) (gamma c) `V.snoc` 0
 
 -- | Initial convex sequence estimator of the asymptotic variance. Eq. (1.19),
