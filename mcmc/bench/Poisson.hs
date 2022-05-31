@@ -118,10 +118,13 @@ tspec = either error id $ hTuningSpec masses 10 0.1 tconf
     tconf = HTuningConf HTuneLeapfrog HTuneAllMasses
 
 hspec :: HSpec IG
-hspec = HSpec initial toVec fromVec noPrior lh Nothing
+hspec = HSpec initial toVec fromVec
+
+target :: HTarget IG
+target = HTarget Nothing lh Nothing
 
 hmcProposal :: Cycle I
-hmcProposal = cycleFromList [hamiltonian tspec hspec (PName "Hamiltonian") (pWeight 1)]
+hmcProposal = cycleFromList [hamiltonian tspec hspec target (PName "Hamiltonian") (pWeight 1)]
 
 poissonHamiltonianBench :: GenIO -> IO ()
 poissonHamiltonianBench g = do

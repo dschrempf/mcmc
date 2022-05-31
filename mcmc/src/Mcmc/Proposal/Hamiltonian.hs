@@ -29,21 +29,23 @@
 --
 -- Notes on implementation:
 --
--- TODO (high): Clean up!
+-- - The HMC proposal acts on 'Positions', a vector of floating point values.
+--   The manipulated values can represent the complete state, or a subset of the
+--   complete state. Functions converting the state to and from this vector have
+--   to be provided; see 'HSpec'.
 --
--- - The 'Gradient' of the log posterior needs to be provided. Like so, the user
---   can use automatic or manual differentiation, depending on the problem at
---   hand.
+-- - Even though the proposal may only act on a subset of the complete state,
+--   the prior, likelihood, and Jacobian functions of the complete state have to
+--   be provided; see 'HTarget'. This is because parameters not manipulated by
+--   the HMC proposal still influence the prior, likelihood and Jacobian
+--   functions.
 --
---   Further, the gradient of the complete state needs to be provided, even
---   though the proposal may only act on a sub-set of the complete state. In
---   particular, do not use 'liftProposalWith', 'liftProposal', or '(@~)' with
---   the Hamiltonian Monte Carlo proposal; instead, see the documentation of
---   'HSpec'.
+-- - The points given above have implications on how the HMC proposal is
+--   handled: Do not use 'liftProposalWith', 'liftProposal', or '(@~)' with the
+--   HMC proposal; instead use the conversion functions in 'HSpec'.
 --
--- - The Hamiltonian proposal acts on a vector of storable 'Positions'.
---   Functions converting the state to and from this vector have to be provided.
---   See 'HSpec'.
+-- - The gradient of the log target function is calculated using automatic
+--   differentiation.
 --
 -- - The desired acceptance rate is 0.65, although the dimension of the proposal
 --   is high.
@@ -89,8 +91,6 @@ import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
 import System.Random.MWC
 
--- TODO (high): Clean up!
-
 -- NOTE: Implementing the Riemannian adaptation (state-dependent mass matrix).
 -- seems a little bit of an overkill.
 
@@ -99,6 +99,9 @@ import System.Random.MWC
 --
 -- The positions can represent the complete state or a subset of the state of
 -- the Markov chain.
+--
+-- The length of the position vector determines the size of the squared mass
+-- matrix 'Masses'.
 type Positions = L.Vector Double
 
 -- | Internal. Momenta of the 'Positions'.
@@ -112,6 +115,9 @@ type Momenta = L.Vector Double
 -- has lower mass. Off-diagonal entries describe the covariance structure. If
 -- two parameters are negatively correlated, their generated initial momenta are
 -- likely to have opposite signs.
+--
+-- The matrix is square with the number of rows/columns being equal to the
+-- length of 'Positions'.
 --
 -- The proposal is more efficient if masses are assigned according to the
 -- inverse (co)-variance structure of the posterior function. That is,
@@ -245,6 +251,8 @@ hTuningSpec masses l eps c
 
 -- | The Hamilton Monte Carlo proposal requires information about the structure
 -- of the state, which is denoted as @s@.
+--
+-- Please also refer to the top level module documentation.
 data HSpec s = HSpec
   { -- | The sample state is used for error checks and to calculate the dimension
     -- of the proposal.
@@ -259,9 +267,11 @@ data HSpec s = HSpec
 -- | The target is composed of the prior, likelihood, and jacobian functions.
 --
 -- The structure of the state is denoted as @s@.
+--
+-- Please also refer to the top level module documentation.
 data HTarget s = HTarget
   { -- | Function computing the log prior.
-    hPrior :: forall a. (RealFloat a, Typeable a) => PriorFunctionG (s a) a,
+    hPrior :: forall a. (RealFloat a, Typeable a) => Maybe (PriorFunctionG (s a) a),
     -- | Function computing the log likelihood.
     hLikelihood :: forall a. (RealFloat a, Typeable a) => LikelihoodFunctionG (s a) a,
     -- | Function computing the log of the Jacobian.
@@ -624,13 +634,15 @@ hamiltonian tspec hspec htarget n w = case checkHSpecWith tspec hspec of
     let -- Misc.
         desc = PDescription "Hamiltonian Monte Carlo (HMC)"
         (HSpec sample toVec fromVec) = hspec
-        (HTarget prF lhF mJF) = htarget
+        (HTarget mPrF lhF mJcF) = htarget
         dim = (L.size $ toVec sample)
         pDim = PSpecial dim 0.65
         -- Vectorize and derive the target function.
-        tF y = case mJF of
-          Nothing -> prF y * lhF y
-          Just jF -> prF y * lhF y * jF y
+        tF y = case (mPrF, mJcF) of
+          (Nothing, Nothing) -> lhF y
+          (Just prF, Nothing) -> prF y * lhF y
+          (Nothing, Just jcF) -> lhF y * jcF y
+          (Just prF, Just jcF) -> prF y * lhF y * jcF y
         tFnG = grad' (ln . tF)
         targetWith x = bimap Exp toVec . tFnG . fromVec x
         ps = hamiltonianSimple tspec hspec targetWith
