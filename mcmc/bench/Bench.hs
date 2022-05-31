@@ -79,11 +79,18 @@ main = do
 -- std dev              2.765 ms   (758.0 μs .. 4.788 ms)
 -- variance introduced by outliers: 14% (moderately inflated)
 
--- benchmarking Poisson
--- time                 41.84 ms   (40.76 ms .. 42.91 ms)
---                      0.998 R²   (0.994 R² .. 0.999 R²)
--- mean                 41.87 ms   (41.39 ms .. 42.59 ms)
--- std dev              1.201 ms   (782.7 μs .. 1.961 ms)
+-- benchmarking Poisson/Random walk
+-- time                 86.57 ms   (86.06 ms .. 86.97 ms)
+--                      1.000 R²   (1.000 R² .. 1.000 R²)
+-- mean                 86.57 ms   (86.20 ms .. 87.14 ms)
+-- std dev              775.9 μs   (415.4 μs .. 1.205 ms)
+
+-- benchmarking Poisson/Hamiltonian
+-- time                 2.890 s    (2.313 s .. 3.359 s)
+--                      0.993 R²   (0.992 R² .. 1.000 R²)
+-- mean                 3.082 s    (2.960 s .. 3.153 s)
+-- std dev              120.4 ms   (39.93 ms .. 164.0 ms)
+-- variance introduced by outliers: 19% (moderately inflated)
 
 -- benchmarking MC3/MC3 2
 -- time                 7.771 ms   (7.573 ms .. 8.008 ms)
@@ -127,20 +134,3 @@ main = do
 --                      1.000 R²   (1.000 R² .. 1.000 R²)
 -- mean                 58.83 ms   (58.76 ms .. 58.97 ms)
 -- std dev              168.3 μs   (105.7 μs .. 245.7 μs)
-
-------------------------------------------------------------------
--- Results Poisson with general state and monitors before changes.
-
--- benchmarking Poisson/Random walk
--- time                 130.6 ms   (127.7 ms .. 134.7 ms)
---                      0.998 R²   (0.993 R² .. 1.000 R²)
--- mean                 130.0 ms   (128.3 ms .. 132.5 ms)
--- std dev              3.233 ms   (1.769 ms .. 5.129 ms)
--- variance introduced by outliers: 11% (moderately inflated)
-
--- benchmarking Poisson/Hamiltonian
--- time                 2.822 s    (2.226 s .. 3.209 s)
---                      0.995 R²   (0.984 R² .. 1.000 R²)
--- mean                 3.001 s    (2.826 s .. 3.248 s)
--- std dev              245.8 ms   (4.119 ms .. 326.3 ms)
--- variance introduced by outliers: 21% (moderately inflated)

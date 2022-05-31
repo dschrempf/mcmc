@@ -81,11 +81,11 @@ monBeta = (VB.! 1) >$< monitorDouble "beta"
 monStd :: MonitorStdOut I
 monStd = monitorStdOut [monAlpha, monBeta] 150
 
-monF :: MonitorFile I
-monF = monitorFile "params" [monAlpha, monBeta] 10
+-- monF :: MonitorFile I
+-- monF = monitorFile "params" [monAlpha, monBeta] 10
 
 mon :: Monitor I
-mon = Monitor monStd [monF] []
+mon = Monitor monStd [] []
 
 poissonBench :: GenIO -> IO ()
 poissonBench g = do
