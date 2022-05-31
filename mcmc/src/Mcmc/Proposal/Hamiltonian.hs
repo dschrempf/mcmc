@@ -497,7 +497,9 @@ hamiltonianSimpleWithMemoizedCovariance tspec hspec dt targetWith x g = do
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
   case leapfrog (targetWith x) massesInv lRan eRan theta phi of
-    Nothing -> return (x, 0.0, 1.0)
+    Nothing -> pure (x, 0.0, 1.0)
+    -- TODO (high): Because of Jacobian: Check if next state is accepted here.
+    -- If not: pure (x, 0.0, 1.0).
     Just (theta', phi', _) ->
       let -- Prior of momenta.
           prPhi = logDensityMultivariateNormal mu massesInv logDetMasses phi
@@ -508,7 +510,7 @@ hamiltonianSimpleWithMemoizedCovariance tspec hspec dt targetWith x g = do
           -- proposing the new value. That is, the negated momenta would guide the
           -- chain back to the previous state. However, we are only interested in
           -- the positions, and are not even storing the momenta.
-          return (fromVec x theta', kernelR, 1.0)
+          pure (fromVec x theta', kernelR, 1.0)
   where
     (HTuningSpec masses l e _) = tspec
     (HSpec _ toVec fromVec) = hspec

@@ -210,8 +210,11 @@ mhgPropose (MHG c) p = do
   -- Most often, parallelization is not helpful, because the prior and
   -- likelihood functions are too fast; see
   -- https://stackoverflow.com/a/46603680/3536806.
+  --
+  -- TODO (high): If q or j are 0.0, avoid calculation of the new prior and
+  -- likelihood.
   let (pY, lY) = (pF y, lF y) `using` parTuple2 rdeepseq rdeepseq
-  let !r = mhgRatio (pX * lX) (pY * lY) q j
+      !r = mhgRatio (pX * lX) (pY * lY) q j
   -- 3. Accept or reject.
   accept <- mhgAccept r g
   if accept
