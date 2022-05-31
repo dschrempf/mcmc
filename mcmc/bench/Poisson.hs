@@ -98,10 +98,8 @@ poissonBench g = do
           Overwrite
           Sequential
           NoSave
-          -- LogStdOutOnly
-          LogFileOnly
-          -- Quiet
-          Info
+          LogStdOutOnly
+          Quiet
   a <- mhg s noPrior lh proposals mon initial g
   void $ mcmc s a
 
@@ -137,9 +135,7 @@ poissonHamiltonianBench g = do
           Overwrite
           Sequential
           NoSave
-          -- LogStdOutOnly
-          LogFileOnly
-          -- Quiet
-          Info
+          LogStdOutOnly
+          Quiet
   a <- mhg s noPrior lh hmcProposal mon initial g
   void $ mcmc s a
