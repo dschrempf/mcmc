@@ -19,90 +19,74 @@ where
 import Control.Lens
 import Control.Monad
 import qualified Data.Vector as VB
-import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
 import Mcmc
-import Numeric.AD.Double (grad)
 import qualified Numeric.LinearAlgebra as L
 import System.Random.MWC hiding (uniform)
 
-type IB = VB.Vector Double
+type IG = VB.Vector
 
-type I = VS.Vector Double
+type I = IG Double
 
--- instance ToJSON a => ToJSON (ZipList a)
+-- -- The Rosenbrock function is really hard to estimate. It works somewhat, but
+-- -- the example is a little bit frustrating.
 
--- instance FromJSON a => FromJSON (ZipList a)
+-- logRosenbrock :: RealFloat a => a -> a -> IG a -> a
+-- logRosenbrock a b xs
+--   | n == 2 = log $ (a - x) ** 2 + b * ((y - x * x) ** 2)
+--   | otherwise = error "lhf: Number of parameters has changed."
+--   where
+--     n = VB.length xs
+--     x = xs VB.! 0
+--     y = xs VB.! 1
 
--- The Rosenbrock function is really hard to estimate. It works somewhat, but
--- the example is a little bit frustrating.
+-- lhf :: RealFloat a => LikelihoodFunctionG (IG a) a
+-- lhf = Exp . negate . logRosenbrock 5 0.05
 
--- logRosenbrock :: RealFloat a => a -> a -> [a] -> a
--- logRosenbrock a b [x, y] = log $ (a - x) ** 2 + b * ((y - x * x) ** 2)
--- logRosenbrock _ _ _ = error "lhf: Number of parameters has changed."
+-- dimension :: Int
+-- dimension = 2
 
 logGauss1 :: RealFloat a => a -> a -> a
 logGauss1 s x = log (recip $ s * sqrt (2 * pi)) - 0.5 * x * x / s / s
 
-logGaussN :: (VG.Vector v a, RealFloat a) => v a -> v a -> a
-logGaussN ss xs = VG.foldl' (+) 0.0 (VG.zipWith logGauss1 ss xs)
+logGaussN :: RealFloat a => IG a -> IG a -> a
+logGaussN ss xs = VB.foldl' (+) 0.0 (VB.zipWith logGauss1 ss xs)
 
-standardDeviations :: (VG.Vector v a, Enum a, RealFloat a) => v a
--- Hard; dimension = 100.
-standardDeviations = VG.fromList $ [0.02, 0.04 .. 1.0] ++ [2, 4 .. 100]
+standardDeviations :: RealFloat a => IG a
+standardDeviations = VB.fromList $ map realToFrac xs
+  where
+    xs :: [Double]
+    xs = [0.02, 0.04 .. 1.0] ++ [2, 4 .. 100]
 
--- -- Easy; dimension = 10.
--- standardDeviations = VG.fromList [1, 2 .. 10]
+lhf :: RealFloat a => LikelihoodFunctionG (IG a) a
+lhf = Exp . logGaussN standardDeviations
 
 dimension :: Int
-dimension = VS.length (standardDeviations :: I)
-
-llhf :: (VG.Vector v a, RealFloat a, Enum a) => v a -> a
-llhf = logGaussN standardDeviations
-
-gradientG :: IB -> IB
-gradientG = grad llhf
-
-gradient :: I -> I
-gradient = VS.convert . gradientG . VS.convert
-
-prf :: PriorFunction I
-prf _ = 1.0
-
--- prf (ZipList [x, y]) = uniform (-2) 2 x * uniform (-1) 3 y
--- prf _ = error "prf: Number of parameters has changed."
-
--- The Likelihood function on I is less general, and does not allow for
--- automatic differentiation.
-lhf :: LikelihoodFunction I
-lhf = Exp . llhf
+dimension = VB.length (standardDeviations :: I)
 
 masses :: Masses
 masses = L.trustSym $ L.diag $ L.fromList $ replicate dimension 1.0
 
 initialState :: I
-initialState = VS.fromList $ replicate dimension 1
+initialState = VB.fromList $ replicate dimension 1
 
-tuningSpec :: HTuningSpec
-tuningSpec =
+tSpec :: HTuningSpec
+tSpec =
   either error id $
     hTuningSpec
       masses
       10
-      0.05
+      0.03
       (HTuningConf HTuneLeapfrog HTuneAllMasses)
 
-hSpec :: HSpec I
-hSpec =
-  HSpec
-    initialState
-    VS.convert
-    (const VS.convert)
-    gradient
-    Nothing
+hSpec :: HSpec IG
+hSpec = HSpec initialState VS.convert (const VS.convert)
+
+hTarget :: HTarget IG
+hTarget = HTarget Nothing lhf Nothing
 
 hamiltonianProposal :: Proposal I
-hamiltonianProposal = hamiltonian tuningSpec hSpec n w
+hamiltonianProposal = hamiltonian tSpec hSpec hTarget n w
   where
     n = PName "Space"
     w = pWeight 1
@@ -130,7 +114,7 @@ main = do
   let s =
         Settings
           (AnalysisName "hamiltonian")
-          (BurnInWithCustomAutoTuning [] ([10, 20 .. 200] ++ replicate 2 500))
+          (BurnInWithCustomAutoTuning [] ([10, 20 .. 200] ++ replicate 10 400))
           (Iterations 8000)
           TraceAuto
           Overwrite
@@ -138,5 +122,5 @@ main = do
           Save
           LogStdOutAndFile
           Info
-  a <- mhg s prf lhf cc mon initialState g
+  a <- mhg s noPrior lhf cc mon initialState g
   void $ mcmc s a

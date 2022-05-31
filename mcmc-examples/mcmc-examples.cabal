@@ -86,7 +86,6 @@ executable hamiltonian
   autogen-modules: Paths_mcmc_examples
   hs-source-dirs:  Hamiltonian
   build-depends:
-    , ad
     , base
     , hmatrix
     , lens
