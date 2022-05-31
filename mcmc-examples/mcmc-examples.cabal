@@ -100,12 +100,12 @@ executable pair
   autogen-modules: Paths_mcmc_examples
   hs-source-dirs:  Pair
   build-depends:
-    , aeson
     , base
-    , fixed-vector
+    , hmatrix
     , lens
     , mcmc
     , mwc-random
+    , vector
 
 -- , ad
 -- , hmatrix

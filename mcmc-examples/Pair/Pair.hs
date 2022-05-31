@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- |
 -- Module      :  Main
@@ -23,22 +22,16 @@ module Main
   )
 where
 
-import Control.Lens
+-- import Control.Lens
 import Control.Monad
-import Data.Aeson
-import qualified Data.Vector.Fixed as VB
-import qualified Data.Vector.Fixed.Boxed as VB
--- import qualified Data.Vector.Storable as VS
+import qualified Data.Vector as VB
+import qualified Data.Vector.Storable as VS
 import Mcmc
--- import Numeric.AD.Double
--- import qualified Numeric.LinearAlgebra as L
+import qualified Numeric.LinearAlgebra as L
 import System.Random.MWC hiding (uniform)
 
--- The state is composed of two variables x and y.
-type IG a = VB.Vec2 a
-
-instance ToJSON a => ToJSON (VB.Vec2 a) where
-  toJSON xs = toJSON [xs VB.! 0, xs VB.! 1]
+-- The state is composed of a vector containing two variables x and y.
+type IG = VB.Vector
 
 type I = IG Double
 
@@ -62,57 +55,56 @@ lh = exponential 1.0 . f
 
 -- Initial value.
 start :: I
-start = VB.mk2 1.1 1.1
+start = VB.fromList [1.1, 1.1]
 
 -- Jacobian function. A lengthy derivation is required to find this function.
 jacob :: RealFloat a => IG a -> Log a
 jacob = Exp . log . recip . f
 
-tupleL :: Lens' (VB.Vec2 a) (a, a)
-tupleL = lens (\x -> (x VB.! 0, x VB.! 1)) (\_ (y1', y2') -> VB.mk2 y1' y2')
+-- -- The lens functions could be improved. How?
+-- tupleL :: Lens' (IG a) (a, a)
+-- tupleL = lens (\x -> (x VB.! 0, x VB.! 1)) (\_ (y1', y2') -> VB.fromList [y1', y2'])
 
-cc :: Cycle I
-cc =
-  cycleFromList
-    [ -- The proposals require a custom Jacobian.
-      liftProposalWith jacob (VB.element 0) (scaleUnbiased 1.0 (PName "x") (pWeight 1) Tune),
-      liftProposalWith jacob (VB.element 1) (scaleUnbiased 1.0 (PName "y") (pWeight 1) Tune),
-      -- Sliding the pair contrarily will not change the sum z, and so, no
-      -- Jacobian is required (or the Jacobian will be 1.0). If
-      -- 'scaleContrarily' is used or 'f' is not 1.0 for a contrary slide, the
-      -- custom Jacobian is required.
-      tupleL @~ slideContrarily 0 0.5 (PName "x y") (pWeight 3) Tune
-    ]
-
--- TODO (high): Hamiltonian proposal with non-unit Jacobian. See note in the
--- Hamiltonian proposal module.
-
--- tspec :: HTuningSpec
--- tspec = either error id $ hTuningSpec masses 20 0.01 tconf
---   where
---     masses = L.trustSym $ L.ident $ L.size $ toVec start
---     tconf = HTuningConf HTuneLeapfrog HTuneAllMasses
-
--- toVec :: I -> VS.Vector Double
--- toVec xs = VS.generate 2 (\i -> xs VB.! i)
-
--- fromVec :: I -> VS.Vector Double -> I
--- fromVec _ xs = VB.mk2 (xs VS.! 0) (xs VS.! 1)
-
--- post :: RealFloat a => PosteriorFunctionG (IG a) a
--- post x = pr x * lh x
-
--- gradLogPosterior :: IG Double -> IG Double
--- gradLogPosterior = grad (ln . post)
-
--- hspec :: HSpec I
--- hspec = HSpec start toVec fromVec gradLogPosterior Nothing
-
--- hmc :: Proposal I
--- hmc = hamiltonian tspec hspec (PName "Hamiltonian") (pWeight 1)
+-- -- The lens functions could be improved. How?
+-- indexL :: Int -> Lens' (IG a) a
+-- indexL i = singular (ix i)
 
 -- cc :: Cycle I
--- cc = cycleFromList [hmc]
+-- cc =
+--   cycleFromList
+--     [ -- The proposals require a custom Jacobian.
+--       liftProposalWith jacob (indexL 0) (scaleUnbiased 1.0 (PName "x") (pWeight 1) Tune),
+--       liftProposalWith jacob (indexL 1) (scaleUnbiased 1.0 (PName "y") (pWeight 1) Tune),
+--       -- Sliding the pair contrarily will not change the sum z, and so, no
+--       -- Jacobian is required (or the Jacobian will be 1.0). If
+--       -- 'scaleContrarily' is used or 'f' is not 1.0 for a contrary slide, the
+--       -- custom Jacobian is required.
+--       tupleL @~ slideContrarily 0 0.5 (PName "x y") (pWeight 3) Tune
+--     ]
+
+tspec :: HTuningSpec
+tspec = either error id $ hTuningSpec masses 20 0.01 tconf
+  where
+    masses = L.trustSym $ L.ident 2
+    tconf = HTuningConf HTuneLeapfrog HTuneAllMasses
+
+toVec :: I -> VS.Vector Double
+toVec = VS.convert
+
+fromVec :: I -> VS.Vector Double -> I
+fromVec = const VS.convert
+
+hspec :: HSpec IG
+hspec = HSpec start toVec fromVec
+
+htarget :: HTarget IG
+htarget = HTarget Nothing lh (Just jacob)
+
+hmc :: Proposal I
+hmc = hamiltonian tspec hspec htarget (PName "Hamiltonian") (pWeight 1)
+
+cc :: Cycle I
+cc = cycleFromList [hmc]
 
 monPs :: [MonitorParameter I]
 monPs =
