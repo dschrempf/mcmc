@@ -81,8 +81,6 @@ import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
--- import Debug.Trace hiding (trace)
-
 -- | Total number of parallel chains.
 --
 -- Must be two or larger.

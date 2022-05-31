@@ -23,6 +23,7 @@ module Mcmc.Proposal
     PSpeed (..),
     Proposal (..),
     KernelRatio,
+    ProposalQuality (..),
     Jacobian,
     JacobianFunction,
     (@~),
@@ -179,14 +180,29 @@ instance Ord (Proposal a) where
 
 -- | Ratio of the proposal kernels.
 --
--- Part of the MHG acceptance ratio.
+-- For unbiased, volume preserving proposals, the values is 1.0.
 --
--- See also 'Jacobian'.
---
--- NOTE: Actually the 'Jacobian' should be part of the 'KernelRatio'. However,
--- it is more declarative to have them separate. Like so, we are constantly
--- reminded: Is the Jacobian modifier different from 1.0?
+-- For biased proposals, the kernel ratio is qYX / qXY, where qAB is the
+-- probability density to move from A to B.
 type KernelRatio = Log Double
+
+-- TODO (high): For ForceAccept and Suggest, the new state should be included.
+-- Also find a new name; but clash with Proposal. Maybe ProposalResult?
+
+-- | Proposal quality.
+data ProposalQuality
+  = -- | Accept the proposal regardless of the prior, likelihood or Jacobian.
+    ForceAccept
+  | -- | Reject the proposal regardless of the prior, likelihood or Jacobian.
+    ForceReject
+  | -- | Let the MHG algorithm determine acceptance of the proposal with the
+    -- given 'KernalRatio' and 'Jacobian'.
+    --
+    -- NOTE: Actually the 'Jacobian' should be part of the 'KernelRatio'. However,
+    -- it is more declarative to have them separate. Like so, we are constantly
+    -- reminded: Is the Jacobian modifier different from 1.0?
+    Suggest KernelRatio Jacobian
+  deriving (Show, Eq)
 
 -- | Lift a proposal from one data type to another.
 --
@@ -227,29 +243,23 @@ liftProposalWith jf l (Proposal n r d p w s t) =
 -- In order to calculate the Metropolis-Hastings-Green ratio, we need to know
 -- the ratio of the backward to forward kernels (the 'KernelRatio' or the
 -- probability masses or probability densities) and the 'Jacobian'.
---
--- For unbiased, volume preserving proposals, these values are 1.0 such that
---
--- @
--- proposalSimpleUnbiased x g = return (x', 1.0, 1.0)
--- @
---
--- For biased proposals, the kernel ratio is qYX / qXY, where qXY is the
--- probability density to move from X to Y, and the absolute value of the
--- determinant of the Jacobian matrix differs from 1.0.
-type ProposalSimple a = a -> GenIO -> IO (a, KernelRatio, Jacobian)
+type ProposalSimple a = a -> GenIO -> IO (a, ProposalQuality)
 
 -- Lift a simple proposal from one data type to another.
 liftProposalSimpleWith :: JacobianFunction b -> Lens' b a -> ProposalSimple a -> ProposalSimple b
 liftProposalSimpleWith jf l s = s'
   where
     s' y g = do
-      (x', r, j) <- s (y ^. l) g
+      (x', q) <- s (y ^. l) g
       let y' = set l x' y
-          jxy = jf y
-          jyx = jf y'
-          j' = j * jyx / jxy
-      return (y', r, j')
+          q' = case q of
+            ForceAccept -> ForceAccept
+            ForceReject -> ForceReject
+            (Suggest r j) ->
+              let jxy = jf y
+                  jyx = jf y'
+               in Suggest r (j * jyx / jxy)
+      return (y', q')
 
 -- | Create a proposal with a single tuning parameter.
 --

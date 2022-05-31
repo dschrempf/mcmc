@@ -31,7 +31,6 @@ where
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Default
-import Data.Either
 import Data.List
 import qualified Data.Map.Strict as M
 import qualified Data.Vector as VB
@@ -157,7 +156,7 @@ getNProposalsPerCycle m (Cycle xs o) = case o of
 -- See 'tuneWithTuningParameters' and 'Tuner'.
 tuneWithChainParameters :: AcceptanceRate -> VB.Vector a -> Proposal a -> Either String (Proposal a)
 tuneWithChainParameters ar xs p = case prTuner p of
-  Nothing -> Left "tuneWithChainParameters: Proposal is not tunable."
+  Nothing -> Right p
   Just (Tuner t fT ts fTs _) ->
     let t' = fT ar t
         ts' = fTs xs ts
@@ -175,7 +174,7 @@ autoTuneCycle a xs c =
     ar = acceptanceRates a
     ps = ccProposals c
     tuneF p = case ar M.!? p of
-      Just (Just x) -> fromRight p (tuneWithChainParameters x xs p)
+      Just (Just x) -> either error id $ tuneWithChainParameters x xs p
       _ -> p
 
 -- | Horizontal line of proposal summaries.

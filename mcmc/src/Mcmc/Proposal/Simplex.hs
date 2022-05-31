@@ -33,8 +33,6 @@ import Statistics.Distribution
 import Statistics.Distribution.Beta
 import Statistics.Distribution.Dirichlet
 
--- import Debug.Trace
-
 -- | An element of a simplex.
 --
 -- A vector of non-negative values summing to one.
@@ -120,7 +118,7 @@ dirichletSimple t (SimplexUnsafe xs) g = do
   -- subset of states is updated a Jacobian would be necessary.
   --
   -- traceShowM mhRatio
-  return (SimplexUnsafe ys, r, 1.0)
+  return (SimplexUnsafe ys, Suggest r 1.0)
   where
     tf = getTuningFunction t
 
@@ -179,7 +177,7 @@ betaSimple i t (SimplexUnsafe xs) g = do
       -- of the Jacobian above.
       nf x = x * ja1
       ys = V.generate (V.length xs) (\j -> if i == j then yI else nf (xs V.! j))
-  return (either error id $ simplexFromVector ys, r, jac)
+  return (either error id $ simplexFromVector ys, Suggest r jac)
   where
     xI = xs V.! i
     xsSum = V.sum xs

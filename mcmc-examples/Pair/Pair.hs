@@ -83,10 +83,10 @@ jacob = Exp . log . recip . f
 --     ]
 
 tspec :: HTuningSpec
-tspec = either error id $ hTuningSpec masses 20 0.01 tconf
+tspec = either error id $ hTuningSpec masses 10 0.1 tconf
   where
-    masses = L.trustSym $ L.ident 2
-    tconf = HTuningConf HTuneLeapfrog HTuneAllMasses
+    masses = L.trustSym $ L.scale 5 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
+    tconf = HTuningConf HNoTuneLeapfrog HTuneDiagonalMassesOnly
 
 toVec :: I -> VS.Vector Double
 toVec = VS.convert
@@ -98,7 +98,7 @@ hspec :: HSpec IG
 hspec = HSpec start toVec fromVec
 
 htarget :: HTarget IG
-htarget = HTarget Nothing lh (Just jacob)
+htarget = HTarget (Just pr) lh (Just jacob)
 
 hmc :: Proposal I
 hmc = hamiltonian tspec hspec htarget (PName "Hamiltonian") (pWeight 1)
@@ -119,7 +119,7 @@ monStd :: MonitorStdOut I
 monStd = monitorStdOut (take 4 monPs) 1000
 
 monFile :: MonitorFile I
-monFile = monitorFile "" monPs 100
+monFile = monitorFile "" monPs 1
 
 mon :: Monitor I
 mon = Monitor monStd [monFile] []
@@ -130,14 +130,14 @@ main = do
   let mcmcS =
         Settings
           analysisName
-          (BurnInWithAutoTuning 50000 500)
-          (Iterations 200000)
+          (BurnInWithCustomAutoTuning [] $ [10, 20 .. 200] ++ replicate 10 500)
+          (Iterations 20000)
           TraceAuto
           Overwrite
           Sequential
           Save
           LogStdOutAndFile
-          Info
+          Debug
   -- Metropolis-Hastings-Green algorithm.
   a <- mhg mcmcS pr lh cc mon start g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.

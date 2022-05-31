@@ -102,7 +102,6 @@ executable pair
   build-depends:
     , base
     , hmatrix
-    , lens
     , mcmc
     , mwc-random
     , vector

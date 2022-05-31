@@ -78,6 +78,7 @@ import Data.Typeable
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
+import Mcmc.Algorithm.MHG
 import Mcmc.Jacobian
 import Mcmc.Likelihood
 import Mcmc.Prior
@@ -381,19 +382,21 @@ leapfrog ::
   LeapfrogScalingFactor ->
   Positions ->
   Momenta ->
-  -- | Fail if state is not valid.
-  Maybe (Positions, Momenta, Log Double)
+  -- | (New positions, new momenta, old target, new target).
+  --
+  -- Fail if state is not valid.
+  Maybe (Positions, Momenta, Log Double, Log Double)
 leapfrog tF hMassesInv l eps theta phi = do
   let -- The first half step of the momenta.
-      (_, phiHalf) = leapfrogStepMomenta (0.5 * eps) tF theta phi
+      (x, phiHalf) = leapfrogStepMomenta (0.5 * eps) tF theta phi
   -- L-1 full steps for positions and momenta. This gives the positions
   -- theta_{L-1}, and the momenta phi_{L-1/2}.
   (thetaLM1, phiLM1Half) <- go (l - 1) $ Just $ (theta, phiHalf)
   -- The last full step of the positions.
   let thetaL = leapfrogStepPositions hMassesInv eps thetaLM1 phiLM1Half
   -- The last half step of the momenta.
-  let (x, phiL) = leapfrogStepMomenta (0.5 * eps) tF thetaL phiLM1Half
-  return (thetaL, phiL, x)
+  let (x', phiL) = leapfrogStepMomenta (0.5 * eps) tF thetaL phiLM1Half
+  return (thetaL, phiL, x, x')
   where
     go _ Nothing = Nothing
     go n (Just (t, p))
@@ -469,7 +472,7 @@ hTuningParametersToTuningSpec (HTuningSpec ms l e c) t ts
     -- runtime somewhat acceptable.
     (lTuned, eTuned) = case tlf of
       HNoTuneLeapfrog -> (l, e)
-      HTuneLeapfrog -> (ceiling $ fromIntegral l / (t ** 0.9) :: Int, t * e)
+      HTuneLeapfrog -> (ceiling $ fromIntegral l / (t ** 0.8) :: Int, t * e)
 
 hamiltonianSimpleWithTuningParameters ::
   Traversable s =>
@@ -497,20 +500,23 @@ hamiltonianSimpleWithMemoizedCovariance tspec hspec dt targetWith x g = do
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
   case leapfrog (targetWith x) massesInv lRan eRan theta phi of
-    Nothing -> pure (x, 0.0, 1.0)
-    -- TODO (high): Because of Jacobian: Check if next state is accepted here.
-    -- If not: pure (x, 0.0, 1.0).
-    Just (theta', phi', _) ->
+    Nothing -> pure (x, ForceReject)
+    -- Check if next state is accepted here, because the Jacobian is included in
+    -- the target function. If not: pure (x, 0.0, 1.0).
+    Just (theta', phi', prTheta, prTheta') -> do
       let -- Prior of momenta.
           prPhi = logDensityMultivariateNormal mu massesInv logDetMasses phi
           prPhi' = logDensityMultivariateNormal mu massesInv logDetMasses phi'
-          kernelR = prPhi' / prPhi
-       in -- NOTE: For example, Neal page 12: In order for the Hamiltonian proposal
-          -- to be in detailed balance, the momenta have to be negated before
-          -- proposing the new value. That is, the negated momenta would guide the
-          -- chain back to the previous state. However, we are only interested in
-          -- the positions, and are not even storing the momenta.
-          pure (fromVec x theta', kernelR, 1.0)
+          r = prTheta' * prPhi' / (prTheta * prPhi)
+      accept <- mhgAccept r g
+      -- NOTE: For example, Neal page 12: In order for the Hamiltonian proposal
+      -- to be in detailed balance, the momenta have to be negated before
+      -- proposing the new value. That is, the negated momenta would guide the
+      -- chain back to the previous state. However, we are only interested in
+      -- the positions, and are not even storing the momenta.
+      if accept
+        then pure (fromVec x theta', ForceAccept)
+        else pure (x, ForceReject)
   where
     (HTuningSpec masses l e _) = tspec
     (HSpec _ toVec fromVec) = hspec
@@ -650,11 +656,13 @@ hamiltonian tspec hspec htarget n w = case checkHSpecWith tspec hspec of
         ps = hamiltonianSimple tspec hspec targetWith
         hamiltonianWith = Proposal n desc PSlow pDim w ps
         -- Tuning.
-        ts = massesToTuningParameters $ hMasses tspec
         tSet@(HTuningConf tlf tms) = hTuningConf tspec
         tFun = case tlf of
           HNoTuneLeapfrog -> noTuningFunction
           HTuneLeapfrog -> defaultTuningFunctionWith pDim
+        ts = case tms of
+          HNoTuneMasses -> VU.empty
+          _ -> massesToTuningParameters $ hMasses tspec
         tFunAux = case tms of
           HNoTuneMasses -> noAuxiliaryTuningFunction
           HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly dim toVec

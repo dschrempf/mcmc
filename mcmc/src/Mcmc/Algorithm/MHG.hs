@@ -162,11 +162,14 @@ type MHGRatio = Log Double
 
 -- The MHG ratio. This implementation has the following properties:
 --
+-- - The kernel ratio and the Jacobian are checked carefully and should be
+-- - strictly positive, finite numbers.
+--
 -- - The ratio is 'Infinity' if fX is zero. In this case, the proposal is always
 --   accepted.
 --
--- - The ratio 'NaN' if (fY or q or j) and fX are zero. In this case, the
---   proposal is always rejected.
+-- - The ratio is 'NaN' if fY and fX are zero. In this case, the proposal is
+--   always rejected.
 --
 -- This means that a chain in a state with posterior probability zero (fX=0) can
 -- only move if a state with non-zero posterior probability is proposed.
@@ -182,15 +185,20 @@ type MHGRatio = Log Double
 -- Since I trust the author of Chapter 1 (Charles Geyer) I choose to follow
 -- option (b). However, Option (a) is more user-friendly.
 --
--- [1] Handbook of markov chain monte carlo (2011), CRC press.
+-- [1] Handbook of Markov chain Monte Carlo (2011), CRC press.
 --
--- [2] Dellaportas, P., & Roberts, G. O., An introduction to mcmc, Lecture Notes
+-- [2] Dellaportas, P., & Roberts, G. O., An introduction to MCMC, Lecture Notes
 -- in Statistics, (), 1–41 (2003).
 -- http://dx.doi.org/10.1007/978-0-387-21811-3_1.
 mhgRatio :: Posterior -> Posterior -> KernelRatio -> Jacobian -> MHGRatio
--- q = qYX / qXY * jXY; see 'ProposalSimple'.
--- j = Jacobian.
-mhgRatio fX fY q j = fY / fX * q * j
+mhgRatio fX fY q j
+  | q == 0.0 = error "mhgRatio: Kernel ratio is negative infinity. Use 'ForceReject'."
+  | q == 1.0 / 0.0 = error "mhgRatio: Kernel ratio is infinity. Use 'ForceAccept'."
+  | q == 0.0 / 0.0 = error "mhgRatio: Kernel ratio is NaN."
+  | j == 0.0 = error "mhgRatio: Jacobian is negative infinity. Use 'ForceReject'."
+  | j == 1.0 / 0.0 = error "mhgRatio: Jacobian is infinity. Use 'ForceAccept'."
+  | j == 0.0 / 0.0 = error "mhgRatio: Jacobian is NaN."
+  | otherwise = fY / fX * q * j
 {-# INLINE mhgRatio #-}
 
 -- | Accept or reject a proposal with given MHG ratio?
@@ -204,26 +212,31 @@ mhgAccept r g
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
 mhgPropose (MHG c) p = do
   -- 1. Sample new state.
-  (!y, !q, !j) <- liftIO $ s x g
-  -- 2. Calculate Metropolis-Hastings-Green ratio.
+  (!y, !pq) <- liftIO $ s x g
+  -- 2. Lazily calculate the new prior and likelihood.
   --
   -- Most often, parallelization is not helpful, because the prior and
   -- likelihood functions are too fast; see
   -- https://stackoverflow.com/a/46603680/3536806.
-  --
-  -- TODO (high): If q or j are 0.0, avoid calculation of the new prior and
-  -- likelihood.
   let (pY, lY) = (pF y, lF y) `using` parTuple2 rdeepseq rdeepseq
-      !r = mhgRatio (pX * lX) (pY * lY) q j
+      accept =
+        let !ac' = pushA p True ac
+         in pure $ MHG $ c {link = Link y pY lY, acceptance = ac'}
   -- 3. Accept or reject.
-  accept <- mhgAccept r g
-  if accept
-    then do
-      let !ac' = pushA p True ac
-      return $ MHG $ c {link = Link y pY lY, acceptance = ac'}
-    else do
-      let !ac' = pushA p False ac
-      return $ MHG $ c {acceptance = pushA p False ac'}
+  --
+  -- 3a. When rejection is inevitable, avoid evaluation of the MHG ratio which
+  -- forces calculation of the prior and the likelihood.
+  case pq of
+    ForceReject -> reject
+    ForceAccept -> accept
+    (Suggest q j) ->
+      if q <= 0.0 || j <= 0.0
+        then reject
+        else do
+          -- 3b. Calculate Metropolis-Hastings-Green ratio.
+          let !r = mhgRatio (pX * lX) (pY * lY) q j
+          isAccept <- mhgAccept r g
+          if isAccept then accept else reject
   where
     s = prSimple p
     (Link x pX lX) = link c
@@ -231,6 +244,9 @@ mhgPropose (MHG c) p = do
     lF = likelihoodFunction c
     ac = acceptance c
     g = generator c
+    reject =
+      let !ac' = pushA p False ac
+       in pure $ MHG $ c {acceptance = pushA p False ac'}
 
 mhgPush :: MHG a -> IO (MHG a)
 mhgPush (MHG c) = do
@@ -246,12 +262,13 @@ mhgPush (MHG c) = do
 -- At the moment this just checks whether the prior, likelihood, or posterior
 -- are NaN or infinite.
 mhgIsInValidState :: MHG a -> Bool
-mhgIsInValidState a = check p || check l || check (p * l)
+mhgIsInValidState a = checkSoft p || check l || check (p * l)
   where
     x = link $ fromMHG a
     p = prior x
     l = likelihood x
     check v = let v' = ln v in isNaN v' || isInfinite v' || v' == 0
+    checkSoft v = let v' = ln v in isNaN v' || isInfinite v'
 
 -- Ignore the number of capabilities. I have tried a lot of stuff, but the MHG
 -- algorithm is just inherently sequential. Parallelization can be achieved by
