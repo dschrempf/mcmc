@@ -50,6 +50,13 @@ import Mcmc.Internal.SpecFunctions
 import Mcmc.Statistics.Types
 import Numeric.Log
 
+-- TODO (high): Think about using a "structure" variable. E.g.,
+--
+-- type PriorFunctionG s a = s a -> PriorG a
+--
+-- Many of the prior functions would need to use the Identity Functor. This may
+-- be slow.
+
 -- | Prior values are stored in log domain.
 type Prior = PriorG Double
 

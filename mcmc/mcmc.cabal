@@ -54,6 +54,7 @@ library
     Mcmc.Cycle
     Mcmc.Environment
     Mcmc.Internal.SpecFunctions
+    Mcmc.Jacobian
     Mcmc.Likelihood
     Mcmc.Logger
     Mcmc.MarginalLikelihood
@@ -85,6 +86,7 @@ library
   autogen-modules: Paths_mcmc
   hs-source-dirs:  src
   build-depends:
+    , ad
     , aeson
     , async
     , base               >=4.7 && <5
@@ -140,7 +142,6 @@ benchmark mcmc-bench
   autogen-modules: Paths_mcmc
   hs-source-dirs:  bench
   build-depends:
-    , ad
     , aeson
     , base            >=4.7 && <5
     , criterion

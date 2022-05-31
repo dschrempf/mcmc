@@ -61,8 +61,7 @@ import qualified Data.Vector.Unboxed as VU
 import Lens.Micro
 import Mcmc.Acceptance
 import Mcmc.Internal.ByteString
-import Mcmc.Likelihood
-import Mcmc.Prior
+import Mcmc.Jacobian
 import Numeric.Log hiding (sum)
 import System.Random.MWC
 
@@ -189,16 +188,6 @@ instance Ord (Proposal a) where
 -- reminded: Is the Jacobian modifier different from 1.0?
 type KernelRatio = Log Double
 
--- | Absolute value of the determinant of the Jacobian matrix.
---
--- Part of the MHG acceptance ratio.
---
--- See also 'Jacobian'.
-type Jacobian = Log Double
-
--- | Function calculating the 'Jacobian' of a proposal.
-type JacobianFunction a = a -> Jacobian
-
 -- | Lift a proposal from one data type to another.
 --
 -- Assume the Jacobian is 1.0.
@@ -242,30 +231,25 @@ liftProposalWith jf l (Proposal n r d p w s t) =
 -- For unbiased, volume preserving proposals, these values are 1.0 such that
 --
 -- @
--- proposalSimpleUnbiased x g = return (x', 1.0, 1.0, Nothing, Nothing)
+-- proposalSimpleUnbiased x g = return (x', 1.0, 1.0)
 -- @
 --
 -- For biased proposals, the kernel ratio is qYX / qXY, where qXY is the
 -- probability density to move from X to Y, and the absolute value of the
 -- determinant of the Jacobian matrix differs from 1.0.
---
--- Further, proposals may already compute and provide the prior or the
--- likelihood of the new state. For example, the Hamilton Monte Carlo proposal
--- can compute the log prior and the log likelihood for cheap when evaluating
--- the gradient of the log prior and log likelihood, respectively.
-type ProposalSimple a = a -> GenIO -> IO (a, KernelRatio, Jacobian, Maybe Prior, Maybe Likelihood)
+type ProposalSimple a = a -> GenIO -> IO (a, KernelRatio, Jacobian)
 
 -- Lift a simple proposal from one data type to another.
 liftProposalSimpleWith :: JacobianFunction b -> Lens' b a -> ProposalSimple a -> ProposalSimple b
 liftProposalSimpleWith jf l s = s'
   where
     s' y g = do
-      (x', r, j, pr, lh) <- s (y ^. l) g
+      (x', r, j) <- s (y ^. l) g
       let y' = set l x' y
           jxy = jf y
           jyx = jf y'
           j' = j * jyx / jxy
-      return (y', r, j', pr, lh)
+      return (y', r, j')
 
 -- | Create a proposal with a single tuning parameter.
 --

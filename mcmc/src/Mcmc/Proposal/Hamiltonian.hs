@@ -1,5 +1,5 @@
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- |
 -- Module      :  Mcmc.Proposal.Hamiltonian
@@ -29,6 +29,8 @@
 --
 -- Notes on implementation:
 --
+-- TODO (high): Clean up!
+--
 -- - The 'Gradient' of the log posterior needs to be provided. Like so, the user
 --   can use automatic or manual differentiation, depending on the problem at
 --   hand.
@@ -49,18 +51,9 @@
 -- - The speed of this proposal changes drastically with the leapfrog trajectory
 --   length and the leapfrog scaling factor. Hence, the speed will change during
 --   burn in.
---
--- - The Hamiltonian proposal is agnostic of the actual prior and likelihood
---   functions, and so, points with zero posterior probability cannot be
---   detected. This affects models with constrained parameters. See Gelman p.
---   303. This problem can be ameliorated by providing a 'Validate' function so
---   that the proposal can gracefully fail as soon as the state becomes invalid.
 module Mcmc.Proposal.Hamiltonian
   ( Positions,
     Momenta,
-    ValueAndGradient,
-    Gradient,
-    Validate,
     Masses,
     LeapfrogTrajectoryLength,
     LeapfrogScalingFactor,
@@ -70,19 +63,24 @@ module Mcmc.Proposal.Hamiltonian
     HTuningSpec,
     hTuningSpec,
     HSpec (..),
+    HTarget (..),
     HMassesInv,
+    Target,
     leapfrog,
     hamiltonian,
   )
 where
 
 import Data.Bifunctor
+import Data.Typeable
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
+import Mcmc.Jacobian
 import Mcmc.Likelihood
 import Mcmc.Prior
 import Mcmc.Proposal
+import Numeric.AD.Double
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 import Numeric.MathFunctions.Constants
@@ -91,10 +89,7 @@ import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
 import System.Random.MWC
 
--- TODO (high): The Hamiltonian proposals needs to know about the Jacobian. This
--- is because the Jacobian has to be part of the gradient (at least I think so;
--- check this!). Only then, the Hamiltonian proposal can be combined with other
--- proposals in a setting with a non-unit Jacobian.
+-- TODO (high): Clean up!
 
 -- NOTE: Implementing the Riemannian adaptation (state-dependent mass matrix).
 -- seems a little bit of an overkill.
@@ -109,34 +104,10 @@ type Positions = L.Vector Double
 -- | Internal. Momenta of the 'Positions'.
 type Momenta = L.Vector Double
 
--- | Function calculating value and gradient.
---
--- The function has to be provided for the complete state. The reason is that
--- parameters untouched by the Hamiltonian proposal may affect the result or the
--- gradient.
---
--- The result may be included, because sometimes, when computing the gradient,
--- the result of the function is a (useful) byproduct. If the result is
--- provided, make sure that it is calculated lazily because many times, only the
--- gradient is required.
-type ValueAndGradient a = a -> (Maybe (Log Double), a)
-
--- | Gradient function; see 'ValueAndGradient'; only the gradient.
-type Gradient a = a -> a
-
--- | Function determining the validity of a state.
---
--- The function has to be provided for the complete state because parameters
--- untouched by the Hamiltonian proposal may affect the validity of the state.
---
--- Useful when many parameters are constrained and when calculating the prior or
--- likelihood functions is slow, but testing for validity is fast.
-type Validate a = a -> Bool
-
 -- | Parameter mass matrix.
 --
 -- The masses roughly describe how reluctant the particles move through the
--- state space. If a parameter has higher mass, the momentum in this direction
+-- state space. If a parameter has higher mass, the velocity in this direction
 -- will be changed less by the provided gradient, than when the same parameter
 -- has lower mass. Off-diagonal entries describe the covariance structure. If
 -- two parameters are negatively correlated, their generated initial momenta are
@@ -174,8 +145,9 @@ type Masses = L.Herm Double
 --
 -- Usually set to 10, but larger values may be desirable.
 --
--- NOTE: To avoid errors, the left bound has an additional hard minimum of 1,
--- and the right bound is required to be larger equal than the left bound.
+-- NOTE: To avoid errors, the left bound of the interval has an additional hard
+-- minimum of 1, and the right bound is required to be larger equal than the
+-- left bound.
 --
 -- NOTE: Call 'error' if value is less than 1.
 type LeapfrogTrajectoryLength = Int
@@ -271,30 +243,33 @@ hTuningSpec masses l eps c
     nrows = L.rows ms
     ncols = L.cols ms
 
--- | Parameters and functions required by the Hamilton Monte Carlo proposal.
-data HSpec a = HSpec
+-- | The Hamilton Monte Carlo proposal requires information about the structure
+-- of the state, which is denoted as @s@.
+data HSpec s = HSpec
   { -- | The sample state is used for error checks and to calculate the dimension
     -- of the proposal.
-    hSample :: a,
-    -- | Extract values to be manipulated by the Hamiltonian proposal from the
-    -- state.
-    hToVector :: a -> Positions,
-    -- | Put those values back into the state.
-    hFromVectorWith :: a -> Positions -> a,
-    -- | Function computing the log prior and the gradient thereof.
-    hPriorValueAndGradient :: ValueAndGradient a,
-    -- | Function computing the log likelihood and the gradient thereof.
-    hLikelihoodValueAndGradient :: ValueAndGradient a,
-    -- | Function computing the gradient of the log of the Jacobian. The
-    -- gradient of the log of the Jacobian needs to be provided here, so that
-    -- the Hamiltonian Monte Carlo proposal can be used in combination with
-    -- lifted other proposals.
-    hJacobianGradient :: Maybe (Gradient a),
-    hMaybeValidate :: Maybe (Validate a)
+    hSample :: s Double,
+    -- | Extract a a subset of values to be manipulated by the Hamiltonian
+    -- proposal from the complete state.
+    hToVector :: s Double -> Positions,
+    -- | Put those values back into the complete state.
+    hFromVectorWith :: s Double -> Positions -> s Double
   }
 
-checkHSpecWith :: Eq a => HTuningSpec -> HSpec a -> Maybe String
-checkHSpecWith tspec (HSpec x toVec fromVec _ _ _ _)
+-- | The target is composed of the prior, likelihood, and jacobian functions.
+--
+-- The structure of the state is denoted as @s@.
+data HTarget s = HTarget
+  { -- | Function computing the log prior.
+    hPrior :: forall a. (RealFloat a, Typeable a) => PriorFunctionG (s a) a,
+    -- | Function computing the log likelihood.
+    hLikelihood :: forall a. (RealFloat a, Typeable a) => LikelihoodFunctionG (s a) a,
+    -- | Function computing the log of the Jacobian.
+    hJacobian :: forall a. (RealFloat a, Typeable a) => Maybe (JacobianFunctionG (s a) a)
+  }
+
+checkHSpecWith :: Eq (s Double) => HTuningSpec -> HSpec s -> Maybe String
+checkHSpecWith tspec (HSpec x toVec fromVec)
   | fromVec x xVec /= x = eWith "'fromVectorWith x (toVector x) /= x' for sample state."
   | L.size xVec /= nrows = eWith "Mass matrix and 'toVector x' have different sizes for sample state."
   | otherwise = Nothing
@@ -377,69 +352,62 @@ logDensityMultivariateNormal mu sigmaInvH logDetSigma xs =
     c = negate $ m_ln_sqrt_2_pi * k
     sigmaInv = L.unSym sigmaInvH
 
+-- | Internal; Function calculating target value and gradient.
+--
+-- The function acts on the subset of the state manipulated by the proposal but
+-- the value and gradient have to be calculated for the complete state. The
+-- reason is that parameters untouched by the Hamiltonian proposal may affect
+-- the result or the gradient.
+--
+-- Make sure that the value is calculated lazily because many times, only the
+-- gradient is required.
+type Target = Positions -> (Log Double, Positions)
+
 -- | Internal; Leapfrog integrator (also used by NUTS proposal).
 leapfrog ::
-  -- | Prior.
-  ValueAndGradient Positions ->
-  -- | Likelihood.
-  ValueAndGradient Positions ->
-  -- | Jacobian.
-  Maybe (Gradient Positions) ->
-  Maybe (Validate Positions) ->
+  Target ->
   HMassesInv ->
   LeapfrogTrajectoryLength ->
   LeapfrogScalingFactor ->
   Positions ->
   Momenta ->
   -- | Fail if state is not valid.
-  Maybe (Positions, Momenta, Maybe Prior, Maybe Likelihood)
-leapfrog prF lhF jF mVal hMassesInv l eps theta phi = do
+  Maybe (Positions, Momenta, Log Double)
+leapfrog tF hMassesInv l eps theta phi = do
   let -- The first half step of the momenta.
-      (phiHalf, _, _) = leapfrogStepMomenta (0.5 * eps) prF lhF jF theta phi
-  -- L-1 full steps. This gives the positions theta_{L-1}, and the momenta
-  -- phi_{L-1/2}.
-  (thetaLM1, phiLM1Half) <- go (l - 1) (Just (theta, phiHalf))
+      (_, phiHalf) = leapfrogStepMomenta (0.5 * eps) tF theta phi
+  -- L-1 full steps for positions and momenta. This gives the positions
+  -- theta_{L-1}, and the momenta phi_{L-1/2}.
+  (thetaLM1, phiLM1Half) <- go (l - 1) $ Just $ (theta, phiHalf)
   -- The last full step of the positions.
-  thetaL <- valF $ leapfrogStepPositions hMassesInv eps thetaLM1 phiLM1Half
-  let -- The last half step of the momenta. Here, we simultaneousely calculate
-      -- the function values, if provided.
-      (phiL, mPr, mLh) = leapfrogStepMomenta (0.5 * eps) prF lhF jF thetaL phiLM1Half
-  return (thetaL, phiL, mPr, mLh)
+  let thetaL = leapfrogStepPositions hMassesInv eps thetaLM1 phiLM1Half
+  -- The last half step of the momenta.
+  let (x, phiL) = leapfrogStepMomenta (0.5 * eps) tF thetaL phiLM1Half
+  return (thetaL, phiL, x)
   where
-    valF x = case mVal of
-      Nothing -> Just x
-      Just f -> if f x then Just x else Nothing
     go _ Nothing = Nothing
     go n (Just (t, p))
       | n <= 0 = Just (t, p)
       | otherwise =
           let t' = leapfrogStepPositions hMassesInv eps t p
-              (p', _, _) = leapfrogStepMomenta eps prF lhF jF t' p
-              r = (,p') <$> valF t'
-           in go (n - 1) r
+              (x, p') = leapfrogStepMomenta eps tF t' p
+           in if x /= 0.0
+                then go (n - 1) $ Just $ (t', p')
+                else Nothing
 
 leapfrogStepMomenta ::
   LeapfrogScalingFactor ->
-  -- Prior.
-  ValueAndGradient Positions ->
-  -- Likelihood.
-  ValueAndGradient Positions ->
-  -- Jacobian.
-  Maybe (Gradient Positions) ->
+  Target ->
   -- Current positions.
   Positions ->
   -- Current momenta.
   Momenta ->
-  -- New momenta; also return prior and likelihood to be collected at the end of
-  -- the leapfrog integration.
-  (Momenta, Maybe Prior, Maybe Likelihood)
-leapfrogStepMomenta eps prF lhF mJF theta phi = (phi + L.scale eps gTotal, mPr, mLh)
+  -- New momenta; also return value target function to be collected at the end
+  -- of the leapfrog integration.
+  (Log Double, Momenta)
+leapfrogStepMomenta eps tf theta phi = (x, phi + L.scale eps g)
   where
-    (mPr, gPr) = prF theta
-    (mLh, gLh) = lhF theta
-    gTotal = case mJF of
-      Nothing -> gPr + gLh
-      Just jF -> gPr + gLh + jF theta
+    (x, g) = tf theta
 
 leapfrogStepPositions ::
   HMassesInv ->
@@ -494,29 +462,33 @@ hTuningParametersToTuningSpec (HTuningSpec ms l e c) t ts
       HTuneLeapfrog -> (ceiling $ fromIntegral l / (t ** 0.9) :: Int, t * e)
 
 hamiltonianSimpleWithTuningParameters ::
+  Traversable s =>
   HTuningSpec ->
-  HSpec a ->
+  HSpec s ->
+  (s Double -> Target) ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
-  Either String (ProposalSimple a)
-hamiltonianSimpleWithTuningParameters tspec hspec t ts = do
+  Either String (ProposalSimple (s Double))
+hamiltonianSimpleWithTuningParameters tspec hspec targetWith t ts = do
   tspec' <- hTuningParametersToTuningSpec tspec t ts
-  pure $ hamiltonianSimple tspec' hspec
+  pure $ hamiltonianSimple tspec' hspec targetWith
 
 -- The inverted covariance matrix and the log determinant of the covariance
 -- matrix are calculated by 'hamiltonianSimple'.
 hamiltonianSimpleWithMemoizedCovariance ::
+  Traversable s =>
   HTuningSpec ->
-  HSpec a ->
+  HSpec s ->
   HData ->
-  ProposalSimple a
-hamiltonianSimpleWithMemoizedCovariance tspec hspec dt x g = do
+  (s Double -> Target) ->
+  ProposalSimple (s Double)
+hamiltonianSimpleWithMemoizedCovariance tspec hspec dt targetWith x g = do
   phi <- generateMomenta mu masses g
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
-  case leapfrog prFVec lhFVec jFVec mValVec massesInv lRan eRan theta phi of
-    Nothing -> return (x, 0.0, 1.0, Just 0.0, Just 0.0)
-    Just (theta', phi', mPr, mLh) ->
+  case leapfrog (targetWith x) massesInv lRan eRan theta phi of
+    Nothing -> return (x, 0.0, 1.0)
+    Just (theta', phi', _) ->
       let -- Prior of momenta.
           prPhi = logDensityMultivariateNormal mu massesInv logDetMasses phi
           prPhi' = logDensityMultivariateNormal mu massesInv logDetMasses phi'
@@ -526,26 +498,23 @@ hamiltonianSimpleWithMemoizedCovariance tspec hspec dt x g = do
           -- proposing the new value. That is, the negated momenta would guide the
           -- chain back to the previous state. However, we are only interested in
           -- the positions, and are not even storing the momenta.
-          return (fromVec x theta', kernelR, 1.0, mPr, mLh)
+          return (fromVec x theta', kernelR, 1.0)
   where
     (HTuningSpec masses l e _) = tspec
-    (HSpec _ toVec fromVec prF lhF jF mVal) = hspec
+    (HSpec _ toVec fromVec) = hspec
     theta = toVec x
     lL = maximum [1 :: Int, floor $ (0.8 :: Double) * fromIntegral l]
     lR = maximum [lL, ceiling $ (1.2 :: Double) * fromIntegral l]
     eL = 0.8 * e
     eR = 1.2 * e
     (HData mu massesInv logDetMasses) = dt
-    -- TODO (high): Separate gradients are slow! Solution: Use a target
-    -- function, and only split into prior/likelihood when monitoring the state?
-    --
-    -- Vectorize the gradients and validation functions.
-    prFVec = second toVec . prF . fromVec x
-    lhFVec = second toVec . lhF . fromVec x
-    jFVec = (\f -> toVec . f . fromVec x) <$> jF
-    mValVec = mVal >>= (\f -> return $ f . fromVec x)
 
-hamiltonianSimple :: HTuningSpec -> HSpec a -> ProposalSimple a
+hamiltonianSimple ::
+  Traversable s =>
+  HTuningSpec ->
+  HSpec s ->
+  (s Double -> Target) ->
+  ProposalSimple (s Double)
 hamiltonianSimple tspec hspec = hamiltonianSimpleWithMemoizedCovariance tspec hspec (getHData tspec)
 
 -- If changed, also change help text of 'HTuneMasses'.
@@ -642,22 +611,32 @@ tuneAllMasses dim toVec xs ts
 
 -- | Hamiltonian Monte Carlo proposal.
 hamiltonian ::
-  Eq a =>
+  (Eq (s Double), Traversable s) =>
   HTuningSpec ->
-  HSpec a ->
+  HSpec s ->
+  HTarget s ->
   PName ->
   PWeight ->
-  Proposal a
-hamiltonian tspec hspec n w = case checkHSpecWith tspec hspec of
+  Proposal (s Double)
+hamiltonian tspec hspec htarget n w = case checkHSpecWith tspec hspec of
   Just err -> error err
   Nothing ->
-    let desc = PDescription "Hamiltonian Monte Carlo (HMC)"
-        toVec = hToVector hspec
-        dim = (L.size $ toVec $ hSample hspec)
+    let -- Misc.
+        desc = PDescription "Hamiltonian Monte Carlo (HMC)"
+        (HSpec sample toVec fromVec) = hspec
+        (HTarget prF lhF mJF) = htarget
+        dim = (L.size $ toVec sample)
         pDim = PSpecial dim 0.65
-        ts = massesToTuningParameters (hMasses tspec)
-        ps = hamiltonianSimple tspec hspec
+        -- Vectorize and derive the target function.
+        tF y = case mJF of
+          Nothing -> prF y * lhF y
+          Just jF -> prF y * lhF y * jF y
+        tFnG = grad' (ln . tF)
+        targetWith x = bimap Exp toVec . tFnG . fromVec x
+        ps = hamiltonianSimple tspec hspec targetWith
         hamiltonianWith = Proposal n desc PSlow pDim w ps
+        -- Tuning.
+        ts = massesToTuningParameters $ hMasses tspec
         tSet@(HTuningConf tlf tms) = hTuningConf tspec
         tFun = case tlf of
           HNoTuneLeapfrog -> noTuningFunction
@@ -669,5 +648,5 @@ hamiltonian tspec hspec n w = case checkHSpecWith tspec hspec of
      in case tSet of
           (HTuningConf HNoTuneLeapfrog HNoTuneMasses) -> hamiltonianWith Nothing
           _ ->
-            let tuner = Tuner 1.0 tFun ts tFunAux (hamiltonianSimpleWithTuningParameters tspec hspec)
+            let tuner = Tuner 1.0 tFun ts tFunAux (hamiltonianSimpleWithTuningParameters tspec hspec targetWith)
              in hamiltonianWith $ Just tuner

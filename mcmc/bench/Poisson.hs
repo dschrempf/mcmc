@@ -26,17 +26,15 @@ where
 
 import Control.Monad
 import Data.Aeson
-import Data.Bifunctor
 import Data.Typeable
 import qualified Data.Vector.Fixed as VB
 import qualified Data.Vector.Fixed.Boxed as VB
 import qualified Data.Vector.Storable as VS
 import Mcmc
-import Numeric.AD.Double
 import qualified Numeric.LinearAlgebra as L
 import System.Random.MWC
 
-type IG a = VB.Vec2 a
+type IG = VB.Vec2
 
 type I = IG Double
 
@@ -119,18 +117,8 @@ tspec = either error id $ hTuningSpec masses 10 0.1 tconf
     masses = L.trustSym $ L.ident $ L.size $ toVec initial
     tconf = HTuningConf HTuneLeapfrog HTuneAllMasses
 
--- Value and gradient of log prior.
-prF :: IG Double -> (Maybe (Log Double), IG Double)
-prF = const (Just 1.0, zero)
-  where
-    zero = initial
-
--- Value and gradient of log likelihood.
-lhF :: IG Double -> (Maybe (Log Double), IG Double)
-lhF = first (Just . Exp) . grad' (ln . lh)
-
-hspec :: HSpec I
-hspec = HSpec initial toVec fromVec prF lhF Nothing Nothing
+hspec :: HSpec IG
+hspec = HSpec initial toVec fromVec noPrior lh Nothing
 
 hmcProposal :: Cycle I
 hmcProposal = cycleFromList [hamiltonian tspec hspec (PName "Hamiltonian") (pWeight 1)]

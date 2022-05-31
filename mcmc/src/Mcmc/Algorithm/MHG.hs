@@ -204,18 +204,13 @@ mhgAccept r g
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
 mhgPropose (MHG c) p = do
   -- 1. Sample new state.
-  (!y, !q, !j, mpy, mly) <- liftIO $ s x g
+  (!y, !q, !j) <- liftIO $ s x g
   -- 2. Calculate Metropolis-Hastings-Green ratio.
-  let (pY, lY) = case (mpy, mly) of
-        -- Most often, parallelization is not helpful, because the prior and
-        -- likelihood functions are too fast; see
-        -- https://stackoverflow.com/a/46603680/3536806.
-        (Nothing, Nothing) -> (pF y, lF y) `using` parTuple2 rdeepseq rdeepseq
-        (Just py, Nothing) -> (py, lF y)
-        (Nothing, Just ly) -> (pF y, ly)
-        (Just py, Just ly) -> (py, ly)
-  -- let !pY = pF y
-  --     !lY = lF y
+  --
+  -- Most often, parallelization is not helpful, because the prior and
+  -- likelihood functions are too fast; see
+  -- https://stackoverflow.com/a/46603680/3536806.
+  let (pY, lY) = (pF y, lF y) `using` parTuple2 rdeepseq rdeepseq
   let !r = mhgRatio (pX * lX) (pY * lY) q j
   -- 3. Accept or reject.
   accept <- mhgAccept r g

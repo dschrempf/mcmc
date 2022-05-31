@@ -129,7 +129,6 @@ module Mcmc
     PWeight (..),
     pWeight,
     Proposal,
-    JacobianFunction,
     (@~),
     liftProposal,
     liftProposalWith,
@@ -182,9 +181,10 @@ module Mcmc
     module Mcmc.Monitor.Parameter,
     module Mcmc.Monitor.ParameterBatch,
 
-    -- * Priors, likelihoodl, and posteriors
+    -- * Priors, likelihoods, Jacobians, and posteriors
     module Mcmc.Prior,
     module Mcmc.Likelihood,
+    module Mcmc.Jacobian,
     module Mcmc.Posterior,
 
     -- * Run MCMC samplers
@@ -210,6 +210,7 @@ where
 import Mcmc.Algorithm.MC3
 import Mcmc.Algorithm.MHG
 import Mcmc.Cycle
+import Mcmc.Jacobian
 import Mcmc.Likelihood
 import Mcmc.MarginalLikelihood
 import Mcmc.Mcmc
