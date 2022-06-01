@@ -212,7 +212,7 @@ mhgAccept r g
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
 mhgPropose (MHG c) p = do
   -- 1. Sample new state.
-  !pr <- liftIO $ s x g
+  !pres <- liftIO $ s x g
   -- 2. Define new prior and likelihood calculation functions. Avoid actual
   -- calculation of the values.
   --
@@ -227,7 +227,7 @@ mhgPropose (MHG c) p = do
   --
   -- 3a. When rejection is inevitable, avoid calculation of the prior, the
   -- likelihood and the MHG ratio.
-  case pr of
+  case pres of
     ForceReject -> reject
     ForceAccept y -> let (pY, lY) = calcPrLh y in accept y pY lY
     (Suggest y q j) ->
