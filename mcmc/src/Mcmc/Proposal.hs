@@ -23,7 +23,7 @@ module Mcmc.Proposal
     PSpeed (..),
     Proposal (..),
     KernelRatio,
-    ProposalQuality (..),
+    PResult (..),
     Jacobian,
     JacobianFunction,
     (@~),
@@ -166,7 +166,7 @@ data Proposal a = Proposal
     -- | The weight determines how often a 'Proposal' is executed per iteration of
     -- the Markov chain.
     prWeight :: PWeight,
-    -- | Simple proposal without name, weight, and tuning information.
+    -- | Simple proposal function without name, weight, and tuning information.
     prPropose :: Propose a,
     -- | Tuning is disabled if set to 'Nothing'.
     prTuner :: Maybe (Tuner a)
@@ -186,22 +186,23 @@ instance Ord (Proposal a) where
 -- probability density to move from A to B.
 type KernelRatio = Log Double
 
--- TODO (high): For ForceAccept and Suggest, the new state should be included.
--- Also find a new name; but clash with Proposal. Maybe ProposalResult?
-
--- | Proposal quality.
-data ProposalQuality
-  = -- | Accept the proposal regardless of the prior, likelihood or Jacobian.
-    ForceAccept
+-- | Proposal result.
+data PResult a
+  = -- | Accept the new proposed value regardless of the prior, likelihood or
+    -- Jacobian.
+    ForceAccept !a
   | -- | Reject the proposal regardless of the prior, likelihood or Jacobian.
     ForceReject
-  | -- | Let the MHG algorithm determine acceptance of the proposal with the
-    -- given 'KernalRatio' and 'Jacobian'.
+  | -- | Suggest a new value.
+    --
+    -- In order to calculate the Metropolis-Hastings-Green ratio, we need to know
+    -- the ratio of the backward to forward kernels (the 'KernelRatio' or the
+    -- probability masses or probability densities) and the 'Jacobian'.
     --
     -- NOTE: Actually the 'Jacobian' should be part of the 'KernelRatio'. However,
     -- it is more declarative to have them separate. Like so, we are constantly
     -- reminded: Is the Jacobian modifier different from 1.0?
-    Suggest KernelRatio Jacobian
+    Suggest !a !KernelRatio !Jacobian
   deriving (Show, Eq)
 
 -- | Lift a proposal from one data type to another.
@@ -235,31 +236,27 @@ liftProposalWith :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
 liftProposalWith jf l (Proposal n r d p w s t) =
   Proposal n r d p w (liftProposeWith jf l s) (liftTunerWith jf l <$> t)
 
--- | Simple proposal without tuning information.
+-- | Simple proposal function without tuning information.
 --
 -- Instruction about randomly moving from the current state to a new state,
 -- given some source of randomness.
---
--- In order to calculate the Metropolis-Hastings-Green ratio, we need to know
--- the ratio of the backward to forward kernels (the 'KernelRatio' or the
--- probability masses or probability densities) and the 'Jacobian'.
-type Propose a = a -> GenIO -> IO (a, ProposalQuality)
+type Propose a = a -> GenIO -> IO (PResult a)
 
--- Lift a simple proposal from one data type to another.
+-- Lift a proposal function from one data type to another.
 liftProposeWith :: JacobianFunction b -> Lens' b a -> Propose a -> Propose b
 liftProposeWith jf l s = s'
   where
     s' y g = do
-      (x', q) <- s (y ^. l) g
-      let y' = set l x' y
-          q' = case q of
-            ForceAccept -> ForceAccept
-            ForceReject -> ForceReject
-            (Suggest r j) ->
-              let jxy = jf y
-                  jyx = jf y'
-               in Suggest r (j * jyx / jxy)
-      return (y', q')
+      pr <- s (y ^. l) g
+      case pr of
+        ForceAccept x' -> pure $ ForceAccept $ set l x' y
+        ForceReject -> pure ForceReject
+        Suggest x' r j ->
+          let y' = set l x' y
+              jxy = jf y
+              jyx = jf y'
+              j' = j * jyx / jxy
+           in pure $ Suggest y' r j'
 
 -- | Create a proposal with a single tuning parameter.
 --
@@ -268,7 +265,7 @@ liftProposeWith jf l s = s'
 createProposal ::
   -- | Description of the proposal type and parameters.
   PDescription ->
-  -- | Function creating a simple proposal for a given tuning parameter.
+  -- | Function creating a simple proposal function for a given tuning parameter.
   (TuningParameter -> Propose a) ->
   -- | Speed.
   PSpeed ->

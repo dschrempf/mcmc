@@ -212,31 +212,35 @@ mhgAccept r g
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
 mhgPropose (MHG c) p = do
   -- 1. Sample new state.
-  (!y, !pq) <- liftIO $ s x g
-  -- 2. Lazily calculate the new prior and likelihood.
+  !pr <- liftIO $ s x g
+  -- 2. Define new prior and likelihood calculation functions. Avoid actual
+  -- calculation of the values.
   --
   -- Most often, parallelization is not helpful, because the prior and
   -- likelihood functions are too fast; see
   -- https://stackoverflow.com/a/46603680/3536806.
-  let (pY, lY) = (pF y, lF y) `using` parTuple2 rdeepseq rdeepseq
-      accept =
+  let calcPrLh y = (pF y, lF y) `using` parTuple2 rdeepseq rdeepseq
+      accept y pr lh =
         let !ac' = pushA p True ac
-         in pure $ MHG $ c {link = Link y pY lY, acceptance = ac'}
+         in pure $ MHG $ c {link = Link y pr lh, acceptance = ac'}
   -- 3. Accept or reject.
   --
-  -- 3a. When rejection is inevitable, avoid evaluation of the MHG ratio which
-  -- forces calculation of the prior and the likelihood.
-  case pq of
+  -- 3a. When rejection is inevitable, avoid calculation of the prior, the
+  -- likelihood and the MHG ratio.
+  case pr of
     ForceReject -> reject
-    ForceAccept -> accept
-    (Suggest q j) ->
+    ForceAccept y -> let (pY, lY) = calcPrLh y in accept y pY lY
+    (Suggest y q j) ->
       if q <= 0.0 || j <= 0.0
         then reject
         else do
           -- 3b. Calculate Metropolis-Hastings-Green ratio.
-          let !r = mhgRatio (pX * lX) (pY * lY) q j
+          let (pY, lY) = calcPrLh y
+              !r = mhgRatio (pX * lX) (pY * lY) q j
           isAccept <- mhgAccept r g
-          if isAccept then accept else reject
+          if isAccept
+            then accept y pY lY
+            else reject
   where
     s = prPropose p
     (Link x pX lX) = link c

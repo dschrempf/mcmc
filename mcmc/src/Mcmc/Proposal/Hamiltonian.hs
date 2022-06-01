@@ -500,7 +500,7 @@ hamiltonianProposeWithMemoizedCovariance tspec hspec dt targetWith x g = do
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
   case leapfrog (targetWith x) massesInv lRan eRan theta phi of
-    Nothing -> pure (x, ForceReject)
+    Nothing -> pure ForceReject
     -- Check if next state is accepted here, because the Jacobian is included in
     -- the target function. If not: pure (x, 0.0, 1.0).
     Just (theta', phi', prTheta, prTheta') -> do
@@ -515,8 +515,8 @@ hamiltonianProposeWithMemoizedCovariance tspec hspec dt targetWith x g = do
       -- chain back to the previous state. However, we are only interested in
       -- the positions, and are not even storing the momenta.
       if accept
-        then pure (fromVec x theta', ForceAccept)
-        else pure (x, ForceReject)
+        then pure $ ForceAccept (fromVec x theta')
+        else pure ForceReject
   where
     (HTuningSpec masses l e _) = tspec
     (HSpec _ toVec fromVec) = hspec

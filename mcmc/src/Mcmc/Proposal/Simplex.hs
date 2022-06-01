@@ -116,9 +116,7 @@ dirichletPropose t (SimplexUnsafe xs) g = do
         Right ddYs -> dirichletDensity ddYs xs / dirichletDensity ddXs ys
   -- I do not think a Jacobian is necessary in this case. I do know that if a
   -- subset of states is updated a Jacobian would be necessary.
-  --
-  -- traceShowM mhRatio
-  return (SimplexUnsafe ys, Suggest r 1.0)
+  pure $ Suggest (SimplexUnsafe ys) r 1.0
   where
     tf = getTuningFunction t
 
@@ -177,7 +175,7 @@ betaPropose i t (SimplexUnsafe xs) g = do
       -- of the Jacobian above.
       nf x = x * ja1
       ys = V.generate (V.length xs) (\j -> if i == j then yI else nf (xs V.! j))
-  return (either error id $ simplexFromVector ys, Suggest r jac)
+  pure $ Suggest (either error id $ simplexFromVector ys) r jac
   where
     xI = xs V.! i
     xsSum = V.sum xs
