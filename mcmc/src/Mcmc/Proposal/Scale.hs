@@ -26,8 +26,8 @@ import Statistics.Distribution.Gamma
 
 -- The actual proposal with tuning parameter. The tuning parameter does not
 -- change the mean.
-scaleSimple :: Shape Double -> Scale Double -> TuningParameter -> ProposalSimple Double
-scaleSimple k th t =
+scalePropose :: Shape Double -> Scale Double -> TuningParameter -> Propose Double
+scalePropose k th t =
   genericContinuous
     (gammaDistr (k / t) (th * t))
     (*)
@@ -52,7 +52,7 @@ scale ::
   PWeight ->
   Tune ->
   Proposal Double
-scale k th = createProposal description (scaleSimple k th) PFast (PDimension 1)
+scale k th = createProposal description (scalePropose k th) PFast (PDimension 1)
   where
     description = PDescription $ "Scale; shape: " ++ show k ++ ", scale: " ++ show th
 
@@ -66,16 +66,16 @@ scaleUnbiased ::
   PWeight ->
   Tune ->
   Proposal Double
-scaleUnbiased k = createProposal description (scaleSimple k (1 / k)) PFast (PDimension 1)
+scaleUnbiased k = createProposal description (scalePropose k (1 / k)) PFast (PDimension 1)
   where
     description = PDescription $ "Scale unbiased; shape: " ++ show k
 
-scaleContrarilySimple ::
+scaleContrarilyPropose ::
   Shape Double ->
   Scale Double ->
   TuningParameter ->
-  ProposalSimple (Double, Double)
-scaleContrarilySimple k th t =
+  Propose (Double, Double)
+scaleContrarilyPropose k th t =
   genericContinuous
     (gammaDistr (k / t) (th * t))
     contra
@@ -96,6 +96,6 @@ scaleContrarily ::
   PWeight ->
   Tune ->
   Proposal (Double, Double)
-scaleContrarily k th = createProposal description (scaleContrarilySimple k th) PFast (PDimension 2)
+scaleContrarily k th = createProposal description (scaleContrarilyPropose k th) PFast (PDimension 2)
   where
     description = PDescription $ "Scale contrariliy; shape: " ++ show k ++ ", scale: " ++ show th

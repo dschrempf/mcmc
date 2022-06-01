@@ -71,7 +71,7 @@ genericContinuous ::
   -- Conversion to log domain is necessary, because some determinants of
   -- Jacobians are very small (or large).
   Maybe (a -> Double -> Jacobian) ->
-  ProposalSimple a
+  Propose a
 genericContinuous d f mInv mJac x g = do
   u <- genContVar d g
   let r = case mInv of
@@ -103,7 +103,7 @@ genericDiscrete ::
   --
   -- Only required for biased proposals.
   Maybe (Int -> Int) ->
-  ProposalSimple a
+  Propose a
 genericDiscrete d f mfInv x g = do
   u <- genDiscreteVar d g
   let r = case mfInv of

@@ -98,8 +98,8 @@ getTuningFunction t = (/ t'')
 -- The values determining the proposal size have been set using an example
 -- analysis. They are good values for this analysis, but may fail for other
 -- analyses.
-dirichletSimple :: TuningParameter -> ProposalSimple Simplex
-dirichletSimple t (SimplexUnsafe xs) g = do
+dirichletPropose :: TuningParameter -> Propose Simplex
+dirichletPropose t (SimplexUnsafe xs) g = do
   -- If @t@ is high and above 1.0, the parameter vector will be low, and the
   -- variance will be high. If @t@ is low and below 1.0, the parameter vector
   -- will be high, and the Dirichlet distribution will be very concentrated with
@@ -138,7 +138,7 @@ dirichletSimple t (SimplexUnsafe xs) g = do
 -- For high dimensional simplices, this proposal may have low acceptance rates.
 -- In this case, please see the coordinate wise 'beta' proposal.
 dirichlet :: PDimension -> PName -> PWeight -> Tune -> Proposal Simplex
-dirichlet = createProposal (PDescription "Dirichlet") dirichletSimple PFast
+dirichlet = createProposal (PDescription "Dirichlet") dirichletPropose PFast
 
 -- The tuning parameter is the inverted mean of the shape values.
 --
@@ -147,8 +147,8 @@ dirichlet = createProposal (PDescription "Dirichlet") dirichletSimple PFast
 -- analyses.
 --
 -- See also the 'dirichlet' proposal.
-betaSimple :: Dimension -> TuningParameter -> ProposalSimple Simplex
-betaSimple i t (SimplexUnsafe xs) g = do
+betaPropose :: Dimension -> TuningParameter -> Propose Simplex
+betaPropose i t (SimplexUnsafe xs) g = do
   -- Shape parameters of beta distribution. Do not assume that the sum of the
   -- elements of 'xs' is 1.0, because then repeated proposals let the sum of the
   -- vector diverge.
@@ -204,6 +204,6 @@ betaSimple i t (SimplexUnsafe xs) g = do
 -- This proposal has been assigned a dimension of 2. See the discussion at
 -- 'PDimension'.
 beta :: Dimension -> PName -> PWeight -> Tune -> Proposal Simplex
-beta i = createProposal description (betaSimple i) PFast (PDimension 2)
+beta i = createProposal description (betaPropose i) PFast (PDimension 2)
   where
     description = PDescription $ "Beta; coordinate: " ++ show i

@@ -315,7 +315,7 @@ getHData s =
     then HData mu massesInvH logDetMasses
     else
       let msg =
-            "hamiltonianSimple: Determinant of covariance matrix is negative."
+            "getHData: Determinant of covariance matrix is negative."
               <> " The logarithm of the absolute value of the determinant is: "
               <> show logDetMasses
               <> "."
@@ -474,28 +474,28 @@ hTuningParametersToTuningSpec (HTuningSpec ms l e c) t ts
       HNoTuneLeapfrog -> (l, e)
       HTuneLeapfrog -> (ceiling $ fromIntegral l / (t ** 0.8) :: Int, t * e)
 
-hamiltonianSimpleWithTuningParameters ::
+hamiltonianProposeWithTuningParameters ::
   Traversable s =>
   HTuningSpec ->
   HSpec s ->
   (s Double -> Target) ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
-  Either String (ProposalSimple (s Double))
-hamiltonianSimpleWithTuningParameters tspec hspec targetWith t ts = do
+  Either String (Propose (s Double))
+hamiltonianProposeWithTuningParameters tspec hspec targetWith t ts = do
   tspec' <- hTuningParametersToTuningSpec tspec t ts
-  pure $ hamiltonianSimple tspec' hspec targetWith
+  pure $ hamiltonianPropose tspec' hspec targetWith
 
 -- The inverted covariance matrix and the log determinant of the covariance
--- matrix are calculated by 'hamiltonianSimple'.
-hamiltonianSimpleWithMemoizedCovariance ::
+-- matrix are calculated by 'hamiltonianPropose'.
+hamiltonianProposeWithMemoizedCovariance ::
   Traversable s =>
   HTuningSpec ->
   HSpec s ->
   HData ->
   (s Double -> Target) ->
-  ProposalSimple (s Double)
-hamiltonianSimpleWithMemoizedCovariance tspec hspec dt targetWith x g = do
+  Propose (s Double)
+hamiltonianProposeWithMemoizedCovariance tspec hspec dt targetWith x g = do
   phi <- generateMomenta mu masses g
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
@@ -527,13 +527,13 @@ hamiltonianSimpleWithMemoizedCovariance tspec hspec dt targetWith x g = do
     eR = 1.2 * e
     (HData mu massesInv logDetMasses) = dt
 
-hamiltonianSimple ::
+hamiltonianPropose ::
   Traversable s =>
   HTuningSpec ->
   HSpec s ->
   (s Double -> Target) ->
-  ProposalSimple (s Double)
-hamiltonianSimple tspec hspec = hamiltonianSimpleWithMemoizedCovariance tspec hspec (getHData tspec)
+  Propose (s Double)
+hamiltonianPropose tspec hspec = hamiltonianProposeWithMemoizedCovariance tspec hspec (getHData tspec)
 
 -- If changed, also change help text of 'HTuneMasses'.
 massMin :: Double
@@ -653,7 +653,7 @@ hamiltonian tspec hspec htarget n w = case checkHSpecWith tspec hspec of
           (Just prF, Just jcF) -> prF y * lhF y * jcF y
         tFnG = grad' (ln . tF)
         targetWith x = bimap Exp toVec . tFnG . fromVec x
-        ps = hamiltonianSimple tspec hspec targetWith
+        ps = hamiltonianPropose tspec hspec targetWith
         hamiltonianWith = Proposal n desc PSlow pDim w ps
         -- Tuning.
         tSet@(HTuningConf tlf tms) = hTuningConf tspec
@@ -670,5 +670,5 @@ hamiltonian tspec hspec htarget n w = case checkHSpecWith tspec hspec of
      in case tSet of
           (HTuningConf HNoTuneLeapfrog HNoTuneMasses) -> hamiltonianWith Nothing
           _ ->
-            let tuner = Tuner 1.0 tFun ts tFunAux (hamiltonianSimpleWithTuningParameters tspec hspec targetWith)
+            let tuner = Tuner 1.0 tFun ts tFunAux (hamiltonianProposeWithTuningParameters tspec hspec targetWith)
              in hamiltonianWith $ Just tuner

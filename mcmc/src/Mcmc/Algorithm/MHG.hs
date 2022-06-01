@@ -238,7 +238,7 @@ mhgPropose (MHG c) p = do
           isAccept <- mhgAccept r g
           if isAccept then accept else reject
   where
-    s = prSimple p
+    s = prPropose p
     (Link x pX lX) = link c
     pF = priorFunction c
     lF = likelihoodFunction c

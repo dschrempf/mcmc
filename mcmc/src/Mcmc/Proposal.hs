@@ -29,7 +29,7 @@ module Mcmc.Proposal
     (@~),
     liftProposal,
     liftProposalWith,
-    ProposalSimple,
+    Propose,
     createProposal,
 
     -- * Tuners
@@ -167,7 +167,7 @@ data Proposal a = Proposal
     -- the Markov chain.
     prWeight :: PWeight,
     -- | Simple proposal without name, weight, and tuning information.
-    prSimple :: ProposalSimple a,
+    prPropose :: Propose a,
     -- | Tuning is disabled if set to 'Nothing'.
     prTuner :: Maybe (Tuner a)
   }
@@ -233,7 +233,7 @@ liftProposal = liftProposalWith (const 1.0)
 -- @Pair@](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Pair/Pair.hs).
 liftProposalWith :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
 liftProposalWith jf l (Proposal n r d p w s t) =
-  Proposal n r d p w (liftProposalSimpleWith jf l s) (liftTunerWith jf l <$> t)
+  Proposal n r d p w (liftProposeWith jf l s) (liftTunerWith jf l <$> t)
 
 -- | Simple proposal without tuning information.
 --
@@ -243,11 +243,11 @@ liftProposalWith jf l (Proposal n r d p w s t) =
 -- In order to calculate the Metropolis-Hastings-Green ratio, we need to know
 -- the ratio of the backward to forward kernels (the 'KernelRatio' or the
 -- probability masses or probability densities) and the 'Jacobian'.
-type ProposalSimple a = a -> GenIO -> IO (a, ProposalQuality)
+type Propose a = a -> GenIO -> IO (a, ProposalQuality)
 
 -- Lift a simple proposal from one data type to another.
-liftProposalSimpleWith :: JacobianFunction b -> Lens' b a -> ProposalSimple a -> ProposalSimple b
-liftProposalSimpleWith jf l s = s'
+liftProposeWith :: JacobianFunction b -> Lens' b a -> Propose a -> Propose b
+liftProposeWith jf l s = s'
   where
     s' y g = do
       (x', q) <- s (y ^. l) g
@@ -269,7 +269,7 @@ createProposal ::
   -- | Description of the proposal type and parameters.
   PDescription ->
   -- | Function creating a simple proposal for a given tuning parameter.
-  (TuningParameter -> ProposalSimple a) ->
+  (TuningParameter -> Propose a) ->
   -- | Speed.
   PSpeed ->
   -- | Dimension.
@@ -298,14 +298,14 @@ data Tuner a = Tuner
     tAuxiliaryTuningParameters :: AuxiliaryTuningParameters,
     tAuxiliaryTuningFunction :: AuxiliaryTuningFunction a,
     -- | Given the tuning parameter, and the auxiliary tuning parameters, get
-    -- the tuned simple proposal.
+    -- the tuned propose function.
     --
     -- Should return 'Left' if the vector of auxiliary tuning parameters is
     -- invalid.
-    tGetSimpleProposal ::
+    tGetPropose ::
       TuningParameter ->
       AuxiliaryTuningParameters ->
-      Either String (ProposalSimple a)
+      Either String (Propose a)
   }
 
 -- Lift tuner from one data type to another.
@@ -313,7 +313,7 @@ liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
 liftTunerWith jf l (Tuner p fP ps fPs g) = Tuner p fP ps fPs' g'
   where
     fPs' = fPs . VB.map (^. l)
-    g' x xs = liftProposalSimpleWith jf l <$> g x xs
+    g' x xs = liftProposeWith jf l <$> g x xs
 
 -- | Tune proposal?
 data Tune = Tune | NoTune
@@ -400,7 +400,7 @@ tuneWithTuningParameters t ts p = case prTuner p of
         psE = g t'' ts
      in case psE of
           Left err -> Left $ "tune: " <> err
-          Right ps -> Right $ p {prSimple = ps, prTuner = Just $ Tuner t'' fT ts fTs g}
+          Right ps -> Right $ p {prPropose = ps, prTuner = Just $ Tuner t'' fT ts fTs g}
 
 -- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double

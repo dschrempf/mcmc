@@ -55,21 +55,20 @@ logDensityBactrian m s x = Exp $ log $ kernel1 + kernel2
 bactrianAdditive ::
   SpikeParameter ->
   StandardDeviation Double ->
-  ProposalSimple Double
+  Propose Double
 bactrianAdditive m s x g = do
   dx <- genBactrian m s g
   return (x + dx, Suggest 1.0 1.0)
 
--- bactrianSimple lens spike stdDev tune forwardOp backwardOp
-bactrianAdditiveSimple ::
+bactrianAdditivePropose ::
   SpikeParameter ->
   StandardDeviation Double ->
   TuningParameter ->
-  ProposalSimple Double
-bactrianAdditiveSimple m s t
-  | m < 0 = error "bactrianAdditiveSimple: Spike parameter negative."
-  | m >= 1 = error "bactrianAdditiveSimple: Spike parameter 1.0 or larger."
-  | s <= 0 = error "bactrianAdditiveSimple: Standard deviation 0.0 or smaller."
+  Propose Double
+bactrianAdditivePropose m s t
+  | m < 0 = error "bactrianAdditivePropose: Spike parameter negative."
+  | m >= 1 = error "bactrianAdditivePropose: Spike parameter 1.0 or larger."
+  | s <= 0 = error "bactrianAdditivePropose: Standard deviation 0.0 or smaller."
   | otherwise = bactrianAdditive m (t * s)
 
 -- | Additive symmetric proposal with kernel similar to the silhouette of a
@@ -90,7 +89,7 @@ slideBactrian ::
   PWeight ->
   Tune ->
   Proposal Double
-slideBactrian m s = createProposal description (bactrianAdditiveSimple m s) PFast (PDimension 1)
+slideBactrian m s = createProposal description (bactrianAdditivePropose m s) PFast (PDimension 1)
   where
     description = PDescription $ "Slide Bactrian; spike: " ++ show m ++ ", sd: " ++ show s
 
@@ -106,7 +105,7 @@ fInv dx = recip (1 - dx) - 1
 bactrianMult ::
   SpikeParameter ->
   StandardDeviation Double ->
-  ProposalSimple Double
+  Propose Double
 bactrianMult m s x g = do
   du <- genBactrian m s g
   let qXY = logDensityBactrian m s du
@@ -115,15 +114,15 @@ bactrianMult m s x g = do
       jac = Exp $ log $ recip u
   return (x * u, Suggest (qYX / qXY) jac)
 
-bactrianMultSimple ::
+bactrianMultPropose ::
   SpikeParameter ->
   StandardDeviation Double ->
   TuningParameter ->
-  ProposalSimple Double
-bactrianMultSimple m s t
-  | m < 0 = error "bactrianMultSimple: Spike parameter negative."
-  | m >= 1 = error "bactrianMultSimple: Spike parameter 1.0 or larger."
-  | s <= 0 = error "bactrianMultSimple: Standard deviation 0.0 or smaller."
+  Propose Double
+bactrianMultPropose m s t
+  | m < 0 = error "bactrianMultPropose: Spike parameter negative."
+  | m >= 1 = error "bactrianMultPropose: Spike parameter 1.0 or larger."
+  | s <= 0 = error "bactrianMultPropose: Standard deviation 0.0 or smaller."
   | otherwise = bactrianMult m (t * s)
 
 -- | Multiplicative proposal with kernel similar to the silhouette of a Bactrian
@@ -137,6 +136,6 @@ scaleBactrian ::
   PWeight ->
   Tune ->
   Proposal Double
-scaleBactrian m s = createProposal description (bactrianMultSimple m s) PFast (PDimension 1)
+scaleBactrian m s = createProposal description (bactrianMultPropose m s) PFast (PDimension 1)
   where
     description = PDescription $ "Scale Bactrian; spike: " ++ show m <> ", sd: " <> show s
