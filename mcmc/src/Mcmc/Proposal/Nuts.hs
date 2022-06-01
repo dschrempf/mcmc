@@ -69,20 +69,20 @@ buildTreeWith hdata@(HData _ msInv) tfun g x p u v j e
       let e' = if v then e else negate e
        in case leapfrog tfun msInv 1 e' x p of
             Nothing -> pure Nothing
-            Just (x', p', _, eEPot') ->
+            Just (x', p', _, expEPot') ->
               if errorIsSmall
                 then pure $ Just (x', p', x', p', x', n')
                 else pure Nothing
               where
-                eEKin' = exponentialKineticEnergy msInv p'
-                n' = if u <= eEPot' * eEKin' then 1 else 0
+                expEKin' = exponentialKineticEnergy msInv p'
+                n' = if u <= expEPot' * expEKin' then 1 else 0
                 -- NOTE: Here one could stay in log domain, but deltaMax needs
                 -- to be redefined.
-                errorIsSmall = ln eEPot' + ln eEKin' > ln u - deltaMax
+                errorIsSmall = ln expEPot' + ln expEKin' > ln u - deltaMax
   -- Recursive case. This is complicated because the algorithm is written for an
   -- imperative language, and because we have two stacked monads.
   | otherwise = do
-      mr <- buildTreeWith hdata tfun g x p u v (j - 1) e
+      mr <- buildTree x p u v (j - 1) e
       case mr of
         Nothing -> pure Nothing
         -- Here, 'm' stands for minus, and 'p' for plus.
@@ -91,13 +91,13 @@ buildTreeWith hdata@(HData _ msInv) tfun g x p u v j e
             if v
               then -- Forwards.
               do
-                mr'' <- buildTreeWith hdata tfun g xm pm u v (j - 1) e
+                mr'' <- buildTree xp pp u v (j - 1) e
                 case mr'' of
                   Nothing -> pure Nothing
                   Just (_, _, xp', pp', x'', n'') -> pure $ Just (xm, pm, xp', pp', x'', n'')
               else -- Backwards.
               do
-                mr'' <- buildTreeWith hdata tfun g xp pp u v (j - 1) e
+                mr'' <- buildTree xm pm u v (j - 1) e
                 case mr'' of
                   Nothing -> pure Nothing
                   Just (xm', pm', _, _, x'', n'') -> pure $ Just (xm', pm', xp, pp, x'', n'')
@@ -112,6 +112,8 @@ buildTreeWith hdata@(HData _ msInv) tfun g x p u v j e
                   -- check Equation (4).
                   isUTurn = let dx = (xp'' - xm'') in (dx * pm'' < 0) || (dx * pp'' < 0)
               if isUTurn then pure Nothing else pure $ Just (xm'', pm'', xp'', pp'', x'''', n'''')
+  where
+    buildTree = buildTreeWith hdata tfun g
 
 -- TODO (high): Tuning configuration.
 
@@ -157,10 +159,10 @@ nutsProposeWithMemoizedCovariance nspec hspec hdata targetWith xComplete g = do
   -- other hand, if other proposals have changed the state inbetween, we do need
   -- to calculate this value.
   let x = toVec xComplete
-      eEPot = fst $ target x
-      eEKin = exponentialKineticEnergy msInv p
+      expEPot = fst $ target x
+      expEKin = exponentialKineticEnergy msInv p
       uZeroOneL = Exp $ log uZeroOne
-      u = eEPot * eEKin * uZeroOneL
+      u = expEPot * expEKin * uZeroOneL
   let -- Recursive case. This is complicated because the algorithm is written for an
       -- imperative language, and because we have two stacked monads.
       --

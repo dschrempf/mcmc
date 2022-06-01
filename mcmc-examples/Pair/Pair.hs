@@ -98,7 +98,7 @@ nspec = either error id $ nTuningSpec masses 0.1
     -- squeeze the posterior. The result is good for the scale being 1.0, which
     -- is what they assume. I am sure they left out a normalization factor
     -- somewhere (because it is not required for scale 1.0).
-    masses = L.trustSym $ L.scale 1 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
+    masses = L.trustSym $ L.scale 4 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
 
 toVec :: I -> VS.Vector Double
 toVec = VS.convert
@@ -146,13 +146,13 @@ main = do
         Settings
           analysisName
           (BurnInWithCustomAutoTuning [] $ [10, 20 .. 200] ++ replicate 10 500)
-          (Iterations 20000)
+          (Iterations 40000)
           TraceAuto
           Overwrite
           Sequential
           Save
           LogStdOutAndFile
-          Debug
+          Info
   -- Metropolis-Hastings-Green algorithm.
   a <- mhg mcmcS pr lh cc mon start g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
