@@ -70,6 +70,7 @@ module Mcmc.Proposal.Hamiltonian
     HMassesInv,
     HLogDetMasses,
     HData (..),
+    getHData,
     logDensityMultivariateNormal,
     Target,
     leapfrog,
@@ -311,8 +312,8 @@ data HData = HData
   }
 
 -- Call 'error' if the determinant of the covariance matrix is negative.
-getHData :: HTuningSpec -> HData
-getHData s =
+getHData :: Masses -> HData
+getHData ms =
   -- The multivariate normal distribution requires a positive definite matrix
   -- with positive determinant.
   if sign == 1.0
@@ -325,17 +326,15 @@ getHData s =
               <> "."
        in error msg
   where
-    ms = hMasses s
     nrows = L.rows $ L.unSym ms
     mu = L.fromList $ replicate nrows 0.0
     (massesInv, (logDetMasses, sign)) = L.invlndet $ L.unSym ms
-    -- In theory we can trust that the matrix is symmetric here, because the
-    -- inverse of a symmetric matrix is symmetric. However, one may want to
+    -- NOTE: In theory we can trust that the matrix is symmetric here, because
+    -- the inverse of a symmetric matrix is symmetric. However, one may want to
     -- implement a check anyways.
     massesInvH = L.trustSym massesInv
 
 generateMomenta ::
-  -- Provided so that it does not have to be recreated.
   HMu ->
   Masses ->
   GenIO ->
@@ -344,6 +343,9 @@ generateMomenta mu masses gen = do
   seed <- uniformM gen :: IO Int
   let momenta = L.gaussianSample seed 1 mu masses
   return $ L.flatten momenta
+
+-- TODO (medium): Use a sparse matrix approach for the log density of the
+-- multivariate normal, similar to McmcDate.
 
 -- Prior distribution of momenta.
 --
@@ -539,7 +541,7 @@ hamiltonianPropose ::
   HSpec s ->
   (s Double -> Target) ->
   Propose (s Double)
-hamiltonianPropose tspec hspec = hamiltonianProposeWithMemoizedCovariance tspec hspec (getHData tspec)
+hamiltonianPropose tspec hspec = hamiltonianProposeWithMemoizedCovariance tspec hspec (getHData $ hMasses tspec)
 
 -- If changed, also change help text of 'HTuneMasses'.
 massMin :: Double

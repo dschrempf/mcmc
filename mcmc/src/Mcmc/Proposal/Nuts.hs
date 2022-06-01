@@ -18,6 +18,7 @@ module Mcmc.Proposal.Nuts
   )
 where
 
+import Mcmc.Proposal
 import Mcmc.Proposal.Hamiltonian
 import Numeric.Log
 import System.Random.MWC
@@ -102,3 +103,20 @@ buildTreeWith hdata@(HData mu msInv logDetMs) tfun g x p u v j e
                   -- check Equation (4).
                   isUTurn = let dx = (xp'' - xm'') in (dx * pm'' < 0) || (dx * pp'' < 0)
               if isUTurn then pure Nothing else pure $ Just (xm'', pm'', xp'', pp'', x'''', n'''')
+
+data NutsTuningSpec = NutsTuningSpec
+  { nMasses :: Masses,
+    nLeapfrogScalingFactor :: LeapfrogScalingFactor
+  }
+  deriving (Show)
+
+nutsProposeWithMemoizedCovariance ::
+  NutsTuningSpec ->
+  HSpec s ->
+  HData ->
+  (s Double -> Target) ->
+  Propose (s Double)
+nutsProposeWithMemoizedCovariance nspec hspec hdata tFunWith x g = undefined
+
+nutsPropose :: NutsTuningSpec -> HSpec s -> (s Double -> Target) -> Propose (s Double)
+nutsPropose nspec hspec = nutsProposeWithMemoizedCovariance nspec hspec (getHData $ nMasses nspec)
