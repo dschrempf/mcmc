@@ -66,7 +66,11 @@ module Mcmc.Proposal.Hamiltonian
     hTuningSpec,
     HSpec (..),
     HTarget (..),
+    HMu,
     HMassesInv,
+    HLogDetMasses,
+    HData (..),
+    logDensityMultivariateNormal,
     Target,
     leapfrog,
     hamiltonian,
@@ -378,8 +382,10 @@ type Target = Positions -> (Log Double, Positions)
 leapfrog ::
   Target ->
   HMassesInv ->
+  --
   LeapfrogTrajectoryLength ->
   LeapfrogScalingFactor ->
+  --
   Positions ->
   Momenta ->
   -- | (New positions, new momenta, old target, new target).

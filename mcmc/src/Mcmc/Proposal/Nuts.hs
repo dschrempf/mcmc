@@ -19,9 +19,11 @@ module Mcmc.Proposal.Nuts
 where
 
 import Mcmc.Proposal.Hamiltonian
+import Numeric.Log
+import System.Random.MWC
 
 -- Internal; Slice variable u.
-type SliceVariable = Double
+type SliceVariable = Log Double
 
 -- Internal; Forward is True.
 type Direction = Bool
@@ -30,44 +32,71 @@ type Direction = Bool
 type DoublingStep = Int
 
 -- Internal; The number of leapfrog steps within the slice ('n' in Algorithm 3).
-type NStepsOK = Int
-
--- Internal; Stop iteration.
-type Stop = Bool
+type NStepsOk = Int
 
 -- Internal; Well, that's fun, isn't it? Have a look at Algorithm 3.
 -- cited above.
-type BuildTreeReturnType = (Positions, Momenta, Positions, Momenta, Positions, NStepsOK, Stop)
+type BuildTreeReturnType = (Positions, Momenta, Positions, Momenta, Positions, NStepsOk)
 
--- NOTE: There are several problems with the NUTS proposal.
---
--- 1. The NUTS proposal is not a real proposal because the new state is to be
--- accepted with probability 1.0. Further, the prior and likelihood are already
--- calculated during the proposal step, and so, should not be recalculated in
--- 'mhgPropose'. A fix requires a (substantial) change of the 'Proposal' data
--- type. All other proposals would also be slower because 'mhgPropose' has to
--- check if the prior and likelihood have been calculated during the proposal
--- step and are already available.
---
--- 2. I do not exactly know how to treat non-unit Jabobians (see
--- 'liftProposalWith'). I think I would need to embed these Jacobians into the
--- posterior calculation of the NUTS proposal. I should also check if this
--- affects the HMC proposal (the prime example is the "Pair" example).
+-- Constant determining largest allowed leapfrog integration error. See
+-- discussion around Equation (3).
+deltaMax :: Double
+deltaMax = 1000
 
--- buildTreeWith ::
---   Gradient Positions ->
---   Maybe (Validate Positions) ->
---   HMassesInv ->
---   --
---   Positions ->
---   Momenta ->
---   SliceVariable ->
---   Direction ->
---   DoublingStep ->
---   LeapfrogScalingFactor ->
---   BuildTreeReturnType
--- buildTreeWith grad mValidate hMassesInv x p u v j e
---   | j == 0 = case leapfrog grad mValidate hMassesInv 1 e x p of
---       Nothing -> undefined
---       Just _ -> undeefined
---   | otherwise = undefined
+buildTreeWith ::
+  HData ->
+  Target ->
+  GenIO ->
+  --
+  Positions ->
+  Momenta ->
+  SliceVariable ->
+  Direction ->
+  DoublingStep ->
+  LeapfrogScalingFactor ->
+  IO (Maybe BuildTreeReturnType)
+buildTreeWith hdata@(HData mu msInv logDetMs) tfun g x p u v j e
+  | j <= 0 =
+      -- Move backwards or forwards?
+      let e' = if v then e else negate e
+       in case leapfrog tfun msInv 1 e' x p of
+            Nothing -> pure Nothing
+            Just (x', p', _, ePot') ->
+              if errorIsLarge
+                then pure Nothing
+                else pure $ Just (x', p', x', p', x', n')
+              where
+                eKin' = logDensityMultivariateNormal mu msInv logDetMs p'
+                n' = if u <= ePot' * eKin' then 1 else 0
+                errorIsLarge = ln ePot' + ln eKin' > ln u - deltaMax
+  | otherwise = do
+      mr <- buildTreeWith hdata tfun g x p u v (j - 1) e
+      case mr of
+        Nothing -> pure Nothing
+        -- Here, 'm' stands for minus, and 'p' for plus.
+        Just (xm, pm, xp, pp, x', n') -> do
+          mr' <-
+            if v
+              then -- Forwards.
+              do
+                mr'' <- buildTreeWith hdata tfun g xm pm u v (j - 1) e
+                case mr'' of
+                  Nothing -> pure Nothing
+                  Just (_, _, xp', pp', x'', n'') -> pure $ Just (xm, pm, xp', pp', x'', n'')
+              else -- Backwards.
+              do
+                mr'' <- buildTreeWith hdata tfun g xp pp u v (j - 1) e
+                case mr'' of
+                  Nothing -> pure Nothing
+                  Just (xm', pm', _, _, x'', n'') -> pure $ Just (xm', pm', xp, pp, x'', n'')
+          case mr' of
+            Nothing -> pure Nothing
+            Just (xm'', pm'', xp'', pp'', x''', n''') -> do
+              b <- uniform g :: IO Double
+              let x'''' = if b < fromIntegral n''' / (fromIntegral $ n' + n''') then x''' else x'
+                  n'''' = n' + n'''
+                  -- Important: Check for U-turn. This formula differs from the
+                  -- formula using indicator functions in Algorithm 3. However,
+                  -- check Equation (4).
+                  isUTurn = let dx = (xp'' - xm'') in (dx * pm'' < 0) || (dx * pp'' < 0)
+              if isUTurn then pure Nothing else pure $ Just (xm'', pm'', xp'', pp'', x'''', n'''')
