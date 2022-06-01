@@ -69,6 +69,8 @@ buildTreeWith hdata@(HData mu msInv logDetMs) tfun g x p u v j e
                 eKin' = logDensityMultivariateNormal mu msInv logDetMs p'
                 n' = if u <= ePot' * eKin' then 1 else 0
                 errorIsLarge = ln ePot' + ln eKin' > ln u - deltaMax
+  -- Recursive case. This is complicated because the algorithm is written for an
+  -- imperative language, and because we have two stacked monads.
   | otherwise = do
       mr <- buildTreeWith hdata tfun g x p u v (j - 1) e
       case mr of
