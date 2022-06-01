@@ -65,13 +65,15 @@ module Mcmc.Proposal.Hamiltonian
     HTuningSpec,
     hTuningSpec,
     HSpec (..),
+    checkHSpecWith,
     HTarget (..),
     HMu,
     HMassesInv,
     HLogDetMasses,
     HData (..),
     getHData,
-    logDensityMultivariateNormal,
+    generateMomenta,
+    exponentialKineticEnergy,
     Target,
     leapfrog,
     hamiltonian,
@@ -91,7 +93,6 @@ import Mcmc.Proposal
 import Numeric.AD.Double
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
-import Numeric.MathFunctions.Constants
 import qualified Statistics.Covariance as S
 import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
@@ -284,18 +285,18 @@ data HTarget s = HTarget
     hJacobian :: forall a. (RealFloat a, Typeable a) => Maybe (JacobianFunctionG (s a) a)
   }
 
-checkHSpecWith :: Eq (s Double) => HTuningSpec -> HSpec s -> Maybe String
-checkHSpecWith tspec (HSpec x toVec fromVec)
+checkHSpecWith :: Eq (s Double) => Masses -> HSpec s -> Maybe String
+checkHSpecWith ms (HSpec x toVec fromVec)
   | fromVec x xVec /= x = eWith "'fromVectorWith x (toVector x) /= x' for sample state."
   | L.size xVec /= nrows = eWith "Mass matrix and 'toVector x' have different sizes for sample state."
   | otherwise = Nothing
   where
     eWith m = Just $ "checkHSpecWith: " <> m
-    ms = L.unSym $ hMasses tspec
-    nrows = L.rows ms
+    nrows = L.rows $ L.unSym ms
     xVec = toVec x
 
--- Internal. Mean vector containing zeroes.
+-- Internal. Mean vector containing zeroes. We save this vector because it is
+-- required when sampling from the multivariate normal distribution.
 type HMu = L.Vector Double
 
 -- | Internal. Symmetric, inverted mass matrix.
@@ -307,8 +308,7 @@ type HLogDetMasses = Double
 -- Internal data type containing memoized values.
 data HData = HData
   { _hMu :: HMu,
-    _hMassesInv :: HMassesInv,
-    _hLogDetMasses :: HLogDetMasses
+    _hMassesInv :: HMassesInv
   }
 
 -- Call 'error' if the determinant of the covariance matrix is negative.
@@ -317,18 +317,15 @@ getHData ms =
   -- The multivariate normal distribution requires a positive definite matrix
   -- with positive determinant.
   if sign == 1.0
-    then HData mu massesInvH logDetMasses
+    then HData mu massesInvH
     else
       let msg =
             "getHData: Determinant of covariance matrix is negative."
-              <> " The logarithm of the absolute value of the determinant is: "
-              <> show logDetMasses
-              <> "."
        in error msg
   where
     nrows = L.rows $ L.unSym ms
     mu = L.fromList $ replicate nrows 0.0
-    (massesInv, (logDetMasses, sign)) = L.invlndet $ L.unSym ms
+    (massesInv, (_, sign)) = L.invlndet $ L.unSym ms
     -- NOTE: In theory we can trust that the matrix is symmetric here, because
     -- the inverse of a symmetric matrix is symmetric. However, one may want to
     -- implement a check anyways.
@@ -347,27 +344,17 @@ generateMomenta mu masses gen = do
 -- TODO (medium): Use a sparse matrix approach for the log density of the
 -- multivariate normal, similar to McmcDate.
 
--- Prior distribution of momenta.
---
--- Log of density of multivariate normal distribution with given parameters.
--- https://en.wikipedia.org/wiki/Multivariate_normal_distribution#Density_function.
-logDensityMultivariateNormal ::
-  -- Mean vector.
-  L.Vector Double ->
-  -- Inverted covariance matrix.
+-- Exponential of kinetic energy.
+exponentialKineticEnergy ::
+  -- Inverted mass matrix.
   L.Herm Double ->
-  -- Logarithm of the determinant of the covariance matrix.
-  Double ->
-  -- Value vector.
-  L.Vector Double ->
+  -- Momenta.
+  Momenta ->
   Log Double
-logDensityMultivariateNormal mu sigmaInvH logDetSigma xs =
-  Exp $ c + (-0.5) * (logDetSigma + ((dxs L.<# sigmaInv) L.<.> dxs))
+exponentialKineticEnergy msInvH xs =
+  Exp $ (-0.5) * ((xs L.<# msInv) L.<.> xs)
   where
-    dxs = xs - mu
-    k = fromIntegral $ L.size mu
-    c = negate $ m_ln_sqrt_2_pi * k
-    sigmaInv = L.unSym sigmaInvH
+    msInv = L.unSym msInvH
 
 -- | Internal; Function calculating target value and gradient.
 --
@@ -513,8 +500,8 @@ hamiltonianProposeWithMemoizedCovariance tspec hspec dt targetWith x g = do
     -- the target function. If not: pure (x, 0.0, 1.0).
     Just (theta', phi', prTheta, prTheta') -> do
       let -- Prior of momenta.
-          prPhi = logDensityMultivariateNormal mu massesInv logDetMasses phi
-          prPhi' = logDensityMultivariateNormal mu massesInv logDetMasses phi'
+          prPhi = exponentialKineticEnergy massesInv phi
+          prPhi' = exponentialKineticEnergy massesInv phi'
           r = prTheta' * prPhi' / (prTheta * prPhi)
       accept <- mhgAccept r g
       -- NOTE: For example, Neal page 12: In order for the Hamiltonian proposal
@@ -533,7 +520,7 @@ hamiltonianProposeWithMemoizedCovariance tspec hspec dt targetWith x g = do
     lR = maximum [lL, ceiling $ (1.2 :: Double) * fromIntegral l]
     eL = 0.8 * e
     eR = 1.2 * e
-    (HData mu massesInv logDetMasses) = dt
+    (HData mu massesInv) = dt
 
 hamiltonianPropose ::
   Traversable s =>
@@ -644,16 +631,16 @@ hamiltonian ::
   PName ->
   PWeight ->
   Proposal (s Double)
-hamiltonian tspec hspec htarget n w = case checkHSpecWith tspec hspec of
+hamiltonian tspec hspec htarget n w = case checkHSpecWith (hMasses tspec) hspec of
   Just err -> error err
   Nothing ->
     let -- Misc.
         desc = PDescription "Hamiltonian Monte Carlo (HMC)"
         (HSpec sample toVec fromVec) = hspec
-        (HTarget mPrF lhF mJcF) = htarget
-        dim = (L.size $ toVec sample)
+        dim = L.size $ toVec sample
         pDim = PSpecial dim 0.65
         -- Vectorize and derive the target function.
+        (HTarget mPrF lhF mJcF) = htarget
         tF y = case (mPrF, mJcF) of
           (Nothing, Nothing) -> lhF y
           (Just prF, Nothing) -> prF y * lhF y

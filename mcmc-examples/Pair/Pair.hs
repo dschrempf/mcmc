@@ -88,6 +88,18 @@ tspec = either error id $ hTuningSpec masses 10 0.1 tconf
     masses = L.trustSym $ L.scale 5 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
     tconf = HTuningConf HNoTuneLeapfrog HTuneDiagonalMassesOnly
 
+-- TODO (high): Epsilon and masses influence posterior. They should not. Small
+-- epsilon and large masses seem to squeeze the posterior. The result is good
+-- for epsilon=1.0, and scale=1.0.
+nspec :: NTuningSpec
+nspec = either error id $ nTuningSpec masses 0.1
+  where
+    -- TODO (high): Masses influence posterior. They should not. Large masses
+    -- squeeze the posterior. The result is good for the scale being 1.0, which
+    -- is what they assume. I am sure they left out a normalization factor
+    -- somewhere (because it is not required for scale 1.0).
+    masses = L.trustSym $ L.scale 1 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
+
 toVec :: I -> VS.Vector Double
 toVec = VS.convert
 
@@ -103,8 +115,11 @@ htarget = HTarget (Just pr) lh (Just jacob)
 hmc :: Proposal I
 hmc = hamiltonian tspec hspec htarget (PName "Hamiltonian") (pWeight 1)
 
+nutp :: Proposal I
+nutp = nuts nspec hspec htarget (PName "Nuts") (pWeight 1)
+
 cc :: Cycle I
-cc = cycleFromList [hmc]
+cc = cycleFromList [nutp]
 
 monPs :: [MonitorParameter I]
 monPs =
