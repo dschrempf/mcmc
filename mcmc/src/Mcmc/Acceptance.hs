@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- |
 -- Module      :  Mcmc.Acceptance
 -- Description :  Handle acceptance rates
@@ -12,9 +14,12 @@
 module Mcmc.Acceptance
   ( -- * Acceptance rates
     AcceptanceRate,
+    AcceptanceCounts (..),
     Acceptance (fromAcceptance),
     emptyA,
-    pushA,
+    pushAccept,
+    pushReject,
+    pushAcceptanceCounts,
     resetA,
     transformKeysA,
     acceptanceRate,
@@ -22,18 +27,36 @@ module Mcmc.Acceptance
   )
 where
 
-import Control.DeepSeq
 import Data.Aeson
-import Data.Bifunctor
+import Data.Aeson.TH
 import Data.Foldable
 import qualified Data.Map.Strict as M
 
 -- | Acceptance rate.
 type AcceptanceRate = Double
 
+-- | Number of accepted and rejected proposals.
+data AcceptanceCounts = AcceptanceCounts
+  { nAccepted :: !Int,
+    nRejected :: !Int
+  }
+  deriving (Show, Eq, Ord)
+
+$(deriveJSON defaultOptions ''AcceptanceCounts)
+
+addAccept :: AcceptanceCounts -> AcceptanceCounts
+addAccept (AcceptanceCounts a r) = AcceptanceCounts (a + 1) r
+
+addReject :: AcceptanceCounts -> AcceptanceCounts
+addReject (AcceptanceCounts a r) = AcceptanceCounts a (r + 1)
+
+addAcceptanceCounts :: AcceptanceCounts -> AcceptanceCounts -> AcceptanceCounts
+addAcceptanceCounts (AcceptanceCounts al rl) (AcceptanceCounts ar rr) =
+  AcceptanceCounts (al + ar) (rl + rr)
+
 -- | For each key @k@, store the number of accepted and rejected proposals.
-newtype Acceptance k = Acceptance {fromAcceptance :: M.Map k (Int, Int)}
-  deriving (Eq, Read, Show)
+newtype Acceptance k = Acceptance {fromAcceptance :: M.Map k AcceptanceCounts}
+  deriving (Eq, Show)
 
 instance ToJSONKey k => ToJSON (Acceptance k) where
   toJSON (Acceptance m) = toJSON m
@@ -46,12 +69,19 @@ instance (Ord k, FromJSONKey k) => FromJSON (Acceptance k) where
 --
 -- Initialize an empty storage of accepted/rejected values.
 emptyA :: Ord k => [k] -> Acceptance k
-emptyA ks = Acceptance $ M.fromList [(k, (0, 0)) | k <- ks]
+emptyA ks = Acceptance $ M.fromList [(k, AcceptanceCounts 0 0) | k <- ks]
 
--- | For key @k@, prepend an accepted (True) or rejected (False) proposal.
-pushA :: Ord k => k -> Bool -> Acceptance k -> Acceptance k
-pushA k True = Acceptance . M.adjust (force . first succ) k . fromAcceptance
-pushA k False = Acceptance . M.adjust (force . second succ) k . fromAcceptance
+-- | For key @k@, add an accept.
+pushAccept :: Ord k => k -> Acceptance k -> Acceptance k
+pushAccept k = Acceptance . M.adjust addAccept k . fromAcceptance
+
+-- | For key @k@, add a reject.
+pushReject :: Ord k => k -> Acceptance k -> Acceptance k
+pushReject k = Acceptance . M.adjust addReject k . fromAcceptance
+
+-- | For key @k@, add acceptance counts.
+pushAcceptanceCounts :: Ord k => k -> AcceptanceCounts -> Acceptance k -> Acceptance k
+pushAcceptanceCounts k c = Acceptance . M.adjust (addAcceptanceCounts c) k . fromAcceptance
 
 -- | Reset acceptance storage.
 resetA :: Ord k => Acceptance k -> Acceptance k
@@ -73,8 +103,8 @@ transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
 -- zero).
 acceptanceRate :: Ord k => k -> Acceptance k -> Maybe (Int, Int, AcceptanceRate)
 acceptanceRate k a = case fromAcceptance a M.!? k of
-  Just (0, 0) -> Nothing
-  Just (as, rs) -> Just (as, rs, fromIntegral as / fromIntegral (as + rs))
+  Just (AcceptanceCounts 0 0) -> Nothing
+  Just (AcceptanceCounts as rs) -> Just (as, rs, fromIntegral as / fromIntegral (as + rs))
   Nothing -> error "acceptanceRate: Key not found in map."
 
 -- | Acceptance rates for all proposals.
@@ -84,7 +114,7 @@ acceptanceRate k a = case fromAcceptance a M.!? k of
 acceptanceRates :: Acceptance k -> M.Map k (Maybe AcceptanceRate)
 acceptanceRates =
   M.map
-    ( \(as, rs) ->
+    ( \(AcceptanceCounts as rs) ->
         if as + rs == 0
           then Nothing
           else Just $ fromIntegral as / fromIntegral (as + rs)

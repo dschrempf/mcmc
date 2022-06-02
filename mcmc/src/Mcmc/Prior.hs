@@ -50,7 +50,9 @@ import Mcmc.Internal.SpecFunctions
 import Mcmc.Statistics.Types
 import Numeric.Log
 
--- TODO (high): Think about using a "structure" variable. E.g.,
+-- TODO (high): Think about using a "structure" variable.
+--
+-- For example,
 --
 -- type PriorFunctionG s a = s a -> PriorG a
 --

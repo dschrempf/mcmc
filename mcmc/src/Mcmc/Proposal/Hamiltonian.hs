@@ -495,7 +495,8 @@ hamiltonianProposeWithMemoizedCovariance tspec hspec dt targetWith x g = do
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
   case leapfrog (targetWith x) massesInv lRan eRan theta phi of
-    Nothing -> pure ForceReject
+    -- TODO @Dominik (high, feature): Acceptance counts.
+    Nothing -> pure (ForceReject, Nothing)
     -- Check if next state is accepted here, because the Jacobian is included in
     -- the target function. If not: pure (x, 0.0, 1.0).
     Just (theta', phi', prTheta, prTheta') -> do
@@ -509,9 +510,9 @@ hamiltonianProposeWithMemoizedCovariance tspec hspec dt targetWith x g = do
       -- proposing the new value. That is, the negated momenta would guide the
       -- chain back to the previous state. However, we are only interested in
       -- the positions, and are not even storing the momenta.
-      if accept
-        then pure $ ForceAccept (fromVec x theta')
-        else pure ForceReject
+      let pr = if accept then ForceAccept (fromVec x theta') else ForceReject
+      -- TODO @Dominik (high, feature): Acceptance counts.
+      pure (pr, Nothing)
   where
     (HTuningSpec masses l e _) = tspec
     (HSpec _ toVec fromVec) = hspec
@@ -572,9 +573,16 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
 -- something that has already been done. But then, auto tuning is not a runtime
 -- determining factor.
 tuneDiagonalMassesOnly ::
+  -- Number of parameters.
   Int ->
+  -- Conversion from value to vector.
   (a -> Positions) ->
-  AuxiliaryTuningFunction a
+  -- Value vector.
+  VB.Vector a ->
+  -- Old masses.
+  VU.Vector TuningParameter ->
+  -- New masses.
+  VU.Vector TuningParameter
 tuneDiagonalMassesOnly dim toVec xs ts
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesMinDiagonal = ts
@@ -601,9 +609,16 @@ tuneDiagonalMassesOnly dim toVec xs ts
 -- something that has already been done. But then, auto tuning is not a runtime
 -- determining factor.
 tuneAllMasses ::
+  -- Number of parameters.
   Int ->
+  -- Conversion from value to vector.
   (a -> Positions) ->
-  AuxiliaryTuningFunction a
+  -- Value vector.
+  VB.Vector a ->
+  -- Old masses.
+  AuxiliaryTuningParameters ->
+  -- New masses.
+  AuxiliaryTuningParameters
 tuneAllMasses dim toVec xs ts
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesMinDiagonal = ts
@@ -621,6 +636,18 @@ tuneAllMasses dim toVec xs ts
     sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.5 xsNormalized
     sigma = S.rescaleSWith ss sigmaNormalized
     massesNew = L.inv sigma
+
+getTuningFunction :: Int -> (a -> Positions) -> HTuningConf -> Maybe (TuningFunction a)
+getTuningFunction n toVec (HTuningConf l m) = case (l, m) of
+  (HNoTuneLeapfrog, HNoTuneMasses) -> Nothing
+  (HNoTuneLeapfrog, HTuneDiagonalMassesOnly) -> Just $ tuningFunctionOnlyAux td
+  (HNoTuneLeapfrog, HTuneAllMasses) -> Just $ tuningFunctionOnlyAux ta
+  (HTuneLeapfrog, HNoTuneMasses) -> Just tuningFunction
+  (HTuneLeapfrog, HTuneDiagonalMassesOnly) -> Just $ tuningFunctionWithAux td
+  (HTuneLeapfrog, HTuneAllMasses) -> Just $ tuningFunctionWithAux ta
+  where
+    td = tuneDiagonalMassesOnly n toVec
+    ta = tuneAllMasses n toVec
 
 -- | Hamiltonian Monte Carlo proposal.
 hamiltonian ::
@@ -651,19 +678,11 @@ hamiltonian tspec hspec htarget n w = case checkHSpecWith (hMasses tspec) hspec 
         ps = hamiltonianPropose tspec hspec targetWith
         hamiltonianWith = Proposal n desc PSlow pDim w ps
         -- Tuning.
-        tSet@(HTuningConf tlf tms) = hTuningConf tspec
-        tFun = case tlf of
-          HNoTuneLeapfrog -> noTuningFunction
-          HTuneLeapfrog -> defaultTuningFunctionWith pDim
+        tconf@(HTuningConf _ tms) = hTuningConf tspec
         ts = case tms of
           HNoTuneMasses -> VU.empty
           _ -> massesToTuningParameters $ hMasses tspec
-        tFunAux = case tms of
-          HNoTuneMasses -> noAuxiliaryTuningFunction
-          HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly dim toVec
-          HTuneAllMasses -> tuneAllMasses dim toVec
-     in case tSet of
-          (HTuningConf HNoTuneLeapfrog HNoTuneMasses) -> hamiltonianWith Nothing
-          _ ->
-            let tuner = Tuner 1.0 tFun ts tFunAux (hamiltonianProposeWithTuningParameters tspec hspec targetWith)
-             in hamiltonianWith $ Just tuner
+        tuner = do
+          tfun <- getTuningFunction dim toVec tconf
+          pure $ Tuner 1.0 ts tfun (hamiltonianProposeWithTuningParameters tspec hspec targetWith)
+     in hamiltonianWith tuner

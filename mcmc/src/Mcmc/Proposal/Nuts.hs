@@ -21,7 +21,6 @@ module Mcmc.Proposal.Nuts
 where
 
 import Data.Bifunctor
-import Debug.Trace
 import Mcmc.Proposal
 import Mcmc.Proposal.Hamiltonian
 import Numeric.AD.Double
@@ -47,8 +46,8 @@ type BuildTreeReturnType = (Positions, Momenta, Positions, Momenta, Positions, N
 
 -- Constant determining largest allowed leapfrog integration error. See
 -- discussion around Equation (3).
-deltaMax :: Double
-deltaMax = 1000
+deltaMax :: Log Double
+deltaMax = Exp 1000
 
 -- Second function in Algorithm 3.
 buildTreeWith ::
@@ -76,9 +75,7 @@ buildTreeWith hdata@(HData _ msInv) tfun g x p u v j e
               where
                 expEKin' = exponentialKineticEnergy msInv p'
                 n' = if u <= expEPot' * expEKin' then 1 else 0
-                -- NOTE: Here one could stay in log domain, but deltaMax needs
-                -- to be redefined.
-                errorIsSmall = ln expEPot' + ln expEKin' > ln u - deltaMax
+                errorIsSmall = expEPot' * expEKin' > u / deltaMax
   -- Recursive case. This is complicated because the algorithm is written for an
   -- imperative language, and because we have two stacked monads.
   | otherwise = do
@@ -154,10 +151,10 @@ nutsProposeWithMemoizedCovariance ::
 nutsProposeWithMemoizedCovariance nspec hspec hdata targetWith xComplete g = do
   p <- generateMomenta mu ms g
   uZeroOne <- uniform g :: IO Double
-  -- TODO (high): Here we need the target function value from the previous step.
-  -- For now, I just recalculate the value, but this is, of course, slow! On the
-  -- other hand, if other proposals have changed the state inbetween, we do need
-  -- to calculate this value.
+  -- NOTE (runtime): Here we need the target function value from the previous
+  -- step. For now, I just recalculate the value, but this is, of course, slow!
+  -- However, if other proposals have changed the state inbetween, we do need to
+  -- recalculate this value.
   let x = toVec xComplete
       expEPot = fst $ target x
       expEKin = exponentialKineticEnergy msInv p
@@ -199,7 +196,9 @@ nutsProposeWithMemoizedCovariance nspec hspec hdata targetWith xComplete g = do
               then pure (y''', isNewState')
               else go xm'' pm'' xp'' pp'' (j + 1) y''' (n + n'') isNewState'
   (x', isNew) <- go x p x p 0 x 1 False
-  pure $ if isNew then ForceAccept $ fromVec x' else ForceReject
+  let r = if isNew then ForceAccept $ fromVec x' else ForceReject
+  -- TODO @Dominik (high, feature): Acceptance counts.
+  pure (r, Nothing)
   where
     (NTuningSpec ms e) = nspec
     (HSpec _ toVec fromVecWith) = hspec

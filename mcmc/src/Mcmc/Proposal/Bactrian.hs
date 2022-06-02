@@ -58,7 +58,7 @@ bactrianAdditive ::
   Propose Double
 bactrianAdditive m s x g = do
   dx <- genBactrian m s g
-  pure $ Suggest (x + dx) 1.0 1.0
+  pure (Suggest (x + dx) 1.0 1.0, Nothing)
 
 bactrianAdditivePropose ::
   SpikeParameter ->
@@ -112,7 +112,7 @@ bactrianMult m s x g = do
       qYX = logDensityBactrian m s (fInv du)
       u = 1.0 + du
       jac = Exp $ log $ recip u
-  pure $ Suggest (x * u) (qYX / qXY) jac
+  pure (Suggest (x * u) (qYX / qXY) jac, Nothing)
 
 bactrianMultPropose ::
   SpikeParameter ->

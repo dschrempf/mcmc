@@ -79,6 +79,9 @@ tSpec =
       0.03
       (HTuningConf HTuneLeapfrog HTuneAllMasses)
 
+nSpec :: NTuningSpec
+nSpec = either error id $ nTuningSpec masses 0.01
+
 hSpec :: HSpec IG
 hSpec = HSpec initialState VS.convert (const VS.convert)
 
@@ -88,12 +91,18 @@ hTarget = HTarget Nothing lhf Nothing
 hamiltonianProposal :: Proposal I
 hamiltonianProposal = hamiltonian tSpec hSpec hTarget n w
   where
-    n = PName "Space"
+    n = PName "Hmc"
+    w = pWeight 1
+
+nutsProposal :: Proposal I
+nutsProposal = nuts nSpec hSpec hTarget n w
+  where
+    n = PName "Nuts"
     w = pWeight 1
 
 cc :: Cycle I
 cc =
-  cycleFromList [hamiltonianProposal]
+  cycleFromList [nutsProposal]
 
 monPs :: [MonitorParameter I]
 monPs = [view (singular (ix i)) >$< monitorDouble (n i) | i <- [0 .. (dimension - 1)]]

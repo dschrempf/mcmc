@@ -157,10 +157,11 @@ getNProposalsPerCycle m (Cycle xs o) = case o of
 tuneWithChainParameters :: AcceptanceRate -> VB.Vector a -> Proposal a -> Either String (Proposal a)
 tuneWithChainParameters ar xs p = case prTuner p of
   Nothing -> Right p
-  Just (Tuner t fT ts fTs _) ->
-    let t' = fT ar t
-        ts' = fTs xs ts
+  Just (Tuner t ts fT _) ->
+    let (t', ts') = fT d ar xs t ts
      in tuneWithTuningParameters t' ts' p
+  where
+    d = prDimension p
 
 -- | Calculate acceptance rates and auto tunes the 'Proposal's in the 'Cycle'.
 --

@@ -95,7 +95,6 @@ library
     , containers
     , covariance         >=0.2
     , data-default
-    , deepseq
     , directory
     , dirichlet
     , double-conversion

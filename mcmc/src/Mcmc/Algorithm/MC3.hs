@@ -130,7 +130,7 @@ data SavedMC3 a = SavedMC3
     savedMC3SwapAcceptance :: Acceptance Int,
     savedMC3Generator :: U.Vector Word32
   }
-  deriving (Eq, Read, Show)
+  deriving (Eq, Show)
 
 $(deriveJSON defaultOptions ''SavedMC3)
 
@@ -406,10 +406,10 @@ mc3ProposeSwap a i = do
       -- traceIO $ "Log priors (left, right, after swap): " <> show (ln prL') <> " " <> show (ln prR')
       -- traceIO $ "Log likelihoods (left, right, before swap): " <> show (ln lhL) <> " " <> show (ln lhR)
       -- traceIO $ "Log likelihood (left, right, after swap): " <> show (ln lhL') <> " " <> show (ln lhR')
-      let !ac' = pushA i True (mc3SwapAcceptance a)
+      let !ac' = pushAccept i (mc3SwapAcceptance a)
       return $ a {mc3MHGChains = y, mc3SwapAcceptance = ac'}
     else do
-      let !ac' = pushA i False (mc3SwapAcceptance a)
+      let !ac' = pushReject i (mc3SwapAcceptance a)
       return $ a {mc3SwapAcceptance = ac'}
   where
     g = mc3Generator a

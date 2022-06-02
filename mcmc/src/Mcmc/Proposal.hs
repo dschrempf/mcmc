@@ -38,10 +38,9 @@ module Mcmc.Proposal
     TuningParameter,
     TuningFunction,
     AuxiliaryTuningParameters,
-    AuxiliaryTuningFunction,
-    defaultTuningFunctionWith,
-    noTuningFunction,
-    noAuxiliaryTuningFunction,
+    tuningFunction,
+    tuningFunctionWithAux,
+    tuningFunctionOnlyAux,
     tuningParameterMin,
     tuningParameterMax,
     tuneWithTuningParameters,
@@ -240,27 +239,31 @@ liftProposalWith jf l (Proposal n r d p w s t) =
 --
 -- Instruction about randomly moving from the current state to a new state,
 -- given some source of randomness.
-type Propose a = a -> GenIO -> IO (PResult a)
+--
+-- Maybe report acceptance counts internal to the proposal (e.g., used by
+-- proposals based on Hamiltonian dynamics).
+type Propose a = a -> GenIO -> IO (PResult a, Maybe AcceptanceCounts)
 
 -- Lift a proposal function from one data type to another.
 liftProposeWith :: JacobianFunction b -> Lens' b a -> Propose a -> Propose b
 liftProposeWith jf l s = s'
   where
     s' y g = do
-      pr <- s (y ^. l) g
-      case pr of
-        ForceAccept x' -> pure $ ForceAccept $ set l x' y
-        ForceReject -> pure ForceReject
-        Suggest x' r j ->
-          let y' = set l x' y
-              jxy = jf y
-              jyx = jf y'
-              j' = j * jyx / jxy
-           in pure $ Suggest y' r j'
+      (pr, ac) <- s (y ^. l) g
+      let pr' = case pr of
+            ForceAccept x' -> ForceAccept $ set l x' y
+            ForceReject -> ForceReject
+            Suggest x' r j ->
+              let y' = set l x' y
+                  jxy = jf y
+                  jyx = jf y'
+                  j' = j * jyx / jxy
+               in Suggest y' r j'
+      pure (pr', ac)
 
 -- | Create a proposal with a single tuning parameter.
 --
--- Proposals with arbitrary tuning parameters have to be created manually. See
+-- Proposals with auxiliary tuning parameters have to be created manually. See
 -- 'Tuner' for more information, and 'Mcmc.Proposal.Hamiltonian' for an example.
 createProposal ::
   -- | Description of the proposal type and parameters.
@@ -281,19 +284,17 @@ createProposal ::
 createProposal r f s d n w Tune =
   Proposal n r s d w (f 1.0) (Just tuner)
   where
-    fT = defaultTuningFunctionWith d
-    fTs = noAuxiliaryTuningFunction
+    fT = tuningFunction
     g t _ = Right $ f t
-    tuner = Tuner 1.0 fT VU.empty fTs g
+    tuner = Tuner 1.0 VU.empty fT g
 createProposal r f s d n w NoTune =
   Proposal n r s d w (f 1.0) Nothing
 
 -- | Required information to tune 'Proposal's.
 data Tuner a = Tuner
   { tTuningParameter :: TuningParameter,
-    tTuningFunction :: TuningFunction,
     tAuxiliaryTuningParameters :: AuxiliaryTuningParameters,
-    tAuxiliaryTuningFunction :: AuxiliaryTuningFunction a,
+    tTuningFunction :: TuningFunction a,
     -- | Given the tuning parameter, and the auxiliary tuning parameters, get
     -- the tuned propose function.
     --
@@ -307,9 +308,9 @@ data Tuner a = Tuner
 
 -- Lift tuner from one data type to another.
 liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
-liftTunerWith jf l (Tuner p fP ps fPs g) = Tuner p fP ps fPs' g'
+liftTunerWith jf l (Tuner p ps fP g) = Tuner p ps fP' g'
   where
-    fPs' = fPs . VB.map (^. l)
+    fP' d r = fP d r . VB.map (^. l)
     g' x xs = liftProposeWith jf l <$> g x xs
 
 -- | Tune proposal?
@@ -322,38 +323,47 @@ data Tune = Tune | NoTune
 -- expected acceptance rate; and vice versa.
 type TuningParameter = Double
 
--- | Compute new tuning parameter from a given acceptance rate and the old
--- tuning parameter.
-type TuningFunction = AcceptanceRate -> TuningParameter -> TuningParameter
+-- | Compute new tuning parameters.
+type TuningFunction a =
+  PDimension ->
+  -- | Acceptance rate of last tuning period.
+  AcceptanceRate ->
+  -- | Samples of last tuning period.
+  VB.Vector a ->
+  TuningParameter ->
+  AuxiliaryTuningParameters ->
+  (TuningParameter, AuxiliaryTuningParameters)
 
--- | Auxiliary tuning parameters; vector may be empty.
+-- | Auxiliary tuning parameters.
 --
 -- Auxiliary tuning parameters are not shown in proposal summaries.
+--
+-- Vector may be empty.
 type AuxiliaryTuningParameters = VU.Vector TuningParameter
 
--- | Compute new auxiliary tuning parameters from a given trace and the old
--- auxiliary tuning parameters.
-type AuxiliaryTuningFunction a = VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters
+tuningFunctionSimple :: PDimension -> AcceptanceRate -> TuningParameter -> TuningParameter
+tuningFunctionSimple d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 
 -- | Default tuning function.
 --
--- Subject to change.
-defaultTuningFunctionWith ::
-  -- Optimal acceptance rate.
-  PDimension ->
-  TuningFunction
-defaultTuningFunctionWith d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
+-- The default tuning function does not handle auxiliary tuning parameters and
+-- ignores the samples attained during the last tuning period.
+tuningFunction :: TuningFunction a
+tuningFunction d r _ t _ = (tuningFunctionSimple d r t, VU.empty)
 
--- | Do not tune.
---
--- Useful if auxiliary tuning parameters are tuned, but not the main tuning
--- parameter.
-noTuningFunction :: TuningFunction
-noTuningFunction _ = id
+-- | Also tune auxiliary tuning parameters.
+tuningFunctionWithAux ::
+  -- | Auxiliary tuning function.
+  (VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
+  TuningFunction a
+tuningFunctionWithAux f d r xs t ts = (tuningFunctionSimple d r t, f xs ts)
 
--- | Do not tune auxiliary parameters.
-noAuxiliaryTuningFunction :: AuxiliaryTuningFunction a
-noAuxiliaryTuningFunction _ = id
+-- | Only tune auxiliary tuning parameters.
+tuningFunctionOnlyAux ::
+  -- | Auxiliary tuning function.
+  (VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
+  TuningFunction a
+tuningFunctionOnlyAux f _ _ xs t ts = (t, f xs ts)
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
 -- proposal with a large tuning parameter is not a problem. But then, if the
@@ -390,14 +400,14 @@ tuneWithTuningParameters ::
   Either String (Proposal a)
 tuneWithTuningParameters t ts p = case prTuner p of
   Nothing -> Left "tuneWithTuningParameters: Proposal is not tunable."
-  Just (Tuner _ fT _ fTs g) ->
+  Just (Tuner _ _ fT g) ->
     -- Ensure that the tuning parameter is strictly positive and well bounded.
     let t' = max tuningParameterMin t
         t'' = min tuningParameterMax t'
         psE = g t'' ts
      in case psE of
           Left err -> Left $ "tune: " <> err
-          Right ps -> Right $ p {prPropose = ps, prTuner = Just $ Tuner t'' fT ts fTs g}
+          Right ps -> Right $ p {prPropose = ps, prTuner = Just $ Tuner t'' ts fT g}
 
 -- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double

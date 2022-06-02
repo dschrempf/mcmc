@@ -57,7 +57,7 @@ data SavedChain a = SavedChain
     savedSeed :: VU.Vector Word32,
     savedTuningParameters :: [Maybe (TuningParameter, AuxiliaryTuningParameters)]
   }
-  deriving (Eq, Read, Show)
+  deriving (Eq, Show)
 
 $(deriveJSON defaultOptions ''SavedChain)
 

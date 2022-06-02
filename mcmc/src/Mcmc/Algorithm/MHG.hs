@@ -34,6 +34,7 @@ import Control.Monad.IO.Class
 import Control.Parallel.Strategies
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Maybe
 import Data.Time
 import qualified Data.Vector as VB
 import Mcmc.Acceptance
@@ -212,7 +213,7 @@ mhgAccept r g
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
 mhgPropose (MHG c) p = do
   -- 1. Sample new state.
-  !pres <- liftIO $ s x g
+  !(pres, mcs) <- liftIO $ s x g
   -- 2. Define new prior and likelihood calculation functions. Avoid actual
   -- calculation of the values.
   --
@@ -221,8 +222,15 @@ mhgPropose (MHG c) p = do
   -- https://stackoverflow.com/a/46603680/3536806.
   let calcPrLh y = (pF y, lF y) `using` parTuple2 rdeepseq rdeepseq
       accept y pr lh =
-        let !ac' = pushA p True ac
+        let !ac' = case mcs of
+              Nothing -> pushAccept p ac
+              Just cs -> pushAcceptanceCounts p cs ac
          in pure $ MHG $ c {link = Link y pr lh, acceptance = ac'}
+      reject =
+        let !ac' = case mcs of
+              Nothing -> pushReject p ac
+              Just cs -> pushAcceptanceCounts p cs ac
+         in pure $ MHG $ c {acceptance = ac'}
   -- 3. Accept or reject.
   --
   -- 3a. When rejection is inevitable, avoid calculation of the prior, the
@@ -248,9 +256,6 @@ mhgPropose (MHG c) p = do
     lF = likelihoodFunction c
     ac = acceptance c
     g = generator c
-    reject =
-      let !ac' = pushA p False ac
-       in pure $ MHG $ c {acceptance = pushA p False ac'}
 
 mhgPush :: MHG a -> IO (MHG a)
 mhgPush (MHG c) = do
