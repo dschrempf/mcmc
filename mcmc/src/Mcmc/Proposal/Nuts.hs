@@ -22,7 +22,7 @@ where
 
 import Data.Bifunctor
 import Mcmc.Proposal
-import Mcmc.Proposal.Hamiltonian
+import Mcmc.Proposal.Hamiltonian.Common
 import Numeric.AD.Double
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
@@ -221,7 +221,8 @@ nuts ::
 nuts nspec hspec htarget n w = case checkHSpecWith (nMasses nspec) hspec of
   Just err -> error err
   Nothing ->
-    let desc = PDescription "No U-turn sampler (NUTS)"
+    let -- Misc.
+        desc = PDescription "No U-turn sampler (NUTS)"
         (HSpec sample toVec fromVec) = hspec
         dim = L.size $ toVec sample
         -- TODO (high): Desired acceptance ratio for NUTS?
