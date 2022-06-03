@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- |
--- Module      :  Mcmc.Proposal.Hamiltonian
+-- Module      :  Mcmc.Proposal.Hamiltonian.Hamiltonian
 -- Description :  Hamiltonian Monte Carlo proposal
 -- Copyright   :  (c) 2021 Dominik Schrempf
 -- License     :  GPL-3.0-or-later
@@ -53,7 +53,7 @@
 -- - The speed of this proposal changes drastically with the leapfrog trajectory
 --   length and the leapfrog scaling factor. Hence, the speed will change during
 --   burn in.
-module Mcmc.Proposal.Hamiltonian
+module Mcmc.Proposal.Hamiltonian.Hamiltonian
   ( HTuningSpec,
     hTuningSpec,
     hamiltonian,

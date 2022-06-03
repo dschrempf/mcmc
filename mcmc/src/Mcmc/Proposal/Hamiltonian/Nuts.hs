@@ -1,5 +1,5 @@
 -- |
--- Module      :  Mcmc.Proposal.Nuts
+-- Module      :  Mcmc.Proposal.Hamiltonian.Nuts
 -- Description :  No-U-Turn sampler (NUTS)
 -- Copyright   :  (c) 2022 Dominik Schrempf
 -- License     :  GPL-3.0-or-later
@@ -13,7 +13,7 @@
 -- See Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
 -- Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
 -- Machine Learning Research.
-module Mcmc.Proposal.Nuts
+module Mcmc.Proposal.Hamiltonian.Nuts
   ( NTuningSpec,
     nTuningSpec,
     nuts,

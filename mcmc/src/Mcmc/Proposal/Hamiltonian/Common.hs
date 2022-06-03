@@ -230,12 +230,14 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
 -- TODO @Dominik (high, issue): I do not think 'massesToTuningParameters' should
 -- be exported. Something is wrong here; fix!
 
+-- | Internal.
 massesToTuningParameters :: Masses -> AuxiliaryTuningParameters
 massesToTuningParameters = VB.convert . L.flatten . L.unSym
 
 -- TODO @Dominik (high, issue): I do not think 'tuningParametersToMasses' should
 -- be exported. Something is wrong here; fix!
 
+-- | Internal.
 tuningParametersToMasses ::
   -- Dimension of the mass matrix.
   Int ->
@@ -243,9 +245,7 @@ tuningParametersToMasses ::
   Masses
 tuningParametersToMasses d = L.trustSym . L.reshape d . VB.convert
 
--- NOTE: Here, we lose time because we convert the states to vectors again,
--- something that has already been done. But then, auto tuning is not a runtime
--- determining factor.
+-- | Internal.
 tuneDiagonalMassesOnly ::
   -- Number of parameters.
   Int ->
@@ -257,6 +257,9 @@ tuneDiagonalMassesOnly ::
   VU.Vector TuningParameter ->
   -- New masses.
   VU.Vector TuningParameter
+-- NOTE: Here, we lose time because we convert the states to vectors again,
+-- something that has already been done. But then, auto tuning is not a runtime
+-- determining factor.
 tuneDiagonalMassesOnly dim toVec xs ts
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesMinDiagonal = ts
@@ -279,9 +282,7 @@ tuneDiagonalMassesOnly dim toVec xs ts
         massesDiagonalOld
         massesDiagonalEstimate
 
--- NOTE: Here, we lose time because we convert the states to vectors again,
--- something that has already been done. But then, auto tuning is not a runtime
--- determining factor.
+-- | Internal.
 tuneAllMasses ::
   -- Number of parameters.
   Int ->
@@ -293,6 +294,9 @@ tuneAllMasses ::
   AuxiliaryTuningParameters ->
   -- New masses.
   AuxiliaryTuningParameters
+-- NOTE: Here, we lose time because we convert the states to vectors again,
+-- something that has already been done. But then, auto tuning is not a runtime
+-- determining factor.
 tuneAllMasses dim toVec xs ts
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesMinDiagonal = ts
@@ -326,6 +330,7 @@ data HSpec s = HSpec
     hFromVectorWith :: s Double -> Positions -> s Double
   }
 
+-- | Internal.
 checkHSpecWith :: Eq (s Double) => Masses -> HSpec s -> Maybe String
 checkHSpecWith ms (HSpec x toVec fromVec)
   | fromVec x xVec /= x = eWith "'fromVectorWith x (toVector x) /= x' for sample state."
@@ -357,13 +362,13 @@ type HMu = L.Vector Double
 -- | Internal. Symmetric, inverted mass matrix.
 type HMassesInv = L.Herm Double
 
--- Internal data type containing memoized values.
+-- | Internal data type containing memoized values.
 data HData = HData
   { _hMu :: HMu,
     _hMassesInv :: HMassesInv
   }
 
--- | Compute inverted mass matrix.
+-- | Internal. Compute inverted mass matrix.
 --
 -- Call 'error' if the determinant of the covariance matrix is negative.
 getHData :: Masses -> HData
@@ -385,7 +390,7 @@ getHData ms =
     -- implement a check anyways.
     massesInvH = L.trustSym massesInv
 
--- | Generate momenta for a new iteration.
+-- | Internal. Generate momenta for a new iteration.
 generateMomenta ::
   HMu ->
   Masses ->
@@ -399,7 +404,7 @@ generateMomenta mu masses gen = do
 -- TODO (medium): Use a sparse matrix approach for the log density of the
 -- multivariate normal, similar to McmcDate.
 
--- Exponential of kinetic energy.
+-- | Internal. Compute exponent of kinetic energy.
 exponentialKineticEnergy ::
   -- Inverted mass matrix.
   L.Herm Double ->
@@ -422,7 +427,7 @@ exponentialKineticEnergy msInvH xs =
 -- gradient is required.
 type Target = Positions -> (Log Double, Positions)
 
--- | Internal; Leapfrog integrator (also used by NUTS proposal).
+-- | Internal; Leapfrog integrator.
 leapfrog ::
   Target ->
   HMassesInv ->
