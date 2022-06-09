@@ -26,8 +26,8 @@ import Statistics.Distribution.Normal
 import Statistics.Distribution.Uniform
 
 -- The actual proposal with tuning parameter.
-slidePropose :: Mean Double -> StandardDeviation Double -> TuningParameter -> Propose Double
-slidePropose m s t =
+slidePFunction :: Mean Double -> StandardDeviation Double -> TuningParameter -> PFunction Double
+slidePFunction m s t =
   genericContinuous (normalDistr m (s * t)) (+) (Just negate) Nothing
 
 -- | Additive proposal.
@@ -40,13 +40,13 @@ slide ::
   PWeight ->
   Tune ->
   Proposal Double
-slide m s = createProposal description (slidePropose m s) PFast (PDimension 1)
+slide m s = createProposal description (slidePFunction m s) PFast (PDimension 1)
   where
     description = PDescription $ "Slide; mean: " ++ show m ++ ", sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
-slideSymmetricPropose :: StandardDeviation Double -> TuningParameter -> Propose Double
-slideSymmetricPropose s t =
+slideSymmetricPFunction :: StandardDeviation Double -> TuningParameter -> PFunction Double
+slideSymmetricPFunction s t =
   genericContinuous (normalDistr 0.0 (s * t)) (+) Nothing Nothing
 
 -- | See 'slide'.
@@ -60,13 +60,13 @@ slideSymmetric ::
   PWeight ->
   Tune ->
   Proposal Double
-slideSymmetric s = createProposal description (slideSymmetricPropose s) PFast (PDimension 1)
+slideSymmetric s = createProposal description (slideSymmetricPFunction s) PFast (PDimension 1)
   where
     description = PDescription $ "Slide symmetric; sd: " ++ show s
 
 -- The actual proposal with tuning parameter.
-slideUniformPropose :: Size -> TuningParameter -> Propose Double
-slideUniformPropose d t =
+slideUniformPFunction :: Size -> TuningParameter -> PFunction Double
+slideUniformPFunction d t =
   genericContinuous (uniformDistr (-t * d) (t * d)) (+) Nothing Nothing
 
 -- | See 'slide'.
@@ -80,19 +80,19 @@ slideUniformSymmetric ::
   PWeight ->
   Tune ->
   Proposal Double
-slideUniformSymmetric d = createProposal description (slideUniformPropose d) PFast (PDimension 1)
+slideUniformSymmetric d = createProposal description (slideUniformPFunction d) PFast (PDimension 1)
   where
     description = PDescription $ "Slide uniform symmetric; delta: " ++ show d
 
 contra :: (Double, Double) -> Double -> (Double, Double)
 contra (x, y) u = (x + u, y - u)
 
-slideContrarilyPropose ::
+slideContrarilyPFunction ::
   Mean Double ->
   StandardDeviation Double ->
   TuningParameter ->
-  Propose (Double, Double)
-slideContrarilyPropose m s t =
+  PFunction (Double, Double)
+slideContrarilyPFunction m s t =
   genericContinuous (normalDistr m (s * t)) contra (Just negate) Nothing
 
 -- | See 'slide'.
@@ -108,6 +108,6 @@ slideContrarily ::
   PWeight ->
   Tune ->
   Proposal (Double, Double)
-slideContrarily m s = createProposal description (slideContrarilyPropose m s) PFast (PDimension 2)
+slideContrarily m s = createProposal description (slideContrarilyPFunction m s) PFast (PDimension 2)
   where
     description = PDescription $ "Slide contrarily; mean: " ++ show m ++ ", sd: " ++ show s

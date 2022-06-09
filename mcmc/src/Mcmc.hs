@@ -110,7 +110,7 @@ module Mcmc
     -- tuning parameter @t@ is implemented as
     --
     -- @
-    -- slide :: Double -> Double -> Double -> Propose Double
+    -- slide :: Double -> Double -> Double -> PFunction Double
     -- slide m s t =
     --   genericContinuous (normalDistr m (s * t)) (+) (Just negate) Nothing
     -- @

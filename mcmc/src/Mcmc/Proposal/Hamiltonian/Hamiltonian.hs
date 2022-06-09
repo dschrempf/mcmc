@@ -134,28 +134,28 @@ hTuningParametersToTuningSpec (HTuningSpec ms l e c) t ts
       HNoTuneLeapfrog -> (l, e)
       HTuneLeapfrog -> (ceiling $ fromIntegral l / (t ** 0.8) :: Int, t * e)
 
-hamiltonianProposeWithTuningParameters ::
+hamiltonianPFunctionWithTuningParameters ::
   Traversable s =>
   HTuningSpec ->
   HSpec s ->
   (s Double -> Target) ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
-  Either String (Propose (s Double))
-hamiltonianProposeWithTuningParameters tspec hspec targetWith t ts = do
+  Either String (PFunction (s Double))
+hamiltonianPFunctionWithTuningParameters tspec hspec targetWith t ts = do
   tspec' <- hTuningParametersToTuningSpec tspec t ts
-  pure $ hamiltonianPropose tspec' hspec targetWith
+  pure $ hamiltonianPFunction tspec' hspec targetWith
 
 -- The inverted covariance matrix and the log determinant of the covariance
--- matrix are calculated by 'hamiltonianPropose'.
-hamiltonianProposeWithMemoizedCovariance ::
+-- matrix are calculated by 'hamiltonianPFunction'.
+hamiltonianPFunctionWithMemoizedCovariance ::
   Traversable s =>
   HTuningSpec ->
   HSpec s ->
   HData ->
   (s Double -> Target) ->
-  Propose (s Double)
-hamiltonianProposeWithMemoizedCovariance tspec hspec dt targetWith x g = do
+  PFunction (s Double)
+hamiltonianPFunctionWithMemoizedCovariance tspec hspec dt targetWith x g = do
   phi <- generateMomenta mu masses g
   lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
@@ -188,13 +188,13 @@ hamiltonianProposeWithMemoizedCovariance tspec hspec dt targetWith x g = do
     eR = 1.2 * e
     (HData mu massesInv) = dt
 
-hamiltonianPropose ::
+hamiltonianPFunction ::
   Traversable s =>
   HTuningSpec ->
   HSpec s ->
   (s Double -> Target) ->
-  Propose (s Double)
-hamiltonianPropose tspec hspec = hamiltonianProposeWithMemoizedCovariance tspec hspec (getHData $ hMasses tspec)
+  PFunction (s Double)
+hamiltonianPFunction tspec hspec = hamiltonianPFunctionWithMemoizedCovariance tspec hspec (getHData $ hMasses tspec)
 
 hGetTuningFunction :: Int -> (a -> Positions) -> HTuningConf -> Maybe (TuningFunction a)
 hGetTuningFunction n toVec (HTuningConf l m) = case (l, m) of
@@ -234,7 +234,7 @@ hamiltonian tspec hspec htarget n w = case checkHSpecWith (hMasses tspec) hspec 
           (Just prF, Just jcF) -> prF y * lhF y * jcF y
         tFnG = grad' (ln . tF)
         targetWith x = bimap Exp toVec . tFnG . fromVec x
-        ps = hamiltonianPropose tspec hspec targetWith
+        ps = hamiltonianPFunction tspec hspec targetWith
         hamiltonianWith = Proposal n desc PSlow pDim w ps
         -- Tuning.
         tconf@(HTuningConf _ tms) = hTuningConf tspec
@@ -243,5 +243,5 @@ hamiltonian tspec hspec htarget n w = case checkHSpecWith (hMasses tspec) hspec 
           _ -> massesToTuningParameters $ hMasses tspec
         tuner = do
           tfun <- hGetTuningFunction dim toVec tconf
-          pure $ Tuner 1.0 ts tfun (hamiltonianProposeWithTuningParameters tspec hspec targetWith)
+          pure $ Tuner 1.0 ts tfun (hamiltonianPFunctionWithTuningParameters tspec hspec targetWith)
      in hamiltonianWith tuner

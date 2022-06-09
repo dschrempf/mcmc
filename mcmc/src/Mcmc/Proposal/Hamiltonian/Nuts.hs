@@ -143,13 +143,13 @@ nTuningSpec ms e
     ncols = L.cols ms'
 
 -- First function in Algorithm 3.
-nutsProposeWithMemoizedCovariance ::
+nutsPFunctionWithMemoizedCovariance ::
   NTuningSpec ->
   HSpec s ->
   HData ->
   (s Double -> Target) ->
-  Propose (s Double)
-nutsProposeWithMemoizedCovariance nspec hspec hdata targetWith xComplete g = do
+  PFunction (s Double)
+nutsPFunctionWithMemoizedCovariance nspec hspec hdata targetWith xComplete g = do
   p <- generateMomenta mu ms g
   uZeroOne <- uniform g :: IO Double
   -- NOTE (runtime): Here we need the target function value from the previous
@@ -207,8 +207,8 @@ nutsProposeWithMemoizedCovariance nspec hspec hdata targetWith xComplete g = do
     (HData mu msInv) = hdata
     target = targetWith xComplete
 
-nutsPropose :: NTuningSpec -> HSpec s -> (s Double -> Target) -> Propose (s Double)
-nutsPropose nspec hspec = nutsProposeWithMemoizedCovariance nspec hspec (getHData $ nMasses nspec)
+nutsPFunction :: NTuningSpec -> HSpec s -> (s Double -> Target) -> PFunction (s Double)
+nutsPFunction nspec hspec = nutsPFunctionWithMemoizedCovariance nspec hspec (getHData $ nMasses nspec)
 
 -- | No U-turn Hamiltonian Monte Carlo sampler (NUTS).
 nuts ::
@@ -237,7 +237,7 @@ nuts nspec hspec htarget n w = case checkHSpecWith (nMasses nspec) hspec of
           (Just prF, Just jcF) -> prF y * lhF y * jcF y
         tFnG = grad' (ln . tF)
         targetWith x = bimap Exp toVec . tFnG . fromVec x
-        ps = nutsPropose nspec hspec targetWith
+        ps = nutsPFunction nspec hspec targetWith
         nutsWith = Proposal n desc PSlow pDim w ps
      in -- TODO (high): NUTS with tuning.
         nutsWith Nothing

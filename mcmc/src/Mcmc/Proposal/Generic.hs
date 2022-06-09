@@ -28,7 +28,7 @@ import Statistics.Distribution
 -- 1. Let \(D\) be a continuous probability distribution on \(\mathbb{D}\);
 --    sample an auxiliary variable \(epsilon \sim D\).
 --
--- 2. Suppose \(\odot : \mathbb{X} \times \mathbb{D} \to \mathbb{X}\). Propose a
+-- 2. Suppose \(\odot : \mathbb{X} \times \mathbb{D} \to \mathbb{X}\). PFunction a
 --    new state \(x' = x \odot \epsilon\).
 --
 -- 3. If the proposal is unbiased, the Metropolis-Hastings-Green ratio can
@@ -71,7 +71,7 @@ genericContinuous ::
   -- Conversion to log domain is necessary, because some determinants of
   -- Jacobians are very small (or large).
   Maybe (a -> Double -> Jacobian) ->
-  Propose a
+  PFunction a
 genericContinuous d f mInv mJac x g = do
   u <- genContVar d g
   let r = case mInv of
@@ -83,7 +83,7 @@ genericContinuous d f mInv mJac x g = do
       j = case mJac of
         Nothing -> 1.0
         Just fJac -> fJac x u
-  pure (Suggest (x `f` u) r j, Nothing)
+  pure (Propose (x `f` u) r j, Nothing)
 {-# INLINEABLE genericContinuous #-}
 
 -- | Generic function to create proposals for discrete parameters (e.g., 'Int').
@@ -103,7 +103,7 @@ genericDiscrete ::
   --
   -- Only required for biased proposals.
   Maybe (Int -> Int) ->
-  Propose a
+  PFunction a
 genericDiscrete d f mfInv x g = do
   u <- genDiscreteVar d g
   let r = case mfInv of
@@ -112,5 +112,5 @@ genericDiscrete d f mfInv x g = do
           let qXY = Exp $ logProbability d u
               qYX = Exp $ logProbability d (fInv u)
            in qYX / qXY
-  pure (Suggest (x `f` u) r 1.0, Nothing)
+  pure (Propose (x `f` u) r 1.0, Nothing)
 {-# INLINEABLE genericDiscrete #-}

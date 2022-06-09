@@ -238,7 +238,7 @@ mhgPropose (MHG c) p = do
   case pres of
     ForceReject -> reject
     ForceAccept y -> let (pY, lY) = calcPrLh y in accept y pY lY
-    (Suggest y q j) ->
+    (Propose y q j) ->
       if q <= 0.0 || j <= 0.0
         then reject
         else do
@@ -250,7 +250,7 @@ mhgPropose (MHG c) p = do
             then accept y pY lY
             else reject
   where
-    s = prPropose p
+    s = prFunction p
     (Link x pX lX) = link c
     pF = priorFunction c
     lF = likelihoodFunction c
