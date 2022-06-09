@@ -1,7 +1,12 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
-- Split =HSettings= into =HTuningSpec= and =HSpec= (preparation for NUTS).
-- Rename =HTune= to =HTuningConf=.
+- Hamiltonian proposals (TODO):
+  - Split =HSettings= into =HTuningSpec= and =HSpec= (preparation for NUTS).
+  - Rename =HTune= to =HTuningConf=.
+  - Nuts proposal (TODO).
+- Significant changes for proposals (TODO).
+  - PResult.
+  - ProposalSimple -> PFunction; Return type is (PResult, Maybe AcceptanceCounts).
 
 ** 0.6.2.5
 - Provide unsafe loader for MHG algorithm (useful for initializing chains with
