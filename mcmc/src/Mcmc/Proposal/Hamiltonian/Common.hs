@@ -3,7 +3,7 @@
 -- |
 -- Module      :  Mcmc.Proposal.Hamiltonian.Common
 -- Description :  Code shared by proposals based on Hamiltonian dynamics
--- Copyright   :  (c) 2022 Dominik Schrempf
+-- Copyright   :  2022 Dominik Schrempf
 -- License     :  GPL-3.0-or-later
 --
 -- Maintainer  :  dominik.schrempf@gmail.com

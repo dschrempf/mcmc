@@ -1,7 +1,7 @@
 -- |
 -- Module      :  Mcmc.Proposal.Hamiltonian.Nuts
 -- Description :  No-U-Turn sampler (NUTS)
--- Copyright   :  (c) 2022 Dominik Schrempf
+-- Copyright   :  2022 Dominik Schrempf
 -- License     :  GPL-3.0-or-later
 --
 -- Maintainer  :  dominik.schrempf@gmail.com

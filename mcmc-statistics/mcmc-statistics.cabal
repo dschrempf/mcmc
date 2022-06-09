@@ -10,7 +10,7 @@ homepage:           https://github.com/dschrempf/mcmc#readme
 bug-reports:        https://github.com/dschrempf/mcmc/issues
 author:             Dominik Schrempf
 maintainer:         dominik.schrempf@gmail.com
-copyright:          Dominik Schrempf (2021)
+copyright:          2021 Dominik Schrempf
 license:            GPL-3.0-or-later
 build-type:         Simple
 extra-source-files:
