@@ -119,8 +119,7 @@ gamma :: (Typeable a, RealFloat a) => Shape a -> Scale a -> PriorFunctionG a a
 gamma k t x
   | k <= 0.0 = error "gamma: Shape is zero or negative."
   | t <= 0.0 = error "gamma: Scale is zero or negative."
-  | x < 0.0 = error "gamma: Negative value."
-  | x == 0.0 = 0.0
+  | x <= 0.0 = 0.0
   | otherwise = Exp $ log x * (k - 1.0) - (x / t) - logGammaG k - log t * k
 {-# SPECIALIZE gamma :: Double -> Double -> PriorFunction Double #-}
 
