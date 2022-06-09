@@ -102,7 +102,7 @@ nutsProposal = nuts nSpec hSpec hTarget n w
 
 cc :: Cycle I
 cc =
-  cycleFromList [nutsProposal]
+  cycleFromList [hamiltonianProposal, nutsProposal]
 
 monPs :: [MonitorParameter I]
 monPs = [view (singular (ix i)) >$< monitorDouble (n i) | i <- [0 .. (dimension - 1)]]

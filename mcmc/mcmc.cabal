@@ -82,6 +82,7 @@ library
     Mcmc.Internal.ByteString
     Mcmc.Internal.Random
     Mcmc.Internal.Shuffle
+    Mcmc.Proposal.Hamiltonian.Internal
     Paths_mcmc
 
   autogen-modules: Paths_mcmc

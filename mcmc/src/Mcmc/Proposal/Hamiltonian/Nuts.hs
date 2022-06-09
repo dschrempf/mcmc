@@ -23,6 +23,7 @@ where
 import Data.Bifunctor
 import Mcmc.Proposal
 import Mcmc.Proposal.Hamiltonian.Common
+import Mcmc.Proposal.Hamiltonian.Internal
 import Numeric.AD.Double
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log

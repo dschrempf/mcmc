@@ -112,7 +112,7 @@ nutp :: Proposal I
 nutp = nuts nspec hspec htarget (PName "Nuts") (pWeight 1)
 
 cc :: Cycle I
-cc = cycleFromList [nutp]
+cc = cycleFromList [hmc, nutp]
 
 monPs :: [MonitorParameter I]
 monPs =

@@ -143,6 +143,7 @@ module Mcmc
     slideContrarily,
     slideBactrian,
     module Mcmc.Proposal.Simplex,
+    module Mcmc.Proposal.Hamiltonian.Common,
     module Mcmc.Proposal.Hamiltonian.Hamiltonian,
     module Mcmc.Proposal.Hamiltonian.Nuts,
 
@@ -221,6 +222,7 @@ import Mcmc.Posterior
 import Mcmc.Prior
 import Mcmc.Proposal
 import Mcmc.Proposal.Bactrian
+import Mcmc.Proposal.Hamiltonian.Common
 import Mcmc.Proposal.Hamiltonian.Hamiltonian
 import Mcmc.Proposal.Hamiltonian.Nuts
 import Mcmc.Proposal.Scale

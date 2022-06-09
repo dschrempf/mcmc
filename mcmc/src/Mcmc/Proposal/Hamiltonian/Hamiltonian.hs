@@ -54,7 +54,8 @@
 --   length and the leapfrog scaling factor. Hence, the speed will change during
 --   burn in.
 module Mcmc.Proposal.Hamiltonian.Hamiltonian
-  ( HTuningSpec,
+  ( -- * Hamiltonian Monte Carlo proposal
+    HTuningSpec,
     hTuningSpec,
     hamiltonian,
   )
@@ -65,6 +66,7 @@ import qualified Data.Vector.Unboxed as VU
 import Mcmc.Algorithm.MHG
 import Mcmc.Proposal
 import Mcmc.Proposal.Hamiltonian.Common
+import Mcmc.Proposal.Hamiltonian.Internal
 import Numeric.AD.Double
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
