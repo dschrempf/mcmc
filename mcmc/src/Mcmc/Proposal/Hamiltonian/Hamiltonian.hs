@@ -102,7 +102,7 @@ data HParams = HParams
 defaultHParams :: HParams
 defaultHParams = HParams Nothing Nothing Nothing
 
--- Check 'HParamsI; set parameters; compute 'HData'.
+-- Check 'HParams' instantiate 'HParamsI'.
 --
 -- NOTE: This function may sample momenta to find a reasonable leapfrog scaling
 -- factor. Hence, it should be run in the IO monad. However, I opt for a pure
@@ -156,13 +156,13 @@ hamiltonianPFunctionWithTuningParameters d hstruct targetWith _ ts = do
 
 -- The inverted covariance matrix and the log determinant of the covariance
 -- matrix are calculated by 'hamiltonianPFunction'.
-hamiltonianPFunctionWithMemoizedCovariance ::
+hamiltonianPFunction ::
   Traversable s =>
   HParamsI ->
   HStructure s ->
   (s Double -> Target) ->
   PFunction (s Double)
-hamiltonianPFunctionWithMemoizedCovariance tspec hstruct targetWith x g = do
+hamiltonianPFunction tspec hstruct targetWith x g = do
   phi <- generateMomenta mu ms g
   eRan <- uniformR (eL, eR) g
   -- NOTE: The NUTS paper does not sample l since l varies naturally because
@@ -192,24 +192,15 @@ hamiltonianPFunctionWithMemoizedCovariance tspec hstruct targetWith x g = do
           ac =
             if ar >= 0
               then let a = max 100 (round (ar * 100)) in AcceptanceCounts a (100 - a)
-              else error $ "hamiltonianPFunctionWithMemoizedCovariance: Acceptance rate negative." <> show ar
+              else error $ "hamiltonianPFunction: Acceptance rate negative."
       pure (pr, Just ac)
   where
     (HParamsI e la ms _ _ hdata) = tspec
     (HData mu msInv) = hdata
-    -- TODO: The sample should not be in HStructure.
     (HStructure _ toVec fromVec) = hstruct
     theta = toVec x
     eL = 0.9 * e
     eR = 1.1 * e
-
-hamiltonianPFunction ::
-  Traversable s =>
-  HParamsI ->
-  HStructure s ->
-  (s Double -> Target) ->
-  PFunction (s Double)
-hamiltonianPFunction hparams hstruct = hamiltonianPFunctionWithMemoizedCovariance hparams hstruct
 
 -- | Hamiltonian Monte Carlo proposal.
 --
@@ -222,7 +213,6 @@ hamiltonian ::
   HTarget s ->
   PName ->
   PWeight ->
-  -- NOTE: Should probably be an Either.
   Proposal (s Double)
 hamiltonian hparams htconf hstruct htarget n w =
   let -- Misc.
