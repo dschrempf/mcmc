@@ -475,10 +475,10 @@ tuneBeta bsOld i xi bsNew = bsNew U.// [(j, brNew)]
     rNew = (brOld / blOld) ** xi
     brNew = blNew * rNew
 
-mc3AutoTune :: ToJSON a => Int -> MC3 a -> IO (MC3 a)
-mc3AutoTune l a = do
+mc3AutoTune :: ToJSON a => TuningType -> Int -> MC3 a -> IO (MC3 a)
+mc3AutoTune b l a = do
   -- 1. Auto tune all chains.
-  mhgs' <- V.mapM (aAutoTune l) $ mc3MHGChains a
+  mhgs' <- V.mapM (aAutoTune b l) $ mc3MHGChains a
   -- 2. Auto tune temperatures.
   let optimalRate = getOptimalRate PDimensionUnknown
       mCurrentRates = acceptanceRates $ mc3SwapAcceptance a

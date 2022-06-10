@@ -37,6 +37,7 @@ where
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
+import Debug.Trace
 import Mcmc.Proposal
 import Mcmc.Proposal.Hamiltonian.Common
 import qualified Numeric.LinearAlgebra as L
@@ -77,7 +78,7 @@ findReasonableEpsilon t ms (HData mu msInv) q g = do
                   let expEKin'' = exponentialKineticEnergy msInv p''
                       r' :: Double
                       r' = exp $ ln $ prQ'' * expEKin'' / (prQ * expEKin)
-                      e' = (2 ** a) * e
+                      e' = traceShowId $ (2 ** a) * e
                    in go e' r'
               else e
       pure $ go eI rI

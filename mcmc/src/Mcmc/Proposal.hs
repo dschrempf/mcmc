@@ -36,6 +36,7 @@ module Mcmc.Proposal
     Tuner (..),
     Tune (..),
     TuningParameter,
+    TuningType (..),
     TuningFunction,
     AuxiliaryTuningParameters,
     tuningFunction,
@@ -309,7 +310,7 @@ data Tuner a = Tuner
 liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
 liftTunerWith jf l (Tuner p ps fP g) = Tuner p ps fP' g'
   where
-    fP' d r = fP d r . VB.map (^. l)
+    fP' b d r = fP b d r . VB.map (^. l)
     g' x xs = liftPFunctionWith jf l <$> g x xs
 
 -- | Tune proposal?
@@ -322,8 +323,12 @@ data Tune = Tune | NoTune
 -- expected acceptance rate; and vice versa.
 type TuningParameter = Double
 
+-- | The last tuning step may be special.
+data TuningType = NormalTuningStep | LastTuningStep
+
 -- | Compute new tuning parameters.
 type TuningFunction a =
+  TuningType ->
   PDimension ->
   -- | Acceptance rate of last tuning period.
   AcceptanceRate ->
@@ -348,21 +353,21 @@ tuningFunctionSimple d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 -- The default tuning function does not handle auxiliary tuning parameters and
 -- ignores the samples attained during the last tuning period.
 tuningFunction :: TuningFunction a
-tuningFunction d r _ t _ = (tuningFunctionSimple d r t, VU.empty)
+tuningFunction _ d r _ t _ = (tuningFunctionSimple d r t, VU.empty)
 
 -- | Also tune auxiliary tuning parameters.
 tuningFunctionWithAux ::
   -- | Auxiliary tuning function.
-  (VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
+  (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
   TuningFunction a
-tuningFunctionWithAux f d r xs t ts = (tuningFunctionSimple d r t, f xs ts)
+tuningFunctionWithAux f b d r xs t ts = (tuningFunctionSimple d r t, f b xs ts)
 
 -- | Only tune auxiliary tuning parameters.
 tuningFunctionOnlyAux ::
   -- | Auxiliary tuning function.
-  (VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
+  (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
   TuningFunction a
-tuningFunctionOnlyAux f _ _ xs t ts = (t, f xs ts)
+tuningFunctionOnlyAux f b _ _ xs t ts = (t, f b xs ts)
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
 -- proposal with a large tuning parameter is not a problem. But then, if the

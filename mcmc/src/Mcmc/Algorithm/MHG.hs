@@ -293,10 +293,10 @@ mhgIterate m _ a = do
     cc = cycle c
     g = generator c
 
-mhgAutoTune :: Int -> MHG a -> IO (MHG a)
-mhgAutoTune n (MHG c) = do
+mhgAutoTune :: TuningType -> Int -> MHG a -> IO (MHG a)
+mhgAutoTune b n (MHG c) = do
   tr <- VB.map state <$> takeT n (trace c)
-  return $ MHG $ c {cycle = autoTuneCycle ac tr cc}
+  return $ MHG $ c {cycle = autoTuneCycle b ac tr cc}
   where
     ac = acceptance c
     cc = cycle c

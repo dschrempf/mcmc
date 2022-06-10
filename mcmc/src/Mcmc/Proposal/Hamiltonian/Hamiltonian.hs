@@ -244,10 +244,12 @@ hGetTuningFunction n toVec (HTuningConf l m) = case (l, m) of
   (HTuneLeapfrog, HTuneDiagonalMassesOnly) -> Just $ tuningFunctionWithAux td
   (HTuneLeapfrog, HTuneAllMasses) -> Just $ tuningFunctionWithAux ta
   where
-    td = tuneDiagonalMassesOnly n toVec
-    ta = tuneAllMasses n toVec
+    td = const (tuneDiagonalMassesOnly n toVec)
+    ta = const (tuneAllMasses n toVec)
 
 -- | Hamiltonian Monte Carlo proposal.
+--
+-- May call 'error' during initialization.
 hamiltonian ::
   (Eq (s Double), Traversable s) =>
   HParams ->
@@ -256,6 +258,7 @@ hamiltonian ::
   HTarget s ->
   PName ->
   PWeight ->
+  -- NOTE: Should probably be an Either.
   Proposal (s Double)
 hamiltonian hparams htconf hstruct htarget n w =
   let -- Misc.

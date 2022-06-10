@@ -17,6 +17,7 @@ where
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Time
 import Mcmc.Cycle
+import Mcmc.Proposal
 import Mcmc.Settings
 
 -- | Class for algorithms used by MCMC samplers.
@@ -38,7 +39,7 @@ class Algorithm a where
   --
   -- NOTE: Computation in the 'IO' Monad is necessary because the trace is
   -- mutable.
-  aAutoTune :: Int -> a -> IO a
+  aAutoTune :: TuningType -> Int -> a -> IO a
 
   -- | Reset acceptance counts.
   aResetAcceptance :: a -> a

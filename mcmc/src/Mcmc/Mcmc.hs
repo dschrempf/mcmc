@@ -29,6 +29,7 @@ import Mcmc.Algorithm
 import Mcmc.Cycle
 import Mcmc.Environment
 import Mcmc.Logger
+import Mcmc.Proposal (TuningType (LastTuningStep, NormalTuningStep))
 import Mcmc.Settings
 import System.Exit
 import System.IO
@@ -182,23 +183,26 @@ mcmcBurnIn a = do
       return a''
 
 -- Auto tune the proposals.
-mcmcAutotune :: Algorithm a => Int -> a -> MCMC a
-mcmcAutotune n a = do
+mcmcAutotune :: Algorithm a => TuningType -> Int -> a -> MCMC a
+mcmcAutotune NormalTuningStep n a = do
   logDebugB "Auto tune."
-  liftIO $ aAutoTune n a
+  liftIO $ aAutoTune NormalTuningStep n a
+mcmcAutotune LastTuningStep n a = do
+  logDebugB "Last auto tune."
+  liftIO $ aAutoTune LastTuningStep n a
 
 mcmcBurnInWithAutoTuning :: Algorithm a => IterationMode -> [Int] -> a -> MCMC a
 mcmcBurnInWithAutoTuning _ [] _ = error "mcmcBurnInWithAutoTuning: Empty list."
 mcmcBurnInWithAutoTuning m [x] a = do
   -- Last round.
   a' <- mcmcIterate m x a
-  a'' <- mcmcAutotune x a'
+  a'' <- mcmcAutotune LastTuningStep x a'
   logInfoB $ aSummarizeCycle m a''
   logInfoS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   mcmcResetAcceptance a''
 mcmcBurnInWithAutoTuning m (x : xs) a = do
   a' <- mcmcIterate m x a
-  a'' <- mcmcAutotune x a'
+  a'' <- mcmcAutotune NormalTuningStep x a'
   logDebugB $ aSummarizeCycle m a''
   logDebugS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   logDebugB $ aStdMonitorHeader a''

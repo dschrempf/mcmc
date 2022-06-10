@@ -154,11 +154,11 @@ getNProposalsPerCycle m (Cycle xs o) = case o of
     once = sum $ map (fromPWeight . prWeight) xs'
 
 -- See 'tuneWithTuningParameters' and 'Tuner'.
-tuneWithChainParameters :: AcceptanceRate -> VB.Vector a -> Proposal a -> Either String (Proposal a)
-tuneWithChainParameters ar xs p = case prTuner p of
+tuneWithChainParameters :: TuningType -> AcceptanceRate -> VB.Vector a -> Proposal a -> Either String (Proposal a)
+tuneWithChainParameters b ar xs p = case prTuner p of
   Nothing -> Right p
   Just (Tuner t ts fT _) ->
-    let (t', ts') = fT d ar xs t ts
+    let (t', ts') = fT b d ar xs t ts
      in tuneWithTuningParameters t' ts' p
   where
     d = prDimension p
@@ -166,8 +166,8 @@ tuneWithChainParameters ar xs p = case prTuner p of
 -- | Calculate acceptance rates and auto tunes the 'Proposal's in the 'Cycle'.
 --
 -- Do not change 'Proposal's that are not tuneable.
-autoTuneCycle :: Acceptance (Proposal a) -> VB.Vector a -> Cycle a -> Cycle a
-autoTuneCycle a xs c =
+autoTuneCycle :: TuningType -> Acceptance (Proposal a) -> VB.Vector a -> Cycle a -> Cycle a
+autoTuneCycle b a xs c =
   if sort (M.keys ar) == sort ps
     then c {ccProposals = map tuneF ps}
     else error "autoTuneCycle: Proposals in map and cycle do not match."
@@ -175,7 +175,7 @@ autoTuneCycle a xs c =
     ar = acceptanceRates a
     ps = ccProposals c
     tuneF p = case ar M.!? p of
-      Just (Just x) -> either error id $ tuneWithChainParameters x xs p
+      Just (Just x) -> either error id $ tuneWithChainParameters b x xs p
       _ -> p
 
 -- | Horizontal line of proposal summaries.
