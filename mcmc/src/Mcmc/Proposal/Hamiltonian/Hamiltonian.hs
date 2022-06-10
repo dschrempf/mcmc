@@ -210,9 +210,11 @@ hamiltonianPFunction tspec hstruct targetWith x g = do
 
 -- | Hamiltonian Monte Carlo proposal.
 --
+-- The structure of the state is denoted as @s@.
+--
 -- May call 'error' during initialization.
 hamiltonian ::
-  (Eq (s Double), Traversable s) =>
+  Traversable s =>
   HParams ->
   HTuningConf ->
   HStructure s ->

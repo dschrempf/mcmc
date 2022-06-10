@@ -15,6 +15,8 @@
 --
 -- This module implements the No-U-Turn Sampler (NUTS), as described in [1].
 --
+-- Work in progress.
+--
 -- - [1] Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
 --   Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
 --   Machine Learning Research.
@@ -225,7 +227,7 @@ nutsPFunction nparams hstruct = nutsPFunctionWithMemoizedCovariance nparams hstr
 
 -- | No U-turn Hamiltonian Monte Carlo sampler (NUTS).
 nuts ::
-  (Eq (s Double), Traversable s) =>
+  Traversable s =>
   NParams ->
   HStructure s ->
   HTarget s ->

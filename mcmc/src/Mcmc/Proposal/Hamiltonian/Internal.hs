@@ -40,6 +40,7 @@ module Mcmc.Proposal.Hamiltonian.Internal
   )
 where
 
+import Data.Foldable
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
@@ -383,9 +384,9 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
           tpv' = TParamsVar epsMean'' h'' (m + 1.0)
        in (t', toAuxiliaryTuningParameters $ HParamsI eps''' la ms' tpv' tpf hd')
 
-checkHStructureWith :: Eq (s Double) => Masses -> HStructure s -> Maybe String
+checkHStructureWith :: Foldable s => Masses -> HStructure s -> Maybe String
 checkHStructureWith ms (HStructure x toVec fromVec)
-  | fromVec x xVec /= x = eWith "'fromVectorWith x (toVector x) /= x' for sample state."
+  | toList (fromVec x xVec) /= toList x = eWith "'fromVectorWith x (toVector x) /= x' for sample state."
   | L.size xVec /= nrows = eWith "Mass matrix and 'toVector x' have different sizes for sample state."
   | otherwise = Nothing
   where
