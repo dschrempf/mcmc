@@ -47,25 +47,25 @@ import qualified Numeric.LinearAlgebra as L
 -- to as positions.
 --
 -- The positions can represent the complete state or a subset of the state of
--- the Markov chain.
+-- the Markov chain; see 'HStructure'.
 --
 -- The length of the position vector determines the size of the squared mass
--- matrix 'Masses'.
+-- matrix; see 'Masses'.
 type Positions = VS.Vector Double
 
 -- | Momenta of the 'Positions'.
 type Momenta = VS.Vector Double
 
--- | Parameter mass matrix.
+-- | Mass matrix.
 --
 -- The masses roughly describe how reluctant the particles move through the
--- state space. If a parameter has higher mass, the velocity in this direction
--- will be changed less by the provided gradient, than when the same parameter
+-- state space. If a parameter has higher mass the velocity in this direction
+-- will be changed less by the provided gradient than when the same parameter
 -- has lower mass. Off-diagonal entries describe the covariance structure. If
 -- two parameters are negatively correlated, their generated initial momenta are
 -- likely to have opposite signs.
 --
--- The matrix is square with the number of rows/columns being equal to the
+-- The matrix is square with the number of rows and columns being equal to the
 -- length of 'Positions'.
 --
 -- The proposal is more efficient if masses are assigned according to the
@@ -93,18 +93,14 @@ type Masses = L.Herm Double
 --
 -- To avoid problems with ergodicity, the actual number of leapfrog steps is
 -- sampled per proposal from a discrete uniform distribution over the interval
--- \([\text{floor}(0.8L),\text{ceiling}(1.2L)]\).
+-- \([\text{floor}(0.9L),\text{ceiling}(1.1L)]\).
 --
 -- For a discussion of ergodicity and reasons why randomization is important,
 -- see [1] p. 15; also mentioned in [2] p. 304.
 --
--- Usually set to 10, but larger values may be desirable.
---
--- NOTE: To avoid errors, the left bound of the interval has an additional hard
+-- To avoid errors, the left bound of the interval has an additional hard
 -- minimum of 1, and the right bound is required to be larger equal than the
 -- left bound.
---
--- NOTE: Call 'error' if value is less than 1.
 type LeapfrogTrajectoryLength = Int
 
 -- | Mean of leapfrog scaling factor \(\epsilon\).
@@ -113,23 +109,22 @@ type LeapfrogTrajectoryLength = Int
 --
 -- To avoid problems with ergodicity, the actual leapfrog scaling factor is
 -- sampled per proposal from a continuous uniform distribution over the interval
--- \((0.8\epsilon,1.2\epsilon]\).
+-- \((0.9\epsilon,1.1\epsilon]\).
 --
 -- For a discussion of ergodicity and reasons why randomization is important,
 -- see [1] p. 15; also mentioned in [2] p. 304.
 --
--- Usually set such that \( L \epsilon = 1.0 \), but smaller values may be
--- required if acceptance rates are low.
---
--- NOTE: Call 'error' if value is zero or negative.
+-- Call 'error' if value is zero or negative.
 type LeapfrogScalingFactor = Double
 
 -- | Product of 'LeapfrogTrajectoryLength' and 'LeapfrogScalingFactor'.
 --
--- A good value is hard to find and varies between applications. See Figure 6
--- and discussion in Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn
+-- A good value is hard to find and varies between applications. For example,
+-- see Figure 6 in Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn
 -- Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal
 -- of Machine Learning Research.
+--
+-- Call 'error' if value is zero or negative.
 type LeapfrogSimulationLength = Double
 
 -- | Tune leapfrog parameters?
@@ -139,7 +134,7 @@ data HTuneLeapfrog
     -- acceptance ratio. Consequently, if the acceptance rate is too low, the
     -- leapfrog scaling factor is decreased and vice versa. Further, the leapfrog
     -- trajectory length is scaled such that the product of the leapfrog scaling
-    -- factor and leapfrog trajectory length stays roughly constant.
+    -- factor and leapfrog trajectory length stays constant.
     HTuneLeapfrog
   deriving (Eq, Show)
 
@@ -164,7 +159,7 @@ data HTuneMasses
     -- such as
     --
     -- @
-    -- BurnInWithCustomAutoTuning ([10, 20 .. 200] ++ replicate 5 500)
+    -- BurnInWithCustomAutoTuning [10, 20 .. 200] (replicate 10 500)
     -- @
     HTuneAllMasses
   deriving (Eq, Show)
@@ -176,7 +171,8 @@ data HTuningConf = HTuningConf HTuneLeapfrog HTuneMasses
 -- | The Hamilton Monte Carlo proposal requires information about the structure
 -- of the state, which is denoted as @s@.
 --
--- Please also refer to the top level module documentation.
+-- Please also refer to the top level module documentation of
+-- "Mcmc.Proposal.Hamiltonian.Hamiltonian".
 data HStructure s = HStructure
   { -- | The sample state is used for error checks and to calculate the dimension
     -- of the proposal.
