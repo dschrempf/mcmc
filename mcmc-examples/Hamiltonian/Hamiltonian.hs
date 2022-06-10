@@ -71,7 +71,7 @@ initialState :: I
 initialState = VB.fromList $ replicate dimension 1
 
 hparams :: HParams
-hparams = HParams (Just masses) (Just 10) (Just 0.03)
+hparams = HParams (Just 0.1) (Just 1.0) (Just masses)
 
 htconf :: HTuningConf
 htconf = HTuningConf HTuneLeapfrog HTuneAllMasses

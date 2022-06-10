@@ -158,7 +158,7 @@ tuneWithChainParameters :: TuningType -> AcceptanceRate -> VB.Vector a -> Propos
 tuneWithChainParameters b ar xs p = case prTuner p of
   Nothing -> Right p
   Just (Tuner t ts fT _) ->
-    let (t', ts') = fT b d ar xs t ts
+    let (t', ts') = fT b d ar xs (t, ts)
      in tuneWithTuningParameters t' ts' p
   where
     d = prDimension p

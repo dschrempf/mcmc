@@ -27,6 +27,10 @@
 -- - [3] Review by Betancourt and notes: Betancourt, M., A conceptual
 --   introduction to Hamiltonian Monte Carlo, arXiv, 1701–02434 (2017).
 --
+-- - [4] Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
+--   Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
+--   Machine Learning Research.
+--
 -- Notes on implementation:
 --
 -- - The HMC proposal acts on 'Positions', a vector of floating point values.
@@ -65,7 +69,7 @@ import Control.Monad
 import Control.Monad.ST
 import Data.Bifunctor
 import qualified Data.Vector.Storable as VS
-import qualified Data.Vector.Unboxed as VU
+import Mcmc.Acceptance
 import Mcmc.Algorithm.MHG
 import Mcmc.Proposal
 import Mcmc.Proposal.Hamiltonian.Common
@@ -77,41 +81,34 @@ import System.Random.MWC
 
 -- | Parameters of the Hamilton Monte Carlo proposal.
 --
--- If a parameter is 'Nothing', the value in 'defaultHParams' will be used.
+-- If a parameter is 'Nothing', a default value is used (see 'defaultHParams').
 data HParams = HParams
-  { hMasses :: Maybe Masses,
-    hLeapfrogTrajectoryLength :: Maybe LeapfrogTrajectoryLength,
-    hLeapfrogScalingFactor :: Maybe LeapfrogScalingFactor
+  { hLeapfrogScalingFactor :: Maybe LeapfrogScalingFactor,
+    hLeapfrogSimulationLength :: Maybe LeapfrogSimulationLength,
+    hMasses :: Maybe Masses
   }
   deriving (Show)
 
 -- | Default parameters.
 --
--- - Mass matrix is identity matrix.
+-- - Estimate a reasonable leapfrog scaling factor using Algorithm 4 in Matthew
+--   D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler: Adaptively Setting
+--   Path Lengths in Hamiltonian Monte Carlo, Journal of Machine Learning
+--   Research.
 --
--- - Leapfrog trajectory length is 10.
+-- - Leapfrog simulation length is set to 0.5.
 --
--- - A resonable leapfrog scaling factor will be estimated.
+-- - The mass matrix is set to the identity matrix.
 defaultHParams :: HParams
 defaultHParams = HParams Nothing Nothing Nothing
 
--- Internal. We need two data types here. 'HParams' is exposed to the
--- user. This one is exposed to the algorithm, and has all values set.
-data HParamsSet = HParamsSet
-  { hMasses' :: Masses,
-    hLeapfrogTrajectoryLength' :: LeapfrogTrajectoryLength,
-    hLeapfrogScalingFactor' :: LeapfrogScalingFactor,
-    hData :: HData
-  }
-  deriving (Show)
-
--- Check 'HParams'; set parameters; compute 'HData'.
+-- Check 'HParamsI; set parameters; compute 'HData'.
 --
 -- NOTE: This function may sample momenta to find a reasonable leapfrog scaling
 -- factor. Hence, it should be run in the IO monad. However, I opt for a pure
 -- setting here and use a fixed seed.
-fromHParams :: Target -> Positions -> HParams -> Either String HParamsSet
-fromHParams htarget p (HParams mMs mL mE) = do
+fromHParams :: Target -> Positions -> HParams -> Either String HParamsI
+fromHParams htarget p (HParams mEps mLa mMs) = do
   d <- case VS.length p of
     0 -> eWith "Empty position vector."
     d -> Right d
@@ -127,80 +124,57 @@ fromHParams htarget p (HParams mMs mL mE) = do
       when (nrows /= ncols) $ eWith "Mass matrix is not square."
       Right ms
   let hdata = getHData ms
-  l <- case mL of
-    Nothing -> Right 10
+  la <- case mLa of
+    Nothing -> Right 0.5
     Just l
-      | l <= 0 -> eWith "Leapfrog trajectory length is zero or negative."
+      | l <= 0 -> eWith "Leapfrog simulation length is zero or negative."
       | otherwise -> Right l
-  e <- case mE of
+  eps <- case mEps of
     Nothing -> Right $ runST $ do
       g <- create
       findReasonableEpsilon htarget ms hdata p g
     Just e
       | e <= 0 -> eWith "Leapfrog scaling factor is zero or negative."
       | otherwise -> Right e
-  pure $ HParamsSet ms l e hdata
+  pure $ HParamsI eps la 1.0 0.0 1.0 ms hdata
   where
     eWith m = Left $ "fromHParams: " <> m
 
-hTuningParametersToHParamsSet ::
-  HParamsSet ->
-  HTuningConf ->
-  TuningParameter ->
-  AuxiliaryTuningParameters ->
-  Either String HParamsSet
-hTuningParametersToHParamsSet (HParamsSet ms l e hdata) c t ts
-  | not nTsOK = Left "hTuningParametersToHParamsSet: Auxiliary variables dimension mismatch."
-  | otherwise = Right $ HParamsSet msTuned lTuned eTuned hdataTuned
-  where
-    d = L.rows $ L.unSym ms
-    (HTuningConf tlf tms) = c
-    nTsOK =
-      let nTs = VU.length ts
-       in case tms of
-            HNoTuneMasses -> nTs == 0
-            _ -> nTs == d * d
-    (msTuned, hdataTuned) = case tms of
-      HNoTuneMasses -> (ms, hdata)
-      _ -> let ms' = tuningParametersToMasses d ts in (ms', getHData ms')
-    -- The larger epsilon, the larger the proposal step size and the lower the
-    -- expected acceptance ratio.
-    --
-    -- Further, we roughly keep \( L * \epsilon = 1.0 \). The equation is not
-    -- correct, because we pull L closer to the original value to keep the
-    -- runtime somewhat acceptable.
-    (lTuned, eTuned) = case tlf of
-      HNoTuneLeapfrog -> (l, e)
-      HTuneLeapfrog -> (ceiling $ fromIntegral l / (t ** 0.8) :: Int, t * e)
-
 hamiltonianPFunctionWithTuningParameters ::
   Traversable s =>
-  HParamsSet ->
-  HTuningConf ->
+  Dimension ->
   HStructure s ->
   (s Double -> Target) ->
   TuningParameter ->
   AuxiliaryTuningParameters ->
   Either String (PFunction (s Double))
-hamiltonianPFunctionWithTuningParameters tspec htconf hstruct targetWith t ts = do
-  tspec' <- hTuningParametersToHParamsSet tspec htconf t ts
-  pure $ hamiltonianPFunction tspec' hstruct targetWith
+hamiltonianPFunctionWithTuningParameters d hstruct targetWith _ ts = do
+  hParamsI <- fromAuxiliaryTuningParameters d ts
+  pure $ hamiltonianPFunction hParamsI hstruct targetWith
+
+-- TODO @Dominik (high, issue): Acceptance counts. How to combine with values
+-- reported here and from the NUTS sampler.
 
 -- The inverted covariance matrix and the log determinant of the covariance
 -- matrix are calculated by 'hamiltonianPFunction'.
 hamiltonianPFunctionWithMemoizedCovariance ::
   Traversable s =>
-  HParamsSet ->
+  HParamsI ->
   HStructure s ->
   (s Double -> Target) ->
   PFunction (s Double)
 hamiltonianPFunctionWithMemoizedCovariance tspec hstruct targetWith x g = do
   phi <- generateMomenta mu ms g
-  lRan <- uniformR (lL, lR) g
   eRan <- uniformR (eL, eR) g
+  -- NOTE: The NUTS paper does not sample l since l varies naturally because
+  -- of epsilon. I still think it should vary because otherwise, there may be
+  -- dragons due to periodicity.
+  let lM = la / eRan
+      lL = maximum [1 :: Int, floor $ 0.9 * lM]
+      lR = maximum [lL, ceiling $ 1.1 * lM]
+  lRan <- uniformR (lL, lR) g
   case leapfrog (targetWith x) msInv lRan eRan theta phi of
-    -- TODO @Dominik (high, feature): Acceptance counts.
-    Nothing -> pure (ForceReject, Nothing)
+    Nothing -> pure (ForceReject, Just $ AcceptanceCounts 0 100)
     -- Check if next state is accepted here, because the Jacobian is included in
     -- the target function. If not: pure (x, 0.0, 1.0).
     Just (theta', phi', prTheta, prTheta') -> do
@@ -215,37 +189,28 @@ hamiltonianPFunctionWithMemoizedCovariance tspec hstruct targetWith x g = do
       -- chain back to the previous state. However, we are only interested in
       -- the positions, and are not even storing the momenta.
       let pr = if accept then ForceAccept (fromVec x theta') else ForceReject
-      -- TODO @Dominik (high, feature): Acceptance counts.
-      pure (pr, Nothing)
+          ar = exp $ ln r
+          ac =
+            if ar >= 0
+              then let a = max 100 (round (ar * 100)) in AcceptanceCounts a (100 - a)
+              else error $ "hamiltonianPFunctionWithMemoizedCovariance: Acceptance rate negative." <> show ar
+      pure (pr, Just ac)
   where
-    (HParamsSet ms l e hdata) = tspec
+    (HParamsI e la _ _ _ ms hdata) = tspec
     (HData mu msInv) = hdata
+    -- TODO: The sample should not be in HStructure.
     (HStructure _ toVec fromVec) = hstruct
     theta = toVec x
-    lL = maximum [1 :: Int, floor $ (0.8 :: Double) * fromIntegral l]
-    lR = maximum [lL, ceiling $ (1.2 :: Double) * fromIntegral l]
-    eL = 0.8 * e
-    eR = 1.2 * e
+    eL = 0.9 * e
+    eR = 1.1 * e
 
 hamiltonianPFunction ::
   Traversable s =>
-  HParamsSet ->
+  HParamsI ->
   HStructure s ->
   (s Double -> Target) ->
   PFunction (s Double)
 hamiltonianPFunction hparams hstruct = hamiltonianPFunctionWithMemoizedCovariance hparams hstruct
-
-hGetTuningFunction :: Int -> (a -> Positions) -> HTuningConf -> Maybe (TuningFunction a)
-hGetTuningFunction n toVec (HTuningConf l m) = case (l, m) of
-  (HNoTuneLeapfrog, HNoTuneMasses) -> Nothing
-  (HNoTuneLeapfrog, HTuneDiagonalMassesOnly) -> Just $ tuningFunctionOnlyAux td
-  (HNoTuneLeapfrog, HTuneAllMasses) -> Just $ tuningFunctionOnlyAux ta
-  (HTuneLeapfrog, HNoTuneMasses) -> Just tuningFunction
-  (HTuneLeapfrog, HTuneDiagonalMassesOnly) -> Just $ tuningFunctionWithAux td
-  (HTuneLeapfrog, HTuneAllMasses) -> Just $ tuningFunctionWithAux ta
-  where
-    td = const (tuneDiagonalMassesOnly n toVec)
-    ta = const (tuneAllMasses n toVec)
 
 -- | Hamiltonian Monte Carlo proposal.
 --
@@ -265,6 +230,9 @@ hamiltonian hparams htconf hstruct htarget n w =
       desc = PDescription "Hamiltonian Monte Carlo (HMC)"
       (HStructure sample toVec fromVec) = hstruct
       dim = L.size $ toVec sample
+      -- See bottom of page 1615 in Matthew D. Hoffman, Andrew Gelman (2014) The
+      -- No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
+      -- Carlo, Journal of Machine Learning Research.
       pDim = PSpecial dim 0.65
       -- Vectorize and derive the target function.
       (HTarget mPrF lhF mJcF) = htarget
@@ -275,17 +243,15 @@ hamiltonian hparams htconf hstruct htarget n w =
         (Just prF, Just jcF) -> prF y * lhF y * jcF y
       tFnG = grad' (ln . tF)
       targetWith x = bimap Exp toVec . tFnG . fromVec x
-      hparams' = either error id $ fromHParams (targetWith sample) (toVec sample) hparams
-      ps = hamiltonianPFunction hparams' hstruct targetWith
+      hParamsI = either error id $ fromHParams (targetWith sample) (toVec sample) hparams
+      ps = hamiltonianPFunction hParamsI hstruct targetWith
       hamiltonianWith = Proposal n desc PSlow pDim w ps
       -- Tuning.
-      (HTuningConf _ tms) = htconf
-      ts = case tms of
-        HNoTuneMasses -> VU.empty
-        _ -> massesToTuningParameters $ hMasses' hparams'
+      ts = toAuxiliaryTuningParameters hParamsI
       tuner = do
-        tfun <- hGetTuningFunction dim toVec htconf
-        pure $ Tuner 1.0 ts tfun (hamiltonianPFunctionWithTuningParameters hparams' htconf hstruct targetWith)
-   in case checkHStructureWith (hMasses' hparams') hstruct of
+        tfun <- hTuningFunctionWith (hpsLeapfrogScalingFactor hParamsI) dim toVec htconf
+        let pfun = hamiltonianPFunctionWithTuningParameters dim hstruct targetWith
+        pure $ Tuner 1.0 ts tfun pfun
+   in case checkHStructureWith (hpsMasses hParamsI) hstruct of
         Just err -> error err
         Nothing -> hamiltonianWith tuner

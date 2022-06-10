@@ -82,13 +82,11 @@ jacob = Exp . log . recip . f
 --       tupleL @~ slideContrarily 0 0.5 (PName "x y") (pWeight 3) Tune
 --     ]
 
--- hparams :: HParams
--- hparams = HParams (Just masses) (Just 10) (Just 0.02)
---   where
---     masses = L.trustSym $ L.scale 4 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
+hparams :: HParams
+hparams = HParams Nothing (Just 0.1) Nothing
 
 htconf :: HTuningConf
-htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
+htconf = HTuningConf HTuneLeapfrog HNoTuneMasses
 
 nparams :: NParams
 nparams = NParams masses 0.1
@@ -108,13 +106,13 @@ htarget :: HTarget IG
 htarget = HTarget (Just pr) lh (Just jacob)
 
 hmc :: Proposal I
-hmc = hamiltonian defaultHParams htconf hstruct htarget (PName "Hamiltonian") (pWeight 1)
+hmc = hamiltonian hparams htconf hstruct htarget (PName "Hamiltonian") (pWeight 1)
 
 nutp :: Proposal I
 nutp = nuts nparams hstruct htarget (PName "Nuts") (pWeight 1)
 
 cc :: Cycle I
-cc = cycleFromList [hmc, nutp]
+cc = cycleFromList [hmc]
 
 monPs :: [MonitorParameter I]
 monPs =

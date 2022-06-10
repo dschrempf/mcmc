@@ -10,21 +10,26 @@
 --
 -- Creation date: Thu Jun  9 15:12:39 2022.
 module Mcmc.Proposal.Hamiltonian.Internal
-  ( -- * Tuning
+  ( -- * Parameters
+    Mu,
+    MassesInv,
+    HData (..),
+    getHData,
+    HParamsI (..),
+
+    -- * Tuning
+    Dimension,
     findReasonableEpsilon,
-    massesToTuningParameters,
-    tuningParametersToMasses,
-    tuneDiagonalMassesOnly,
-    tuneAllMasses,
+    massesToVector,
+    vectorToMasses,
+    toAuxiliaryTuningParameters,
+    fromAuxiliaryTuningParameters,
+    hTuningFunctionWith,
 
     -- * Structure of state
     checkHStructureWith,
 
     -- * Hamiltonian dynamics
-    Mu,
-    MassesInv,
-    HData (..),
-    getHData,
     generateMomenta,
     exponentialKineticEnergy,
 
@@ -47,6 +52,82 @@ import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
 import System.Random.MWC
 import System.Random.Stateful
+
+-- | Internal. Mean vector containing zeroes. We save this vector because it is
+-- required when sampling from the multivariate normal distribution.
+type Mu = L.Vector Double
+
+-- | Internal. Symmetric, inverted mass matrix.
+type MassesInv = L.Herm Double
+
+-- | Internal data type containing memoized values.
+data HData = HData
+  { hMu :: Mu,
+    hMassesInv :: MassesInv
+  }
+  deriving (Show)
+
+-- | Internal. Compute inverted mass matrix.
+--
+-- Call 'error' if the determinant of the covariance matrix is negative.
+getHData :: Masses -> HData
+getHData ms =
+  -- The multivariate normal distribution requires a positive definite matrix
+  -- with positive determinant.
+  if sign == 1.0
+    then HData mu massesInvH
+    else
+      let msg =
+            "getHData: Determinant of covariance matrix is negative."
+       in error msg
+  where
+    nrows = L.rows $ L.unSym ms
+    mu = L.fromList $ replicate nrows 0.0
+    (massesInv, (_, sign)) = L.invlndet $ L.unSym ms
+    -- NOTE: In theory we can trust that the matrix is symmetric here, because
+    -- the inverse of a symmetric matrix is symmetric. However, one may want to
+    -- implement a check anyways.
+    massesInvH = L.trustSym massesInv
+
+-- Internal. We need two data types here. 'HParams' is exposed to the user.
+-- 'HParamsI' is exposed to the algorithm.
+data HParamsI = HParamsI
+  { hpsLeapfrogScalingFactor :: LeapfrogScalingFactor,
+    hpsLeapfrogSimulationLength :: LeapfrogSimulationLength,
+    -- \bar{eps} of Algorithm 5 or 6.
+    hpsLeapfrogScalingFactorMean :: LeapfrogScalingFactor,
+    -- H_i of Algorithm 5 or 6.
+    hpsHStatistics :: Double,
+    -- m of Algorithm 5 or 6.
+    hpsCurrentTuningStep :: Double,
+    hpsMasses :: Masses,
+    hpsData :: HData
+  }
+  deriving (Show)
+
+toAuxiliaryTuningParameters :: HParamsI -> AuxiliaryTuningParameters
+toAuxiliaryTuningParameters (HParamsI eps la epsMean h m ms _) =
+  VU.fromList $ eps : la : epsMean : h : m : msL
+  where
+    msL = VU.toList $ massesToVector ms
+
+fromAuxiliaryTuningParameters :: Dimension -> AuxiliaryTuningParameters -> Either String HParamsI
+fromAuxiliaryTuningParameters d xs
+  | fromIntegral (d * d) /= len = Left "fromAuxiliaryTuningParameters: Dimension mismatch."
+  | otherwise = Right $ HParamsI eps la epsMean h m ms hdata
+  where
+    eps = xs VU.! 0
+    la = xs VU.! 1
+    epsMean = xs VU.! 2
+    h = xs VU.! 3
+    m = xs VU.! 4
+    msV = VU.drop 5 xs
+    len = VU.length msV
+    ms = vectorToMasses d msV
+    hdata = getHData ms
+
+-- Dimension of the proposal.
+type Dimension = Int
 
 -- See Algorithm 4 in Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn
 -- Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal
@@ -78,7 +159,7 @@ findReasonableEpsilon t ms (HData mu msInv) q g = do
                   let expEKin'' = exponentialKineticEnergy msInv p''
                       r' :: Double
                       r' = exp $ ln $ prQ'' * expEKin'' / (prQ * expEKin)
-                      e' = traceShowId $ (2 ** a) * e
+                      e' = (2 ** a) * e
                    in go e' r'
               else e
       pure $ go eI rI
@@ -124,87 +205,162 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
     massNew = massNewSqrt ** 2
 
 -- | Internal.
-massesToTuningParameters :: Masses -> AuxiliaryTuningParameters
-massesToTuningParameters = VB.convert . L.flatten . L.unSym
+massesToVector :: Masses -> VU.Vector Double
+massesToVector = VU.convert . L.flatten . L.unSym
 
 -- | Internal.
-tuningParametersToMasses ::
-  -- Dimension of the mass matrix.
-  Int ->
-  AuxiliaryTuningParameters ->
-  Masses
-tuningParametersToMasses d = L.trustSym . L.reshape d . VB.convert
+vectorToMasses :: Dimension -> VU.Vector Double -> Masses
+vectorToMasses d = L.trustSym . L.reshape d . VU.convert
 
 -- | Internal.
 tuneDiagonalMassesOnly ::
-  -- Number of parameters.
-  Int ->
   -- Conversion from value to vector.
   (a -> Positions) ->
   -- Value vector.
   VB.Vector a ->
   -- Old masses.
-  VU.Vector TuningParameter ->
+  Masses ->
   -- New masses.
-  VU.Vector TuningParameter
+  Masses
 -- NOTE: Here, we lose time because we convert the states to vectors again,
 -- something that has already been done. But then, auto tuning is not a runtime
 -- determining factor.
-tuneDiagonalMassesOnly dim toVec xs ts
+tuneDiagonalMassesOnly toVec xs ms
   -- If not enough data is available, do not tune.
-  | VB.length xs < samplesMinDiagonal = ts
-  | otherwise =
-      -- Replace the diagonal.
-      massesToTuningParameters $
-        L.trustSym $
-          massesOld - L.diag massesDiagonalOld + L.diag massesDiagonalNew
+  | VB.length xs < samplesMinDiagonal = ms
+  | dimState /= dimMs = error "tuneDiagonalMassesOnly: Dimension mismatch."
+  -- Replace the diagonal.
+  | otherwise = L.trustSym $ msOld - L.diag msDiagonalOld + L.diag msDiagonalNew
   where
-    -- xs: Each vector entry contains all parameter values of one iteration.
-    -- xs': Each row contains all parameter values of one iteration.
-    xs' = L.fromRows $ VB.toList $ VB.map toVec xs
-    sampleSizes = VS.fromList $ map getSampleSize $ L.toColumns xs'
-    massesOld = L.unSym $ tuningParametersToMasses dim ts
-    massesDiagonalOld = L.takeDiag massesOld
-    massesDiagonalEstimate = VS.fromList $ map (recip . S.variance) $ L.toColumns xs'
-    massesDiagonalNew =
+    -- xs: Each element contains all parameters of one iteration.
+    -- xs': Each element is a vector containing all parameters changed by the
+    -- proposal of one iteration.
+    xs' = VB.map toVec xs
+    -- xs'': Matrix with each row containing all parameter values changed by the
+    -- proposal of one iteration.
+    xs'' = L.fromRows $ VB.toList xs'
+    -- We can safely use 'VB.head' here since the length of 'xs' must be larger
+    -- than 'samplesMinDiagonal'.
+    dimState = VS.length $ VB.head xs'
+    sampleSizes = VS.fromList $ map getSampleSize $ L.toColumns xs''
+    msOld = L.unSym ms
+    dimMs = L.rows msOld
+    msDiagonalOld = L.takeDiag msOld
+    msDiagonalEstimate = VS.fromList $ map (recip . S.variance) $ L.toColumns xs''
+    msDiagonalNew =
       VS.zipWith3
         getNewMassDiagonalWithRescue
         sampleSizes
-        massesDiagonalOld
-        massesDiagonalEstimate
+        msDiagonalOld
+        msDiagonalEstimate
 
 -- | Internal.
 tuneAllMasses ::
-  -- Number of parameters.
-  Int ->
   -- Conversion from value to vector.
   (a -> Positions) ->
   -- Value vector.
   VB.Vector a ->
   -- Old masses.
-  AuxiliaryTuningParameters ->
+  Masses ->
   -- New masses.
-  AuxiliaryTuningParameters
+  Masses
 -- NOTE: Here, we lose time because we convert the states to vectors again,
 -- something that has already been done. But then, auto tuning is not a runtime
 -- determining factor.
-tuneAllMasses dim toVec xs ts
+tuneAllMasses toVec xs ms
   -- If not enough data is available, do not tune.
-  | VB.length xs < samplesMinDiagonal = ts
+  | VB.length xs < samplesMinDiagonal = ms
   -- If not enough data is available, only the diagonal masses are tuned.
   | VB.length xs < samplesMinAll = fallbackDiagonal
-  | L.rank xs' /= dim = fallbackDiagonal
-  | otherwise = massesToTuningParameters $ L.trustSym massesNew
+  | L.rank xs'' /= dimState = fallbackDiagonal
+  | dimState /= dimMs = error "tuneAllMasses: Dimension mismatch."
+  | otherwise = L.trustSym msNew
   where
-    fallbackDiagonal = tuneDiagonalMassesOnly dim toVec xs ts
-    -- xs: Each vector entry contains all parameter values of one iteration.
-    -- xs': Each row contains all parameter values of one iteration.
-    xs' = L.fromRows $ VB.toList $ VB.map toVec xs
-    (_, ss, xsNormalized) = S.scale xs'
-    -- sigmaNormalized = L.unSym $ either error id $ S.oracleApproximatingShrinkage xsNormalized
+    fallbackDiagonal = tuneDiagonalMassesOnly toVec xs ms
+    -- xs: Each element contains all parameters of one iteration.
+    -- xs': Each element is a vector containing all parameters changed by the
+    -- proposal of one iteration.
+    xs' = VB.map toVec xs
+    -- xs'': Matrix with each row containing all parameter values changed by the
+    -- proposal of one iteration.
+    xs'' = L.fromRows $ VB.toList xs'
+    -- We can safely use 'VB.head' here since the length of 'xs' must be larger
+    -- than 'samplesMinDiagonal'.
+    dimState = VS.length $ VB.head xs'
+    dimMs = L.rows $ L.unSym ms
+    (_, ss, xsNormalized) = S.scale xs''
     sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.1 xsNormalized
     sigma = S.rescaleSWith ss sigmaNormalized
-    massesNew = L.inv sigma
+    msNew = L.inv sigma
+
+-- See Algorithm 5 and 6 in Matthew D. Hoffman, Andrew Gelman (2014) The
+-- No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
+-- Carlo, Journal of Machine Learning Research.
+data HTuningSpec = HTuningSpec
+  { htsMu :: Double,
+    htsGa :: Double,
+    htsT0 :: Double,
+    htsKa :: Double
+  }
+  deriving (Show)
+
+-- TODO @Dominik (high, feature): The tuning specification will be off, because
+-- the authors suggesting these values tune the proposal after each iteration.
+defaultHTuningSpecWith :: LeapfrogScalingFactor -> HTuningSpec
+defaultHTuningSpecWith eps = HTuningSpec mu ga t0 ka
+  where
+    mu = log $ 10 * eps
+    ga = 0.05
+    t0 = 10
+    ka = 0.75
+
+hTuningFunctionWith ::
+  -- Initial scaling factor to report tuning parameter.
+  LeapfrogScalingFactor ->
+  Dimension ->
+  -- Conversion from value to vector.
+  (a -> Positions) ->
+  HTuningConf ->
+  Maybe (TuningFunction a)
+hTuningFunctionWith epsI n toVec (HTuningConf lc mc) = case (lc, mc) of
+  (HNoTuneLeapfrog, HNoTuneMasses) -> Nothing
+  (_, _) -> Just $
+    \tt pdim ar xs (t, ts) ->
+      let (HParamsI eps la epsMean h m ms hd) =
+            -- NOTE: Use error here, because a dimension mismatch is a serious bug.
+            either error id $ fromAuxiliaryTuningParameters n ts
+          ms' = case mc of
+            HNoTuneMasses -> ms
+            HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly toVec xs ms
+            HTuneAllMasses -> tuneAllMasses toVec xs ms
+          hd' = case mc of
+            HNoTuneMasses -> hd
+            _ -> getHData ms'
+          (t', eps'', epsMean'', h'') = case lc of
+            HNoTuneLeapfrog -> (t, eps, epsMean, h)
+            HTuneLeapfrog ->
+              let delta = getOptimalRate pdim
+                  c = recip $ m + t0
+                  h' = (1.0 - c) * h + c * (delta - ar)
+                  logEps' = mu - (sqrt m / ga) * h'
+                  eps' = exp logEps'
+                  mMKa = m ** (negate ka)
+                  epsMean' = traceShowId $ exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
+               in (eps' / epsI, eps', epsMean', h')
+          eps''' = case tt of
+            NormalTuningStep -> eps''
+            LastTuningStep -> epsMean''
+       in (t', toAuxiliaryTuningParameters $ HParamsI eps''' la epsMean'' h'' (m + 1.0) ms' hd')
+  where
+    -- NOTE: For now we just use the default. In theory, we could expose this to
+    -- the user.
+    (HTuningSpec mu ga t0 ka) = defaultHTuningSpecWith epsI
+
+-- (HNoTuneLeapfrog, HTuneDiagonalMassesOnly) -> Just $ tuningFunctionOnlyAux td
+-- (HNoTuneLeapfrog, HTuneAllMasses) -> Just $ tuningFunctionOnlyAux ta
+-- (HTuneLeapfrog, HNoTuneMasses) -> Just tuningFunction
+-- (HTuneLeapfrog, HTuneDiagonalMassesOnly) -> Just $ tuningFunctionWithAux td
+-- (HTuneLeapfrog, HTuneAllMasses) -> Just $ tuningFunctionWithAux ta
 
 -- | Internal.
 checkHStructureWith :: Eq (s Double) => Masses -> HStructure s -> Maybe String
@@ -216,42 +372,6 @@ checkHStructureWith ms (HStructure x toVec fromVec)
     eWith m = Just $ "checkHStructureWith: " <> m
     nrows = L.rows $ L.unSym ms
     xVec = toVec x
-
--- | Internal. Mean vector containing zeroes. We save this vector because it is
--- required when sampling from the multivariate normal distribution.
-type Mu = L.Vector Double
-
--- | Internal. Symmetric, inverted mass matrix.
-type MassesInv = L.Herm Double
-
--- | Internal data type containing memoized values.
-data HData = HData
-  { hMu :: Mu,
-    hMassesInv :: MassesInv
-  }
-  deriving (Show)
-
--- | Internal. Compute inverted mass matrix.
---
--- Call 'error' if the determinant of the covariance matrix is negative.
-getHData :: Masses -> HData
-getHData ms =
-  -- The multivariate normal distribution requires a positive definite matrix
-  -- with positive determinant.
-  if sign == 1.0
-    then HData mu massesInvH
-    else
-      let msg =
-            "getHData: Determinant of covariance matrix is negative."
-       in error msg
-  where
-    nrows = L.rows $ L.unSym ms
-    mu = L.fromList $ replicate nrows 0.0
-    (massesInv, (_, sign)) = L.invlndet $ L.unSym ms
-    -- NOTE: In theory we can trust that the matrix is symmetric here, because
-    -- the inverse of a symmetric matrix is symmetric. However, one may want to
-    -- implement a check anyways.
-    massesInvH = L.trustSym massesInv
 
 -- | Internal. Generate momenta for a new iteration.
 generateMomenta ::
@@ -304,15 +424,23 @@ leapfrog ::
   -- Fail if state is not valid.
   Maybe (Positions, Momenta, Log Double, Log Double)
 leapfrog tF msInv l eps theta phi = do
-  let -- The first half step of the momenta.
-      (x, phiHalf) = leapfrogStepMomenta (0.5 * eps) tF theta phi
+  -- The first half step of the momenta.
+  (x, phiHalf) <-
+    let (x, phiHalf) = leapfrogStepMomenta (0.5 * eps) tF theta phi
+     in if x > 0.0
+          then Just (x, phiHalf)
+          else Nothing
   -- L-1 full steps for positions and momenta. This gives the positions
   -- theta_{L-1}, and the momenta phi_{L-1/2}.
   (thetaLM1, phiLM1Half) <- go (l - 1) $ Just $ (theta, phiHalf)
   -- The last full step of the positions.
   let thetaL = leapfrogStepPositions msInv eps thetaLM1 phiLM1Half
   -- The last half step of the momenta.
-  let (x', phiL) = leapfrogStepMomenta (0.5 * eps) tF thetaL phiLM1Half
+  (x', phiL) <-
+    let (x', phiL) = leapfrogStepMomenta (0.5 * eps) tF thetaL phiLM1Half
+     in if x' > 0.0
+          then Just (x', phiL)
+          else Nothing
   return (thetaL, phiL, x, x')
   where
     go _ Nothing = Nothing

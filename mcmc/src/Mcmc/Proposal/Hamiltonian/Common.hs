@@ -18,6 +18,7 @@ module Mcmc.Proposal.Hamiltonian.Common
     Masses,
     LeapfrogTrajectoryLength,
     LeapfrogScalingFactor,
+    LeapfrogSimulationLength,
 
     -- * Tuning
     HTuneLeapfrog (..),
@@ -122,6 +123,14 @@ type LeapfrogTrajectoryLength = Int
 --
 -- NOTE: Call 'error' if value is zero or negative.
 type LeapfrogScalingFactor = Double
+
+-- | Product of 'LeapfrogTrajectoryLength' and 'LeapfrogScalingFactor'.
+--
+-- A good value is hard to find and varies between applications. See Figure 6
+-- and discussion in Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn
+-- Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal
+-- of Machine Learning Research.
+type LeapfrogSimulationLength = Double
 
 -- | Tune leapfrog parameters?
 data HTuneLeapfrog

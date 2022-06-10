@@ -53,6 +53,7 @@ module Mcmc.Proposal
   )
 where
 
+import Data.Bifunctor
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.Double.Conversion.ByteString as BC
@@ -334,8 +335,7 @@ type TuningFunction a =
   AcceptanceRate ->
   -- | Samples of last tuning period.
   VB.Vector a ->
-  TuningParameter ->
-  AuxiliaryTuningParameters ->
+  (TuningParameter, AuxiliaryTuningParameters) ->
   (TuningParameter, AuxiliaryTuningParameters)
 
 -- | Auxiliary tuning parameters.
@@ -350,24 +350,25 @@ tuningFunctionSimple d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 
 -- | Default tuning function.
 --
--- The default tuning function does not handle auxiliary tuning parameters and
--- ignores the samples attained during the last tuning period.
+-- The default tuning function only uses the acceptance rate. In particular, it
+-- does not handle auxiliary tuning parameters and ignores the actual samples
+-- attained during the last tuning period.
 tuningFunction :: TuningFunction a
-tuningFunction _ d r _ t _ = (tuningFunctionSimple d r t, VU.empty)
+tuningFunction _ d r _ = bimap (tuningFunctionSimple d r) id
 
 -- | Also tune auxiliary tuning parameters.
 tuningFunctionWithAux ::
   -- | Auxiliary tuning function.
   (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
   TuningFunction a
-tuningFunctionWithAux f b d r xs t ts = (tuningFunctionSimple d r t, f b xs ts)
+tuningFunctionWithAux f b d r xs = bimap (tuningFunctionSimple d r) (f b xs)
 
 -- | Only tune auxiliary tuning parameters.
 tuningFunctionOnlyAux ::
   -- | Auxiliary tuning function.
   (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
   TuningFunction a
-tuningFunctionOnlyAux f b _ _ xs t ts = (t, f b xs ts)
+tuningFunctionOnlyAux f b _ _ xs = bimap id (f b xs)
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
 -- proposal with a large tuning parameter is not a problem. But then, if the

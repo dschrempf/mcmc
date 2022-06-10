@@ -105,9 +105,7 @@ dirichletPFunction t (SimplexUnsafe xs) g = do
   -- will be high, and the Dirichlet distribution will be very concentrated with
   -- low variance.
   let ddXs = either error id $ dirichletDistribution $ V.map tf xs
-  -- traceShowM $ V.map tf xs
   ys <- dirichletSample ddXs g
-  -- traceShowM ys
   -- Have to check if parameters are valid (because zeroes do occur).
   let eitherDdYs = dirichletDistribution $ V.map tf ys
   let r = case eitherDdYs of

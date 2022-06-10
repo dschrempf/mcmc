@@ -128,11 +128,11 @@ data NParams = NParams
   }
   deriving (Show)
 
--- TODO @Dominik (high, issue): NParamsSet similar to 'HParamsSet'.
+-- TODO @Dominik (high, issue): NParamsSet similar to 'HParamsI'.
 
 -- data NParamsSet = NParamsSet ...
 
--- TODO @Dominik (high, issue): Check params similar to 'fromHParams'.
+-- TODO @Dominik (high, issue): Check params similar to 'fromHParamsI.
 
 -- -- | See 'NParams'.
 -- --
@@ -234,8 +234,10 @@ nuts nparams hstruct htarget n w = case checkHStructureWith (nMasses nparams) hs
         desc = PDescription "No U-turn sampler (NUTS)"
         (HStructure sample toVec fromVec) = hstruct
         dim = L.size $ toVec sample
-        -- TODO (high): Desired acceptance ratio for NUTS?
-        pDim = PSpecial dim 0.65
+        -- See bottom of page 1616 in Matthew D. Hoffman, Andrew Gelman (2014)
+        -- The No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian
+        -- Monte Carlo, Journal of Machine Learning Research.
+        pDim = PSpecial dim 0.6
         -- Vectorize and derive the target function.
         (HTarget mPrF lhF mJcF) = htarget
         tF y = case (mPrF, mJcF) of
