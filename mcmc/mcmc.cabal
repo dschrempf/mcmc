@@ -148,7 +148,6 @@ benchmark mcmc-bench
     , base            >=4.7 && <5
     , criterion
     , fixed-vector
-    , hmatrix
     , math-functions
     , mcmc
     , mwc-random

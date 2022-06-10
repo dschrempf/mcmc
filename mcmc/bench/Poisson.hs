@@ -31,7 +31,6 @@ import qualified Data.Vector.Fixed as VB
 import qualified Data.Vector.Fixed.Boxed as VB
 import qualified Data.Vector.Storable as VS
 import Mcmc
-import qualified Numeric.LinearAlgebra as L
 import System.Random.MWC
 
 type IG = VB.Vec2
@@ -109,11 +108,11 @@ toVec xs = VS.generate 2 (\i -> xs VB.! i)
 fromVec :: I -> VS.Vector Double -> I
 fromVec _ xs = VB.mk2 (xs VS.! 0) (xs VS.! 1)
 
-tspec :: HParams
-tspec = either error id $ hParams masses 10 0.1 htconf
-  where
-    masses = L.trustSym $ L.ident $ L.size $ toVec initial
-    htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
+hparams :: HParams
+hparams = HParams Nothing Nothing Nothing
+
+htconf :: HTuningConf
+htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
 
 hstruct :: HStructure IG
 hstruct = HStructure initial toVec fromVec
@@ -122,7 +121,7 @@ target :: HTarget IG
 target = HTarget Nothing lh Nothing
 
 hmcProposal :: Cycle I
-hmcProposal = cycleFromList [hamiltonian tspec hstruct target (PName "Hamiltonian") (pWeight 1)]
+hmcProposal = cycleFromList [hamiltonian hparams htconf hstruct target (PName "Hamiltonian") (pWeight 1)]
 
 poissonHamiltonianBench :: GenIO -> IO ()
 poissonHamiltonianBench g = do
