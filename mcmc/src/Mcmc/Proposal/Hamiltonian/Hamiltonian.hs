@@ -136,7 +136,7 @@ fromHParams htarget p (HParams mEps mLa mMs) = do
     Just e
       | e <= 0 -> eWith "Leapfrog scaling factor is zero or negative."
       | otherwise -> Right e
-  pure $ HParamsI eps la 1.0 0.0 1.0 ms hdata
+  pure $ hParamsIWith eps la ms
   where
     eWith m = Left $ "fromHParams: " <> m
 
@@ -196,7 +196,7 @@ hamiltonianPFunctionWithMemoizedCovariance tspec hstruct targetWith x g = do
               else error $ "hamiltonianPFunctionWithMemoizedCovariance: Acceptance rate negative." <> show ar
       pure (pr, Just ac)
   where
-    (HParamsI e la _ _ _ ms hdata) = tspec
+    (HParamsI e la ms _ _ hdata) = tspec
     (HData mu msInv) = hdata
     -- TODO: The sample should not be in HStructure.
     (HStructure _ toVec fromVec) = hstruct
@@ -249,7 +249,7 @@ hamiltonian hparams htconf hstruct htarget n w =
       -- Tuning.
       ts = toAuxiliaryTuningParameters hParamsI
       tuner = do
-        tfun <- hTuningFunctionWith (hpsLeapfrogScalingFactor hParamsI) dim toVec htconf
+        tfun <- hTuningFunctionWith dim toVec htconf
         let pfun = hamiltonianPFunctionWithTuningParameters dim hstruct targetWith
         pure $ Tuner 1.0 ts tfun pfun
    in case checkHStructureWith (hpsMasses hParamsI) hstruct of

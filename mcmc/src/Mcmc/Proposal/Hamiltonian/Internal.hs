@@ -16,6 +16,7 @@ module Mcmc.Proposal.Hamiltonian.Internal
     HData (..),
     getHData,
     HParamsI (..),
+    hParamsIWith,
 
     -- * Tuning
     Dimension,
@@ -42,7 +43,6 @@ where
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
-import Debug.Trace
 import Mcmc.Proposal
 import Mcmc.Proposal.Hamiltonian.Common
 import qualified Numeric.LinearAlgebra as L
@@ -52,6 +52,51 @@ import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
 import System.Random.MWC
 import System.Random.Stateful
+
+-- Internal, variable tuning parameters.
+--
+-- See Algorithm 5 or 6 in Matthew D. Hoffman, Andrew Gelman (2014) The
+-- No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
+-- Carlo, Journal of Machine Learning Research.
+data TParamsVar = TParamsVar
+  { -- \bar{eps} of Algorithm 5 or 6.
+    tpvLeapfrogScalingFactorMean :: LeapfrogScalingFactor,
+    -- H_i of Algorithm 5 or 6.
+    tpvHStatistics :: Double,
+    -- m of Algorithm 5 or 6.
+    tpvCurrentTuningStep :: Double
+  }
+  deriving (Show)
+
+tParamsVar :: TParamsVar
+tParamsVar = TParamsVar 1.0 0.0 1.0
+
+-- Internal fixed tuning parameters.
+--
+-- See Algorithm 5 and 6 in Matthew D. Hoffman, Andrew Gelman (2014) The
+-- No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
+-- Carlo, Journal of Machine Learning Research.
+data TParamsFixed = TParamsFixed
+  { tpfEps0 :: Double,
+    tpfMu :: Double,
+    tpfGa :: Double,
+    tpfT0 :: Double,
+    tpfKa :: Double
+  }
+  deriving (Show)
+
+-- TODO @Dominik (high, feature): The tuning specification will be off, because
+-- the authors suggesting these values tune the proposal after each iteration.
+
+-- NOTE: For now we just use the default. In theory, we could expose this to the
+-- user.
+tParamsFixedWith :: LeapfrogScalingFactor -> TParamsFixed
+tParamsFixedWith eps = TParamsFixed eps mu ga t0 ka
+  where
+    mu = log $ 10 * eps
+    ga = 0.05
+    t0 = 10
+    ka = 0.75
 
 -- | Internal. Mean vector containing zeroes. We save this vector because it is
 -- required when sampling from the multivariate normal distribution.
@@ -94,35 +139,49 @@ getHData ms =
 data HParamsI = HParamsI
   { hpsLeapfrogScalingFactor :: LeapfrogScalingFactor,
     hpsLeapfrogSimulationLength :: LeapfrogSimulationLength,
-    -- \bar{eps} of Algorithm 5 or 6.
-    hpsLeapfrogScalingFactorMean :: LeapfrogScalingFactor,
-    -- H_i of Algorithm 5 or 6.
-    hpsHStatistics :: Double,
-    -- m of Algorithm 5 or 6.
-    hpsCurrentTuningStep :: Double,
     hpsMasses :: Masses,
+    hpsTParamsVar :: TParamsVar,
+    hpsTParamsFixed :: TParamsFixed,
     hpsData :: HData
   }
   deriving (Show)
 
-toAuxiliaryTuningParameters :: HParamsI -> AuxiliaryTuningParameters
-toAuxiliaryTuningParameters (HParamsI eps la epsMean h m ms _) =
-  VU.fromList $ eps : la : epsMean : h : m : msL
+hParamsIWith :: LeapfrogScalingFactor -> LeapfrogSimulationLength -> Masses -> HParamsI
+hParamsIWith eps la ms = HParamsI eps la ms tParamsVar tParamsFixed hdata
   where
+    tParamsFixed = tParamsFixedWith eps
+    hdata = getHData ms
+
+toAuxiliaryTuningParameters :: HParamsI -> AuxiliaryTuningParameters
+toAuxiliaryTuningParameters (HParamsI eps la ms tpv tpf _) =
+  -- Put masses to the end. Like so, conversion is easier.
+  VU.fromList $ eps : la : epsMean : h : m : eps0 : mu : ga : t0 : ka : msL
+  where
+    (TParamsVar epsMean h m) = tpv
+    (TParamsFixed eps0 mu ga t0 ka) = tpf
     msL = VU.toList $ massesToVector ms
 
 fromAuxiliaryTuningParameters :: Dimension -> AuxiliaryTuningParameters -> Either String HParamsI
 fromAuxiliaryTuningParameters d xs
-  | fromIntegral (d * d) /= len = Left "fromAuxiliaryTuningParameters: Dimension mismatch."
-  | otherwise = Right $ HParamsI eps la epsMean h m ms hdata
+  | (d * d) + 10 /= len = Left "fromAuxiliaryTuningParameters: Dimension mismatch."
+  | fromIntegral (d * d) /= lenMs = Left "fromAuxiliaryTuningParameters: Masses dimension mismatch."
+  | otherwise = Right $ HParamsI eps la ms tpv tpf hdata
   where
+    len = VU.length xs
     eps = xs VU.! 0
     la = xs VU.! 1
     epsMean = xs VU.! 2
     h = xs VU.! 3
     m = xs VU.! 4
-    msV = VU.drop 5 xs
-    len = VU.length msV
+    tpv = TParamsVar epsMean h m
+    eps0 = xs VU.! 5
+    mu = xs VU.! 6
+    ga = xs VU.! 7
+    t0 = xs VU.! 8
+    ka = xs VU.! 9
+    tpf = TParamsFixed eps0 mu ga t0 ka
+    msV = VU.drop 10 xs
+    lenMs = VU.length msV
     ms = vectorToMasses d msV
     hdata = getHData ms
 
@@ -293,42 +352,21 @@ tuneAllMasses toVec xs ms
     sigma = S.rescaleSWith ss sigmaNormalized
     msNew = L.inv sigma
 
--- See Algorithm 5 and 6 in Matthew D. Hoffman, Andrew Gelman (2014) The
--- No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
--- Carlo, Journal of Machine Learning Research.
-data HTuningSpec = HTuningSpec
-  { htsMu :: Double,
-    htsGa :: Double,
-    htsT0 :: Double,
-    htsKa :: Double
-  }
-  deriving (Show)
-
--- TODO @Dominik (high, feature): The tuning specification will be off, because
--- the authors suggesting these values tune the proposal after each iteration.
-defaultHTuningSpecWith :: LeapfrogScalingFactor -> HTuningSpec
-defaultHTuningSpecWith eps = HTuningSpec mu ga t0 ka
-  where
-    mu = log $ 10 * eps
-    ga = 0.05
-    t0 = 10
-    ka = 0.75
-
 hTuningFunctionWith ::
-  -- Initial scaling factor to report tuning parameter.
-  LeapfrogScalingFactor ->
   Dimension ->
   -- Conversion from value to vector.
   (a -> Positions) ->
   HTuningConf ->
   Maybe (TuningFunction a)
-hTuningFunctionWith epsI n toVec (HTuningConf lc mc) = case (lc, mc) of
+hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
   (HNoTuneLeapfrog, HNoTuneMasses) -> Nothing
   (_, _) -> Just $
     \tt pdim ar xs (t, ts) ->
-      let (HParamsI eps la epsMean h m ms hd) =
+      let (HParamsI eps la ms tpv tpf hd) =
             -- NOTE: Use error here, because a dimension mismatch is a serious bug.
             either error id $ fromAuxiliaryTuningParameters n ts
+          (TParamsVar epsMean h m) = tpv
+          (TParamsFixed eps0 mu ga t0 ka) = tpf
           ms' = case mc of
             HNoTuneMasses -> ms
             HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly toVec xs ms
@@ -346,21 +384,12 @@ hTuningFunctionWith epsI n toVec (HTuningConf lc mc) = case (lc, mc) of
                   eps' = exp logEps'
                   mMKa = m ** (negate ka)
                   epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
-               in (eps' / epsI, eps', epsMean', h')
+               in (eps' / eps0, eps', epsMean', h')
           eps''' = case tt of
             NormalTuningStep -> eps''
             LastTuningStep -> epsMean''
-       in (t', toAuxiliaryTuningParameters $ HParamsI eps''' la epsMean'' h'' (m + 1.0) ms' hd')
-  where
-    -- NOTE: For now we just use the default. In theory, we could expose this to
-    -- the user.
-    (HTuningSpec mu ga t0 ka) = defaultHTuningSpecWith epsI
-
--- (HNoTuneLeapfrog, HTuneDiagonalMassesOnly) -> Just $ tuningFunctionOnlyAux td
--- (HNoTuneLeapfrog, HTuneAllMasses) -> Just $ tuningFunctionOnlyAux ta
--- (HTuneLeapfrog, HNoTuneMasses) -> Just tuningFunction
--- (HTuneLeapfrog, HTuneDiagonalMassesOnly) -> Just $ tuningFunctionWithAux td
--- (HTuneLeapfrog, HTuneAllMasses) -> Just $ tuningFunctionWithAux ta
+          tpv' = TParamsVar epsMean'' h'' (m + 1.0)
+       in (t', toAuxiliaryTuningParameters $ HParamsI eps''' la ms' tpv' tpf hd')
 
 -- | Internal.
 checkHStructureWith :: Eq (s Double) => Masses -> HStructure s -> Maybe String
