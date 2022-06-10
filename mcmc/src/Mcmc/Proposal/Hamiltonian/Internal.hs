@@ -345,7 +345,7 @@ hTuningFunctionWith epsI n toVec (HTuningConf lc mc) = case (lc, mc) of
                   logEps' = mu - (sqrt m / ga) * h'
                   eps' = exp logEps'
                   mMKa = m ** (negate ka)
-                  epsMean' = traceShowId $ exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
+                  epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
                in (eps' / epsI, eps', epsMean', h')
           eps''' = case tt of
             NormalTuningStep -> eps''

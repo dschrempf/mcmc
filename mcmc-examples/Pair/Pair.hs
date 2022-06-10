@@ -83,10 +83,10 @@ jacob = Exp . log . recip . f
 --     ]
 
 hparams :: HParams
-hparams = HParams Nothing (Just 0.1) Nothing
+hparams = HParams Nothing (Just 0.05) Nothing
 
 htconf :: HTuningConf
-htconf = HTuningConf HTuneLeapfrog HNoTuneMasses
+htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
 
 nparams :: NParams
 nparams = NParams masses 0.1
@@ -112,7 +112,7 @@ nutp :: Proposal I
 nutp = nuts nparams hstruct htarget (PName "Nuts") (pWeight 1)
 
 cc :: Cycle I
-cc = cycleFromList [hmc]
+cc = cycleFromList [hmc, nutp]
 
 monPs :: [MonitorParameter I]
 monPs =
