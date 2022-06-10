@@ -46,10 +46,12 @@
 --
 -- - The points given above have implications on how the HMC proposal is
 --   handled: Do not use 'liftProposalWith', 'liftProposal', or '(@~)' with the
---   HMC proposal; instead use the conversion functions in 'HStructure'.
+--   HMC proposal; instead provide proper conversion functions with
+--   'HStructure'.
 --
 -- - The gradient of the log target function is calculated using automatic
---   differentiation.
+--   differentiation; see the excellent
+--   [ad](https://hackage.haskell.org/package/ad) package.
 --
 -- - The desired acceptance rate is 0.65, although the dimension of the proposal
 --   is high.
@@ -102,6 +104,10 @@ data HParams = HParams
 defaultHParams :: HParams
 defaultHParams = HParams Nothing Nothing Nothing
 
+-- NOTE: If changed, amend help text of 'defaultHParams'.
+defaultLeapfrogSimulationLength :: Double
+defaultLeapfrogSimulationLength = 0.5
+
 -- Check 'HParams' instantiate 'HParamsI'.
 --
 -- NOTE: This function may sample momenta to find a reasonable leapfrog scaling
@@ -124,7 +130,7 @@ fromHParams htarget p (HParams mEps mLa mMs) = do
       when (nrows /= ncols) $ eWith "Mass matrix is not square."
       Right ms
   la <- case mLa of
-    Nothing -> Right 0.5
+    Nothing -> Right defaultLeapfrogSimulationLength
     Just l
       | l <= 0 -> eWith "Leapfrog simulation length is zero or negative."
       | otherwise -> Right l

@@ -10,9 +10,14 @@
 --
 -- Creation date: Fri May 27 09:58:23 2022.
 --
--- See Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
--- Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
--- Machine Learning Research.
+-- For a general introduction to Hamiltonian proposals, see
+-- "Mcmc.Proposal.Hamiltonian.Hamiltonian".
+--
+-- This module implements the No-U-Turn Sampler (NUTS), as described in [1].
+--
+-- - [1] Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
+--   Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
+--   Machine Learning Research.
 module Mcmc.Proposal.Hamiltonian.Nuts
   ( NParams (..),
     nuts,
