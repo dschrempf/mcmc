@@ -20,11 +20,11 @@ module Mcmc.Proposal.Hamiltonian.Internal
 
     -- * Tuning
     Dimension,
-    findReasonableEpsilon,
     massesToVector,
     vectorToMasses,
     toAuxiliaryTuningParameters,
     fromAuxiliaryTuningParameters,
+    findReasonableEpsilon,
     hTuningFunctionWith,
 
     -- * Structure of state
@@ -53,7 +53,7 @@ import qualified Statistics.Sample as S
 import System.Random.MWC
 import System.Random.Stateful
 
--- Internal, variable tuning parameters.
+-- Variable tuning parameters.
 --
 -- See Algorithm 5 or 6 in Matthew D. Hoffman, Andrew Gelman (2014) The
 -- No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
@@ -71,7 +71,7 @@ data TParamsVar = TParamsVar
 tParamsVar :: TParamsVar
 tParamsVar = TParamsVar 1.0 0.0 1.0
 
--- Internal fixed tuning parameters.
+-- Fixed tuning parameters.
 --
 -- See Algorithm 5 and 6 in Matthew D. Hoffman, Andrew Gelman (2014) The
 -- No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
@@ -98,21 +98,21 @@ tParamsFixedWith eps = TParamsFixed eps mu ga t0 ka
     t0 = 10
     ka = 0.75
 
--- | Internal. Mean vector containing zeroes. We save this vector because it is
--- required when sampling from the multivariate normal distribution.
+-- Mean vector containing zeroes. We save this vector because it is required
+-- when sampling from the multivariate normal distribution.
 type Mu = L.Vector Double
 
--- | Internal. Symmetric, inverted mass matrix.
+-- Symmetric, inverted mass matrix.
 type MassesInv = L.Herm Double
 
--- | Internal data type containing memoized values.
+-- Data type containing memoized values.
 data HData = HData
   { hMu :: Mu,
     hMassesInv :: MassesInv
   }
   deriving (Show)
 
--- | Internal. Compute inverted mass matrix.
+-- Compute inverted mass matrix.
 --
 -- Call 'error' if the determinant of the covariance matrix is negative.
 getHData :: Masses -> HData
@@ -134,8 +134,7 @@ getHData ms =
     -- implement a check anyways.
     massesInvH = L.trustSym massesInv
 
--- Internal. We need two data types here. 'HParams' is exposed to the user.
--- 'HParamsI' is exposed to the algorithm.
+-- All internal parameters.
 data HParamsI = HParamsI
   { hpsLeapfrogScalingFactor :: LeapfrogScalingFactor,
     hpsLeapfrogSimulationLength :: LeapfrogSimulationLength,
@@ -146,12 +145,23 @@ data HParamsI = HParamsI
   }
   deriving (Show)
 
+-- Instantiate all internal parameters.
 hParamsIWith :: LeapfrogScalingFactor -> LeapfrogSimulationLength -> Masses -> HParamsI
 hParamsIWith eps la ms = HParamsI eps la ms tParamsVar tParamsFixed hdata
   where
     tParamsFixed = tParamsFixedWith eps
     hdata = getHData ms
 
+-- Dimension of the proposal.
+type Dimension = Int
+
+massesToVector :: Masses -> VU.Vector Double
+massesToVector = VU.convert . L.flatten . L.unSym
+
+vectorToMasses :: Dimension -> VU.Vector Double -> Masses
+vectorToMasses d = L.trustSym . L.reshape d . VU.convert
+
+-- Save internal parameters.
 toAuxiliaryTuningParameters :: HParamsI -> AuxiliaryTuningParameters
 toAuxiliaryTuningParameters (HParamsI eps la ms tpv tpf _) =
   -- Put masses to the end. Like so, conversion is easier.
@@ -161,32 +171,24 @@ toAuxiliaryTuningParameters (HParamsI eps la ms tpv tpf _) =
     (TParamsFixed eps0 mu ga t0 ka) = tpf
     msL = VU.toList $ massesToVector ms
 
+-- Load internal parameters.
 fromAuxiliaryTuningParameters :: Dimension -> AuxiliaryTuningParameters -> Either String HParamsI
 fromAuxiliaryTuningParameters d xs
   | (d * d) + 10 /= len = Left "fromAuxiliaryTuningParameters: Dimension mismatch."
   | fromIntegral (d * d) /= lenMs = Left "fromAuxiliaryTuningParameters: Masses dimension mismatch."
-  | otherwise = Right $ HParamsI eps la ms tpv tpf hdata
+  | otherwise = case VU.toList $ VU.take 10 xs of
+      [eps, la, epsMean, h, m, eps0, mu, ga, t0, ka] ->
+        let tpv = TParamsVar epsMean h m
+            tpf = TParamsFixed eps0 mu ga t0 ka
+         in Right $ HParamsI eps la ms tpv tpf hdata
+      -- To please the exhaustive pattern match checker.
+      _ -> Left "fromAuxiliaryTuningParameters: Impossible dimension mismatch."
   where
     len = VU.length xs
-    eps = xs VU.! 0
-    la = xs VU.! 1
-    epsMean = xs VU.! 2
-    h = xs VU.! 3
-    m = xs VU.! 4
-    tpv = TParamsVar epsMean h m
-    eps0 = xs VU.! 5
-    mu = xs VU.! 6
-    ga = xs VU.! 7
-    t0 = xs VU.! 8
-    ka = xs VU.! 9
-    tpf = TParamsFixed eps0 mu ga t0 ka
     msV = VU.drop 10 xs
     lenMs = VU.length msV
     ms = vectorToMasses d msV
     hdata = getHData ms
-
--- Dimension of the proposal.
-type Dimension = Int
 
 -- See Algorithm 4 in Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn
 -- Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal
@@ -195,11 +197,10 @@ findReasonableEpsilon ::
   StatefulGen g m =>
   Target ->
   Masses ->
-  HData ->
   Positions ->
   g ->
   m LeapfrogScalingFactor
-findReasonableEpsilon t ms (HData mu msInv) q g = do
+findReasonableEpsilon t ms q g = do
   p <- generateMomenta mu ms g
   case leapfrog t msInv 1 eI q p of
     Nothing -> undefined
@@ -224,6 +225,7 @@ findReasonableEpsilon t ms (HData mu msInv) q g = do
       pure $ go eI rI
   where
     eI = 1.0
+    (HData mu msInv) = getHData ms
 
 -- If changed, also change help text of 'HTuneMasses'.
 massMin :: Double
@@ -263,15 +265,6 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
     massNewSqrt = recip 3 * (sqrt massOld + 2 * sqrt massEstimate)
     massNew = massNewSqrt ** 2
 
--- | Internal.
-massesToVector :: Masses -> VU.Vector Double
-massesToVector = VU.convert . L.flatten . L.unSym
-
--- | Internal.
-vectorToMasses :: Dimension -> VU.Vector Double -> Masses
-vectorToMasses d = L.trustSym . L.reshape d . VU.convert
-
--- | Internal.
 tuneDiagonalMassesOnly ::
   -- Conversion from value to vector.
   (a -> Positions) ->
@@ -313,7 +306,6 @@ tuneDiagonalMassesOnly toVec xs ms
         msDiagonalOld
         msDiagonalEstimate
 
--- | Internal.
 tuneAllMasses ::
   -- Conversion from value to vector.
   (a -> Positions) ->
@@ -391,7 +383,6 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
           tpv' = TParamsVar epsMean'' h'' (m + 1.0)
        in (t', toAuxiliaryTuningParameters $ HParamsI eps''' la ms' tpv' tpf hd')
 
--- | Internal.
 checkHStructureWith :: Eq (s Double) => Masses -> HStructure s -> Maybe String
 checkHStructureWith ms (HStructure x toVec fromVec)
   | fromVec x xVec /= x = eWith "'fromVectorWith x (toVector x) /= x' for sample state."
@@ -402,7 +393,7 @@ checkHStructureWith ms (HStructure x toVec fromVec)
     nrows = L.rows $ L.unSym ms
     xVec = toVec x
 
--- | Internal. Generate momenta for a new iteration.
+-- Generate momenta for a new iteration.
 generateMomenta ::
   StatefulGen g m =>
   Mu ->
@@ -417,7 +408,7 @@ generateMomenta mu masses gen = do
 -- TODO (medium): Use a sparse matrix approach for the log density of the
 -- multivariate normal, similar to McmcDate.
 
--- | Internal. Compute exponent of kinetic energy.
+-- Compute exponent of kinetic energy.
 exponentialKineticEnergy ::
   MassesInv ->
   Momenta ->
@@ -427,7 +418,7 @@ exponentialKineticEnergy msInvH xs =
   where
     msInv = L.unSym msInvH
 
--- | Internal; Function calculating target value and gradient.
+-- Function calculating target value and gradient.
 --
 -- The function acts on the subset of the state manipulated by the proposal but
 -- the value and gradient have to be calculated for the complete state. The
@@ -438,7 +429,7 @@ exponentialKineticEnergy msInvH xs =
 -- gradient is required.
 type Target = Positions -> (Log Double, Positions)
 
--- | Internal; Leapfrog integrator.
+-- Leapfrog integrator.
 leapfrog ::
   Target ->
   MassesInv ->

@@ -123,7 +123,6 @@ fromHParams htarget p (HParams mEps mLa mMs) = do
           ncols = L.cols ms'
       when (nrows /= ncols) $ eWith "Mass matrix is not square."
       Right ms
-  let hdata = getHData ms
   la <- case mLa of
     Nothing -> Right 0.5
     Just l
@@ -132,7 +131,7 @@ fromHParams htarget p (HParams mEps mLa mMs) = do
   eps <- case mEps of
     Nothing -> Right $ runST $ do
       g <- create
-      findReasonableEpsilon htarget ms hdata p g
+      findReasonableEpsilon htarget ms p g
     Just e
       | e <= 0 -> eWith "Leapfrog scaling factor is zero or negative."
       | otherwise -> Right e
