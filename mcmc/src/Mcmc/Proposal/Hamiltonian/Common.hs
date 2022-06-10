@@ -25,7 +25,7 @@ module Mcmc.Proposal.Hamiltonian.Common
     HTuningConf (..),
 
     -- * Structure of state
-    HSpec (..),
+    HStructure (..),
 
     -- * Target function
     HTarget (..),
@@ -168,7 +168,7 @@ data HTuningConf = HTuningConf HTuneLeapfrog HTuneMasses
 -- of the state, which is denoted as @s@.
 --
 -- Please also refer to the top level module documentation.
-data HSpec s = HSpec
+data HStructure s = HStructure
   { -- | The sample state is used for error checks and to calculate the dimension
     -- of the proposal.
     hSample :: s Double,

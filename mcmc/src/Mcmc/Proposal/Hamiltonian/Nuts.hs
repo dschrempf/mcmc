@@ -14,8 +14,7 @@
 -- Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
 -- Machine Learning Research.
 module Mcmc.Proposal.Hamiltonian.Nuts
-  ( NTuningSpec,
-    nTuningSpec,
+  ( NParams (..),
     nuts,
   )
 where
@@ -117,39 +116,48 @@ buildTreeWith hdata@(HData _ msInv) tfun g x p u v j e
 
 -- TODO (high): Add tuning configuration to NTuningSpec.
 
+-- TODO @Dominik (high, issue): The user facing type 'NParams' should have Maybe
+-- values.
+
 -- | Complete tuning specification of the NUTS proposal.
 --
 -- Includes tuning parameters and tuning configuration.
-data NTuningSpec = NTuningSpec
+data NParams = NParams
   { nMasses :: Masses,
     nLeapfrogScalingFactor :: LeapfrogScalingFactor
   }
   deriving (Show)
 
--- | See 'NTuningSpec'.
---
--- Return 'Left' if an error is found.
-nTuningSpec :: Masses -> LeapfrogScalingFactor -> Either String NTuningSpec
-nTuningSpec ms e
-  | any (<= 0) diagonalMasses = eWith "Some diagonal entries of the mass matrix are zero or negative."
-  | nrows /= ncols = eWith "Mass matrix is not square."
-  | e <= 0 = eWith "Leapfrog scaling factor is zero or negative."
-  | otherwise = Right $ NTuningSpec ms e
-  where
-    eWith m = Left $ "nTuningSpec: " <> m
-    ms' = L.unSym ms
-    diagonalMasses = L.toList $ L.takeDiag ms'
-    nrows = L.rows ms'
-    ncols = L.cols ms'
+-- TODO @Dominik (high, issue): NParamsSet similar to 'HParamsSet'.
+
+-- data NParamsSet = NParamsSet ...
+
+-- TODO @Dominik (high, issue): Check params similar to 'fromHParams'.
+
+-- -- | See 'NParams'.
+-- --
+-- -- Return 'Left' if an error is found.
+-- nTuningSpec :: Masses -> LeapfrogScalingFactor -> Either String NTuningSpec
+-- nTuningSpec ms e
+--   | any (<= 0) diagonalMasses = eWith "Some diagonal entries of the mass matrix are zero or negative."
+--   | nrows /= ncols = eWith "Mass matrix is not square."
+--   | e <= 0 = eWith "Leapfrog scaling factor is zero or negative."
+--   | otherwise = Right $ NTuningSpec ms e
+--   where
+--     eWith m = Left $ "nTuningSpec: " <> m
+--     ms' = L.unSym ms
+--     diagonalMasses = L.toList $ L.takeDiag ms'
+--     nrows = L.rows ms'
+--     ncols = L.cols ms'
 
 -- First function in Algorithm 3.
 nutsPFunctionWithMemoizedCovariance ::
-  NTuningSpec ->
-  HSpec s ->
+  NParams ->
+  HStructure s ->
   HData ->
   (s Double -> Target) ->
   PFunction (s Double)
-nutsPFunctionWithMemoizedCovariance nspec hspec hdata targetWith xComplete g = do
+nutsPFunctionWithMemoizedCovariance nparams hstruct hdata targetWith xComplete g = do
   p <- generateMomenta mu ms g
   uZeroOne <- uniform g :: IO Double
   -- NOTE (runtime): Here we need the target function value from the previous
@@ -201,30 +209,30 @@ nutsPFunctionWithMemoizedCovariance nspec hspec hdata targetWith xComplete g = d
   -- TODO @Dominik (high, feature): Acceptance counts.
   pure (r, Nothing)
   where
-    (NTuningSpec ms e) = nspec
-    (HSpec _ toVec fromVecWith) = hspec
+    (NParams ms e) = nparams
+    (HStructure _ toVec fromVecWith) = hstruct
     fromVec = fromVecWith xComplete
     (HData mu msInv) = hdata
     target = targetWith xComplete
 
-nutsPFunction :: NTuningSpec -> HSpec s -> (s Double -> Target) -> PFunction (s Double)
-nutsPFunction nspec hspec = nutsPFunctionWithMemoizedCovariance nspec hspec (getHData $ nMasses nspec)
+nutsPFunction :: NParams -> HStructure s -> (s Double -> Target) -> PFunction (s Double)
+nutsPFunction nparams hstruct = nutsPFunctionWithMemoizedCovariance nparams hstruct (getHData $ nMasses nparams)
 
 -- | No U-turn Hamiltonian Monte Carlo sampler (NUTS).
 nuts ::
   (Eq (s Double), Traversable s) =>
-  NTuningSpec ->
-  HSpec s ->
+  NParams ->
+  HStructure s ->
   HTarget s ->
   PName ->
   PWeight ->
   Proposal (s Double)
-nuts nspec hspec htarget n w = case checkHSpecWith (nMasses nspec) hspec of
+nuts nparams hstruct htarget n w = case checkHStructureWith (nMasses nparams) hstruct of
   Just err -> error err
   Nothing ->
     let -- Misc.
         desc = PDescription "No U-turn sampler (NUTS)"
-        (HSpec sample toVec fromVec) = hspec
+        (HStructure sample toVec fromVec) = hstruct
         dim = L.size $ toVec sample
         -- TODO (high): Desired acceptance ratio for NUTS?
         pDim = PSpecial dim 0.65
@@ -237,7 +245,7 @@ nuts nspec hspec htarget n w = case checkHSpecWith (nMasses nspec) hspec of
           (Just prF, Just jcF) -> prF y * lhF y * jcF y
         tFnG = grad' (ln . tF)
         targetWith x = bimap Exp toVec . tFnG . fromVec x
-        ps = nutsPFunction nspec hspec targetWith
+        ps = nutsPFunction nparams hstruct targetWith
         nutsWith = Proposal n desc PSlow pDim w ps
      in -- TODO (high): NUTS with tuning.
         nutsWith Nothing

@@ -4,7 +4,7 @@
 
 ## Unreleased changes
 
--   Split `HSettings` into `HTuningSpec` and `HSpec` (preparation for NUTS).
+-   Split `HSettings` into `HParams` and `HStructure` (preparation for NUTS).
 -   Rename `HTune` to `HTuningConf`.
 
 

@@ -82,14 +82,16 @@ jacob = Exp . log . recip . f
 --       tupleL @~ slideContrarily 0 0.5 (PName "x y") (pWeight 3) Tune
 --     ]
 
-tspec :: HTuningSpec
-tspec = either error id $ hTuningSpec masses 10 0.1 tconf
+hparams :: HParams
+hparams = HParams (Just masses) (Just 10) (Just 0.02)
   where
-    masses = L.trustSym $ L.scale 5 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
-    tconf = HTuningConf HNoTuneLeapfrog HTuneDiagonalMassesOnly
+    masses = L.trustSym $ L.scale 4 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
 
-nspec :: NTuningSpec
-nspec = either error id $ nTuningSpec masses 0.1
+htconf :: HTuningConf
+htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
+
+nparams :: NParams
+nparams = NParams masses 0.1
   where
     masses = L.trustSym $ L.scale 4 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
 
@@ -99,17 +101,17 @@ toVec = VS.convert
 fromVec :: I -> VS.Vector Double -> I
 fromVec = const VS.convert
 
-hspec :: HSpec IG
-hspec = HSpec start toVec fromVec
+hstruct :: HStructure IG
+hstruct = HStructure start toVec fromVec
 
 htarget :: HTarget IG
 htarget = HTarget (Just pr) lh (Just jacob)
 
 hmc :: Proposal I
-hmc = hamiltonian tspec hspec htarget (PName "Hamiltonian") (pWeight 1)
+hmc = hamiltonian hparams htconf hstruct htarget (PName "Hamiltonian") (pWeight 1)
 
 nutp :: Proposal I
-nutp = nuts nspec hspec htarget (PName "Nuts") (pWeight 1)
+nutp = nuts nparams hstruct htarget (PName "Nuts") (pWeight 1)
 
 cc :: Cycle I
 cc = cycleFromList [hmc, nutp]
@@ -138,7 +140,7 @@ main = do
   let mcmcS =
         Settings
           analysisName
-          (BurnInWithCustomAutoTuning [] $ [10, 20 .. 200] ++ replicate 10 500)
+          (BurnInWithCustomAutoTuning [] $ [10, 20 .. 200] ++ replicate 20 500)
           (Iterations 40000)
           TraceAuto
           Overwrite

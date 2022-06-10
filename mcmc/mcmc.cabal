@@ -108,6 +108,7 @@ library
     , parallel
     , pretty-show
     , primitive
+    , random
     , statistics
     , time
     , transformers

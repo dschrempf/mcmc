@@ -70,32 +70,29 @@ masses = L.trustSym $ L.diag $ L.fromList $ replicate dimension 1.0
 initialState :: I
 initialState = VB.fromList $ replicate dimension 1
 
-tSpec :: HTuningSpec
-tSpec =
-  either error id $
-    hTuningSpec
-      masses
-      10
-      0.03
-      (HTuningConf HTuneLeapfrog HTuneAllMasses)
+hparams :: HParams
+hparams = HParams (Just masses) (Just 10) (Just 0.03)
 
-nSpec :: NTuningSpec
-nSpec = either error id $ nTuningSpec masses 0.01
+htconf :: HTuningConf
+htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
 
-hSpec :: HSpec IG
-hSpec = HSpec initialState VS.convert (const VS.convert)
+nparams :: NParams
+nparams = NParams masses 0.01
+
+hstruct :: HStructure IG
+hstruct = HStructure initialState VS.convert (const VS.convert)
 
 hTarget :: HTarget IG
 hTarget = HTarget Nothing lhf Nothing
 
 hamiltonianProposal :: Proposal I
-hamiltonianProposal = hamiltonian tSpec hSpec hTarget n w
+hamiltonianProposal = hamiltonian hparams htconf hstruct hTarget n w
   where
     n = PName "Hmc"
     w = pWeight 1
 
 nutsProposal :: Proposal I
-nutsProposal = nuts nSpec hSpec hTarget n w
+nutsProposal = nuts nparams hstruct hTarget n w
   where
     n = PName "Nuts"
     w = pWeight 1

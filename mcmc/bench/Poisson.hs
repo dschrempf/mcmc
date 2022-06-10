@@ -109,20 +109,20 @@ toVec xs = VS.generate 2 (\i -> xs VB.! i)
 fromVec :: I -> VS.Vector Double -> I
 fromVec _ xs = VB.mk2 (xs VS.! 0) (xs VS.! 1)
 
-tspec :: HTuningSpec
-tspec = either error id $ hTuningSpec masses 10 0.1 tconf
+tspec :: HParams
+tspec = either error id $ hParams masses 10 0.1 htconf
   where
     masses = L.trustSym $ L.ident $ L.size $ toVec initial
-    tconf = HTuningConf HTuneLeapfrog HTuneAllMasses
+    htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
 
-hspec :: HSpec IG
-hspec = HSpec initial toVec fromVec
+hstruct :: HStructure IG
+hstruct = HStructure initial toVec fromVec
 
 target :: HTarget IG
 target = HTarget Nothing lh Nothing
 
 hmcProposal :: Cycle I
-hmcProposal = cycleFromList [hamiltonian tspec hspec target (PName "Hamiltonian") (pWeight 1)]
+hmcProposal = cycleFromList [hamiltonian tspec hstruct target (PName "Hamiltonian") (pWeight 1)]
 
 poissonHamiltonianBench :: GenIO -> IO ()
 poissonHamiltonianBench g = do

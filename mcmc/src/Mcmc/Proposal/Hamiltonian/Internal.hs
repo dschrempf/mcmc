@@ -11,17 +11,18 @@
 -- Creation date: Thu Jun  9 15:12:39 2022.
 module Mcmc.Proposal.Hamiltonian.Internal
   ( -- * Tuning
+    findReasonableEpsilon,
     massesToTuningParameters,
     tuningParametersToMasses,
     tuneDiagonalMassesOnly,
     tuneAllMasses,
 
     -- * Structure of state
-    checkHSpecWith,
+    checkHStructureWith,
 
     -- * Hamiltonian dynamics
-    HMu,
-    HMassesInv,
+    Mu,
+    MassesInv,
     HData (..),
     getHData,
     generateMomenta,
@@ -44,6 +45,44 @@ import qualified Statistics.Covariance as S
 import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
 import System.Random.MWC
+import System.Random.Stateful
+
+-- See Algorithm 4 in Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn
+-- Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal
+-- of Machine Learning Research.
+findReasonableEpsilon ::
+  StatefulGen g m =>
+  Target ->
+  Masses ->
+  HData ->
+  Positions ->
+  g ->
+  m LeapfrogScalingFactor
+findReasonableEpsilon t ms (HData mu msInv) q g = do
+  p <- generateMomenta mu ms g
+  case leapfrog t msInv 1 eI q p of
+    Nothing -> undefined
+    Just (_, p', prQ, prQ') -> do
+      let expEKin = exponentialKineticEnergy msInv p
+          expEKin' = exponentialKineticEnergy msInv p'
+          rI :: Double
+          rI = exp $ ln $ prQ' * expEKin' / (prQ * expEKin)
+          a :: Double
+          a = if rI > 0.5 then 1 else (-1)
+          go e r =
+            if r ** a > 2 ** (negate a)
+              then case leapfrog t msInv 1 e q p of
+                Nothing -> e
+                Just (_, p'', _, prQ'') ->
+                  let expEKin'' = exponentialKineticEnergy msInv p''
+                      r' :: Double
+                      r' = exp $ ln $ prQ'' * expEKin'' / (prQ * expEKin)
+                      e' = (2 ** a) * e
+                   in go e' r'
+              else e
+      pure $ go eI rI
+  where
+    eI = 1.0
 
 -- If changed, also change help text of 'HTuneMasses'.
 massMin :: Double
@@ -162,33 +201,34 @@ tuneAllMasses dim toVec xs ts
     xs' = L.fromRows $ VB.toList $ VB.map toVec xs
     (_, ss, xsNormalized) = S.scale xs'
     -- sigmaNormalized = L.unSym $ either error id $ S.oracleApproximatingShrinkage xsNormalized
-    sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.5 xsNormalized
+    sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.1 xsNormalized
     sigma = S.rescaleSWith ss sigmaNormalized
     massesNew = L.inv sigma
 
 -- | Internal.
-checkHSpecWith :: Eq (s Double) => Masses -> HSpec s -> Maybe String
-checkHSpecWith ms (HSpec x toVec fromVec)
+checkHStructureWith :: Eq (s Double) => Masses -> HStructure s -> Maybe String
+checkHStructureWith ms (HStructure x toVec fromVec)
   | fromVec x xVec /= x = eWith "'fromVectorWith x (toVector x) /= x' for sample state."
   | L.size xVec /= nrows = eWith "Mass matrix and 'toVector x' have different sizes for sample state."
   | otherwise = Nothing
   where
-    eWith m = Just $ "checkHSpecWith: " <> m
+    eWith m = Just $ "checkHStructureWith: " <> m
     nrows = L.rows $ L.unSym ms
     xVec = toVec x
 
 -- | Internal. Mean vector containing zeroes. We save this vector because it is
 -- required when sampling from the multivariate normal distribution.
-type HMu = L.Vector Double
+type Mu = L.Vector Double
 
 -- | Internal. Symmetric, inverted mass matrix.
-type HMassesInv = L.Herm Double
+type MassesInv = L.Herm Double
 
 -- | Internal data type containing memoized values.
 data HData = HData
-  { _hMu :: HMu,
-    _hMassesInv :: HMassesInv
+  { hMu :: Mu,
+    hMassesInv :: MassesInv
   }
+  deriving (Show)
 
 -- | Internal. Compute inverted mass matrix.
 --
@@ -214,12 +254,13 @@ getHData ms =
 
 -- | Internal. Generate momenta for a new iteration.
 generateMomenta ::
-  HMu ->
+  StatefulGen g m =>
+  Mu ->
   Masses ->
-  GenIO ->
-  IO Momenta
+  g ->
+  m Momenta
 generateMomenta mu masses gen = do
-  seed <- uniformM gen :: IO Int
+  seed <- uniformM gen
   let momenta = L.gaussianSample seed 1 mu masses
   return $ L.flatten momenta
 
@@ -228,9 +269,7 @@ generateMomenta mu masses gen = do
 
 -- | Internal. Compute exponent of kinetic energy.
 exponentialKineticEnergy ::
-  -- Inverted mass matrix.
-  L.Herm Double ->
-  -- Momenta.
+  MassesInv ->
   Momenta ->
   Log Double
 exponentialKineticEnergy msInvH xs =
@@ -252,7 +291,7 @@ type Target = Positions -> (Log Double, Positions)
 -- | Internal; Leapfrog integrator.
 leapfrog ::
   Target ->
-  HMassesInv ->
+  MassesInv ->
   --
   LeapfrogTrajectoryLength ->
   LeapfrogScalingFactor ->
@@ -263,14 +302,14 @@ leapfrog ::
   --
   -- Fail if state is not valid.
   Maybe (Positions, Momenta, Log Double, Log Double)
-leapfrog tF hMassesInv l eps theta phi = do
+leapfrog tF msInv l eps theta phi = do
   let -- The first half step of the momenta.
       (x, phiHalf) = leapfrogStepMomenta (0.5 * eps) tF theta phi
   -- L-1 full steps for positions and momenta. This gives the positions
   -- theta_{L-1}, and the momenta phi_{L-1/2}.
   (thetaLM1, phiLM1Half) <- go (l - 1) $ Just $ (theta, phiHalf)
   -- The last full step of the positions.
-  let thetaL = leapfrogStepPositions hMassesInv eps thetaLM1 phiLM1Half
+  let thetaL = leapfrogStepPositions msInv eps thetaLM1 phiLM1Half
   -- The last half step of the momenta.
   let (x', phiL) = leapfrogStepMomenta (0.5 * eps) tF thetaL phiLM1Half
   return (thetaL, phiL, x, x')
@@ -279,9 +318,9 @@ leapfrog tF hMassesInv l eps theta phi = do
     go n (Just (t, p))
       | n <= 0 = Just (t, p)
       | otherwise =
-          let t' = leapfrogStepPositions hMassesInv eps t p
+          let t' = leapfrogStepPositions msInv eps t p
               (x, p') = leapfrogStepMomenta eps tF t' p
-           in if x /= 0.0
+           in if x > 0.0
                 then go (n - 1) $ Just $ (t', p')
                 else Nothing
 
@@ -300,7 +339,7 @@ leapfrogStepMomenta eps tf theta phi = (x, phi + L.scale eps g)
     (x, g) = tf theta
 
 leapfrogStepPositions ::
-  HMassesInv ->
+  MassesInv ->
   LeapfrogScalingFactor ->
   -- Current positions.
   Positions ->
@@ -308,6 +347,6 @@ leapfrogStepPositions ::
   Momenta ->
   -- New positions.
   Positions
-leapfrogStepPositions hMassesInv eps theta phi = theta + (L.unSym hMassesInvEps L.#> phi)
+leapfrogStepPositions msInv eps theta phi = theta + (L.unSym msInvEps L.#> phi)
   where
-    hMassesInvEps = L.scale eps hMassesInv
+    msInvEps = L.scale eps msInv
