@@ -122,13 +122,16 @@ data IterationMode = AllProposals | FastProposals
 
 -- | Replicate 'Proposal's according to their weights and possibly shuffle them.
 prepareProposals :: IterationMode -> Cycle a -> GenIO -> IO [Proposal a]
-prepareProposals m (Cycle xs o) g = case o of
-  RandomO -> shuffle ps g
-  SequentialO -> return ps
-  RandomReversibleO -> do
-    psR <- shuffle ps g
-    return $ psR ++ reverse psR
-  SequentialReversibleO -> return $ ps ++ reverse ps
+prepareProposals m (Cycle xs o) g =
+  if null ps
+    then error "prepareProposals: No proposals found."
+    else case o of
+      RandomO -> shuffle ps g
+      SequentialO -> return ps
+      RandomReversibleO -> do
+        psR <- shuffle ps g
+        return $ psR ++ reverse psR
+      SequentialReversibleO -> return $ ps ++ reverse ps
   where
     !ps =
       concat
