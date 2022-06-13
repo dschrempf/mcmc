@@ -503,8 +503,8 @@ leapfrog tF msInv l eps q p = do
      in if x > 0.0
           then Just (x, pHalf)
           else Nothing
-  -- L-1 full steps for positions and momenta. This gives the positions
-  -- theta_{L-1}, and the momenta phi_{L-1/2}.
+  -- L-1 full steps for positions and momenta. This gives the positions q_{L-1},
+  -- and the momenta p_{L-1/2}.
   (qLM1, pLM1Half) <- go (l - 1) $ Just $ (q, pHalf)
   -- The last full step of the positions.
   let qL = leapfrogStepPositions msInv eps qLM1 pLM1Half
