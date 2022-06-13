@@ -175,8 +175,12 @@ data HParamsI = HParamsI
   }
   deriving (Show)
 
+-- NOTE: If changed, amend help text of 'defaultHParams', and 'defaultNParams'.
+defaultLeapfrogScalingFactor :: LeapfrogScalingFactor
+defaultLeapfrogScalingFactor = 0.1
+
 -- NOTE: If changed, amend help text of 'defaultHParams'.
-defaultLeapfrogSimulationLength :: Double
+defaultLeapfrogSimulationLength :: LeapfrogSimulationLength
 defaultLeapfrogSimulationLength = 0.5
 
 -- Instantiate all internal parameters.
@@ -269,7 +273,7 @@ findReasonableEpsilon ::
 findReasonableEpsilon t ms q g = do
   p <- generateMomenta mu ms g
   case leapfrog t msInv 1 eI q p of
-    Nothing -> undefined
+    Nothing -> pure defaultLeapfrogScalingFactor
     Just (_, p', prQ, prQ') -> do
       let expEKin = exponentialKineticEnergy msInv p
           expEKin' = exponentialKineticEnergy msInv p'

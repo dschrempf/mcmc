@@ -162,7 +162,8 @@ data NParams = NParams
 
 -- | Default parameters.
 --
--- - Estimate a reasonable leapfrog scaling factor using Algorithm 4 [4].
+-- - Estimate a reasonable leapfrog scaling factor using Algorithm 4 [4]. If all
+--   fails, use 0.1.
 --
 -- - The mass matrix is set to the identity matrix.
 defaultNParams :: NParams

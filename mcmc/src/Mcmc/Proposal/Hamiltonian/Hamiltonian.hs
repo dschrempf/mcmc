@@ -86,7 +86,8 @@ data HParams = HParams
 
 -- | Default parameters.
 --
--- - Estimate a reasonable leapfrog scaling factor using Algorithm 4 [4].
+-- - Estimate a reasonable leapfrog scaling factor using Algorithm 4 [4]. If all
+--   fails, use 0.1.
 --
 -- - Leapfrog simulation length is set to 0.5.
 --
