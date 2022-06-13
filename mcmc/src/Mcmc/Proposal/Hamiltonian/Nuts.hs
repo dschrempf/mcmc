@@ -240,8 +240,8 @@ nutsPFunction hparamsi hstruct targetWith x g = do
               then pure (y''', isNewState', ac)
               else go qm'' pm'' qp'' pp'' (j + 1) y''' (n + n'') isNewState'
   (x', isNew, ac) <- go q p q p 0 q 1 False
-  let r = if isNew then ForceAccept $ fromVec x' else ForceReject
-  pure (r, Just ac)
+  let pr = if isNew then ForceAccept $ fromVec x' else ForceReject
+  pure (pr, Just ac)
   where
     (HParamsI e _ ms _ _ hdata) = hparamsi
     (HStructure _ toVec fromVecWith) = hstruct
