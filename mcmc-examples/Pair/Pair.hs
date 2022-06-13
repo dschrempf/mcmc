@@ -89,7 +89,7 @@ htconf :: HTuningConf
 htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
 
 nparams :: NParams
-nparams = NParams masses 0.1
+nparams = NParams (Just 0.1) (Just masses)
   where
     masses = L.trustSym $ L.scale 4 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
 
@@ -109,7 +109,7 @@ hmc :: Proposal I
 hmc = hamiltonian hparams htconf hstruct htarget (PName "Hamiltonian") (pWeight 1)
 
 nutp :: Proposal I
-nutp = nuts nparams hstruct htarget (PName "Nuts") (pWeight 1)
+nutp = nuts nparams htconf hstruct htarget (PName "Nuts") (pWeight 1)
 
 cc :: Cycle I
 cc = cycleFromList [hmc, nutp]

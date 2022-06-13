@@ -496,34 +496,34 @@ leapfrog ::
   --
   -- Fail if state is not valid.
   Maybe (Positions, Momenta, Log Double, Log Double)
-leapfrog tF msInv l eps theta phi = do
+leapfrog tF msInv l eps q p = do
   -- The first half step of the momenta.
-  (x, phiHalf) <-
-    let (x, phiHalf) = leapfrogStepMomenta (0.5 * eps) tF theta phi
+  (x, pHalf) <-
+    let (x, pHalf) = leapfrogStepMomenta (0.5 * eps) tF q p
      in if x > 0.0
-          then Just (x, phiHalf)
+          then Just (x, pHalf)
           else Nothing
   -- L-1 full steps for positions and momenta. This gives the positions
   -- theta_{L-1}, and the momenta phi_{L-1/2}.
-  (thetaLM1, phiLM1Half) <- go (l - 1) $ Just $ (theta, phiHalf)
+  (qLM1, pLM1Half) <- go (l - 1) $ Just $ (q, pHalf)
   -- The last full step of the positions.
-  let thetaL = leapfrogStepPositions msInv eps thetaLM1 phiLM1Half
+  let qL = leapfrogStepPositions msInv eps qLM1 pLM1Half
   -- The last half step of the momenta.
-  (x', phiL) <-
-    let (x', phiL) = leapfrogStepMomenta (0.5 * eps) tF thetaL phiLM1Half
+  (x', pL) <-
+    let (x', pL) = leapfrogStepMomenta (0.5 * eps) tF qL pLM1Half
      in if x' > 0.0
-          then Just (x', phiL)
+          then Just (x', pL)
           else Nothing
-  return (thetaL, phiL, x, x')
+  return (qL, pL, x, x')
   where
     go _ Nothing = Nothing
-    go n (Just (t, p))
-      | n <= 0 = Just (t, p)
+    go n (Just (qs, ps))
+      | n <= 0 = Just (qs, ps)
       | otherwise =
-          let t' = leapfrogStepPositions msInv eps t p
-              (x, p') = leapfrogStepMomenta eps tF t' p
+          let qs' = leapfrogStepPositions msInv eps qs ps
+              (x, ps') = leapfrogStepMomenta eps tF qs' p
            in if x > 0.0
-                then go (n - 1) $ Just $ (t', p')
+                then go (n - 1) $ Just $ (qs', ps')
                 else Nothing
 
 leapfrogStepMomenta ::
@@ -536,9 +536,9 @@ leapfrogStepMomenta ::
   -- New momenta; also return value target function to be collected at the end
   -- of the leapfrog integration.
   (Log Double, Momenta)
-leapfrogStepMomenta eps tf theta phi = (x, phi + L.scale eps g)
+leapfrogStepMomenta eps tf q p = (x, p + L.scale eps g)
   where
-    (x, g) = tf theta
+    (x, g) = tf q
 
 leapfrogStepPositions ::
   MassesInv ->
@@ -549,6 +549,6 @@ leapfrogStepPositions ::
   Momenta ->
   -- New positions.
   Positions
-leapfrogStepPositions msInv eps theta phi = theta + (L.unSym msInvEps L.#> phi)
+leapfrogStepPositions msInv eps q p = q + (L.unSym msInvEps L.#> p)
   where
     msInvEps = L.scale eps msInv
