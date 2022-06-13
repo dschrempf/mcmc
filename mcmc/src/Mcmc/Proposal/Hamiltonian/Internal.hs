@@ -29,8 +29,6 @@
 --   Machine Learning Research.
 module Mcmc.Proposal.Hamiltonian.Internal
   ( -- * Parameters
-    Mu,
-    MassesInv,
     HData (..),
     getHData,
     HParamsI (..),
@@ -61,6 +59,7 @@ where
 import Control.Monad
 import Control.Monad.ST
 import Data.Foldable
+import Data.Maybe
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
@@ -132,8 +131,8 @@ tParamsFixedWith eps = TParamsFixed eps mu ga t0 ka
 -- when sampling from the multivariate normal distribution.
 type Mu = L.Vector Double
 
--- Symmetric, inverted mass matrix.
-type MassesInv = L.Herm Double
+-- Generali, symmetric, inverted mass matrix.
+type MassesInv = L.GMatrix
 
 -- Data type containing memoized values.
 data HData = HData
@@ -141,6 +140,42 @@ data HData = HData
     hMassesInv :: MassesInv
   }
   deriving (Show)
+
+precision :: Double
+precision = 1e-8
+
+isDiag :: L.Matrix Double -> Bool
+isDiag xs = abs (sumDiag - sumFull) < precision
+  where
+    xsAbs = L.cmap abs xs
+    sumDiag = L.sumElements (L.takeDiag xsAbs)
+    sumFull = L.sumElements xsAbs
+
+-- Consider a matrix sparse if less than (5 * number of rows) elements are
+-- non-zero.
+isSparse :: L.Matrix Double -> Bool
+isSparse xs = L.sumElements xsInd < (5 * fromIntegral n)
+  where
+    n = L.rows xs
+    f x = if abs x >= precision then 1 else 0 :: Double
+    xsInd = L.cmap f xs
+
+toAssocMatrix :: L.Matrix Double -> L.AssocMatrix
+toAssocMatrix xs
+  | n /= m = error "toAssocMatrix: Matrix not square."
+  | otherwise =
+      catMaybes
+        [ if abs e > eps then Just ((i, j), e) else Nothing
+          | i <- [0 .. (n - 1)],
+            j <- [0 .. (n - 1)],
+            let e = xs `L.atIndex` (i, j)
+        ]
+  where
+    n = L.rows xs
+    m = L.cols xs
+    eps = 1e-8
+
+-- TODO: If diagonal mkDiag, if sparse then mkSparse, else mkDense.
 
 -- Compute inverted mass matrix.
 --
@@ -150,7 +185,7 @@ getHData ms =
   -- The multivariate normal distribution requires a positive definite matrix
   -- with positive determinant.
   if sign == 1.0
-    then HData mu massesInvH
+    then HData mu massesInvG
     else
       let msg =
             "getHData: Determinant of covariance matrix is negative."
@@ -162,7 +197,7 @@ getHData ms =
     -- NOTE: In theory we can trust that the matrix is symmetric here, because
     -- the inverse of a symmetric matrix is symmetric. However, one may want to
     -- implement a check anyways.
-    massesInvH = L.trustSym massesInv
+    massesInvG = L.mkSparse $ toAssocMatrix massesInv
 
 -- All internal parameters.
 data HParamsI = HParamsI
@@ -475,18 +510,16 @@ generateMomenta mu masses gen = do
   let momenta = L.gaussianSample seed 1 mu masses
   return $ L.flatten momenta
 
--- TODO (high): Use a sparse matrix approach for the log density of the
--- multivariate normal, similar to McmcDate.
-
 -- Compute exponent of kinetic energy.
+--
+-- Use a general matrix which has special representations for diagonal and
+-- sparse matrices, both of which are really useful here.
 exponentialKineticEnergy ::
   MassesInv ->
   Momenta ->
   Log Double
-exponentialKineticEnergy msInvH xs =
-  Exp $ (-0.5) * ((xs L.<# msInv) L.<.> xs)
-  where
-    msInv = L.unSym msInvH
+exponentialKineticEnergy msInv xs =
+  Exp $ (-0.5) * (xs L.<.> (msInv L.!#> xs))
 
 -- Function calculating target value and gradient.
 --
@@ -566,6 +599,10 @@ leapfrogStepPositions ::
   Momenta ->
   -- New positions.
   Positions
-leapfrogStepPositions msInv eps q p = q + (L.unSym msInvEps L.#> p)
-  where
-    msInvEps = L.scale eps msInv
+-- NOTE: Because of numerical errors, the following formulas exhibit different
+-- traces (although the posterior appears to be the same):
+-- 1. This one we cannot use with general matrices:
+--    leapfrogStepPositions msInv eps q p = q + (L.scale eps msInv L.!#> p)
+-- 2. This one seems to be more numerically unstable:
+--    leapfrogStepPositions msInv eps q p = q + L.scale eps (msInv L.!#> p)
+leapfrogStepPositions msInv eps q p = q + (msInv L.!#> L.scale eps p)
