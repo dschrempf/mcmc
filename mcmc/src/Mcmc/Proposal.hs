@@ -236,6 +236,8 @@ liftProposalWith :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
 liftProposalWith jf l (Proposal n r d p w s t) =
   Proposal n r d p w (liftPFunctionWith jf l s) (liftTunerWith jf l <$> t)
 
+-- TODO @Dominik (high, feature): Proposals should be aware of: Is this Burn in, or not?
+
 -- | Simple proposal function without tuning information.
 --
 -- Instruction about randomly moving from the current state to a new state,

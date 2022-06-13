@@ -39,6 +39,7 @@ module Mcmc.Proposal.Hamiltonian.Nuts
 where
 
 import Data.Bifunctor
+import Mcmc.Acceptance
 import Mcmc.Proposal
 import Mcmc.Proposal.Hamiltonian.Common
 import Mcmc.Proposal.Hamiltonian.Internal
@@ -47,29 +48,37 @@ import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 import System.Random.MWC
 
--- Internal; Slice variable u.
+-- Internal; Slice variable 'u'.
 type SliceVariable = Log Double
 
 -- Internal; Forward is True.
 type Direction = Bool
 
--- Internal; Doubling step number.
+-- Internal; Doubling step number 'j'.
 type DoublingStep = Int
 
--- Internal; The number of leapfrog steps within the slice ('n' in Algorithm 3).
+-- Internal; Number of leapfrog steps within the slice 'n'.
 type NStepsOk = Int
 
--- Internal; Well, that's fun, isn't it? Have a look at Algorithm 3.
--- cited above.
-type BuildTreeReturnType = (Positions, Momenta, Positions, Momenta, Positions, NStepsOk)
+-- Internal; Estimated acceptance rate \(\alpha\)'.
+type Alpha = Log Double
+
+-- Internal; Number of accepted steps.
+type NAlpha = Int
+
+-- Internal; Well, that's fun, isn't it? Have a look at Algorithm 3 in [4].
+type BuildTreeReturnType = (Positions, Momenta, Positions, Momenta, Positions, NStepsOk, Alpha, NAlpha)
 
 -- Constant determining largest allowed leapfrog integration error. See
--- discussion around Equation (3).
+-- discussion around Equation (3) in [4].
 deltaMax :: Log Double
 deltaMax = Exp 1000
 
--- Second function in Algorithm 3 and Algorithm 6, respectively.
+-- Second function in Algorithm 3 and Algorithm 6, respectively in [4].
 buildTreeWith ::
+  -- The exponent of the total energy of the starting state is used to
+  -- calcaulate the expected acceptance rate 'Alpha'.
+  Log Double ->
   HData ->
   Target ->
   GenIO ->
@@ -81,7 +90,7 @@ buildTreeWith ::
   DoublingStep ->
   LeapfrogScalingFactor ->
   IO (Maybe BuildTreeReturnType)
-buildTreeWith hdata@(HData _ msInv) tfun g x p u v j e
+buildTreeWith expETot0 hdata@(HData _ msInv) tfun g x p u v j e
   | j <= 0 =
       -- Move backwards or forwards?
       let e' = if v then e else negate e
@@ -89,12 +98,16 @@ buildTreeWith hdata@(HData _ msInv) tfun g x p u v j e
             Nothing -> pure Nothing
             Just (x', p', _, expEPot') ->
               if errorIsSmall
-                then pure $ Just (x', p', x', p', x', n')
+                then pure $ Just (x', p', x', p', x', n', alpha, 1)
                 else pure Nothing
               where
                 expEKin' = exponentialKineticEnergy msInv p'
+                expETot' = expEPot' * expEKin'
                 n' = if u <= expEPot' * expEKin' then 1 else 0
-                errorIsSmall = expEPot' * expEKin' > u / deltaMax
+                errorIsSmall = u < deltaMax * expETot'
+                alpha' = expETot' / expETot0
+                alpha = min 1.0 alpha'
+
   -- Recursive case. This is complicated because the algorithm is written for an
   -- imperative language, and because we have two stacked monads.
   | otherwise = do
@@ -102,7 +115,7 @@ buildTreeWith hdata@(HData _ msInv) tfun g x p u v j e
       case mr of
         Nothing -> pure Nothing
         -- Here, 'm' stands for minus, and 'p' for plus.
-        Just (xm, pm, xp, pp, x', n') -> do
+        Just (xm, pm, xp, pp, x', n', a', na') -> do
           mr' <-
             if v
               then -- Forwards.
@@ -110,26 +123,32 @@ buildTreeWith hdata@(HData _ msInv) tfun g x p u v j e
                 mr'' <- buildTree xp pp u v (j - 1) e
                 case mr'' of
                   Nothing -> pure Nothing
-                  Just (_, _, xp', pp', x'', n'') -> pure $ Just (xm, pm, xp', pp', x'', n'')
+                  Just (_, _, xp', pp', x'', n'', a'', na'') ->
+                    pure $ Just (xm, pm, xp', pp', x'', n'', a'', na'')
               else -- Backwards.
               do
                 mr'' <- buildTree xm pm u v (j - 1) e
                 case mr'' of
                   Nothing -> pure Nothing
-                  Just (xm', pm', _, _, x'', n'') -> pure $ Just (xm', pm', xp, pp, x'', n'')
+                  Just (xm', pm', _, _, x'', n'', a'', na'') ->
+                    pure $ Just (xm', pm', xp, pp, x'', n'', a'', na'')
           case mr' of
             Nothing -> pure Nothing
-            Just (xm'', pm'', xp'', pp'', x''', n''') -> do
+            Just (xm'', pm'', xp'', pp'', x''', n''', a''', na''') -> do
               b <- uniform g :: IO Double
               let x'''' = if b < fromIntegral n''' / (fromIntegral $ n' + n''') then x''' else x'
+                  a'''' = a' + a'''
+                  na'''' = na' + na'''
                   n'''' = n' + n'''
                   -- Important: Check for U-turn. This formula differs from the
                   -- formula using indicator functions in Algorithm 3. However,
                   -- check Equation (4).
                   isUTurn = let dx = (xp'' - xm'') in (dx * pm'' < 0) || (dx * pp'' < 0)
-              if isUTurn then pure Nothing else pure $ Just (xm'', pm'', xp'', pp'', x'''', n'''')
+              if isUTurn
+                then pure Nothing
+                else pure $ Just (xm'', pm'', xp'', pp'', x'''', n'''', a'''', na'''')
   where
-    buildTree = buildTreeWith hdata tfun g
+    buildTree = buildTreeWith expETot0 hdata tfun g
 
 -- TODO (high): Tuning configuration.
 
@@ -186,8 +205,9 @@ nutsPFunctionWithMemoizedCovariance nparams hstruct hdata targetWith xComplete g
   let x = toVec xComplete
       expEPot = fst $ target x
       expEKin = exponentialKineticEnergy msInv p
+      expETot = expEPot * expEKin
       uZeroOneL = Exp $ log uZeroOne
-      u = expEPot * expEKin * uZeroOneL
+      u = expETot * uZeroOneL
   let -- Recursive case. This is complicated because the algorithm is written for an
       -- imperative language, and because we have two stacked monads.
       --
@@ -198,35 +218,39 @@ nutsPFunctionWithMemoizedCovariance nparams hstruct hdata targetWith xComplete g
           if v
             then -- Forwards.
             do
-              mr <- buildTreeWith hdata target g xp pp u v j e
+              mr <- buildTreeWith expETot hdata target g xp pp u v j e
               case mr of
                 Nothing -> pure Nothing
-                Just (_, _, xp', pp', y', n') -> pure $ Just (xm, pm, xp', pp', y', n')
+                Just (_, _, xp', pp', y', n', a, na) -> pure $ Just (xm, pm, xp', pp', y', n', a, na)
             else -- Backwards.
             do
-              mr <- buildTreeWith hdata target g xm pm u v j e
+              mr <- buildTreeWith expETot hdata target g xm pm u v j e
               case mr of
                 Nothing -> pure Nothing
-                Just (xm', pm', _, _, y', n') -> pure $ Just (xm', pm', xp, pp, y', n')
+                Just (xm', pm', _, _, y', n', a, na) -> pure $ Just (xm', pm', xp, pp, y', n', a, na)
         case mr' of
-          Nothing -> pure (y, isNewState)
-          Just (xm'', pm'', xp'', pp'', y'', n'') -> do
-            let r = fromIntegral n'' / fromIntegral n
+          Nothing -> pure (y, isNewState, AcceptanceCounts 0 100)
+          Just (xm'', pm'', xp'', pp'', y'', n'', a, na) -> do
+            let r = fromIntegral n'' / fromIntegral n :: Double
+                ar = (exp $ ln a) / fromIntegral na
+                ac =
+                  if ar >= 0
+                    then let a' = max 100 (round (ar * 100)) in AcceptanceCounts a' (100 - a')
+                    else error $ "hamiltonianPFunction: Acceptance rate negative."
             isAccept <-
               if r > 1.0
                 then pure True
                 else do
-                  b <- uniform g :: IO Double
+                  b <- uniform g
                   pure $ b < r
             let (y''', isNewState') = if isAccept then (y'', True) else (y, isNewState)
                 isUTurn = let dx = (xp'' - xm'') in (dx * pm'' < 0) || (dx * pp'' < 0)
             if isUTurn
-              then pure (y''', isNewState')
+              then pure (y''', isNewState', ac)
               else go xm'' pm'' xp'' pp'' (j + 1) y''' (n + n'') isNewState'
-  (x', isNew) <- go x p x p 0 x 1 False
+  (x', isNew, ac) <- go x p x p 0 x 1 False
   let r = if isNew then ForceAccept $ fromVec x' else ForceReject
-  -- TODO @Dominik (high, feature): Acceptance counts.
-  pure (r, Nothing)
+  pure (r, Just ac)
   where
     (NParams ms e) = nparams
     (HStructure _ toVec fromVecWith) = hstruct

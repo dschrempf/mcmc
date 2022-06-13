@@ -153,6 +153,11 @@ hamiltonianPFunctionWithTuningParameters d hstruct targetWith _ ts = do
 -- TODO @Dominik (high, issue): Acceptance counts. How to combine with values
 -- reported here and from the NUTS sampler.
 
+-- TODO @Dominik (high, feature): The expected acceptance counts should not be
+-- calculated after burn in. Rather, the actual acceptance counts should be
+-- reported. For this to work, the proposal needs to know if it is in "burn in
+-- phase" or not.
+
 -- The inverted covariance matrix and the log determinant of the covariance
 -- matrix are calculated by 'hamiltonianPFunction'.
 hamiltonianPFunction ::
