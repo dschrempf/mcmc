@@ -58,6 +58,8 @@ module Mcmc.Proposal.Hamiltonian.Internal
   )
 where
 
+import Control.Monad
+import Control.Monad.ST
 import Data.Foldable
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
@@ -160,12 +162,50 @@ data HParamsI = HParamsI
   }
   deriving (Show)
 
+-- NOTE: If changed, amend help text of 'defaultHParams'.
+defaultLeapfrogSimulationLength :: Double
+defaultLeapfrogSimulationLength = 0.5
+
 -- Instantiate all internal parameters.
-hParamsIWith :: LeapfrogScalingFactor -> LeapfrogSimulationLength -> Masses -> HParamsI
-hParamsIWith eps la ms = HParamsI eps la ms tParamsVar tParamsFixed hdata
+hParamsIWith ::
+  Target ->
+  Positions ->
+  Maybe LeapfrogScalingFactor ->
+  Maybe LeapfrogSimulationLength ->
+  Maybe Masses ->
+  Either String HParamsI
+hParamsIWith htarget p mEps mLa mMs = do
+  d <- case VS.length p of
+    0 -> eWith "Empty position vector."
+    d -> Right d
+  let defMs = L.trustSym $ L.ident d
+  ms <- case mMs of
+    Nothing -> Right defMs
+    Just ms -> do
+      let ms' = L.unSym ms
+          diagonalMs = L.toList $ L.takeDiag ms'
+      when (any (<= 0) diagonalMs) $ eWith "Some diagonal masses are zero or negative."
+      let nrows = L.rows ms'
+          ncols = L.cols ms'
+      when (nrows /= ncols) $ eWith "Mass matrix is not square."
+      Right ms
+  let hdata = getHData ms
+  la <- case mLa of
+    Nothing -> Right defaultLeapfrogSimulationLength
+    Just l
+      | l <= 0 -> eWith "Leapfrog simulation length is zero or negative."
+      | otherwise -> Right l
+  eps <- case mEps of
+    Nothing -> Right $ runST $ do
+      g <- create
+      findReasonableEpsilon htarget ms p g
+    Just e
+      | e <= 0 -> eWith "Leapfrog scaling factor is zero or negative."
+      | otherwise -> Right e
+  let tParamsFixed = tParamsFixedWith eps
+  pure $ HParamsI eps la ms tParamsVar tParamsFixed hdata
   where
-    tParamsFixed = tParamsFixedWith eps
-    hdata = getHData ms
+    eWith m = Left $ "hParamsIWith: " <> m
 
 -- Dimension of the proposal.
 type Dimension = Int

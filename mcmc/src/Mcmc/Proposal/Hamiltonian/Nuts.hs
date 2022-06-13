@@ -34,6 +34,7 @@
 --   Machine Learning Research.
 module Mcmc.Proposal.Hamiltonian.Nuts
   ( NParams (..),
+    defaultNParams,
     nuts,
   )
 where
@@ -90,15 +91,15 @@ buildTreeWith ::
   DoublingStep ->
   LeapfrogScalingFactor ->
   IO (Maybe BuildTreeReturnType)
-buildTreeWith expETot0 hdata@(HData _ msInv) tfun g x p u v j e
+buildTreeWith expETot0 hdata@(HData _ msInv) tfun g q p u v j e
   | j <= 0 =
       -- Move backwards or forwards?
       let e' = if v then e else negate e
-       in case leapfrog tfun msInv 1 e' x p of
+       in case leapfrog tfun msInv 1 e' q p of
             Nothing -> pure Nothing
-            Just (x', p', _, expEPot') ->
+            Just (q', p', _, expEPot') ->
               if errorIsSmall
-                then pure $ Just (x', p', x', p', x', n', alpha, 1)
+                then pure $ Just (q', p', q', p', q', n', alpha, 1)
                 else pure Nothing
               where
                 expEKin' = exponentialKineticEnergy msInv p'
@@ -111,99 +112,89 @@ buildTreeWith expETot0 hdata@(HData _ msInv) tfun g x p u v j e
   -- Recursive case. This is complicated because the algorithm is written for an
   -- imperative language, and because we have two stacked monads.
   | otherwise = do
-      mr <- buildTree x p u v (j - 1) e
+      mr <- buildTree q p u v (j - 1) e
       case mr of
         Nothing -> pure Nothing
         -- Here, 'm' stands for minus, and 'p' for plus.
-        Just (xm, pm, xp, pp, x', n', a', na') -> do
+        Just (qm, pm, qp, pp, q', n', a', na') -> do
           mr' <-
             if v
               then -- Forwards.
               do
-                mr'' <- buildTree xp pp u v (j - 1) e
+                mr'' <- buildTree qp pp u v (j - 1) e
                 case mr'' of
                   Nothing -> pure Nothing
-                  Just (_, _, xp', pp', x'', n'', a'', na'') ->
-                    pure $ Just (xm, pm, xp', pp', x'', n'', a'', na'')
+                  Just (_, _, qp', pp', q'', n'', a'', na'') ->
+                    pure $ Just (qm, pm, qp', pp', q'', n'', a'', na'')
               else -- Backwards.
               do
-                mr'' <- buildTree xm pm u v (j - 1) e
+                mr'' <- buildTree qm pm u v (j - 1) e
                 case mr'' of
                   Nothing -> pure Nothing
-                  Just (xm', pm', _, _, x'', n'', a'', na'') ->
-                    pure $ Just (xm', pm', xp, pp, x'', n'', a'', na'')
+                  Just (qm', pm', _, _, q'', n'', a'', na'') ->
+                    pure $ Just (qm', pm', qp, pp, q'', n'', a'', na'')
           case mr' of
             Nothing -> pure Nothing
-            Just (xm'', pm'', xp'', pp'', x''', n''', a''', na''') -> do
+            Just (qm'', pm'', qp'', pp'', q''', n''', a''', na''') -> do
               b <- uniform g :: IO Double
-              let x'''' = if b < fromIntegral n''' / (fromIntegral $ n' + n''') then x''' else x'
+              let q'''' = if b < fromIntegral n''' / (fromIntegral $ n' + n''') then q''' else q'
                   a'''' = a' + a'''
                   na'''' = na' + na'''
                   n'''' = n' + n'''
                   -- Important: Check for U-turn. This formula differs from the
                   -- formula using indicator functions in Algorithm 3. However,
                   -- check Equation (4).
-                  isUTurn = let dx = (xp'' - xm'') in (dx * pm'' < 0) || (dx * pp'' < 0)
+                  isUTurn = let dq = (qp'' - qm'') in (dq * pm'' < 0) || (dq * pp'' < 0)
               if isUTurn
                 then pure Nothing
-                else pure $ Just (xm'', pm'', xp'', pp'', x'''', n'''', a'''', na'''')
+                else pure $ Just (qm'', pm'', qp'', pp'', q'''', n'''', a'''', na'''')
   where
     buildTree = buildTreeWith expETot0 hdata tfun g
 
--- TODO (high): Tuning configuration.
-
--- TODO (high): Add tuning configuration to NTuningSpec.
-
--- TODO @Dominik (high, issue): The user facing type 'NParams' should have Maybe
--- values.
-
--- | Complete tuning specification of the NUTS proposal.
+-- | Paramters of the NUTS proposal.
 --
 -- Includes tuning parameters and tuning configuration.
 data NParams = NParams
-  { nMasses :: Masses,
-    nLeapfrogScalingFactor :: LeapfrogScalingFactor
+  { nLeapfrogScalingFactor :: Maybe LeapfrogScalingFactor,
+    nMasses :: Maybe Masses
   }
   deriving (Show)
 
--- TODO @Dominik (high, issue): NParamsSet similar to 'HParamsI'.
+-- | Default parameters.
+--
+-- - Estimate a reasonable leapfrog scaling factor using Algorithm 4 [4].
+--
+-- - The mass matrix is set to the identity matrix.
+defaultNParams :: NParams
+defaultNParams = NParams Nothing Nothing
 
--- data NParamsSet = NParamsSet ...
-
--- TODO @Dominik (high, issue): Check params similar to 'fromHParamsI.
-
--- -- | See 'NParams'.
--- --
--- -- Return 'Left' if an error is found.
--- nTuningSpec :: Masses -> LeapfrogScalingFactor -> Either String NTuningSpec
--- nTuningSpec ms e
---   | any (<= 0) diagonalMasses = eWith "Some diagonal entries of the mass matrix are zero or negative."
---   | nrows /= ncols = eWith "Mass matrix is not square."
---   | e <= 0 = eWith "Leapfrog scaling factor is zero or negative."
---   | otherwise = Right $ NTuningSpec ms e
---   where
---     eWith m = Left $ "nTuningSpec: " <> m
---     ms' = L.unSym ms
---     diagonalMasses = L.toList $ L.takeDiag ms'
---     nrows = L.rows ms'
---     ncols = L.cols ms'
+nutsPFunctionWithTuningParameters ::
+  Traversable s =>
+  Dimension ->
+  HStructure s ->
+  (s Double -> Target) ->
+  TuningParameter ->
+  AuxiliaryTuningParameters ->
+  Either String (PFunction (s Double))
+nutsPFunctionWithTuningParameters d hstruct targetWith _ ts = do
+  hParamsI <- fromAuxiliaryTuningParameters d ts
+  pure $ nutsPFunction hParamsI hstruct targetWith
 
 -- First function in Algorithm 3.
-nutsPFunctionWithMemoizedCovariance ::
-  NParams ->
+nutsPFunction ::
+  HParamsI ->
   HStructure s ->
-  HData ->
   (s Double -> Target) ->
   PFunction (s Double)
-nutsPFunctionWithMemoizedCovariance nparams hstruct hdata targetWith xComplete g = do
+nutsPFunction hparamsi hstruct targetWith x g = do
   p <- generateMomenta mu ms g
   uZeroOne <- uniform g :: IO Double
   -- NOTE (runtime): Here we need the target function value from the previous
   -- step. For now, I just recalculate the value, but this is, of course, slow!
   -- However, if other proposals have changed the state inbetween, we do need to
   -- recalculate this value.
-  let x = toVec xComplete
-      expEPot = fst $ target x
+  let q = toVec x
+      expEPot = fst $ target q
       expEKin = exponentialKineticEnergy msInv p
       expETot = expEPot * expEKin
       uZeroOneL = Exp $ log uZeroOne
@@ -212,31 +203,31 @@ nutsPFunctionWithMemoizedCovariance nparams hstruct hdata targetWith xComplete g
       -- imperative language, and because we have two stacked monads.
       --
       -- Here, 'm' stands for minus, and 'p' for plus.
-      go xm pm xp pp j y n isNewState = do
+      go qm pm qp pp j y n isNewState = do
         v <- uniform g :: IO Direction
         mr' <-
           if v
             then -- Forwards.
             do
-              mr <- buildTreeWith expETot hdata target g xp pp u v j e
+              mr <- buildTreeWith expETot hdata target g qp pp u v j e
               case mr of
                 Nothing -> pure Nothing
-                Just (_, _, xp', pp', y', n', a, na) -> pure $ Just (xm, pm, xp', pp', y', n', a, na)
+                Just (_, _, qp', pp', y', n', a, na) -> pure $ Just (qm, pm, qp', pp', y', n', a, na)
             else -- Backwards.
             do
-              mr <- buildTreeWith expETot hdata target g xm pm u v j e
+              mr <- buildTreeWith expETot hdata target g qm pm u v j e
               case mr of
                 Nothing -> pure Nothing
-                Just (xm', pm', _, _, y', n', a, na) -> pure $ Just (xm', pm', xp, pp, y', n', a, na)
+                Just (qm', pm', _, _, y', n', a, na) -> pure $ Just (qm', pm', qp, pp, y', n', a, na)
         case mr' of
           Nothing -> pure (y, isNewState, AcceptanceCounts 0 100)
-          Just (xm'', pm'', xp'', pp'', y'', n'', a, na) -> do
+          Just (qm'', pm'', qp'', pp'', y'', n'', a, na) -> do
             let r = fromIntegral n'' / fromIntegral n :: Double
                 ar = (exp $ ln a) / fromIntegral na
                 ac =
                   if ar >= 0
                     then let a' = max 100 (round (ar * 100)) in AcceptanceCounts a' (100 - a')
-                    else error $ "hamiltonianPFunction: Acceptance rate negative."
+                    else error $ "nutsPFunction: Acceptance rate negative."
             isAccept <-
               if r > 1.0
                 then pure True
@@ -244,53 +235,62 @@ nutsPFunctionWithMemoizedCovariance nparams hstruct hdata targetWith xComplete g
                   b <- uniform g
                   pure $ b < r
             let (y''', isNewState') = if isAccept then (y'', True) else (y, isNewState)
-                isUTurn = let dx = (xp'' - xm'') in (dx * pm'' < 0) || (dx * pp'' < 0)
+                isUTurn = let dq = (qp'' - qm'') in (dq * pm'' < 0) || (dq * pp'' < 0)
             if isUTurn
               then pure (y''', isNewState', ac)
-              else go xm'' pm'' xp'' pp'' (j + 1) y''' (n + n'') isNewState'
-  (x', isNew, ac) <- go x p x p 0 x 1 False
+              else go qm'' pm'' qp'' pp'' (j + 1) y''' (n + n'') isNewState'
+  (x', isNew, ac) <- go q p q p 0 q 1 False
   let r = if isNew then ForceAccept $ fromVec x' else ForceReject
   pure (r, Just ac)
   where
-    (NParams ms e) = nparams
+    (HParamsI e _ ms _ _ hdata) = hparamsi
     (HStructure _ toVec fromVecWith) = hstruct
-    fromVec = fromVecWith xComplete
+    fromVec = fromVecWith x
     (HData mu msInv) = hdata
-    target = targetWith xComplete
-
-nutsPFunction :: NParams -> HStructure s -> (s Double -> Target) -> PFunction (s Double)
-nutsPFunction nparams hstruct = nutsPFunctionWithMemoizedCovariance nparams hstruct (getHData $ nMasses nparams)
+    target = targetWith x
 
 -- | No U-turn Hamiltonian Monte Carlo sampler (NUTS).
+--
+-- The structure of the state is denoted as @s@.
+--
+-- May call 'error' during initialization.
 nuts ::
   Traversable s =>
   NParams ->
+  HTuningConf ->
   HStructure s ->
   HTarget s ->
   PName ->
   PWeight ->
   Proposal (s Double)
-nuts nparams hstruct htarget n w = case checkHStructureWith (nMasses nparams) hstruct of
-  Just err -> error err
-  Nothing ->
-    let -- Misc.
-        desc = PDescription "No U-turn sampler (NUTS)"
-        (HStructure sample toVec fromVec) = hstruct
-        dim = L.size $ toVec sample
-        -- See bottom of page 1616 in Matthew D. Hoffman, Andrew Gelman (2014)
-        -- The No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian
-        -- Monte Carlo, Journal of Machine Learning Research.
-        pDim = PSpecial dim 0.6
-        -- Vectorize and derive the target function.
-        (HTarget mPrF lhF mJcF) = htarget
-        tF y = case (mPrF, mJcF) of
-          (Nothing, Nothing) -> lhF y
-          (Just prF, Nothing) -> prF y * lhF y
-          (Nothing, Just jcF) -> lhF y * jcF y
-          (Just prF, Just jcF) -> prF y * lhF y * jcF y
-        tFnG = grad' (ln . tF)
-        targetWith x = bimap Exp toVec . tFnG . fromVec x
-        ps = nutsPFunction nparams hstruct targetWith
-        nutsWith = Proposal n desc PSlow pDim w ps
-     in -- TODO (high): NUTS with tuning.
-        nutsWith Nothing
+nuts nparams htconf hstruct htarget n w =
+  let -- Misc.
+      desc = PDescription "No U-turn sampler (NUTS)"
+      (HStructure sample toVec fromVec) = hstruct
+      dim = L.size $ toVec sample
+      -- See bottom of page 1616 in [4].
+      pDim = PSpecial dim 0.6
+      -- Vectorize and derive the target function.
+      (HTarget mPrF lhF mJcF) = htarget
+      tF y = case (mPrF, mJcF) of
+        (Nothing, Nothing) -> lhF y
+        (Just prF, Nothing) -> prF y * lhF y
+        (Nothing, Just jcF) -> lhF y * jcF y
+        (Just prF, Just jcF) -> prF y * lhF y * jcF y
+      tFnG = grad' (ln . tF)
+      targetWith x = bimap Exp toVec . tFnG . fromVec x
+      (NParams mEps mMs) = nparams
+      hParamsI =
+        either error id $
+          hParamsIWith (targetWith sample) (toVec sample) mEps Nothing mMs
+      ps = nutsPFunction hParamsI hstruct targetWith
+      nutsWith = Proposal n desc PSlow pDim w ps
+      -- Tuning.
+      ts = toAuxiliaryTuningParameters hParamsI
+      tuner = do
+        tfun <- hTuningFunctionWith dim toVec htconf
+        let pfun = nutsPFunctionWithTuningParameters dim hstruct targetWith
+        pure $ Tuner 1.0 ts tfun pfun
+   in case checkHStructureWith (hpsMasses hParamsI) hstruct of
+        Just err -> error err
+        Nothing -> nutsWith tuner

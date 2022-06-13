@@ -63,10 +63,7 @@ module Mcmc.Proposal.Hamiltonian.Hamiltonian
   )
 where
 
-import Control.Monad
-import Control.Monad.ST
 import Data.Bifunctor
-import qualified Data.Vector.Storable as VS
 import Mcmc.Acceptance
 import Mcmc.Algorithm.MHG
 import Mcmc.Proposal
@@ -97,47 +94,6 @@ data HParams = HParams
 defaultHParams :: HParams
 defaultHParams = HParams Nothing Nothing Nothing
 
--- NOTE: If changed, amend help text of 'defaultHParams'.
-defaultLeapfrogSimulationLength :: Double
-defaultLeapfrogSimulationLength = 0.5
-
--- Check 'HParams' instantiate 'HParamsI'.
---
--- NOTE: This function may sample momenta to find a reasonable leapfrog scaling
--- factor. Hence, it should be run in the IO monad. However, I opt for a pure
--- setting here and use a fixed seed.
-fromHParams :: Target -> Positions -> HParams -> Either String HParamsI
-fromHParams htarget p (HParams mEps mLa mMs) = do
-  d <- case VS.length p of
-    0 -> eWith "Empty position vector."
-    d -> Right d
-  let defMs = L.trustSym $ L.ident d
-  ms <- case mMs of
-    Nothing -> Right defMs
-    Just ms -> do
-      let ms' = L.unSym ms
-          diagonalMs = L.toList $ L.takeDiag ms'
-      when (any (<= 0) diagonalMs) $ eWith "Some diagonal masses are zero or negative."
-      let nrows = L.rows ms'
-          ncols = L.cols ms'
-      when (nrows /= ncols) $ eWith "Mass matrix is not square."
-      Right ms
-  la <- case mLa of
-    Nothing -> Right defaultLeapfrogSimulationLength
-    Just l
-      | l <= 0 -> eWith "Leapfrog simulation length is zero or negative."
-      | otherwise -> Right l
-  eps <- case mEps of
-    Nothing -> Right $ runST $ do
-      g <- create
-      findReasonableEpsilon htarget ms p g
-    Just e
-      | e <= 0 -> eWith "Leapfrog scaling factor is zero or negative."
-      | otherwise -> Right e
-  pure $ hParamsIWith eps la ms
-  where
-    eWith m = Left $ "fromHParams: " <> m
-
 hamiltonianPFunctionWithTuningParameters ::
   Traversable s =>
   Dimension ->
@@ -161,13 +117,12 @@ hamiltonianPFunctionWithTuningParameters d hstruct targetWith _ ts = do
 -- The inverted covariance matrix and the log determinant of the covariance
 -- matrix are calculated by 'hamiltonianPFunction'.
 hamiltonianPFunction ::
-  Traversable s =>
   HParamsI ->
   HStructure s ->
   (s Double -> Target) ->
   PFunction (s Double)
-hamiltonianPFunction tspec hstruct targetWith x g = do
-  phi <- generateMomenta mu ms g
+hamiltonianPFunction hparamsi hstruct targetWith x g = do
+  p <- generateMomenta mu ms g
   eRan <- uniformR (eL, eR) g
   -- NOTE: The NUTS paper does not sample l since l varies naturally because
   -- of epsilon. I still think it should vary because otherwise, there may be
@@ -176,22 +131,22 @@ hamiltonianPFunction tspec hstruct targetWith x g = do
       lL = maximum [1 :: Int, floor $ 0.9 * lM]
       lR = maximum [lL, ceiling $ 1.1 * lM]
   lRan <- uniformR (lL, lR) g
-  case leapfrog (targetWith x) msInv lRan eRan theta phi of
+  case leapfrog (targetWith x) msInv lRan eRan q p of
     Nothing -> pure (ForceReject, Just $ AcceptanceCounts 0 100)
     -- Check if next state is accepted here, because the Jacobian is included in
     -- the target function. If not: pure (x, 0.0, 1.0).
-    Just (theta', phi', prTheta, prTheta') -> do
+    Just (q', p', prQ, prQ') -> do
       let -- Prior of momenta.
-          prPhi = exponentialKineticEnergy msInv phi
-          prPhi' = exponentialKineticEnergy msInv phi'
-          r = prTheta' * prPhi' / (prTheta * prPhi)
+          prP = exponentialKineticEnergy msInv p
+          prP' = exponentialKineticEnergy msInv p'
+          r = prQ' * prP' / (prQ * prP)
       accept <- mhgAccept r g
       -- NOTE: For example, Neal page 12: In order for the Hamiltonian proposal
       -- to be in detailed balance, the momenta have to be negated before
       -- proposing the new value. That is, the negated momenta would guide the
       -- chain back to the previous state. However, we are only interested in
       -- the positions, and are not even storing the momenta.
-      let pr = if accept then ForceAccept (fromVec x theta') else ForceReject
+      let pr = if accept then ForceAccept (fromVec x q') else ForceReject
           ar = exp $ ln r
           ac =
             if ar >= 0
@@ -199,10 +154,10 @@ hamiltonianPFunction tspec hstruct targetWith x g = do
               else error $ "hamiltonianPFunction: Acceptance rate negative."
       pure (pr, Just ac)
   where
-    (HParamsI e la ms _ _ hdata) = tspec
+    (HParamsI e la ms _ _ hdata) = hparamsi
     (HData mu msInv) = hdata
     (HStructure _ toVec fromVec) = hstruct
-    theta = toVec x
+    q = toVec x
     eL = 0.9 * e
     eR = 1.1 * e
 
@@ -236,7 +191,10 @@ hamiltonian hparams htconf hstruct htarget n w =
         (Just prF, Just jcF) -> prF y * lhF y * jcF y
       tFnG = grad' (ln . tF)
       targetWith x = bimap Exp toVec . tFnG . fromVec x
-      hParamsI = either error id $ fromHParams (targetWith sample) (toVec sample) hparams
+      (HParams mEps mLa mMs) = hparams
+      hParamsI =
+        either error id $
+          hParamsIWith (targetWith sample) (toVec sample) mEps mLa mMs
       ps = hamiltonianPFunction hParamsI hstruct targetWith
       hamiltonianWith = Proposal n desc PSlow pDim w ps
       -- Tuning.
