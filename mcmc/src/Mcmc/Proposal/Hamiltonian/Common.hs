@@ -11,6 +11,24 @@
 -- Portability :  portable
 --
 -- Creation date: Fri Jun  3 10:27:12 2022.
+--
+-- See "Mcmc.Proposal.Hamiltonian.Hamiltonian".
+--
+-- References:
+--
+-- - [1] Chapter 5 of Handbook of Monte Carlo: Neal, R. M., MCMC Using
+--   Hamiltonian Dynamics, In S. Brooks, A. Gelman, G. Jones, & X. Meng (Eds.),
+--   Handbook of Markov Chain Monte Carlo (2011), CRC press.
+--
+-- - [2] Gelman, A., Carlin, J. B., Stern, H. S., & Rubin, D. B., Bayesian data
+--   analysis (2014), CRC Press.
+--
+-- - [3] Review by Betancourt and notes: Betancourt, M., A conceptual
+--   introduction to Hamiltonian Monte Carlo, arXiv, 1701–02434 (2017).
+--
+-- - [4] Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
+--   Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
+--   Machine Learning Research.
 module Mcmc.Proposal.Hamiltonian.Common
   ( -- * Basic types
     Positions,
@@ -120,9 +138,7 @@ type LeapfrogScalingFactor = Double
 -- | Product of 'LeapfrogTrajectoryLength' and 'LeapfrogScalingFactor'.
 --
 -- A good value is hard to find and varies between applications. For example,
--- see Figure 6 in Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn
--- Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal
--- of Machine Learning Research.
+-- see Figure 6 in [4].
 --
 -- Call 'error' if value is zero or negative.
 type LeapfrogSimulationLength = Double

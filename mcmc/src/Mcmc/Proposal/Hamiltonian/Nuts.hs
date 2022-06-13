@@ -13,11 +13,23 @@
 -- For a general introduction to Hamiltonian proposals, see
 -- "Mcmc.Proposal.Hamiltonian.Hamiltonian".
 --
--- This module implements the No-U-Turn Sampler (NUTS), as described in [1].
+-- This module implements the No-U-Turn Sampler (NUTS), as described in [4].
 --
 -- Work in progress.
 --
--- - [1] Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
+-- References:
+--
+-- - [1] Chapter 5 of Handbook of Monte Carlo: Neal, R. M., MCMC Using
+--   Hamiltonian Dynamics, In S. Brooks, A. Gelman, G. Jones, & X. Meng (Eds.),
+--   Handbook of Markov Chain Monte Carlo (2011), CRC press.
+--
+-- - [2] Gelman, A., Carlin, J. B., Stern, H. S., & Rubin, D. B., Bayesian data
+--   analysis (2014), CRC Press.
+--
+-- - [3] Review by Betancourt and notes: Betancourt, M., A conceptual
+--   introduction to Hamiltonian Monte Carlo, arXiv, 1701–02434 (2017).
+--
+-- - [4] Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
 --   Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
 --   Machine Learning Research.
 module Mcmc.Proposal.Hamiltonian.Nuts
@@ -56,7 +68,7 @@ type BuildTreeReturnType = (Positions, Momenta, Positions, Momenta, Positions, N
 deltaMax :: Log Double
 deltaMax = Exp 1000
 
--- Second function in Algorithm 3.
+-- Second function in Algorithm 3 and Algorithm 6, respectively.
 buildTreeWith ::
   HData ->
   Target ->

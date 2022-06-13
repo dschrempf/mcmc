@@ -15,7 +15,32 @@
 --
 -- The Hamiltonian Monte Carlo (HMC) proposal.
 --
--- For references, see:
+-- The HMC proposal acts on 'Positions', a vector of floating point values. The
+-- manipulated values can represent the complete state, or a subset of the
+-- complete state. Functions converting the state to and from this vector have
+-- to be provided; see 'HStructure'.
+--
+-- Even though the proposal may only act on a subset of the complete state, the
+-- prior, likelihood, and Jacobian functions of the complete state have to be
+-- provided; see 'HTarget'. This is because parameters not manipulated by the
+-- HMC proposal still influence the prior, likelihood and Jacobian functions.
+--
+-- The points given above have implications on how the HMC proposal is handled:
+-- Do not use 'liftProposalWith', 'liftProposal', or '(@~)' with the HMC
+-- proposal; instead provide proper conversion functions with 'HStructure'.
+--
+-- The gradient of the log target function is calculated using automatic
+-- differentiation; see the excellent
+-- [ad](https://hackage.haskell.org/package/ad) package.
+--
+-- The desired acceptance rate is 0.65, although the dimension of the proposal
+-- is high.
+--
+-- The speed of this proposal changes drastically with the leapfrog trajectory
+-- length and the leapfrog scaling factor. Hence, the speed will change during
+-- burn in.
+--
+-- References:
 --
 -- - [1] Chapter 5 of Handbook of Monte Carlo: Neal, R. M., MCMC Using
 --   Hamiltonian Dynamics, In S. Brooks, A. Gelman, G. Jones, & X. Meng (Eds.),
@@ -30,35 +55,6 @@
 -- - [4] Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
 --   Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
 --   Machine Learning Research.
---
--- Notes on implementation:
---
--- - The HMC proposal acts on 'Positions', a vector of floating point values.
---   The manipulated values can represent the complete state, or a subset of the
---   complete state. Functions converting the state to and from this vector have
---   to be provided; see 'HStructure'.
---
--- - Even though the proposal may only act on a subset of the complete state,
---   the prior, likelihood, and Jacobian functions of the complete state have to
---   be provided; see 'HTarget'. This is because parameters not manipulated by
---   the HMC proposal still influence the prior, likelihood and Jacobian
---   functions.
---
--- - The points given above have implications on how the HMC proposal is
---   handled: Do not use 'liftProposalWith', 'liftProposal', or '(@~)' with the
---   HMC proposal; instead provide proper conversion functions with
---   'HStructure'.
---
--- - The gradient of the log target function is calculated using automatic
---   differentiation; see the excellent
---   [ad](https://hackage.haskell.org/package/ad) package.
---
--- - The desired acceptance rate is 0.65, although the dimension of the proposal
---   is high.
---
--- - The speed of this proposal changes drastically with the leapfrog trajectory
---   length and the leapfrog scaling factor. Hence, the speed will change during
---   burn in.
 module Mcmc.Proposal.Hamiltonian.Hamiltonian
   ( -- * Hamiltonian Monte Carlo proposal
     HParams (..),
@@ -93,10 +89,7 @@ data HParams = HParams
 
 -- | Default parameters.
 --
--- - Estimate a reasonable leapfrog scaling factor using Algorithm 4 in Matthew
---   D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler: Adaptively Setting
---   Path Lengths in Hamiltonian Monte Carlo, Journal of Machine Learning
---   Research.
+-- - Estimate a reasonable leapfrog scaling factor using Algorithm 4 [4].
 --
 -- - Leapfrog simulation length is set to 0.5.
 --
@@ -227,9 +220,7 @@ hamiltonian hparams htconf hstruct htarget n w =
       desc = PDescription "Hamiltonian Monte Carlo (HMC)"
       (HStructure sample toVec fromVec) = hstruct
       dim = L.size $ toVec sample
-      -- See bottom of page 1615 in Matthew D. Hoffman, Andrew Gelman (2014) The
-      -- No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
-      -- Carlo, Journal of Machine Learning Research.
+      -- See bottom of page 1615 in [4].
       pDim = PSpecial dim 0.65
       -- Vectorize and derive the target function.
       (HTarget mPrF lhF mJcF) = htarget

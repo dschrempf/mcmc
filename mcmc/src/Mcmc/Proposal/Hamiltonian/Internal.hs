@@ -9,6 +9,24 @@
 -- Portability :  portable
 --
 -- Creation date: Thu Jun  9 15:12:39 2022.
+--
+-- See "Mcmc.Proposal.Hamiltonian.Hamiltonian".
+--
+-- References:
+--
+-- - [1] Chapter 5 of Handbook of Monte Carlo: Neal, R. M., MCMC Using
+--   Hamiltonian Dynamics, In S. Brooks, A. Gelman, G. Jones, & X. Meng (Eds.),
+--   Handbook of Markov Chain Monte Carlo (2011), CRC press.
+--
+-- - [2] Gelman, A., Carlin, J. B., Stern, H. S., & Rubin, D. B., Bayesian data
+--   analysis (2014), CRC Press.
+--
+-- - [3] Review by Betancourt and notes: Betancourt, M., A conceptual
+--   introduction to Hamiltonian Monte Carlo, arXiv, 1701–02434 (2017).
+--
+-- - [4] Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
+--   Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
+--   Machine Learning Research.
 module Mcmc.Proposal.Hamiltonian.Internal
   ( -- * Parameters
     Mu,
@@ -56,9 +74,7 @@ import System.Random.Stateful
 
 -- Variable tuning parameters.
 --
--- See Algorithm 5 or 6 in Matthew D. Hoffman, Andrew Gelman (2014) The
--- No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
--- Carlo, Journal of Machine Learning Research.
+-- See Algorithm 5 or 6 in [4].
 data TParamsVar = TParamsVar
   { -- \bar{eps} of Algorithm 5 or 6.
     tpvLeapfrogScalingFactorMean :: LeapfrogScalingFactor,
@@ -74,9 +90,7 @@ tParamsVar = TParamsVar 1.0 0.0 1.0
 
 -- Fixed tuning parameters.
 --
--- See Algorithm 5 and 6 in Matthew D. Hoffman, Andrew Gelman (2014) The
--- No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
--- Carlo, Journal of Machine Learning Research.
+-- See Algorithm 5 and 6 in [4].
 data TParamsFixed = TParamsFixed
   { tpfEps0 :: Double,
     tpfMu :: Double,
@@ -191,9 +205,7 @@ fromAuxiliaryTuningParameters d xs
     ms = vectorToMasses d msV
     hdata = getHData ms
 
--- See Algorithm 4 in Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn
--- Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal
--- of Machine Learning Research.
+-- See Algorithm 4 in [4].
 findReasonableEpsilon ::
   StatefulGen g m =>
   Target ->
