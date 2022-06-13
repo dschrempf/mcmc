@@ -102,18 +102,31 @@ data TParamsFixed = TParamsFixed
   }
   deriving (Show)
 
--- TODO @Dominik (high, feature): The tuning specification will be off, because
--- the authors suggesting these values tune the proposal after each iteration.
-
--- NOTE: For now we just use the default. In theory, we could expose this to the
--- user.
+-- The default tuning parameters in [4] are:
+--
+--   mu = log $ 10 * eps
+--   ga = 0.05
+--   t0 = 10
+--   ka = 0.75
+--
+-- However, these default tuning parameters will be off, because the authors
+-- suggesting these values tune the proposal after every single iteration.
+--
+-- The following values are tweaked for our case, where tuning does not happen
+-- after each iteration. Of course, we could tune the leapfrog parameters after
+-- each generation. Even the mass parameters could be tuned each iteration when
+-- the masses are estimated from more past iterations spanning many tuning
+-- intervals.
+--
+-- NOTE: In theory, these we could expose these internal tuning parameters to
+-- the user.
 tParamsFixedWith :: LeapfrogScalingFactor -> TParamsFixed
 tParamsFixedWith eps = TParamsFixed eps mu ga t0 ka
   where
     mu = log $ 10 * eps
-    ga = 0.05
-    t0 = 10
-    ka = 0.75
+    ga = 0.1
+    t0 = 3
+    ka = 0.5
 
 -- Mean vector containing zeroes. We save this vector because it is required
 -- when sampling from the multivariate normal distribution.
@@ -406,7 +419,7 @@ hTuningFunctionWith ::
 hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
   (HNoTuneLeapfrog, HNoTuneMasses) -> Nothing
   (_, _) -> Just $
-    \tt pdim ar xs (t, ts) ->
+    \tt pdim ar xs (_, ts) ->
       let (HParamsI eps la ms tpv tpf hd) =
             -- NOTE: Use error here, because a dimension mismatch is a serious bug.
             either error id $ fromAuxiliaryTuningParameters n ts
@@ -419,8 +432,8 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
           hd' = case mc of
             HNoTuneMasses -> hd
             _ -> getHData ms'
-          (t', eps'', epsMean'', h'') = case lc of
-            HNoTuneLeapfrog -> (t, eps, epsMean, h)
+          (eps'', epsMean'', h'') = case lc of
+            HNoTuneLeapfrog -> (eps, epsMean, h)
             HTuneLeapfrog ->
               let delta = getOptimalRate pdim
                   c = recip $ m + t0
@@ -429,12 +442,12 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
                   eps' = exp logEps'
                   mMKa = m ** (negate ka)
                   epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
-               in (eps' / eps0, eps', epsMean', h')
+               in (eps', epsMean', h')
           eps''' = case tt of
             NormalTuningStep -> eps''
             LastTuningStep -> epsMean''
           tpv' = TParamsVar epsMean'' h'' (m + 1.0)
-       in (t', toAuxiliaryTuningParameters $ HParamsI eps''' la ms' tpv' tpf hd')
+       in (eps''' / eps0, toAuxiliaryTuningParameters $ HParamsI eps''' la ms' tpv' tpf hd')
 
 checkHStructureWith :: Foldable s => Masses -> HStructure s -> Maybe String
 checkHStructureWith ms (HStructure x toVec fromVec)
@@ -458,7 +471,7 @@ generateMomenta mu masses gen = do
   let momenta = L.gaussianSample seed 1 mu masses
   return $ L.flatten momenta
 
--- TODO (medium): Use a sparse matrix approach for the log density of the
+-- TODO (high): Use a sparse matrix approach for the log density of the
 -- multivariate normal, similar to McmcDate.
 
 -- Compute exponent of kinetic energy.
