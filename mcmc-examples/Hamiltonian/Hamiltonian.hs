@@ -66,9 +66,6 @@ dimension = VB.length (standardDeviations :: I)
 initialState :: I
 initialState = VB.fromList $ replicate dimension 1
 
-hparams :: HParams
-hparams = HParams Nothing (Just 0.01) Nothing
-
 htconf :: HTuningConf
 htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
 
@@ -77,12 +74,6 @@ hstruct = HStructure initialState VS.convert (const VS.convert)
 
 hTarget :: HTarget IG
 hTarget = HTarget Nothing lhf Nothing
-
--- hamiltonianProposal :: Proposal I
--- hamiltonianProposal = hamiltonian hparams htconf hstruct hTarget n w
---   where
---     n = PName "Hmc"
---     w = pWeight 1
 
 nutsProposal :: Proposal I
 nutsProposal = nuts defaultNParams htconf hstruct hTarget n w
@@ -93,8 +84,6 @@ nutsProposal = nuts defaultNParams htconf hstruct hTarget n w
 cc :: Cycle I
 cc =
   cycleFromList [nutsProposal]
-
--- cycleFromList [hamiltonianProposal]
 
 monPs :: [MonitorParameter I]
 monPs = [view (singular (ix i)) >$< monitorDouble (n i) | i <- [0 .. (dimension - 1)]]
