@@ -148,9 +148,10 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
       -- the positions, and are not even storing the momenta.
       let pr = if accept then ForceAccept (fromVec x q') else ForceReject
           ar = exp $ ln r
+          getCounts s = max 0 $ min 100 $ round $ s * 100
           ac =
             if ar >= 0
-              then let a = max 100 (round (ar * 100)) in AcceptanceCounts a (100 - a)
+              then let cs = getCounts ar in AcceptanceCounts cs (100 - cs)
               else error $ "hamiltonianPFunction: Acceptance rate negative."
       pure (pr, Just ac)
   where

@@ -22,12 +22,10 @@ module Main
   )
 where
 
--- import Control.Lens
 import Control.Monad
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import Mcmc
-import qualified Numeric.LinearAlgebra as L
 import System.Random.MWC hiding (uniform)
 
 -- The state is composed of a vector containing two variables x and y.
@@ -82,16 +80,8 @@ jacob = Exp . log . recip . f
 --       tupleL @~ slideContrarily 0 0.5 (PName "x y") (pWeight 3) Tune
 --     ]
 
-hparams :: HParams
-hparams = HParams Nothing (Just 0.05) Nothing
-
 htconf :: HTuningConf
 htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
-
-nparams :: NParams
-nparams = NParams (Just 0.1) (Just masses)
-  where
-    masses = L.trustSym $ L.scale 4 $ L.matrix 2 [1.0, 0.0, 0.0, 1.0]
 
 toVec :: I -> VS.Vector Double
 toVec = VS.convert
@@ -105,14 +95,11 @@ hstruct = HStructure start toVec fromVec
 htarget :: HTarget IG
 htarget = HTarget (Just pr) lh (Just jacob)
 
-hmc :: Proposal I
-hmc = hamiltonian hparams htconf hstruct htarget (PName "Hamiltonian") (pWeight 1)
-
 nutp :: Proposal I
-nutp = nuts nparams htconf hstruct htarget (PName "Nuts") (pWeight 1)
+nutp = nuts defaultNParams htconf hstruct htarget (PName "Nuts") (pWeight 2)
 
 cc :: Cycle I
-cc = cycleFromList [hmc, nutp]
+cc = cycleFromList [nutp]
 
 monPs :: [MonitorParameter I]
 monPs =

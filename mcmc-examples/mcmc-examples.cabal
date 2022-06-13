@@ -87,7 +87,6 @@ executable hamiltonian
   hs-source-dirs:  Hamiltonian
   build-depends:
     , base
-    , hmatrix
     , lens
     , mcmc
     , mwc-random
@@ -101,14 +100,9 @@ executable pair
   hs-source-dirs:  Pair
   build-depends:
     , base
-    , hmatrix
     , mcmc
     , mwc-random
     , vector
-
--- , ad
--- , hmatrix
--- , vector
 
 executable plh
   import:          exec

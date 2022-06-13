@@ -21,7 +21,6 @@ import Control.Monad
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import Mcmc
-import qualified Numeric.LinearAlgebra as L
 import System.Random.MWC hiding (uniform)
 
 type IG = VB.Vector
@@ -64,20 +63,14 @@ lhf = Exp . logGaussN standardDeviations
 dimension :: Int
 dimension = VB.length (standardDeviations :: I)
 
-masses :: Masses
-masses = L.trustSym $ L.diag $ L.fromList $ replicate dimension 1.0
-
 initialState :: I
 initialState = VB.fromList $ replicate dimension 1
 
 hparams :: HParams
-hparams = HParams (Just 0.1) (Just 1.0) (Just masses)
+hparams = HParams Nothing (Just 0.01) Nothing
 
 htconf :: HTuningConf
 htconf = HTuningConf HTuneLeapfrog HTuneAllMasses
-
-nparams :: NParams
-nparams = NParams masses 0.01
 
 hstruct :: HStructure IG
 hstruct = HStructure initialState VS.convert (const VS.convert)
@@ -85,21 +78,23 @@ hstruct = HStructure initialState VS.convert (const VS.convert)
 hTarget :: HTarget IG
 hTarget = HTarget Nothing lhf Nothing
 
-hamiltonianProposal :: Proposal I
-hamiltonianProposal = hamiltonian hparams htconf hstruct hTarget n w
-  where
-    n = PName "Hmc"
-    w = pWeight 1
+-- hamiltonianProposal :: Proposal I
+-- hamiltonianProposal = hamiltonian hparams htconf hstruct hTarget n w
+--   where
+--     n = PName "Hmc"
+--     w = pWeight 1
 
 nutsProposal :: Proposal I
-nutsProposal = nuts nparams hstruct hTarget n w
+nutsProposal = nuts defaultNParams htconf hstruct hTarget n w
   where
     n = PName "Nuts"
     w = pWeight 1
 
 cc :: Cycle I
 cc =
-  cycleFromList [hamiltonianProposal, nutsProposal]
+  cycleFromList [nutsProposal]
+
+-- cycleFromList [hamiltonianProposal]
 
 monPs :: [MonitorParameter I]
 monPs = [view (singular (ix i)) >$< monitorDouble (n i) | i <- [0 .. (dimension - 1)]]
@@ -120,13 +115,13 @@ main = do
   let s =
         Settings
           (AnalysisName "hamiltonian")
-          (BurnInWithCustomAutoTuning [] ([10, 20 .. 200] ++ replicate 10 400))
+          (BurnInWithCustomAutoTuning [] ([10, 20 .. 200] ++ replicate 20 200))
           (Iterations 8000)
           TraceAuto
           Overwrite
           Sequential
           Save
           LogStdOutAndFile
-          Info
+          Debug
   a <- mhg s noPrior lhf cc mon initialState g
   void $ mcmc s a

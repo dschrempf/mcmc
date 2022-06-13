@@ -115,7 +115,7 @@ buildTreeWith expETot0 hdata@(HData _ msInv) tfun g q p u v j e
       mr <- buildTree q p u v (j - 1) e
       case mr of
         Nothing -> pure Nothing
-        -- Here, 'm' stands for minus, and 'p' for plus.
+        -- Here, the suffixes 'm' and 'p' stand for minus and plus, respectively.
         Just (qm, pm, qp, pp, q', n', a', na') -> do
           mr' <-
             if v
@@ -180,6 +180,11 @@ nutsPFunctionWithTuningParameters d hstruct targetWith _ ts = do
   hParamsI <- fromAuxiliaryTuningParameters d ts
   pure $ nutsPFunction hParamsI hstruct targetWith
 
+data IsNew
+  = Old
+  | OldWith {_acceptanceCountsOld :: AcceptanceCounts}
+  | NewWith {_acceptanceCountsNew :: AcceptanceCounts}
+
 -- First function in Algorithm 3.
 nutsPFunction ::
   HParamsI ->
@@ -202,8 +207,8 @@ nutsPFunction hparamsi hstruct targetWith x g = do
   let -- Recursive case. This is complicated because the algorithm is written for an
       -- imperative language, and because we have two stacked monads.
       --
-      -- Here, 'm' stands for minus, and 'p' for plus.
-      go qm pm qp pp j y n isNewState = do
+      -- Here, the suffixes 'm' and 'p' stand for minus and plus, respectively.
+      go qm pm qp pp j y n isNew = do
         v <- uniform g :: IO Direction
         mr' <-
           if v
@@ -220,13 +225,14 @@ nutsPFunction hparamsi hstruct targetWith x g = do
                 Nothing -> pure Nothing
                 Just (qm', pm', _, _, y', n', a, na) -> pure $ Just (qm', pm', qp, pp, y', n', a, na)
         case mr' of
-          Nothing -> pure (y, isNewState, AcceptanceCounts 0 100)
+          Nothing -> pure (y, isNew)
           Just (qm'', pm'', qp'', pp'', y'', n'', a, na) -> do
             let r = fromIntegral n'' / fromIntegral n :: Double
-                ar = (exp $ ln a) / fromIntegral na
+                ar = (exp $ ln a) / fromIntegral na :: Double
+                getCounts s = max 0 $ min 100 $ round $ s * 100
                 ac =
                   if ar >= 0
-                    then let a' = max 100 (round (ar * 100)) in AcceptanceCounts a' (100 - a')
+                    then let cs = getCounts ar in AcceptanceCounts cs (100 - cs)
                     else error $ "nutsPFunction: Acceptance rate negative."
             isAccept <-
               if r > 1.0
@@ -234,14 +240,16 @@ nutsPFunction hparamsi hstruct targetWith x g = do
                 else do
                   b <- uniform g
                   pure $ b < r
-            let (y''', isNewState') = if isAccept then (y'', True) else (y, isNewState)
+            let (y''', isNew') = if isAccept then (y'', NewWith ac) else (y, OldWith ac)
                 isUTurn = let dq = (qp'' - qm'') in (dq * pm'' < 0) || (dq * pp'' < 0)
             if isUTurn
-              then pure (y''', isNewState', ac)
-              else go qm'' pm'' qp'' pp'' (j + 1) y''' (n + n'') isNewState'
-  (x', isNew, ac) <- go q p q p 0 q 1 False
-  let pr = if isNew then ForceAccept $ fromVec x' else ForceReject
-  pure (pr, Just ac)
+              then pure (y''', isNew')
+              else go qm'' pm'' qp'' pp'' (j + 1) y''' (n + n'') isNew'
+  (x', isNew) <- go q p q p 0 q 1 Old
+  pure $ case isNew of
+    Old -> (ForceReject, Just $ AcceptanceCounts 0 100)
+    OldWith ac -> (ForceReject, Just $ ac)
+    NewWith ac -> (ForceAccept $ fromVec x', Just $ ac)
   where
     (HParamsI e _ ms _ _ hdata) = hparamsi
     (HStructure _ toVec fromVecWith) = hstruct
