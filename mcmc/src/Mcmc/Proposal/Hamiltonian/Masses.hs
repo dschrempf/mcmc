@@ -268,7 +268,7 @@ tuneAllMasses toVec xs (ms, msI)
     dimState = VS.length $ VB.head xs'
     dimMs = L.rows $ L.unSym ms
     (_, ss, xsNormalized) = S.scale xs''
-    sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.01 xsNormalized
+    sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.1 xsNormalized
     -- Inverted masses.
     sigma = S.rescaleSWith ss sigmaNormalized
     msNew = cleanMatrix $ L.inv sigma
