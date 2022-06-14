@@ -165,13 +165,13 @@ massMax = recip precision
 --
 -- NOTE: If changed, also change help text of 'HTuneMasses'.
 samplesDiagonalMin :: Int
-samplesDiagonalMin = 51
+samplesDiagonalMin = 61
 
 -- Minimal number of samples required for tuning all entries of the mass matrix.
 --
 -- NOTE: If changed, also change help text of 'HTuneMasses'.
 samplesAllMinWith :: Dimension -> Int
-samplesAllMinWith d = samplesDiagonalMin + d
+samplesAllMinWith d = samplesDiagonalMin + max samplesDiagonalMin d
 
 getSampleSize :: VS.Vector Double -> Int
 getSampleSize = VS.length . VS.uniq . S.gsort
@@ -253,7 +253,7 @@ tuneAllMasses toVec xs (ms, msI)
   | VB.length xs < samplesAllMinWith dimMs = fallbackDiagonal
   | L.rank xs'' /= dimState = fallbackDiagonal
   | dimState /= dimMs = error "tuneAllMasses: Dimension mismatch."
-  | otherwise = (L.trustSym msNew, toGMatrix sigma)
+  | otherwise = (ms', msI')
   where
     fallbackDiagonal = tuneDiagonalMassesOnly toVec xs (ms, msI)
     -- xs: Each element contains all parameters of one iteration.
@@ -269,9 +269,8 @@ tuneAllMasses toVec xs (ms, msI)
     dimMs = L.rows $ L.unSym ms
     (_, ss, xsNormalized) = S.scale xs''
     sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.1 xsNormalized
-    -- Inverted masses. For now, I clean twice here: First, the normalized
-    -- matrix, so that small normalized entries are purged, and then the
-    -- rescaled matrix.
-    sigmaNormalizedCleaned = cleanMatrix sigmaNormalized
-    sigma = S.rescaleSWith ss sigmaNormalizedCleaned
-    msNew = cleanMatrix $ L.inv sigma
+    -- Sigma is the inverted mass matrix.
+    sigma = S.rescaleSWith ss sigmaNormalized
+    msI' = toGMatrix sigma
+    -- Masses.
+    ms' = L.trustSym $ cleanMatrix $ L.inv sigma
