@@ -83,6 +83,7 @@ library
     Mcmc.Internal.Random
     Mcmc.Internal.Shuffle
     Mcmc.Proposal.Hamiltonian.Internal
+    Mcmc.Proposal.Hamiltonian.Masses
     Paths_mcmc
 
   autogen-modules: Paths_mcmc

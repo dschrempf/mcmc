@@ -1,0 +1,274 @@
+-- |
+-- Module      :  Mcmc.Proposal.Hamiltonian.Masses
+-- Description :  Mass matrices
+-- Copyright   :  2022 Dominik Schrempf
+-- License     :  GPL-3.0-or-later
+--
+-- Maintainer  :  dominik.schrempf@gmail.com
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Creation date: Tue Jun 14 10:09:24 2022.
+module Mcmc.Proposal.Hamiltonian.Masses
+  ( Mu,
+    MassesI,
+    toGMatrix,
+    cleanMatrix,
+    getMassesI,
+    getMus,
+    Dimension,
+    vectorToMasses,
+    massesToVector,
+
+    -- * Tuning
+    tuneDiagonalMassesOnly,
+    tuneAllMasses,
+  )
+where
+
+import qualified Data.Vector as VB
+import qualified Data.Vector.Storable as VS
+import qualified Data.Vector.Unboxed as VU
+import Debug.Trace
+import Mcmc.Proposal.Hamiltonian.Common
+import qualified Numeric.LinearAlgebra as L
+import qualified Statistics.Covariance as S
+import qualified Statistics.Function as S
+import qualified Statistics.Sample as S
+
+-- Mean vector containing zeroes. We save this vector because it is required
+-- when sampling from the multivariate normal distribution.
+type Mu = L.Vector Double
+
+-- Generali, symmetric, inverted mass matrix.
+type MassesI = L.GMatrix
+
+-- Purge masses and inverted masses (excluding the diagonal) strictly smaller
+-- than the precision.
+--
+-- If changed, also change help text of 'HTuneMasses', which is indirectly
+-- affected via 'massMin', and 'massMax'.
+precision :: Double
+precision = 1e-8
+
+isDiag :: L.Matrix Double -> Bool
+isDiag xs = abs (sumDiag - sumFull) < precision
+  where
+    xsAbs = L.cmap abs xs
+    sumDiag = L.sumElements (L.takeDiag xsAbs)
+    sumFull = L.sumElements xsAbs
+
+-- Consider a matrix sparse if less than (5 * number of rows) elements are
+-- non-zero.
+isSparse :: L.Matrix Double -> Bool
+isSparse xs = L.sumElements xsInd < fromIntegral m
+  where
+    n = L.rows xs
+    m = min 5 n
+    f x = if abs x >= precision then 1 else 0 :: Double
+    xsInd = L.cmap f xs
+
+toAssocMatrix :: L.Matrix Double -> L.AssocMatrix
+toAssocMatrix xs
+  | n /= m = error "toAssocMatrix: Matrix not square."
+  | otherwise =
+      [ ((i, j), e)
+        | i <- [0 .. (n - 1)],
+          j <- [0 .. (n - 1)],
+          let e = xs `L.atIndex` (i, j),
+          abs e >= precision
+      ]
+  where
+    n = L.rows xs
+    m = L.cols xs
+
+toGMatrix :: L.Matrix Double -> L.GMatrix
+toGMatrix xs
+  | n == 0 || m == 0 = error "toGMatrix: Matrix empty."
+  | n /= m = error "toGMatrix: Matrix not square."
+  | isDiag xs = traceShow "Di" $ L.mkDiagR n m $ L.takeDiag xs
+  | isSparse xs = traceShow "Sp" $ L.mkSparse $ toAssocMatrix xs
+  | otherwise = traceShow "De" $ L.mkDense xs
+  where
+    n = L.rows xs
+    m = L.cols xs
+
+-- Diagonal:
+-- - NaN values are set to 1.
+-- - Negative values are set to 1.
+-- - Small elements are set to 'precision'.
+--
+-- Off-diagonal:
+-- - NaN values are set to 0.
+-- - Elements with absolute values strictly smaller than 'precision' are purged.
+--
+-- We are permissive with negative and NaN values because adequate masses are
+-- crucial. The Hamiltonian algorithms also work when the masses are off.
+cleanMatrix :: L.Matrix Double -> L.Matrix Double
+cleanMatrix xs = (L.diag $ L.cmap cleanDiag xsDiag) + L.cmap cleanOffDiag xsOffDiag
+  where
+    xsDiag = L.takeDiag xs
+    cleanDiag x
+      | isNaN x = 1
+      | x < 0 = 1
+      -- The strict comparison is important.
+      | x < precision = precision
+      | otherwise = x
+    xsOffDiag = xs - L.diag xsDiag
+    cleanOffDiag x
+      | isNaN x = 0
+      -- The strict comparison is important.
+      | abs x < precision = 0
+      | otherwise = x
+
+getMassesI :: L.Herm Double -> L.GMatrix
+getMassesI xs
+  | n == 0 || m == 0 = error "getMassesI: Matrix empty."
+  | n /= m = error "getMassesI: Matrix not square."
+  | sign /= 1.0 = error "getMassesI: Determinant of matrix is negative."
+  | otherwise = toGMatrix $ cleanMatrix $ xsI
+  where
+    xs' = L.unSym $ xs
+    n = L.rows xs'
+    m = L.cols xs'
+    (xsI, (_, sign)) = L.invlndet xs'
+
+getMus :: Masses -> L.Vector Double
+getMus xs
+  | n == 0 || m == 0 = error "getMu: Matrix empty."
+  | n /= m = error "getMu: Matrix not square."
+  | otherwise = L.fromList $ replicate n 0.0
+  where
+    xs' = L.unSym xs
+    n = L.rows xs'
+    m = L.cols xs'
+
+-- Dimension of the proposal.
+type Dimension = Int
+
+massesToVector :: Masses -> VU.Vector Double
+massesToVector = VU.convert . L.flatten . L.unSym
+
+vectorToMasses :: Dimension -> VU.Vector Double -> Masses
+vectorToMasses d = L.trustSym . L.reshape d . VU.convert
+
+-- If changed, also change help text of 'HTuneMasses'.
+massMin :: Double
+massMin = precision
+
+-- If changed, also change help text of 'HTuneMasses'.
+massMax :: Double
+massMax = recip precision
+
+-- Minimal number of unique samples required for tuning the diagonal entries of
+-- the mass matrix.
+--
+-- If changed, also change help text of 'HTuneMasses'.
+samplesMinDiagonal :: Int
+samplesMinDiagonal = 61
+
+-- Minimal number of samples required for tuning all entries of the mass matrix.
+--
+-- If changed, also change help text of 'HTuneMasses'.
+samplesMinAll :: Int
+samplesMinAll = 201
+
+getSampleSize :: VS.Vector Double -> Int
+getSampleSize = VS.length . VS.uniq . S.gsort
+
+getNewMassDiagonalWithRescue :: Int -> Double -> Double -> Double
+getNewMassDiagonalWithRescue sampleSize massOld massEstimate
+  | sampleSize < samplesMinDiagonal = massOld
+  -- Be permissive with NaN and negative diagonal masses. Diagonal masses are
+  -- variances which are strictly positive.
+  | isNaN massEstimate = massOld
+  | massEstimate <= 0 = massOld
+  | massMin > massNew = massMin
+  | massNew > massMax = massMax
+  | otherwise = massNew
+  where
+    massNewSqrt = recip 3 * (sqrt massOld + 2 * sqrt massEstimate)
+    massNew = massNewSqrt ** 2
+
+tuneDiagonalMassesOnly ::
+  -- Conversion from value to vector.
+  (a -> Positions) ->
+  -- Value vector.
+  VB.Vector a ->
+  -- Old mass matrix, and inverted mass matrix.
+  (Masses, MassesI) ->
+  -- new mass matrix, and inverted mass matrix.
+  (Masses, MassesI)
+-- NOTE: Here, we lose time because we convert the states to vectors again,
+-- something that has already been done. But then, auto tuning is not a runtime
+-- determining factor.
+tuneDiagonalMassesOnly toVec xs (ms, msI)
+  -- If not enough data is available, do not tune.
+  | VB.length xs < samplesMinDiagonal = (ms, msI)
+  | dimState /= dimMs = error "tuneDiagonalMassesOnly: Dimension mismatch."
+  -- Replace the diagonal.
+  | otherwise =
+      let ms' = L.trustSym $ cleanMatrix $ msOld - L.diag msDiagonalOld + L.diag msDiagonalNew
+          msI' = getMassesI ms'
+       in (ms', msI')
+  where
+    -- xs: Each element contains all parameters of one iteration.
+    -- xs': Each element is a vector containing all parameters changed by the
+    -- proposal of one iteration.
+    xs' = VB.map toVec xs
+    -- xs'': Matrix with each row containing all parameter values changed by the
+    -- proposal of one iteration.
+    xs'' = L.fromRows $ VB.toList xs'
+    -- We can safely use 'VB.head' here since the length of 'xs' must be larger
+    -- than 'samplesMinDiagonal'.
+    dimState = VS.length $ VB.head xs'
+    sampleSizes = VS.fromList $ map getSampleSize $ L.toColumns xs''
+    msOld = L.unSym ms
+    dimMs = L.rows msOld
+    msDiagonalOld = L.takeDiag msOld
+    msDiagonalEstimate = VS.fromList $ map (recip . S.variance) $ L.toColumns xs''
+    msDiagonalNew =
+      VS.zipWith3
+        getNewMassDiagonalWithRescue
+        sampleSizes
+        msDiagonalOld
+        msDiagonalEstimate
+
+tuneAllMasses ::
+  -- Conversion from value to vector.
+  (a -> Positions) ->
+  -- Value vector.
+  VB.Vector a ->
+  -- Old mass matrix, and inverted mass matrix.
+  (Masses, MassesI) ->
+  -- New mass matrix, and inverted mass matrix.
+  (Masses, MassesI)
+-- NOTE: Here, we lose time because we convert the states to vectors again,
+-- something that has already been done. But then, auto tuning is not a runtime
+-- determining factor.
+tuneAllMasses toVec xs (ms, msI)
+  -- If not enough data is available, do not tune.
+  | VB.length xs < samplesMinDiagonal = (ms, msI)
+  -- If not enough data is available, only the diagonal masses are tuned.
+  | VB.length xs < samplesMinAll = fallbackDiagonal
+  | L.rank xs'' /= dimState = fallbackDiagonal
+  | dimState /= dimMs = error "tuneAllMasses: Dimension mismatch."
+  | otherwise = (L.trustSym msNew, toGMatrix sigma)
+  where
+    fallbackDiagonal = tuneDiagonalMassesOnly toVec xs (ms, msI)
+    -- xs: Each element contains all parameters of one iteration.
+    -- xs': Each element is a vector containing all parameters changed by the
+    -- proposal of one iteration.
+    xs' = VB.map toVec xs
+    -- xs'': Matrix with each row containing all parameter values changed by the
+    -- proposal of one iteration.
+    xs'' = L.fromRows $ VB.toList xs'
+    -- We can safely use 'VB.head' here since the length of 'xs' must be larger
+    -- than 'samplesMinDiagonal'.
+    dimState = VS.length $ VB.head xs'
+    dimMs = L.rows $ L.unSym ms
+    (_, ss, xsNormalized) = S.scale xs''
+    sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.01 xsNormalized
+    -- Inverted masses.
+    sigma = S.rescaleSWith ss sigmaNormalized
+    msNew = cleanMatrix $ L.inv sigma

@@ -44,6 +44,7 @@ import Mcmc.Acceptance
 import Mcmc.Proposal
 import Mcmc.Proposal.Hamiltonian.Common
 import Mcmc.Proposal.Hamiltonian.Internal
+import Mcmc.Proposal.Hamiltonian.Masses
 import Numeric.AD.Double
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
@@ -80,7 +81,7 @@ buildTreeWith ::
   -- The exponent of the total energy of the starting state is used to
   -- calcaulate the expected acceptance rate 'Alpha'.
   Log Double ->
-  HData ->
+  MassesI ->
   Target ->
   GenIO ->
   --
@@ -91,18 +92,18 @@ buildTreeWith ::
   DoublingStep ->
   LeapfrogScalingFactor ->
   IO (Maybe BuildTreeReturnType)
-buildTreeWith expETot0 hdata@(HData _ msInv) tfun g q p u v j e
+buildTreeWith expETot0 msI tfun g q p u v j e
   | j <= 0 =
       -- Move backwards or forwards?
       let e' = if v then e else negate e
-       in case leapfrog tfun msInv 1 e' q p of
+       in case leapfrog tfun msI 1 e' q p of
             Nothing -> pure Nothing
             Just (q', p', _, expEPot') ->
               if errorIsSmall
                 then pure $ Just (q', p', q', p', q', n', alpha, 1)
                 else pure Nothing
               where
-                expEKin' = exponentialKineticEnergy msInv p'
+                expEKin' = exponentialKineticEnergy msI p'
                 expETot' = expEPot' * expEKin'
                 n' = if u <= expEPot' * expEKin' then 1 else 0
                 errorIsSmall = u < deltaMax * expETot'
@@ -149,7 +150,7 @@ buildTreeWith expETot0 hdata@(HData _ msInv) tfun g q p u v j e
                 then pure Nothing
                 else pure $ Just (qm'', pm'', qp'', pp'', q'''', n'''', a'''', na'''')
   where
-    buildTree = buildTreeWith expETot0 hdata tfun g
+    buildTree = buildTreeWith expETot0 msI tfun g
 
 -- | Paramters of the NUTS proposal.
 --
@@ -193,7 +194,7 @@ nutsPFunction ::
   (s Double -> Target) ->
   PFunction (s Double)
 nutsPFunction hparamsi hstruct targetWith x g = do
-  p <- generateMomenta mu ms g
+  p <- generateMomenta mus ms g
   uZeroOne <- uniform g :: IO Double
   -- NOTE (runtime): Here we need the target function value from the previous
   -- step. For now, I just recalculate the value, but this is, of course, slow!
@@ -201,7 +202,7 @@ nutsPFunction hparamsi hstruct targetWith x g = do
   -- recalculate this value.
   let q = toVec x
       expEPot = fst $ target q
-      expEKin = exponentialKineticEnergy msInv p
+      expEKin = exponentialKineticEnergy msI p
       expETot = expEPot * expEKin
       uZeroOneL = Exp $ log uZeroOne
       u = expETot * uZeroOneL
@@ -215,13 +216,13 @@ nutsPFunction hparamsi hstruct targetWith x g = do
           if v
             then -- Forwards.
             do
-              mr <- buildTreeWith expETot hdata target g qp pp u v j e
+              mr <- buildTreeWith expETot msI target g qp pp u v j e
               case mr of
                 Nothing -> pure Nothing
                 Just (_, _, qp', pp', y', n', a, na) -> pure $ Just (qm, pm, qp', pp', y', n', a, na)
             else -- Backwards.
             do
-              mr <- buildTreeWith expETot hdata target g qm pm u v j e
+              mr <- buildTreeWith expETot msI target g qm pm u v j e
               case mr of
                 Nothing -> pure Nothing
                 Just (qm', pm', _, _, y', n', a, na) -> pure $ Just (qm', pm', qp, pp, y', n', a, na)
@@ -252,10 +253,9 @@ nutsPFunction hparamsi hstruct targetWith x g = do
     OldWith ac -> (ForceReject, Just $ ac)
     NewWith ac -> (ForceAccept $ fromVec x', Just $ ac)
   where
-    (HParamsI e _ ms _ _ hdata) = hparamsi
+    (HParamsI e _ ms _ _ msI mus) = hparamsi
     (HStructure _ toVec fromVecWith) = hstruct
     fromVec = fromVecWith x
-    (HData mu msInv) = hdata
     target = targetWith x
 
 -- | No U-turn Hamiltonian Monte Carlo sampler (NUTS).

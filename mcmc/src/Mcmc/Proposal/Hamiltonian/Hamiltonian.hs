@@ -69,6 +69,7 @@ import Mcmc.Algorithm.MHG
 import Mcmc.Proposal
 import Mcmc.Proposal.Hamiltonian.Common
 import Mcmc.Proposal.Hamiltonian.Internal
+import Mcmc.Proposal.Hamiltonian.Masses
 import Numeric.AD.Double
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
@@ -123,7 +124,7 @@ hamiltonianPFunction ::
   (s Double -> Target) ->
   PFunction (s Double)
 hamiltonianPFunction hparamsi hstruct targetWith x g = do
-  p <- generateMomenta mu ms g
+  p <- generateMomenta mus ms g
   eRan <- uniformR (eL, eR) g
   -- NOTE: The NUTS paper does not sample l since l varies naturally because
   -- of epsilon. I still think it should vary because otherwise, there may be
@@ -132,14 +133,14 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
       lL = maximum [1 :: Int, floor $ 0.9 * lM]
       lR = maximum [lL, ceiling $ 1.1 * lM]
   lRan <- uniformR (lL, lR) g
-  case leapfrog (targetWith x) msInv lRan eRan q p of
+  case leapfrog (targetWith x) msI lRan eRan q p of
     Nothing -> pure (ForceReject, Just $ AcceptanceCounts 0 100)
     -- Check if next state is accepted here, because the Jacobian is included in
     -- the target function. If not: pure (x, 0.0, 1.0).
     Just (q', p', prQ, prQ') -> do
       let -- Prior of momenta.
-          prP = exponentialKineticEnergy msInv p
-          prP' = exponentialKineticEnergy msInv p'
+          prP = exponentialKineticEnergy msI p
+          prP' = exponentialKineticEnergy msI p'
           r = prQ' * prP' / (prQ * prP)
       accept <- mhgAccept r g
       -- NOTE: For example, Neal page 12: In order for the Hamiltonian proposal
@@ -156,8 +157,7 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
               else error $ "hamiltonianPFunction: Acceptance rate negative."
       pure (pr, Just ac)
   where
-    (HParamsI e la ms _ _ hdata) = hparamsi
-    (HData mu msInv) = hdata
+    (HParamsI e la ms _ _ msI mus) = hparamsi
     (HStructure _ toVec fromVec) = hstruct
     q = toVec x
     eL = 0.9 * e

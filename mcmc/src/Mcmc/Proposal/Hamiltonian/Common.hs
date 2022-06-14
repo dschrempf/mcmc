@@ -163,7 +163,7 @@ data HTuneMasses
   | -- | Diagonal only: The variances of the parameters are calculated and the
     -- masses are amended using the old masses and the inverted variances. If, for
     -- a specific coordinate, the sample size is 60 or lower, or if the calculated
-    -- variance is out of predefined bounds [1e-6, 1e6], the mass of the affected
+    -- variance is out of predefined bounds [1e-8, 1e8], the mass of the affected
     -- position is not changed.
     HTuneDiagonalMassesOnly
   | -- | All masses: The covariance matrix of the parameters is estimated and the
