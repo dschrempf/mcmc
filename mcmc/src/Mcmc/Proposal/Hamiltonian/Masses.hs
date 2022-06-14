@@ -163,22 +163,22 @@ massMax = recip precision
 -- Minimal number of unique samples required for tuning the diagonal entries of
 -- the mass matrix.
 --
--- If changed, also change help text of 'HTuneMasses'.
-samplesMinDiagonal :: Int
-samplesMinDiagonal = 61
+-- NOTE: If changed, also change help text of 'HTuneMasses'.
+samplesDiagonalMin :: Int
+samplesDiagonalMin = 51
 
 -- Minimal number of samples required for tuning all entries of the mass matrix.
 --
--- If changed, also change help text of 'HTuneMasses'.
-samplesMinAll :: Int
-samplesMinAll = 201
+-- NOTE: If changed, also change help text of 'HTuneMasses'.
+samplesAllMinWith :: Dimension -> Int
+samplesAllMinWith d = samplesDiagonalMin + d
 
 getSampleSize :: VS.Vector Double -> Int
 getSampleSize = VS.length . VS.uniq . S.gsort
 
 getNewMassDiagonalWithRescue :: Int -> Double -> Double -> Double
 getNewMassDiagonalWithRescue sampleSize massOld massEstimate
-  | sampleSize < samplesMinDiagonal = massOld
+  | sampleSize < samplesDiagonalMin = massOld
   -- Be permissive with NaN and negative diagonal masses. Diagonal masses are
   -- variances which are strictly positive.
   | isNaN massEstimate = massOld
@@ -204,7 +204,7 @@ tuneDiagonalMassesOnly ::
 -- determining factor.
 tuneDiagonalMassesOnly toVec xs (ms, msI)
   -- If not enough data is available, do not tune.
-  | VB.length xs < samplesMinDiagonal = (ms, msI)
+  | VB.length xs < samplesDiagonalMin = (ms, msI)
   | dimState /= dimMs = error "tuneDiagonalMassesOnly: Dimension mismatch."
   -- Replace the diagonal.
   | otherwise =
@@ -220,7 +220,7 @@ tuneDiagonalMassesOnly toVec xs (ms, msI)
     -- proposal of one iteration.
     xs'' = L.fromRows $ VB.toList xs'
     -- We can safely use 'VB.head' here since the length of 'xs' must be larger
-    -- than 'samplesMinDiagonal'.
+    -- than 'samplesDiagonalMin'.
     dimState = VS.length $ VB.head xs'
     sampleSizes = VS.fromList $ map getSampleSize $ L.toColumns xs''
     msOld = L.unSym ms
@@ -248,9 +248,9 @@ tuneAllMasses ::
 -- determining factor.
 tuneAllMasses toVec xs (ms, msI)
   -- If not enough data is available, do not tune.
-  | VB.length xs < samplesMinDiagonal = (ms, msI)
+  | VB.length xs < samplesDiagonalMin = (ms, msI)
   -- If not enough data is available, only the diagonal masses are tuned.
-  | VB.length xs < samplesMinAll = fallbackDiagonal
+  | VB.length xs < samplesAllMinWith dimMs = fallbackDiagonal
   | L.rank xs'' /= dimState = fallbackDiagonal
   | dimState /= dimMs = error "tuneAllMasses: Dimension mismatch."
   | otherwise = (L.trustSym msNew, toGMatrix sigma)
@@ -264,11 +264,14 @@ tuneAllMasses toVec xs (ms, msI)
     -- proposal of one iteration.
     xs'' = L.fromRows $ VB.toList xs'
     -- We can safely use 'VB.head' here since the length of 'xs' must be larger
-    -- than 'samplesMinDiagonal'.
+    -- than 'samplesDiagonalMin'.
     dimState = VS.length $ VB.head xs'
     dimMs = L.rows $ L.unSym ms
     (_, ss, xsNormalized) = S.scale xs''
     sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.1 xsNormalized
-    -- Inverted masses.
-    sigma = S.rescaleSWith ss sigmaNormalized
+    -- Inverted masses. For now, I clean twice here: First, the normalized
+    -- matrix, so that small normalized entries are purged, and then the
+    -- rescaled matrix.
+    sigmaNormalizedCleaned = cleanMatrix sigmaNormalized
+    sigma = S.rescaleSWith ss sigmaNormalizedCleaned
     msNew = cleanMatrix $ L.inv sigma

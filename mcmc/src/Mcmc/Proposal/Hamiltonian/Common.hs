@@ -161,21 +161,21 @@ data HTuneLeapfrog
 data HTuneMasses
   = HNoTuneMasses
   | -- | Diagonal only: The variances of the parameters are calculated and the
-    -- masses are amended using the old masses and the inverted variances. If, for
-    -- a specific coordinate, the sample size is 60 or lower, or if the calculated
-    -- variance is out of predefined bounds [1e-8, 1e8], the mass of the affected
-    -- position is not changed.
+    -- masses are amended using the old masses and the inverted variances. If,
+    -- for a specific coordinate, the sample size is 50 or lower, or if the
+    -- calculated variance is out of predefined bounds [1e-8, 1e8], the mass of
+    -- the affected position is not changed.
     HTuneDiagonalMassesOnly
-  | -- | All masses: The covariance matrix of the parameters is estimated and the
-    -- inverted matrix (sometimes called precision matrix) is used as mass matrix.
-    -- This procedure is error prone, but models with high correlations between
-    -- parameters it is necessary to tune off-diagonal entries. The full mass
-    -- matrix is only tuned if more than 200 samples are available. For these
-    -- reasons, when tuning all masses it is recommended to use tuning settings
-    -- such as
+  | -- | All masses: The covariance matrix of the parameters is estimated and
+    -- the inverted matrix (sometimes called precision matrix) is used as mass
+    -- matrix. This procedure is error prone, but models with high correlations
+    -- between parameters strongly profit from tuning off-diagonal entries. The
+    -- full mass matrix is only tuned if more than (number of masses + 50)
+    -- samples are available. For these reasons, when tuning all masses it is
+    -- recommended to use tuning settings such as
     --
     -- @
-    -- BurnInWithCustomAutoTuning [10, 20 .. 200] (replicate 10 500)
+    -- BurnInWithCustomAutoTuning [10, 20 .. 200] [200, 220 .. 500]
     -- @
     HTuneAllMasses
   deriving (Eq, Show)
