@@ -26,6 +26,7 @@ module Mcmc.Proposal.Hamiltonian.Masses
   )
 where
 
+import Data.Maybe
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
@@ -40,7 +41,7 @@ import qualified Statistics.Sample as S
 -- when sampling from the multivariate normal distribution.
 type Mu = L.Vector Double
 
--- Generali, symmetric, inverted mass matrix.
+-- General, symmetric, inverted mass matrix.
 type MassesI = L.GMatrix
 
 -- Purge masses and inverted masses (excluding the diagonal) strictly smaller
@@ -61,7 +62,7 @@ isDiag xs = abs (sumDiag - sumFull) < precision
 -- Consider a matrix sparse if less than (5 * number of rows) elements are
 -- non-zero.
 isSparse :: L.Matrix Double -> Bool
-isSparse xs = L.sumElements xsInd < fromIntegral m
+isSparse xs = L.sumElements xsInd < fromIntegral (n * m)
   where
     n = L.rows xs
     m = min 5 n
@@ -105,7 +106,8 @@ toGMatrix xs
 -- We are permissive with negative and NaN values because adequate masses are
 -- crucial. The Hamiltonian algorithms also work when the masses are off.
 cleanMatrix :: L.Matrix Double -> L.Matrix Double
-cleanMatrix xs = (L.diag $ L.cmap cleanDiag xsDiag) + L.cmap cleanOffDiag xsOffDiag
+cleanMatrix xs =
+  (L.diag $ L.cmap cleanDiag xsDiag) + L.cmap cleanOffDiag xsOffDiag
   where
     xsDiag = L.takeDiag xs
     cleanDiag x
@@ -190,6 +192,36 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
     massNewSqrt = recip 3 * (sqrt massOld + 2 * sqrt massEstimate)
     massNew = massNewSqrt ** 2
 
+-- Find closest positive definite matrix.
+--
+-- See https://gist.github.com/fasiha/fdb5cec2054e6f1c6ae35476045a0bbd.
+findClosestPositiveDefiniteMatrix :: L.Matrix Double -> L.Matrix Double
+findClosestPositiveDefiniteMatrix a
+  | n == 0 || m == 0 = error "findClosestPositiveDefiniteMatrix: Matrix empty."
+  | n /= m = error "findClosestPositiveDefiniteMatrix: Matrix not square."
+  | isPositiveDefinite a = a
+  | otherwise = go a3 1
+  where
+    n = L.rows a
+    m = L.cols a
+    b = L.unSym $ L.sym a
+    (_, s, v) = L.svd b
+    h = (L.tr v) L.<> (L.diag s L.<> v)
+    a2 = L.scale 0.5 (b + h)
+    a3 = L.unSym $ L.sym a2
+    isPositiveDefinite = isJust . L.mbChol . L.trustSym
+    --
+    i = L.ident n
+    -- See https://hackage.haskell.org/package/ieee754-0.8.0/docs/src/Numeric-IEEE.html#line-177.
+    eps = 2.2204460492503131e-16
+    go x k
+      | isPositiveDefinite x = x
+      | otherwise =
+          let minEig = L.minElement $ L.cmap L.realPart $ L.eigenvalues x
+              nu = negate minEig * (k ** 2) + eps
+              x' = x + L.scale nu i
+           in go x' (k + 1)
+
 tuneDiagonalMassesOnly ::
   -- Conversion from value to vector.
   (a -> Positions) ->
@@ -208,7 +240,9 @@ tuneDiagonalMassesOnly toVec xs (ms, msI)
   | dimState /= dimMs = error "tuneDiagonalMassesOnly: Dimension mismatch."
   -- Replace the diagonal.
   | otherwise =
-      let ms' = L.trustSym $ cleanMatrix $ msOld - L.diag msDiagonalOld + L.diag msDiagonalNew
+      let msDirty = msOld - L.diag msDiagonalOld + L.diag msDiagonalNew
+          -- Positive definite matrices are symmetric.
+          ms' = L.trustSym $ findClosestPositiveDefiniteMatrix $ cleanMatrix msDirty
           msI' = getMassesI ms'
        in (ms', msI')
   where
@@ -253,7 +287,7 @@ tuneAllMasses toVec xs (ms, msI)
   | VB.length xs < samplesAllMinWith dimMs = fallbackDiagonal
   | L.rank xs'' /= dimState = fallbackDiagonal
   | dimState /= dimMs = error "tuneAllMasses: Dimension mismatch."
-  | otherwise = (ms', msI')
+  | otherwise = (msPD', msPDI')
   where
     fallbackDiagonal = tuneDiagonalMassesOnly toVec xs (ms, msI)
     -- xs: Each element contains all parameters of one iteration.
@@ -272,5 +306,9 @@ tuneAllMasses toVec xs (ms, msI)
     -- Sigma is the inverted mass matrix.
     sigma = S.rescaleSWith ss sigmaNormalized
     msI' = toGMatrix sigma
-    -- Masses.
-    ms' = L.trustSym $ cleanMatrix $ L.inv sigma
+    -- The masses should be positive definite, but sometimes they happen to be
+    -- not because of numerical errors.
+    ms' = L.sym $ cleanMatrix $ L.inv sigma
+    -- Positive definite matrices are symmetric.
+    msPD' = L.trustSym $ findClosestPositiveDefiniteMatrix $ L.unSym ms'
+    msPDI' = if L.unSym ms' == L.unSym msPD' then msI' else getMassesI msPD'
