@@ -30,7 +30,6 @@ import Data.Maybe
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
-import Debug.Trace
 import Mcmc.Proposal.Hamiltonian.Common
 import qualified Numeric.LinearAlgebra as L
 import qualified Statistics.Covariance as S
@@ -62,12 +61,14 @@ isDiag xs = abs (sumDiag - sumFull) < precision
 -- Consider a matrix sparse if less than (5 * number of rows) elements are
 -- non-zero.
 isSparse :: L.Matrix Double -> Bool
-isSparse xs = L.sumElements xsInd < fromIntegral (n * m)
+isSparse xs = nNonZero < fromIntegral nMax
   where
     n = L.rows xs
     m = min 5 n
+    nMax = n * m
     f x = if abs x >= precision then 1 else 0 :: Double
     xsInd = L.cmap f xs
+    nNonZero = L.sumElements xsInd
 
 toAssocMatrix :: L.Matrix Double -> L.AssocMatrix
 toAssocMatrix xs
@@ -87,9 +88,9 @@ toGMatrix :: L.Matrix Double -> L.GMatrix
 toGMatrix xs
   | n == 0 || m == 0 = error "toGMatrix: Matrix empty."
   | n /= m = error "toGMatrix: Matrix not square."
-  | isDiag xs = traceShow "Di" $ L.mkDiagR n m $ L.takeDiag xs
-  | isSparse xs = traceShow "Sp" $ L.mkSparse $ toAssocMatrix xs
-  | otherwise = traceShow "De" $ L.mkDense xs
+  | isDiag xs = L.mkDiagR n m $ L.takeDiag xs
+  | isSparse xs = L.mkSparse $ toAssocMatrix xs
+  | otherwise = L.mkDense xs
   where
     n = L.rows xs
     m = L.cols xs
@@ -192,7 +193,14 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
     massNewSqrt = recip 3 * (sqrt massOld + 2 * sqrt massEstimate)
     massNew = massNewSqrt ** 2
 
--- Find closest positive definite matrix.
+-- The Cholesky decomposition, which is performed when sampling new momenta with
+-- 'generateMomenta', requires a positive definite covariance matrix. The
+-- Graphical Lasso algorithm finds positive definite covariance matrices, but
+-- sometimes positive definiteness is violated because of numerical errors.
+-- Further, when non-diagonal masses are already non-zero, the tuning of
+-- diagonal masses only may violate positive definiteness.
+--
+-- Find the closest positive definite matrix of a given matrix.
 --
 -- See https://gist.github.com/fasiha/fdb5cec2054e6f1c6ae35476045a0bbd.
 findClosestPositiveDefiniteMatrix :: L.Matrix Double -> L.Matrix Double
@@ -268,6 +276,10 @@ tuneDiagonalMassesOnly toVec xs (ms, msI)
         msDiagonalOld
         msDiagonalEstimate
 
+-- This value was carefully tuned using the example "hamiltonian".
+defaultGraphicalLassoPenalty :: Double
+defaultGraphicalLassoPenalty = 0.4
+
 tuneAllMasses ::
   -- Conversion from value to vector.
   (a -> Positions) ->
@@ -302,7 +314,10 @@ tuneAllMasses toVec xs (ms, msI)
     dimState = VS.length $ VB.head xs'
     dimMs = L.rows $ L.unSym ms
     (_, ss, xsNormalized) = S.scale xs''
-    sigmaNormalized = L.unSym $ either error fst $ S.graphicalLasso 0.1 xsNormalized
+    sigmaNormalized =
+      L.unSym $
+        either error fst $
+          S.graphicalLasso defaultGraphicalLassoPenalty xsNormalized
     -- Sigma is the inverted mass matrix.
     sigma = S.rescaleSWith ss sigmaNormalized
     msI' = toGMatrix sigma
