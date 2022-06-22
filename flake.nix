@@ -59,11 +59,9 @@
         mcmc-dev = builtins.mapAttrs (_: x: pkgs.haskell.lib.doBenchmark x) mcmc;
       in
       {
-        packages = mcmc;
+        packages.default = mcmc;
 
-        defaultPackage = mcmc.mcmc;
-
-        devShell = hpkgs.shellFor {
+        devShells.default = hpkgs.shellFor {
           packages = _: (builtins.attrValues mcmc-dev);
           buildInputs = with pkgs; [
             bashInteractive
