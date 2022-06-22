@@ -38,10 +38,10 @@
             haskellPackages = supern.haskell.packages.ghc923.override {
               overrides = selfh: superh:
                 {
-                  circular = circular.defaultPackage.${system};
-                  covariance = covariance.defaultPackage.${system};
-                  dirichlet = dirichlet.defaultPackage.${system};
-                  pava = pava.defaultPackage.${system};
+                  circular = circular.packages.${system}.default;
+                  covariance = covariance.packages.${system}.default;
+                  dirichlet = dirichlet.packages.${system}.default;
+                  pava = pava.packages.${system}.default;
                 } // lib.genAttrs packageNames
                   (mcmc-create-package selfh.callCabal2nix);
             };
