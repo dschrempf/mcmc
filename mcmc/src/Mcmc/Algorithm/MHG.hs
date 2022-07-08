@@ -37,7 +37,6 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Maybe
 import Data.Time
 import qualified Data.Vector as VB
-import Debug.Trace (traceShowId)
 import Mcmc.Acceptance
 import Mcmc.Algorithm
 import Mcmc.Chain.Chain
@@ -105,7 +104,7 @@ mhg s pr lh cc mn i0 g = do
           BurnInWithCustomAutoTuning ns ms -> max (maximum $ 0 : ns) (maximum $ 0 : ms)
           _ -> 0
         else 0
-    traceLength = traceShowId $ maximum $ minimumTraceLength : bi : batchMonitorSizes
+    traceLength = maximum $ minimumTraceLength : bi : batchMonitorSizes
 
 mhgFn :: AnalysisName -> FilePath
 mhgFn (AnalysisName nm) = nm ++ ".mcmc.mhg"
