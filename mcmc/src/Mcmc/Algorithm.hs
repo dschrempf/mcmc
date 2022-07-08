@@ -44,10 +44,9 @@ class Algorithm a where
   -- | Reset acceptance counts.
   aResetAcceptance :: a -> a
 
-  -- TODO.
-  -- -- | Clean after burn in. In particular, this is used to reduce the length of
-  -- -- the trace, if required.
-  -- aCleanAfterBurnIn :: a -> a
+  -- | Clean after burn in. In particular, this is used to reduce the length of
+  -- the trace, if required.
+  aCleanAfterBurnIn :: TraceLength -> a -> IO a
 
   -- | Summarize the cycle.
   aSummarizeCycle :: IterationMode -> a -> BL.ByteString

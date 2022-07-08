@@ -110,10 +110,13 @@ mcmcNewRun a = do
   mcmcExecuteMonitors a
   when (aIsInValidState a) (logWarnB "The initial state is invalid!")
   a' <- mcmcBurnIn a
+  logInfoS $ "Clean chain after burn in."
+  let tl = sTraceLength s
+  a'' <- liftIO $ aCleanAfterBurnIn tl a'
   let i = fromIterations $ sIterations s
   logInfoS $ "Run chain for " ++ show i ++ " iterations."
-  logInfoB $ aStdMonitorHeader a'
-  mcmcIterate AllProposals i a'
+  logInfoB $ aStdMonitorHeader a''
+  mcmcIterate AllProposals i a''
 
 mcmcContinueRun :: Algorithm a => a -> MCMC a
 mcmcContinueRun a = do

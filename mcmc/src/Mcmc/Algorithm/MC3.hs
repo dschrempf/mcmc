@@ -183,6 +183,7 @@ instance ToJSON a => Algorithm (MC3 a) where
   aIterate = mc3Iterate
   aAutoTune = mc3AutoTune
   aResetAcceptance = mc3ResetAcceptance
+  aCleanAfterBurnIn = mc3CleanAfterBurnIn
   aSummarizeCycle = mc3SummarizeCycle
   aOpenMonitors = mc3OpenMonitors
   aExecuteMonitors = mc3ExecuteMonitors
@@ -519,6 +520,13 @@ mc3ResetAcceptance a = a'
     ac' = resetA $ mc3SwapAcceptance a
     --
     a' = a {mc3MHGChains = mhgs', mc3SwapAcceptance = ac'}
+
+mc3CleanAfterBurnIn :: ToJSON a => TraceLength -> MC3 a -> IO (MC3 a)
+mc3CleanAfterBurnIn tl a = do
+  cs' <- V.mapM (aCleanAfterBurnIn tl) cs
+  pure $ a {mc3MHGChains = cs'}
+  where
+    cs = mc3MHGChains a
 
 -- Information in cycle summary:
 --

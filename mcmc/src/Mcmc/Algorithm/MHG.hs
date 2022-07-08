@@ -65,12 +65,30 @@ instance ToJSON a => Algorithm (MHG a) where
   aIterate = mhgIterate
   aAutoTune = mhgAutoTune
   aResetAcceptance = mhgResetAcceptance
+  aCleanAfterBurnIn = mhgCleanAfterBurnIn
   aSummarizeCycle = mhgSummarizeCycle
   aOpenMonitors = mhgOpenMonitors
   aExecuteMonitors = mhgExecuteMonitors
   aStdMonitorHeader = mhgStdMonitorHeader
   aCloseMonitors = mhgCloseMonitors
   aSave = mhgSave
+
+getTraceLength ::
+  Maybe BurnInSettings ->
+  TraceLength ->
+  Monitor a ->
+  Cycle a ->
+  Int
+getTraceLength burnIn tl mn cc = maximum $ minimumTraceLength : bi : batchMonitorSizes
+  where
+    batchMonitorSizes = map getMonitorBatchSize $ mBatches mn
+    minimumTraceLength = case tl of
+      TraceAuto -> 1
+      TraceMinimum n -> n
+    bi = case (ccRequireTrace cc, burnIn) of
+      (True, Just (BurnInWithAutoTuning _ n)) -> n
+      (True, Just (BurnInWithCustomAutoTuning ns ms)) -> max (maximum $ 0 : ns) (maximum $ 0 : ms)
+      _ -> 0
 
 -- | Initialize an MHG algorithm.
 --
@@ -88,23 +106,12 @@ mhg ::
 mhg s pr lh cc mn i0 g = do
   -- The trace is a mutable vector and the mutable state needs to be handled by
   -- a monad.
-  tr <- replicateT traceLength l0
+  tr <- replicateT tl l0
   return $ MHG $ Chain Nothing l0 0 tr ac g 0 pr lh cc mn
   where
     l0 = Link i0 (pr i0) (lh i0)
     ac = emptyA $ ccProposals cc
-    batchMonitorSizes = map getMonitorBatchSize $ mBatches mn
-    minimumTraceLength = case sTraceLength s of
-      TraceAuto -> 1
-      TraceMinimum n -> n
-    bi =
-      if ccRequireTrace cc
-        then case sBurnIn s of
-          BurnInWithAutoTuning _ n -> n
-          BurnInWithCustomAutoTuning ns ms -> max (maximum $ 0 : ns) (maximum $ 0 : ms)
-          _ -> 0
-        else 0
-    traceLength = maximum $ minimumTraceLength : bi : batchMonitorSizes
+    tl = getTraceLength (Just $ sBurnIn s) (sTraceLength s) mn cc
 
 mhgFn :: AnalysisName -> FilePath
 mhgFn (AnalysisName nm) = nm ++ ".mcmc.mhg"
@@ -312,6 +319,18 @@ mhgResetAcceptance :: MHG a -> MHG a
 mhgResetAcceptance (MHG c) = MHG $ c {acceptance = resetA ac}
   where
     ac = acceptance c
+
+mhgCleanAfterBurnIn :: TraceLength -> MHG a -> IO (MHG a)
+mhgCleanAfterBurnIn tl (MHG c) = do
+  xs <- takeT l tr
+  tr' <- fromVectorT xs
+  let c' = c {trace = tr'}
+  pure $ MHG c'
+  where
+    mn = monitor c
+    cc = cycle c
+    tr = trace c
+    l = getTraceLength Nothing tl mn cc
 
 mhgSummarizeCycle :: IterationMode -> MHG a -> BL.ByteString
 mhgSummarizeCycle m (MHG c) = summarizeCycle m ac cc
