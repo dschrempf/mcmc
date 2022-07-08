@@ -204,7 +204,7 @@ hamiltonian hparams htconf hstruct htarget n w =
       tuner = do
         tfun <- hTuningFunctionWith dim toVec htconf
         let pfun = hamiltonianPFunctionWithTuningParameters dim hstruct targetWith
-        pure $ Tuner 1.0 ts tfun pfun
+        pure $ Tuner 1.0 ts True tfun pfun
    in case checkHStructureWith (hpsMasses hParamsI) hstruct of
         Just err -> error err
         Nothing -> hamiltonianWith tuner

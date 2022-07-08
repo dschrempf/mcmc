@@ -258,32 +258,35 @@ hTuningFunctionWith ::
 hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
   (HNoTuneLeapfrog, HNoTuneMasses) -> Nothing
   (_, _) -> Just $
-    \tt pdim ar xs (_, ts) ->
-      let (HParamsI eps la ms tpv tpf msI mus) =
-            -- NOTE: Use error here, because a dimension mismatch is a serious bug.
-            either error id $ fromAuxiliaryTuningParameters n ts
-          (TParamsVar epsMean h m) = tpv
-          (TParamsFixed eps0 mu ga t0 ka) = tpf
-          (ms', msI') = case mc of
-            HNoTuneMasses -> (ms, msI)
-            HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly toVec xs (ms, msI)
-            HTuneAllMasses -> tuneAllMasses toVec xs (ms, msI)
-          (eps'', epsMean'', h'') = case lc of
-            HNoTuneLeapfrog -> (eps, epsMean, h)
-            HTuneLeapfrog ->
-              let delta = getOptimalRate pdim
-                  c = recip $ m + t0
-                  h' = (1.0 - c) * h + c * (delta - ar)
-                  logEps' = mu - (sqrt m / ga) * h'
-                  eps' = exp logEps'
-                  mMKa = m ** (negate ka)
-                  epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
-               in (eps', epsMean', h')
-          eps''' = case tt of
-            NormalTuningStep -> eps''
-            LastTuningStep -> epsMean''
-          tpv' = TParamsVar epsMean'' h'' (m + 1.0)
-       in (eps''' / eps0, toAuxiliaryTuningParameters $ HParamsI eps''' la ms' tpv' tpf msI' mus)
+    \tt pdim ar mxs (_, ts) ->
+      case mxs of
+        Nothing -> error "hTuningFunctionWith: empty trace"
+        Just xs ->
+          let (HParamsI eps la ms tpv tpf msI mus) =
+                -- NOTE: Use error here, because a dimension mismatch is a serious bug.
+                either error id $ fromAuxiliaryTuningParameters n ts
+              (TParamsVar epsMean h m) = tpv
+              (TParamsFixed eps0 mu ga t0 ka) = tpf
+              (ms', msI') = case mc of
+                HNoTuneMasses -> (ms, msI)
+                HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly toVec xs (ms, msI)
+                HTuneAllMasses -> tuneAllMasses toVec xs (ms, msI)
+              (eps'', epsMean'', h'') = case lc of
+                HNoTuneLeapfrog -> (eps, epsMean, h)
+                HTuneLeapfrog ->
+                  let delta = getOptimalRate pdim
+                      c = recip $ m + t0
+                      h' = (1.0 - c) * h + c * (delta - ar)
+                      logEps' = mu - (sqrt m / ga) * h'
+                      eps' = exp logEps'
+                      mMKa = m ** (negate ka)
+                      epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
+                   in (eps', epsMean', h')
+              eps''' = case tt of
+                NormalTuningStep -> eps''
+                LastTuningStep -> epsMean''
+              tpv' = TParamsVar epsMean'' h'' (m + 1.0)
+           in (eps''' / eps0, toAuxiliaryTuningParameters $ HParamsI eps''' la ms' tpv' tpf msI' mus)
 
 checkHStructureWith :: Foldable s => Masses -> HStructure s -> Maybe String
 checkHStructureWith ms (HStructure x toVec fromVec)

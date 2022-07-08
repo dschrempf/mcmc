@@ -289,7 +289,7 @@ createProposal r f s d n w Tune =
   where
     fT = tuningFunction
     g t _ = Right $ f t
-    tuner = Tuner 1.0 VU.empty fT g
+    tuner = Tuner 1.0 VU.empty False fT g
 createProposal r f s d n w NoTune =
   Proposal n r s d w (f 1.0) Nothing
 
@@ -297,6 +297,8 @@ createProposal r f s d n w NoTune =
 data Tuner a = Tuner
   { tTuningParameter :: TuningParameter,
     tAuxiliaryTuningParameters :: AuxiliaryTuningParameters,
+    -- | Does the tuner require the trace over the last tuning period?
+    tRequireTrace :: Bool,
     tTuningFunction :: TuningFunction a,
     -- | Given the tuning parameter, and the auxiliary tuning parameters, get
     -- the tuned propose function.
@@ -311,9 +313,9 @@ data Tuner a = Tuner
 
 -- Lift tuner from one data type to another.
 liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
-liftTunerWith jf l (Tuner p ps fP g) = Tuner p ps fP' g'
+liftTunerWith jf l (Tuner p ps nt fP g) = Tuner p ps nt fP' g'
   where
-    fP' b d r = fP b d r . VB.map (^. l)
+    fP' b d r = fP b d r . fmap (VB.map (^. l))
     g' x xs = liftPFunctionWith jf l <$> g x xs
 
 -- | Tune proposal?
@@ -335,8 +337,8 @@ type TuningFunction a =
   PDimension ->
   -- | Acceptance rate of last tuning period.
   AcceptanceRate ->
-  -- | Samples of last tuning period.
-  VB.Vector a ->
+  -- | Trace of last tuning period. Only available when requested by proposal.
+  Maybe (VB.Vector a) ->
   (TuningParameter, AuxiliaryTuningParameters) ->
   (TuningParameter, AuxiliaryTuningParameters)
 
@@ -363,14 +365,16 @@ tuningFunctionWithAux ::
   -- | Auxiliary tuning function.
   (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
   TuningFunction a
-tuningFunctionWithAux f b d r xs = bimap (tuningFunctionSimple d r) (f b xs)
+tuningFunctionWithAux _ _ _ _ Nothing = error "tuningFunctionWithAux: empty trace"
+tuningFunctionWithAux f b d r (Just xs) = bimap (tuningFunctionSimple d r) (f b xs)
 
 -- | Only tune auxiliary tuning parameters.
 tuningFunctionOnlyAux ::
   -- | Auxiliary tuning function.
   (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
   TuningFunction a
-tuningFunctionOnlyAux f b _ _ xs = bimap id (f b xs)
+tuningFunctionOnlyAux _ _ _ _ Nothing = error "tuningFunctionOnlyAux: empty trace"
+tuningFunctionOnlyAux f b _ _ (Just xs) = bimap id (f b xs)
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
 -- proposal with a large tuning parameter is not a problem. But then, if the
@@ -407,14 +411,14 @@ tuneWithTuningParameters ::
   Either String (Proposal a)
 tuneWithTuningParameters t ts p = case prTuner p of
   Nothing -> Left "tuneWithTuningParameters: Proposal is not tunable."
-  Just (Tuner _ _ fT g) ->
+  Just (Tuner _ _ nt fT g) ->
     -- Ensure that the tuning parameter is strictly positive and well bounded.
     let t' = max tuningParameterMin t
         t'' = min tuningParameterMax t'
         psE = g t'' ts
      in case psE of
           Left err -> Left $ "tune: " <> err
-          Right ps -> Right $ p {prFunction = ps, prTuner = Just $ Tuner t'' ts fT g}
+          Right ps -> Right $ p {prFunction = ps, prTuner = Just $ Tuner t'' ts nt fT g}
 
 -- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double

@@ -37,6 +37,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Maybe
 import Data.Time
 import qualified Data.Vector as VB
+import Debug.Trace (traceShowId)
 import Mcmc.Acceptance
 import Mcmc.Algorithm
 import Mcmc.Chain.Chain
@@ -97,11 +98,14 @@ mhg s pr lh cc mn i0 g = do
     minimumTraceLength = case sTraceLength s of
       TraceAuto -> 1
       TraceMinimum n -> n
-    bi = case sBurnIn s of
-      BurnInWithAutoTuning _ n -> n
-      BurnInWithCustomAutoTuning ns ms -> max (maximum $ 0 : ns) (maximum $ 0 : ms)
-      _ -> 0
-    traceLength = maximum $ minimumTraceLength : bi : batchMonitorSizes
+    bi =
+      if ccRequireTrace cc
+        then case sBurnIn s of
+          BurnInWithAutoTuning _ n -> n
+          BurnInWithCustomAutoTuning ns ms -> max (maximum $ 0 : ns) (maximum $ 0 : ms)
+          _ -> 0
+        else 0
+    traceLength = traceShowId $ maximum $ minimumTraceLength : bi : batchMonitorSizes
 
 mhgFn :: AnalysisName -> FilePath
 mhgFn (AnalysisName nm) = nm ++ ".mcmc.mhg"
@@ -295,11 +299,15 @@ mhgIterate m _ a = do
 
 mhgAutoTune :: TuningType -> Int -> MHG a -> IO (MHG a)
 mhgAutoTune b n (MHG c) = do
-  tr <- VB.map state <$> takeT n (trace c)
-  return $ MHG $ c {cycle = autoTuneCycle b ac tr cc}
+  mxs <-
+    if ccRequireTrace cc
+      then Just . VB.map state <$> takeT n tr
+      else pure Nothing
+  return $ MHG $ c {cycle = autoTuneCycle b ac mxs cc}
   where
     ac = acceptance c
     cc = cycle c
+    tr = trace c
 
 mhgResetAcceptance :: MHG a -> MHG a
 mhgResetAcceptance (MHG c) = MHG $ c {acceptance = resetA ac}

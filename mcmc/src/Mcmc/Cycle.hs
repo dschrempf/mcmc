@@ -15,7 +15,7 @@
 module Mcmc.Cycle
   ( -- * Cycles
     Order (..),
-    Cycle (ccProposals),
+    Cycle (ccProposals, ccRequireTrace),
     cycleFromList,
     setOrder,
     IterationMode (..),
@@ -93,7 +93,9 @@ describeOrder SequentialReversibleO =
 -- that they can be uniquely identified.
 data Cycle a = Cycle
   { ccProposals :: [Proposal a],
-    ccOrder :: Order
+    ccOrder :: Order,
+    -- | Does the cycle require the trace when auto tuning? See 'tRequireTrace'.
+    ccRequireTrace :: Bool
   }
 
 -- | Create a 'Cycle' from a list of 'Proposal's.
@@ -102,7 +104,7 @@ cycleFromList [] =
   error "cycleFromList: Received an empty list but cannot create an empty Cycle."
 cycleFromList xs =
   if length uniqueXs == length xs
-    then Cycle xs def
+    then Cycle xs def (any needsTrace xs)
     else error $ "\n" ++ msg ++ "cycleFromList: Proposals are not unique."
   where
     uniqueXs = nub xs
@@ -111,6 +113,9 @@ cycleFromList xs =
     removedDescriptions = map (show . prDescription) removedXs
     removedMsgs = zipWith (\n d -> n ++ " " ++ d) removedNames removedDescriptions
     msg = unlines removedMsgs
+    needsTrace p = case prTuner p of
+      Nothing -> False
+      Just t -> tRequireTrace t
 
 -- | Set the order of 'Proposal's in a 'Cycle'.
 setOrder :: Order -> Cycle a -> Cycle a
@@ -122,7 +127,7 @@ data IterationMode = AllProposals | FastProposals
 
 -- | Replicate 'Proposal's according to their weights and possibly shuffle them.
 prepareProposals :: IterationMode -> Cycle a -> GenIO -> IO [Proposal a]
-prepareProposals m (Cycle xs o) g =
+prepareProposals m (Cycle xs o _) g =
   if null ps
     then error "prepareProposals: No proposals found."
     else case o of
@@ -145,7 +150,7 @@ prepareProposals m (Cycle xs o) g =
 
 -- The number of proposals depends on the order.
 getNProposalsPerCycle :: IterationMode -> Cycle a -> Int
-getNProposalsPerCycle m (Cycle xs o) = case o of
+getNProposalsPerCycle m (Cycle xs o _) = case o of
   RandomO -> once
   SequentialO -> once
   RandomReversibleO -> 2 * once
@@ -157,29 +162,34 @@ getNProposalsPerCycle m (Cycle xs o) = case o of
     once = sum $ map (fromPWeight . prWeight) xs'
 
 -- See 'tuneWithTuningParameters' and 'Tuner'.
-tuneWithChainParameters :: TuningType -> AcceptanceRate -> VB.Vector a -> Proposal a -> Either String (Proposal a)
-tuneWithChainParameters b ar xs p = case prTuner p of
+tuneWithChainParameters :: TuningType -> AcceptanceRate -> Maybe (VB.Vector a) -> Proposal a -> Either String (Proposal a)
+tuneWithChainParameters b ar mxs p = case prTuner p of
   Nothing -> Right p
-  Just (Tuner t ts fT _) ->
-    let (t', ts') = fT b d ar xs (t, ts)
-     in tuneWithTuningParameters t' ts' p
-  where
-    d = prDimension p
+  Just (Tuner t ts rt fT _) -> case (rt, mxs) of
+    (True, Nothing) -> error "tuneWithChainParameters: trace required"
+    _ ->
+      let (t', ts') = fT b d ar mxs (t, ts)
+       in tuneWithTuningParameters t' ts' p
+      where
+        d = prDimension p
 
 -- | Calculate acceptance rates and auto tunes the 'Proposal's in the 'Cycle'.
 --
 -- Do not change 'Proposal's that are not tuneable.
-autoTuneCycle :: TuningType -> Acceptance (Proposal a) -> VB.Vector a -> Cycle a -> Cycle a
-autoTuneCycle b a xs c =
-  if sort (M.keys ar) == sort ps
-    then c {ccProposals = map tuneF ps}
-    else error "autoTuneCycle: Proposals in map and cycle do not match."
-  where
-    ar = acceptanceRates a
-    ps = ccProposals c
-    tuneF p = case ar M.!? p of
-      Just (Just x) -> either error id $ tuneWithChainParameters b x xs p
-      _ -> p
+autoTuneCycle :: TuningType -> Acceptance (Proposal a) -> Maybe (VB.Vector a) -> Cycle a -> Cycle a
+autoTuneCycle b a mxs c = case (ccRequireTrace c, mxs) of
+  (False, Just _) -> error "autoTuneCycle: trace not required"
+  (True, Nothing) -> error "autoTuneCycle: trace required"
+  _ ->
+    if sort (M.keys ar) == sort ps
+      then c {ccProposals = map tuneF ps}
+      else error "autoTuneCycle: Proposals in map and cycle do not match."
+    where
+      ar = acceptanceRates a
+      ps = ccProposals c
+      tuneF p = case ar M.!? p of
+        Just (Just x) -> either error id $ tuneWithChainParameters b x mxs p
+        _ -> p
 
 -- | Horizontal line of proposal summaries.
 proposalHLine :: BL.ByteString

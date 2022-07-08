@@ -12,6 +12,7 @@
 module Mcmc.Chain.Trace
   ( Trace,
     replicateT,
+    fromVectorT,
     lengthT,
     pushT,
     headT,
@@ -37,6 +38,12 @@ newtype Trace a = Trace {fromTrace :: C.MStack VB.Vector RealWorld (Link a)}
 -- Call 'error' if the maximum size is zero or negative.
 replicateT :: Int -> Link a -> IO (Trace a)
 replicateT n l = Trace <$> C.replicate n l
+
+-- | Create a trace from a vector. The length is determined by the vector.
+--
+-- Call 'error' if the vector is empty.
+fromVectorT :: VB.Vector (Link a) -> IO (Trace a)
+fromVectorT xs = Trace <$> C.fromVector xs
 
 -- | Get the length of the trace.
 lengthT :: Trace a -> Int
