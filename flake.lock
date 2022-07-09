@@ -218,11 +218,11 @@
         "nixpkgs": "nixpkgs_5"
       },
       "locked": {
-        "lastModified": 1657285820,
-        "narHash": "sha256-j+EC9yCX7orvz7aciL0GmUskLVvCSePYA1JpxBqfVHQ=",
+        "lastModified": 1657291991,
+        "narHash": "sha256-1HEztH6T/Rb0gPOHGJlfcamN0UOZUCeSShsiiCCikWA=",
         "owner": "dschrempf",
         "repo": "pava",
-        "rev": "002b4eb3d4a52c8bbc48b682ca4f38eb6d90340e",
+        "rev": "9ab9a2ddd7426efddc9047b941330c97639eb26b",
         "type": "github"
       },
       "original": {
