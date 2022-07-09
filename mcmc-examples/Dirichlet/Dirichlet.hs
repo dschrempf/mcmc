@@ -26,7 +26,7 @@ import Mcmc
 -- import Statistics.Distribution
 import Statistics.Distribution.Dirichlet
 -- import Statistics.Distribution.Normal
-import System.Random.MWC
+import System.Random.Stateful
 
 -- The Dirichlet distribution is parametrized by a set of alpha values.
 alphasTrue :: V.Vector Double
@@ -52,7 +52,7 @@ nObservations :: Int
 nObservations = 800
 
 -- Simulate data using a Dirichlet distribution with the true parameter values.
-simulateData :: GenIO -> IO [V.Vector Double]
+simulateData :: StatefulGen g m => g -> m [V.Vector Double]
 simulateData g = replicateM nObservations (dirichletSample dd g)
   where
     dd = either error id $ dirichletDistribution alphasTrue
@@ -85,8 +85,9 @@ alphaProposals =
 cc :: Cycle I
 cc =
   cycleFromList $
-    norm @~ scaleUnbiased 8.0 (PName "Norm") (pWeight 1) Tune :
-    alphaProposals
+    norm
+      @~ scaleUnbiased 8.0 (PName "Norm") (pWeight 1) Tune
+      : alphaProposals
 
 -- -- Cycle with Dirichlet proposal.
 -- proposals :: Cycle I
@@ -132,7 +133,7 @@ start = I as s
 
 main :: IO ()
 main = do
-  g <- create
+  g <- newIOGenM $ mkStdGen 0
   putStrLn "-- Simulate Data."
   xs <- simulateData g
   -- print xs

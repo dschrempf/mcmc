@@ -31,7 +31,6 @@ import Data.List hiding (cycle)
 import Data.Maybe
 import qualified Data.Stack.Circular as C
 import qualified Data.Vector as VB
-import qualified Data.Vector.Unboxed as VU
 import Data.Word
 import Mcmc.Acceptance
 import Mcmc.Chain.Chain
@@ -54,7 +53,7 @@ data SavedChain a = SavedChain
     savedIteration :: Int,
     savedTrace :: C.Stack VB.Vector (Link a),
     savedAcceptance :: Acceptance Int,
-    savedSeed :: VU.Vector Word32,
+    savedSeed :: (Word64, Word64),
     savedTuningParameters :: [Maybe (TuningParameter, AuxiliaryTuningParameters)]
   }
   deriving (Eq, Show)

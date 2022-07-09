@@ -37,7 +37,7 @@ import qualified Data.Vector as VB
 import Mcmc.Acceptance
 import Mcmc.Internal.Shuffle
 import Mcmc.Proposal
-import System.Random.MWC
+import System.Random.Stateful
 
 -- | Define the order in which 'Proposal's are executed in a 'Cycle'. The total
 -- number of 'Proposal's per 'Cycle' may differ between 'Order's (e.g., compare
@@ -126,7 +126,7 @@ data IterationMode = AllProposals | FastProposals
   deriving (Eq)
 
 -- | Replicate 'Proposal's according to their weights and possibly shuffle them.
-prepareProposals :: IterationMode -> Cycle a -> GenIO -> IO [Proposal a]
+prepareProposals :: IterationMode -> Cycle a -> IOGenM StdGen -> IO [Proposal a]
 prepareProposals m (Cycle xs o _) g =
   if null ps
     then error "prepareProposals: No proposals found."

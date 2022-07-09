@@ -110,6 +110,7 @@ library
     , pretty-show
     , primitive
     , random
+    , splitmix
     , statistics
     , time
     , transformers
@@ -130,7 +131,7 @@ test-suite mcmc-test
     , base        >=4.7 && <5
     , hspec
     , mcmc
-    , mwc-random
+    , random
     , statistics
 
 benchmark mcmc-bench
@@ -151,5 +152,5 @@ benchmark mcmc-bench
     , fixed-vector
     , math-functions
     , mcmc
-    , mwc-random
+    , random
     , vector

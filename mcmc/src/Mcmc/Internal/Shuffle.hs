@@ -21,7 +21,7 @@ import Control.Monad
 import Control.Monad.ST
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as M
-import System.Random.MWC
+import System.Random.Stateful
 
 -- Fisher-Yates shuffle. See also
 -- 'System.Random.MWC.Distributions.uniformPermutation' which is a little
@@ -29,15 +29,15 @@ import System.Random.MWC
 -- leave the custom implementation for now.
 
 -- | Shuffle a vector.
-shuffle :: [a] -> GenIO -> IO [a]
+shuffle :: StatefulGen g m => [a] -> g -> m [a]
 shuffle xs = grabble xs (length xs)
 
 -- | @grabble xs m n@ is /O(m*n')/, where @n' = min n (length xs)@. Choose @n'@
 -- elements from @xs@, without replacement, and that @m@ times.
-grabble :: [a] -> Int -> GenIO -> IO [a]
+grabble :: StatefulGen g m => [a] -> Int -> g -> m [a]
 grabble xs m gen = do
   swaps <- forM [0 .. min (l - 1) m] $ \i -> do
-    j <- uniformR (i, l) gen
+    j <- uniformRM (i, l) gen
     return (i, j)
   return $ (V.toList . V.take m . swapElems (V.fromList xs)) swaps
   where

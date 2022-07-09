@@ -59,7 +59,7 @@ import Mcmc.Likelihood
 import Mcmc.Monitor
 import Mcmc.Prior
 import Mcmc.Proposal
-import System.Random.MWC hiding (save)
+import System.Random.Stateful
 import Prelude hiding (cycle)
 
 -- | Type synonym to indicate the initial state.
@@ -98,7 +98,7 @@ data Chain a = Chain
     -- order.
     acceptance :: Acceptance (Proposal a),
     -- | The random number generator.
-    generator :: GenIO,
+    generator :: IOGenM StdGen,
     --
     -- Variables and functions; not saved.
 

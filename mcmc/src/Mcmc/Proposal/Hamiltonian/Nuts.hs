@@ -49,6 +49,7 @@ import Numeric.AD.Double
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
 import System.Random.MWC
+import System.Random.Stateful
 
 -- Internal; Slice variable 'u'.
 type SliceVariable = Log Double
@@ -83,7 +84,7 @@ buildTreeWith ::
   Log Double ->
   MassesI ->
   Target ->
-  GenIO ->
+  IOGenM StdGen ->
   --
   Positions ->
   Momenta ->
@@ -137,7 +138,7 @@ buildTreeWith expETot0 msI tfun g q p u v j e
           case mr' of
             Nothing -> pure Nothing
             Just (qm'', pm'', qp'', pp'', q''', n''', a''', na''') -> do
-              b <- uniform g :: IO Double
+              b <- uniformRM (0, 1) g :: IO Double
               let q'''' = if b < fromIntegral n''' / (fromIntegral $ n' + n''') then q''' else q'
                   a'''' = a' + a'''
                   na'''' = na' + na'''
@@ -195,7 +196,7 @@ nutsPFunction ::
   PFunction (s Double)
 nutsPFunction hparamsi hstruct targetWith x g = do
   p <- generateMomenta mus ms g
-  uZeroOne <- uniform g :: IO Double
+  uZeroOne <- uniformRM (0, 1) g :: IO Double
   -- NOTE (runtime): Here we need the target function value from the previous
   -- step. For now, I just recalculate the value, but this is, of course, slow!
   -- However, if other proposals have changed the state inbetween, we do need to
@@ -211,7 +212,7 @@ nutsPFunction hparamsi hstruct targetWith x g = do
       --
       -- Here, the suffixes 'm' and 'p' stand for minus and plus, respectively.
       go qm pm qp pp j y n isNew = do
-        v <- uniform g :: IO Direction
+        v <- uniformM g :: IO Direction
         mr' <-
           if v
             then -- Forwards.
@@ -240,7 +241,7 @@ nutsPFunction hparamsi hstruct targetWith x g = do
               if r > 1.0
                 then pure True
                 else do
-                  b <- uniform g
+                  b <- uniformRM (0, 1) g
                   pure $ b < r
             let (y''', isNew') = if isAccept then (y'', NewWith ac) else (y, OldWith ac)
                 isUTurn = let dq = (qp'' - qm'') in (dq * pm'' < 0) || (dq * pp'' < 0)

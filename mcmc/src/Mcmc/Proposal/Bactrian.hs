@@ -23,8 +23,8 @@ import Mcmc.Statistics.Types
 import Numeric.Log
 import Statistics.Distribution
 import Statistics.Distribution.Normal
-import System.Random.MWC
 import System.Random.MWC.Distributions
+import System.Random.Stateful
 
 -- | Type synonym indicating the spike parameter.
 type SpikeParameter = Double
@@ -32,7 +32,7 @@ type SpikeParameter = Double
 genBactrian ::
   SpikeParameter ->
   StandardDeviation Double ->
-  GenIO ->
+  IOGenM StdGen ->
   IO Double
 genBactrian m s g = do
   let mn = m * s

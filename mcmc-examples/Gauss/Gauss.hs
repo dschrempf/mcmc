@@ -20,7 +20,7 @@ where
 
 import Control.Lens
 import Mcmc
-import System.Random.MWC
+import System.Random.Stateful
 
 -- Variance.
 v :: Double
@@ -60,7 +60,7 @@ cc =
 
 main :: IO ()
 main = do
-  g <- create
+  g <- newIOGenM $ mkStdGen 0
   let ss =
         MLSettings
           (AnalysisName "gauss")

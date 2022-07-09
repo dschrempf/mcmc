@@ -48,7 +48,7 @@ executable archery
   build-depends:
     , base
     , mcmc
-    , mwc-random
+    , random
     , statistics
 
 executable dirichlet
@@ -63,7 +63,7 @@ executable dirichlet
     , dirichlet
     , lens
     , mcmc
-    , mwc-random
+    , random
     , vector
 
 -- , statistics
@@ -77,7 +77,7 @@ executable gauss
     , base
     , lens
     , mcmc
-    , mwc-random
+    , random
 
 executable hamiltonian
   import:          exec
@@ -89,7 +89,7 @@ executable hamiltonian
     , base
     , lens
     , mcmc
-    , mwc-random
+    , random
     , vector
 
 executable pair
@@ -101,7 +101,7 @@ executable pair
   build-depends:
     , base
     , mcmc
-    , mwc-random
+    , random
     , vector
 
 executable plh
@@ -116,5 +116,5 @@ executable plh
     , base
     , mcmc
     , microlens
-    , mwc-random
+    , random
     , statistics

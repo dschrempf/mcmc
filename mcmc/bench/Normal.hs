@@ -19,7 +19,7 @@ where
 
 import Control.Monad
 import Mcmc
-import System.Random.MWC
+import System.Random.Stateful
 
 trueMean :: Double
 trueMean = 5
@@ -42,7 +42,7 @@ monStd = monitorStdOut mons 200
 mon :: Monitor Double
 mon = Monitor monStd [] []
 
-normalSlideBench :: GenIO -> IO ()
+normalSlideBench :: IOGenM StdGen -> IO ()
 normalSlideBench g = do
   let s =
         Settings
@@ -64,7 +64,7 @@ ccLarge =
     [slideSymmetric 1.0 (PName $ "Medium " ++ show i) (pWeight 1) Tune | i <- [0 .. 100 :: Int]]
 
 -- Should have the same run time as 'normalSlide'.
-normalLargeCycleBench :: GenIO -> IO ()
+normalLargeCycleBench :: IOGenM StdGen -> IO ()
 normalLargeCycleBench g = do
   let s =
         Settings
@@ -83,7 +83,7 @@ normalLargeCycleBench g = do
 ccBactrian :: Cycle Double
 ccBactrian = cycleFromList [slideBactrian 0.5 1.0 (PName "Bactrian") (pWeight 1) Tune]
 
-normalBactrianBench :: GenIO -> IO ()
+normalBactrianBench :: IOGenM StdGen -> IO ()
 normalBactrianBench g = do
   let s =
         Settings
@@ -99,7 +99,7 @@ normalBactrianBench g = do
   a <- mhg s noPrior lh ccBactrian mon 0 g
   void $ mcmc s a
 
-normalMC3 :: GenIO -> Int -> IO ()
+normalMC3 :: IOGenM StdGen -> Int -> IO ()
 normalMC3 g n = do
   let mcmcS =
         Settings

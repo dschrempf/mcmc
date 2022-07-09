@@ -26,7 +26,7 @@ import Control.Monad
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import Mcmc
-import System.Random.MWC hiding (uniform)
+import System.Random.Stateful
 
 -- The state is composed of a vector containing two variables x and y.
 type IG = VB.Vector
@@ -121,7 +121,7 @@ mon = Monitor monStd [monFile] []
 
 main :: IO ()
 main = do
-  g <- create
+  g <- newIOGenM $ mkStdGen 0
   let mcmcS =
         Settings
           analysisName

@@ -17,7 +17,7 @@ where
 import Mcmc.Cycle
 import Mcmc.Proposal
 import Mcmc.Proposal.Slide
-import System.Random.MWC
+import System.Random.Stateful
 import Test.Hspec
 
 p1 :: Proposal Double
@@ -34,7 +34,7 @@ spec =
   describe "prepareProposals" $
     it "returns the correct number of proposals in a cycle" $
       do
-        g <- create
+        g <- newIOGenM $ mkStdGen 0
         l1 <- length <$> prepareProposals AllProposals c g
         l1 `shouldBe` 4
         l2 <- length <$> prepareProposals AllProposals (setOrder RandomReversibleO c) g

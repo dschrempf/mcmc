@@ -125,14 +125,14 @@ hamiltonianPFunction ::
   PFunction (s Double)
 hamiltonianPFunction hparamsi hstruct targetWith x g = do
   p <- generateMomenta mus ms g
-  eRan <- uniformR (eL, eR) g
+  eRan <- uniformRM (eL, eR) g
   -- NOTE: The NUTS paper does not sample l since l varies naturally because
   -- of epsilon. I still think it should vary because otherwise, there may be
   -- dragons due to periodicity.
   let lM = la / eRan
       lL = maximum [1 :: Int, floor $ 0.9 * lM]
       lR = maximum [lL, ceiling $ 1.1 * lM]
-  lRan <- uniformR (lL, lR) g
+  lRan <- uniformRM (lL, lR) g
   case leapfrog (targetWith x) msI lRan eRan q p of
     Nothing -> pure (ForceReject, Just $ AcceptanceCounts 0 100)
     -- Check if next state is accepted here, because the Jacobian is included in

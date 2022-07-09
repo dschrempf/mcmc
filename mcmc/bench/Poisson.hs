@@ -31,7 +31,7 @@ import qualified Data.Vector.Fixed as VB
 import qualified Data.Vector.Fixed.Boxed as VB
 import qualified Data.Vector.Storable as VS
 import Mcmc
-import System.Random.MWC
+import System.Random.Stateful
 
 type IG = VB.Vec2
 
@@ -86,7 +86,7 @@ monStd = monitorStdOut [monAlpha, monBeta] 150
 mon :: Monitor I
 mon = Monitor monStd [] []
 
-poissonBench :: GenIO -> IO ()
+poissonBench :: IOGenM StdGen -> IO ()
 poissonBench g = do
   let s =
         Settings
@@ -123,7 +123,7 @@ target = HTarget Nothing lh Nothing
 hmcProposal :: Cycle I
 hmcProposal = cycleFromList [hamiltonian hparams htconf hstruct target (PName "Hamiltonian") (pWeight 1)]
 
-poissonHamiltonianBench :: GenIO -> IO ()
+poissonHamiltonianBench :: IOGenM StdGen -> IO ()
 poissonHamiltonianBench g = do
   let s =
         Settings

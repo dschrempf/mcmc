@@ -22,7 +22,7 @@ import Control.Monad
 import Mcmc
 import qualified Statistics.Distribution as S
 import qualified Statistics.Distribution.Exponential as S
-import System.Random.MWC
+import System.Random.Stateful
 
 -- State space of the Markov chain. The precision of the archer is measured as a
 -- 'Double'.
@@ -40,7 +40,7 @@ muTrue :: Double
 muTrue = 1.0
 
 -- Simulated distances from center.
-distances :: GenIO -> IO [Distance]
+distances :: StatefulGen g m => g -> m [Distance]
 distances = replicateM nArrows . S.genContVar (S.exponential muTrue)
 
 -- Uninformative, improper prior for positive precision values.
@@ -89,7 +89,7 @@ mon = Monitor monStd [monFile] [monBatch]
 
 main :: IO ()
 main = do
-  g <- create
+  g <- newIOGenM $ mkStdGen 0
   -- Simulate a list of observed arrow distances.
   xs <- distances g
   -- MCMC settings and algorithm.

@@ -44,11 +44,11 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1657285790,
-        "narHash": "sha256-PdJKW35uyVZZJU30vsji4CRxio+xeHfIvf8O/fNcmCY=",
+        "lastModified": 1657292169,
+        "narHash": "sha256-oWvUV93Fydl1rgl9j6uQ7Rp3FDbpMmBHMZ9JBaeKRj4=",
         "owner": "dschrempf",
         "repo": "dirichlet",
-        "rev": "059373cffbcd6d955ca9916be0e80ea587a05043",
+        "rev": "4e26c8e5863defdfd2a171fe7b6e4894e1171fc6",
         "type": "github"
       },
       "original": {

@@ -79,7 +79,7 @@ import Mcmc.Prior
 import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
-import System.Random.MWC
+import System.Random.Stateful
 
 -- | Total number of parallel chains.
 --
@@ -128,7 +128,7 @@ data SavedMC3 a = SavedMC3
     savedMC3ReciprocalTemperatures :: ReciprocalTemperatures,
     savedMC3Iteration :: Int,
     savedMC3SwapAcceptance :: Acceptance Int,
-    savedMC3Generator :: U.Vector Word32
+    savedMC3Generator :: (Word64, Word64)
   }
   deriving (Eq, Show)
 
@@ -173,7 +173,7 @@ data MC3 a = MC3
     mc3Iteration :: Int,
     -- | Number of accepted and rejected swaps.
     mc3SwapAcceptance :: Acceptance Int,
-    mc3Generator :: GenIO
+    mc3Generator :: IOGenM StdGen
   }
 
 instance ToJSON a => Algorithm (MC3 a) where
@@ -284,7 +284,7 @@ mc3 ::
   Cycle a ->
   Monitor a ->
   InitialState a ->
-  GenIO ->
+  IOGenM StdGen ->
   IO (MC3 a)
 mc3 sMc3 s pr lh cc mn i0 g
   | n < 2 = error "mc3: The number of chains must be two or larger."
@@ -292,7 +292,8 @@ mc3 sMc3 s pr lh cc mn i0 g
   | sn < 1 || sn > n - 1 = error "mc3: The number of swaps must be in [1, NChains - 1]."
   | otherwise = do
       -- Split random number generators.
-      gs <- V.fromList <$> splitGen n g
+      rs <- replicateM n $ splitGenM g
+      gs <- V.fromList <$> mapM newIOGenM rs
       cs <- V.mapM (mhg s pr lh cc mn i0) gs
       hcs <- V.izipWithM (initMHG pr lh) (V.convert bs) cs
       return $ MC3 sMc3 hcs bs 0 (emptyA [0 .. n - 2]) g

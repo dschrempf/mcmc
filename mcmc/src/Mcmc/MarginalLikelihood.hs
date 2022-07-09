@@ -38,7 +38,6 @@ import Mcmc.Chain.Link
 import Mcmc.Chain.Trace
 import Mcmc.Cycle
 import Mcmc.Environment
-import Mcmc.Internal.Random
 import Mcmc.Likelihood
 import Mcmc.Logger
 import Mcmc.Mcmc
@@ -47,7 +46,7 @@ import Mcmc.Prior
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Directory
-import System.Random.MWC
+import System.Random.Stateful
 import Text.Printf
 import Text.Show.Pretty
 import Prelude hiding (cycle)
@@ -224,7 +223,7 @@ mlRun ::
   Cycle a ->
   Monitor a ->
   a ->
-  GenIO ->
+  IOGenM StdGen ->
   -- For each point a vector of likelihoods stored in log domain.
   ML [VU.Vector Likelihood]
 mlRun k xs em vb prf lhf cc mn i0 g = do
@@ -271,11 +270,12 @@ tiWrapper ::
   Cycle a ->
   Monitor a ->
   a ->
-  GenIO ->
+  IOGenM StdGen ->
   ML MarginalLikelihood
-tiWrapper s prf lhf cc mn i0 g = do
+tiWrapper s prf lhf cc mn i0 g0 = do
   logInfoB "Path integral (thermodynamic integration)."
-  [g0, g1] <- splitGen 2 g
+  r1 <- splitGenM g0
+  g1 <- newIOGenM r1
 
   -- Parallel execution of both path integrals.
   r <- ask
@@ -354,7 +354,7 @@ sssWrapper ::
   Cycle a ->
   Monitor a ->
   a ->
-  GenIO ->
+  IOGenM StdGen ->
   ML MarginalLikelihood
 sssWrapper s prf lhf cc mn i0 g = do
   logInfoB "Stepping stone sampling."
@@ -378,9 +378,7 @@ marginalLikelihood ::
   Cycle a ->
   Monitor a ->
   InitialState a ->
-  -- | A source of randomness. For reproducible runs, make sure to use
-  -- generators with the same seed.
-  GenIO ->
+  IOGenM StdGen ->
   IO MarginalLikelihood
 marginalLikelihood s prf lhf cc mn i0 g = do
   -- Initialize.

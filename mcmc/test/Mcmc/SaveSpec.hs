@@ -14,13 +14,14 @@ module Mcmc.SaveSpec
   )
 where
 
+import Data.IORef (readIORef)
 import Mcmc
 import Mcmc.Chain.Chain
 import Mcmc.Chain.Save
 import Mcmc.Chain.Trace
 import Statistics.Distribution
 import Statistics.Distribution.Normal
-import qualified System.Random.MWC as R
+import System.Random.Stateful
 import Test.Hspec
 
 trueMean :: Double
@@ -65,7 +66,7 @@ spec = do
   describe "save and load" $
     it "doesn't change the MCMC chain" $
       do
-        gen <- R.create
+        gen <- newIOGenM $ mkStdGen 0
         a <- mhg settings noPrior lh proposals mon 0 gen
         c <- fromMHG <$> mcmc settings a
         savedChain <- toSavedChain c
@@ -87,17 +88,17 @@ spec = do
         frozenT2 <- freezeT (trace c)
         frozenT2' <- freezeT (trace c')
         frozenT2 `shouldBe` frozenT2'
-        g2 <- R.save $ generator r
-        g2' <- R.save $ generator r'
+        g2 <- readIORef $ unIOGenM $ generator r
+        g2' <- readIORef $ unIOGenM $ generator r'
         g2 `shouldBe` g2'
 
   describe "mhContinue" $
     it "mcmc 50 + mcmcContinue 50 == mcmc 100" $
       do
-        gen1 <- R.create
+        gen1 <- newIOGenM $ mkStdGen 0
         a1 <- mhg settings noPrior lh proposals mon 0 gen1
         r1 <- fromMHG <$> mcmc settings a1
-        gen2 <- R.create
+        gen2 <- newIOGenM $ mkStdGen 0
         let settings' = settings {sIterations = Iterations 50}
         a2 <- mhg settings' noPrior lh proposals mon 0 gen2
         r2' <- mcmc settings' a2
@@ -107,6 +108,6 @@ spec = do
         frozenT1 <- freezeT (trace r1)
         frozenT2 <- freezeT (trace r2)
         frozenT1 `shouldBe` frozenT2
-        g <- R.save $ generator r1
-        g' <- R.save $ generator r2
+        g <- readIORef $ unIOGenM $ generator r1
+        g' <- readIORef $ unIOGenM $ generator r2
         g `shouldBe` g'

@@ -51,7 +51,7 @@ import Mcmc.Prior hiding (uniform)
 import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log
-import System.Random.MWC
+import System.Random.Stateful
 import Text.Printf
 import Prelude hiding (cycle)
 
@@ -101,7 +101,7 @@ mhg ::
   Cycle a ->
   Monitor a ->
   InitialState a ->
-  GenIO ->
+  IOGenM StdGen ->
   IO (MHG a)
 mhg s pr lh cc mn i0 g = do
   -- The trace is a mutable vector and the mutable state needs to be handled by
@@ -213,11 +213,11 @@ mhgRatio fX fY q j
 {-# INLINE mhgRatio #-}
 
 -- | Accept or reject a proposal with given MHG ratio?
-mhgAccept :: MHGRatio -> GenIO -> IO Bool
+mhgAccept :: MHGRatio -> IOGenM StdGen -> IO Bool
 mhgAccept r g
   | ln r >= 0.0 = return True
   | otherwise = do
-      b <- uniform g
+      b <- uniformRM (0, 1) g
       return $ b < exp (ln r)
 
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)

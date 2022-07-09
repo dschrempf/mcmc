@@ -19,7 +19,7 @@ import Mcmc.Internal.SpecFunctions
 import Normal
 import Numeric.SpecFunctions
 import Poisson
-import System.Random.MWC
+import System.Random.Stateful
 
 gammaBenchG :: RealFloat a => (a -> a) -> [a] -> a
 gammaBenchG f = foldl' (\acc x -> acc + (f x)) 0
@@ -30,7 +30,7 @@ gammaVals = [0, 0.01 .. 10000]
 
 main :: IO ()
 main = do
-  g <- create
+  g <- newIOGenM $ mkStdGen 0
   defaultMain
     [ bgroup
         "Normal"

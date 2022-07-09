@@ -29,7 +29,7 @@ import Mcmc
 import Statistics.Distribution hiding (Mean)
 import Statistics.Distribution.Normal
 import System.Environment
-import System.Random.MWC
+import System.Random.Stateful
 
 -- Node (vertex) label.
 type Node = Int
@@ -180,7 +180,7 @@ main = do
   args <- getArgs
   case args of
     [] -> do
-      g <- create
+      g <- newIOGenM $ mkStdGen 0
       -- Combine all the objects defined above.
       let s =
             Settings

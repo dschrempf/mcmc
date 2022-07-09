@@ -21,7 +21,7 @@ import Control.Monad
 import qualified Data.Vector as VB
 import qualified Data.Vector.Storable as VS
 import Mcmc
-import System.Random.MWC hiding (uniform)
+import System.Random.Stateful
 
 type IG = VB.Vector
 
@@ -100,7 +100,7 @@ mon =
 main :: IO ()
 main = do
   putStrLn $ "The dimension is: " <> show dimension <> "."
-  g <- create
+  g <- newIOGenM $ mkStdGen 0
   let s =
         Settings
           (AnalysisName "hamiltonian")

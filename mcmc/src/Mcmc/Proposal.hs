@@ -65,7 +65,7 @@ import Mcmc.Acceptance
 import Mcmc.Internal.ByteString
 import Mcmc.Jacobian
 import Numeric.Log hiding (sum)
-import System.Random.MWC
+import System.Random.Stateful
 
 -- | Proposal name.
 newtype PName = PName {fromPName :: String}
@@ -245,7 +245,7 @@ liftProposalWith jf l (Proposal n r d p w s t) =
 --
 -- Maybe report acceptance counts internal to the proposal (e.g., used by
 -- proposals based on Hamiltonian dynamics).
-type PFunction a = a -> GenIO -> IO (PResult a, Maybe AcceptanceCounts)
+type PFunction a = a -> IOGenM StdGen -> IO (PResult a, Maybe AcceptanceCounts)
 
 -- Lift a proposal function from one data type to another.
 liftPFunctionWith :: JacobianFunction b -> Lens' b a -> PFunction a -> PFunction b

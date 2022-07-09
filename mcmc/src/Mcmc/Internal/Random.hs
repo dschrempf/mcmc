@@ -12,37 +12,23 @@
 --
 -- Creation date: Wed Nov 25 07:14:52 2020.
 module Mcmc.Internal.Random
-  ( splitGen,
-    saveGen,
+  ( saveGen,
     loadGen,
   )
 where
 
-import Control.Monad
-import Control.Monad.Primitive
-import qualified Data.Vector.Unboxed as V
+import Data.IORef
 import Data.Word
-import System.Random.MWC
-
--- | Split a generator.
---
--- Splitting an MWC pseudo number generator is not good practice. However, I
--- have to go with this solution for now, and wait for proper support of
--- spittable pseudo random number generators such as @splitmix@.
-splitGen :: PrimMonad m => Int -> Gen (PrimState m) -> m [Gen (PrimState m)]
-splitGen n gen
-  | n <= 0 = return []
-  | otherwise = do
-      seeds :: [V.Vector Word32] <- replicateM n $ uniformVector gen 256
-      mapM initialize seeds
-
--- TODO (medium): Splitmix. Remove or amend these functions as soon as split mix
--- is used and is available with the statistics package.
+import System.Random.Internal
+import System.Random.SplitMix
+import System.Random.Stateful
 
 -- | Save a generator to a seed.
-saveGen :: GenIO -> IO (V.Vector Word32)
-saveGen = fmap fromSeed . save
+saveGen :: IOGenM StdGen -> IO (Word64, Word64)
+saveGen (IOGenM r) = do
+  (StdGen g) <- readIORef r
+  pure $ unseedSMGen g
 
 -- | Load a generator from a seed.
-loadGen :: V.Vector Word32 -> IO GenIO
-loadGen = restore . toSeed
+loadGen :: (Word64, Word64) -> IO (IOGenM StdGen)
+loadGen s = newIOGenM $ StdGen $ seedSMGen' s
