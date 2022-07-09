@@ -73,7 +73,7 @@ import Mcmc.Proposal.Hamiltonian.Masses
 import Numeric.AD.Double
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
-import System.Random.MWC
+import System.Random.Stateful
 
 -- | Parameters of the Hamilton Monte Carlo proposal.
 --

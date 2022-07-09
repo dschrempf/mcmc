@@ -61,7 +61,6 @@ import Mcmc.Proposal.Hamiltonian.Common
 import Mcmc.Proposal.Hamiltonian.Masses
 import qualified Numeric.LinearAlgebra as L
 import Numeric.Log
-import System.Random.MWC
 import System.Random.Stateful
 
 -- Variable tuning parameters.
@@ -173,7 +172,9 @@ hParamsIWith htarget p mEps mLa mMs = do
       | otherwise -> Right l
   eps <- case mEps of
     Nothing -> Right $ runST $ do
-      g <- create
+      -- NOTE: This is not random. However, I do not want to provide a generator
+      -- when creating the proposal.
+      g <- newSTGenM $ mkStdGen 42
       findReasonableEpsilon htarget ms p g
     Just e
       | e <= 0 -> eWith "Leapfrog scaling factor is zero or negative."
