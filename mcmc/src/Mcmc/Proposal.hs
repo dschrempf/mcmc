@@ -199,8 +199,8 @@ data PResult a
     -- the ratio of the backward to forward kernels (the 'KernelRatio' or the
     -- probability masses or probability densities) and the 'Jacobian'.
     --
-    -- NOTE: Actually the 'Jacobian' should be part of the 'KernelRatio'. However,
-    -- it is more declarative to have them separate. Like so, we are constantly
+    -- Note: The 'Jacobian' should be part of the 'KernelRatio'. However, it is
+    -- more declarative to have them separate. Like so, we are constantly
     -- reminded: Is the Jacobian modifier different from 1.0?
     Propose !a !KernelRatio !Jacobian
   deriving (Show, Eq)
