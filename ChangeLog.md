@@ -4,8 +4,20 @@
 
 ## Unreleased changes
 
--   Split `HSettings` into `HParams` and `HStructure` (preparation for NUTS).
--   Rename `HTune` to `HTuningConf`.
+
+## 0.7.0.0
+
+-   Use random-1.2. This means, that the random number generator type has changed
+    from `GenIO` (`System.Random.MWC`) to `IOGenM StdGen`
+    (`System.Random.Stateful`).
+-   Always try to save chain, not only on `UserInterupt`.
+-   Hamiltonian proposals:
+    -   Split `HSettings` into `HParams` and `HStructure` (preparation for NUTS).
+    -   Rename `HTune` to `HTuningConf`.
+    -   No-U-Turn sampler (NUTS).
+-   Significant changes to `Proposal` and `Tuner`.
+    -   `PResult`.
+    -   `ProposalSimple` -> `PFunction`; Return type is `(PResult, Maybe AcceptanceCounts)`.
 
 
 ## 0.6.2.5
