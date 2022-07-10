@@ -126,7 +126,7 @@ data IterationMode = AllProposals | FastProposals
   deriving (Eq)
 
 -- | Replicate 'Proposal's according to their weights and possibly shuffle them.
-prepareProposals :: IterationMode -> Cycle a -> IOGenM StdGen -> IO [Proposal a]
+prepareProposals :: StatefulGen g m => IterationMode -> Cycle a -> g -> m [Proposal a]
 prepareProposals m (Cycle xs o _) g =
   if null ps
     then error "prepareProposals: No proposals found."
