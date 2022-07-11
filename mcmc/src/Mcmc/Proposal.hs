@@ -315,6 +315,10 @@ data Tuner a = Tuner
 liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
 liftTunerWith jf l (Tuner p ps nt fP g) = Tuner p ps nt fP' g'
   where
+    -- TODO @Dominik (low, bug): There is a memory leak when tuning proposals. I
+    -- think all intermediate proposals are saved. I do not know why. The heap
+    -- profile shows increasing memory usage during burn in for
+    -- 'liftProposalWith', as well this function 'fP''.
     fP' b d r = fP b d r . fmap (VB.map (^. l))
     g' x xs = liftPFunctionWith jf l <$> g x xs
 
