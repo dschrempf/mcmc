@@ -1,4 +1,4 @@
-resolver: nightly-2022-03-21
+resolver: nightly-2022-07-10
 
 packages:
   - ./mcmc
@@ -6,11 +6,9 @@ packages:
   - ./mcmc-statistics
 
 extra-deps:
-  # - circular-0.4.0.0
-  # - dirichlet-0.1.0.4
-  - ../circular
-  - ../dirichlet
-  - ../covariance
+  #- ../circular
+  #- ../dirichlet
+  #- ../covariance
 
 # # LLVM.
 # ghc-options: {"$everything": -O2 -fllvm}
