@@ -162,7 +162,12 @@ getNProposalsPerCycle m (Cycle xs o _) = case o of
     once = sum $ map (fromPWeight . prWeight) xs'
 
 -- See 'tuneWithTuningParameters' and 'Tuner'.
-tuneWithChainParameters :: TuningType -> AcceptanceRate -> Maybe (VB.Vector a) -> Proposal a -> Either String (Proposal a)
+tuneWithChainParameters ::
+  TuningType ->
+  AcceptanceRate ->
+  Maybe (VB.Vector a) ->
+  Proposal a ->
+  Either String (Proposal a)
 tuneWithChainParameters b ar mxs p = case prTuner p of
   Nothing -> Right p
   Just (Tuner t ts rt fT _) -> case (rt, mxs) of
