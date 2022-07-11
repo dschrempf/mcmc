@@ -89,9 +89,9 @@ mon = Monitor monStd [monFile] [monBatch]
 
 main :: IO ()
 main = do
-  g <- newIOGenM $ mkStdGen 0
+  let g = mkStdGen 0
   -- Simulate a list of observed arrow distances.
-  xs <- distances g
+  let xs = runStateGen_ g distances
   -- MCMC settings and algorithm.
   let s =
         Settings

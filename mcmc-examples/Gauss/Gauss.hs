@@ -60,7 +60,7 @@ cc =
 
 main :: IO ()
 main = do
-  g <- newIOGenM $ mkStdGen 0
+  let g = mkStdGen 0
   let ss =
         MLSettings
           (AnalysisName "gauss")

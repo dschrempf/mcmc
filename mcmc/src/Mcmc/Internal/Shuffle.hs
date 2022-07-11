@@ -28,8 +28,8 @@ import System.Random.Stateful
 -- cleaner, in my opinion. However, I would like to move away from MWC so I
 -- leave the custom implementation for now.
 --
--- NOTE: Moving away from MWC is not anymore true because I can use SplitMix
--- with it.
+-- NOTE: I do not need to move away from MWC anymore true because I can use
+-- SplitMix with it.
 
 -- | Shuffle a vector.
 shuffle :: StatefulGen g m => [a] -> g -> m [a]

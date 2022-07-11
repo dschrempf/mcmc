@@ -61,7 +61,7 @@ newtype MHG a = MHG {fromMHG :: Chain a}
 instance ToJSON a => Algorithm (MHG a) where
   aName = const "Metropolis-Hastings-Green (MHG)"
   aIteration = iteration . fromMHG
-  aIsInValidState = mhgIsInValidState
+  aIsInvalidState = mhgIsInvalidState
   aIterate = mhgIterate
   aAutoTune = mhgAutoTune
   aResetAcceptance = mhgResetAcceptance
@@ -73,6 +73,9 @@ instance ToJSON a => Algorithm (MHG a) where
   aCloseMonitors = mhgCloseMonitors
   aSave = mhgSave
 
+-- Calculate required length of trace. The length may be larger during burn in,
+-- because the tuners of some proposals (e.g., HMC, NUTS) require the states of
+-- the last tuning interval.
 getTraceLength ::
   Maybe BurnInSettings ->
   TraceLength ->
@@ -101,13 +104,14 @@ mhg ::
   Cycle a ->
   Monitor a ->
   InitialState a ->
-  IOGenM StdGen ->
+  StdGen ->
   IO (MHG a)
 mhg s pr lh cc mn i0 g = do
   -- The trace is a mutable vector and the mutable state needs to be handled by
   -- a monad.
   tr <- replicateT tl l0
-  return $ MHG $ Chain Nothing l0 0 tr ac g 0 pr lh cc mn
+  gm <- newIOGenM g
+  return $ MHG $ Chain Nothing l0 0 tr ac gm 0 pr lh cc mn
   where
     l0 = Link i0 (pr i0) (lh i0)
     ac = emptyA $ ccProposals cc
@@ -280,8 +284,8 @@ mhgPush (MHG c) = do
 --
 -- At the moment this just checks whether the prior, likelihood, or posterior
 -- are NaN or infinite.
-mhgIsInValidState :: MHG a -> Bool
-mhgIsInValidState a = checkSoft p || check l || check (p * l)
+mhgIsInvalidState :: MHG a -> Bool
+mhgIsInvalidState a = checkSoft p || check l || check (p * l)
   where
     x = link $ fromMHG a
     p = prior x

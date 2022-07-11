@@ -223,7 +223,7 @@ mlRun ::
   Cycle a ->
   Monitor a ->
   a ->
-  IOGenM StdGen ->
+  StdGen ->
   -- For each point a vector of likelihoods stored in log domain.
   ML [VU.Vector Likelihood]
 mlRun k xs em vb prf lhf cc mn i0 g = do
@@ -270,12 +270,11 @@ tiWrapper ::
   Cycle a ->
   Monitor a ->
   a ->
-  IOGenM StdGen ->
+  StdGen ->
   ML MarginalLikelihood
-tiWrapper s prf lhf cc mn i0 g0 = do
+tiWrapper s prf lhf cc mn i0 g = do
   logInfoB "Path integral (thermodynamic integration)."
-  r1 <- splitGenM g0
-  g1 <- newIOGenM r1
+  let (g0, g1) = split g
 
   -- Parallel execution of both path integrals.
   r <- ask
@@ -354,7 +353,7 @@ sssWrapper ::
   Cycle a ->
   Monitor a ->
   a ->
-  IOGenM StdGen ->
+  StdGen ->
   ML MarginalLikelihood
 sssWrapper s prf lhf cc mn i0 g = do
   logInfoB "Stepping stone sampling."
@@ -378,7 +377,7 @@ marginalLikelihood ::
   Cycle a ->
   Monitor a ->
   InitialState a ->
-  IOGenM StdGen ->
+  StdGen ->
   IO MarginalLikelihood
 marginalLikelihood s prf lhf cc mn i0 g = do
   -- Initialize.

@@ -180,7 +180,7 @@ main = do
   args <- getArgs
   case args of
     [] -> do
-      g <- newIOGenM $ mkStdGen 0
+      let g = mkStdGen 0
       -- Combine all the objects defined above.
       let s =
             Settings

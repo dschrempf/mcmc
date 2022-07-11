@@ -133,9 +133,9 @@ start = I as s
 
 main :: IO ()
 main = do
-  g <- newIOGenM $ mkStdGen 0
+  let g = mkStdGen 0
   putStrLn "-- Simulate Data."
-  xs <- simulateData g
+  let xs = runStateGen_ g simulateData
   -- print xs
   -- print start
   let -- Settings.

@@ -66,7 +66,7 @@ spec = do
   describe "save and load" $
     it "doesn't change the MCMC chain" $
       do
-        gen <- newIOGenM $ mkStdGen 0
+        let gen = mkStdGen 0
         a <- mhg settings noPrior lh proposals mon 0 gen
         c <- fromMHG <$> mcmc settings a
         savedChain <- toSavedChain c
@@ -95,12 +95,11 @@ spec = do
   describe "mhContinue" $
     it "mcmc 50 + mcmcContinue 50 == mcmc 100" $
       do
-        gen1 <- newIOGenM $ mkStdGen 0
-        a1 <- mhg settings noPrior lh proposals mon 0 gen1
+        let gen = mkStdGen 0
+        a1 <- mhg settings noPrior lh proposals mon 0 gen
         r1 <- fromMHG <$> mcmc settings a1
-        gen2 <- newIOGenM $ mkStdGen 0
         let settings' = settings {sIterations = Iterations 50}
-        a2 <- mhg settings' noPrior lh proposals mon 0 gen2
+        a2 <- mhg settings' noPrior lh proposals mon 0 gen
         r2' <- mcmc settings' a2
         r2 <- fromMHG <$> mcmcContinue (Iterations 50) settings' r2'
         link r1 `shouldBe` link r2

@@ -86,7 +86,7 @@ monStd = monitorStdOut [monAlpha, monBeta] 150
 mon :: Monitor I
 mon = Monitor monStd [] []
 
-poissonBench :: IOGenM StdGen -> IO ()
+poissonBench :: StdGen -> IO ()
 poissonBench g = do
   let s =
         Settings
@@ -123,7 +123,7 @@ target = HTarget Nothing lh Nothing
 hmcProposal :: Cycle I
 hmcProposal = cycleFromList [hamiltonian hparams htconf hstruct target (PName "Hamiltonian") (pWeight 1)]
 
-poissonHamiltonianBench :: IOGenM StdGen -> IO ()
+poissonHamiltonianBench :: StdGen -> IO ()
 poissonHamiltonianBench g = do
   let s =
         Settings

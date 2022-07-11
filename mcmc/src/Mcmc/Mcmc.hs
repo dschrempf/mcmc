@@ -31,7 +31,6 @@ import Mcmc.Environment
 import Mcmc.Logger
 import Mcmc.Proposal (TuningType (LastTuningStep, NormalTuningStep))
 import Mcmc.Settings
-import System.Exit
 import System.IO
 import Prelude hiding (cycle)
 
@@ -109,7 +108,7 @@ mcmcNewRun a = do
   logInfoB "Initial state."
   logInfoB $ aStdMonitorHeader a
   mcmcExecuteMonitors a
-  when (aIsInValidState a) (logWarnB "The initial state is invalid!")
+  when (aIsInvalidState a) (logWarnB "The initial state is invalid!")
   a' <- mcmcBurnIn a
   logInfoS $ "Clean chain after burn in."
   let tl = sTraceLength s

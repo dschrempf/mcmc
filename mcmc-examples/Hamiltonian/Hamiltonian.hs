@@ -100,7 +100,7 @@ mon =
 main :: IO ()
 main = do
   putStrLn $ "The dimension is: " <> show dimension <> "."
-  g <- newIOGenM $ mkStdGen 0
+  let g = mkStdGen 0
   let s =
         Settings
           (AnalysisName "hamiltonian")

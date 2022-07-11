@@ -30,7 +30,7 @@ class Algorithm a where
 
   -- | Check if the current state is invalid. At the moment this should just
   -- check if the posterior probability is zero or NaN.
-  aIsInValidState :: a -> Bool
+  aIsInvalidState :: a -> Bool
 
   -- | Sample the next state.
   aIterate :: IterationMode -> ParallelizationMode -> a -> IO a
@@ -48,7 +48,7 @@ class Algorithm a where
   -- the trace, if required.
   aCleanAfterBurnIn :: TraceLength -> a -> IO a
 
-  -- | Summarize the cycle.
+  -- | Summarize the proposals in the cycle.
   aSummarizeCycle :: IterationMode -> a -> BL.ByteString
 
   -- | Open required monitor files and setup corresponding file handles.

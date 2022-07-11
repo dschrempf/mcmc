@@ -121,7 +121,7 @@ mon = Monitor monStd [monFile] []
 
 main :: IO ()
 main = do
-  g <- newIOGenM $ mkStdGen 0
+  let g = mkStdGen 0
   let mcmcS =
         Settings
           analysisName

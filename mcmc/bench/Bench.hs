@@ -30,7 +30,7 @@ gammaVals = [0, 0.01 .. 10000]
 
 main :: IO ()
 main = do
-  g <- newIOGenM $ mkStdGen 0
+  let g = mkStdGen 0
   defaultMain
     [ bgroup
         "Normal"

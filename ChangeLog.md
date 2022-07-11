@@ -5,7 +5,7 @@
 ## Unreleased changes
 
 
-## 0.7.0.0
+## 0.7.0.1
 
 -   Use random-1.2. This means, that the random number generator type has changed
     from `GenIO` (`System.Random.MWC`) to `IOGenM StdGen`

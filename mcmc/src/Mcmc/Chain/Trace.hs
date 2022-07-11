@@ -27,6 +27,9 @@ import qualified Data.Stack.Circular as C
 import qualified Data.Vector as VB
 import Mcmc.Chain.Link
 
+-- NOTE: We directly refer to the 'PrimSate' 'RealWorld' because, otherwise, we
+-- have two type variables in 'Chain m a'.
+
 -- | A 'Trace' is a mutable circular stack that passes through a list of states
 -- with associated priors and likelihoods called 'Link's.
 newtype Trace a = Trace {fromTrace :: C.MStack VB.Vector RealWorld (Link a)}

@@ -179,7 +179,7 @@ data MC3 a = MC3
 instance ToJSON a => Algorithm (MC3 a) where
   aName = const "Metropolis-coupled Markov chain Monte Carlo (MC3)"
   aIteration = mc3Iteration
-  aIsInValidState = mc3IsInValidState
+  aIsInvalidState = mc3IsInvalidState
   aIterate = mc3Iterate
   aAutoTune = mc3AutoTune
   aResetAcceptance = mc3ResetAcceptance
@@ -265,10 +265,6 @@ initMHG prf lhf i beta a
     l = link c
     t = trace c
 
--- TODO (medium): Splitmix. Initialization of the MC3 algorithm is an IO action
--- because the generators have to be split. And also because of the mutable
--- trace.
-
 -- | Initialize an MC3 algorithm with a given number of chains.
 --
 -- Call 'error' if:
@@ -284,19 +280,21 @@ mc3 ::
   Cycle a ->
   Monitor a ->
   InitialState a ->
-  IOGenM StdGen ->
+  StdGen ->
   IO (MC3 a)
 mc3 sMc3 s pr lh cc mn i0 g
   | n < 2 = error "mc3: The number of chains must be two or larger."
   | sp < 1 = error "mc3: The swap period must be strictly positive."
   | sn < 1 || sn > n - 1 = error "mc3: The number of swaps must be in [1, NChains - 1]."
   | otherwise = do
-      -- Split random number generators.
-      rs <- replicateM n $ splitGenM g
-      gs <- V.fromList <$> mapM newIOGenM rs
-      cs <- V.mapM (mhg s pr lh cc mn i0) gs
+      -- Split random number generator.
+      let gs = take (n + 1) $ unfoldr (Just . split) g
+      -- Prepare MHG chains.
+      cs <- V.mapM (mhg s pr lh cc mn i0) (V.fromList $ tail gs)
       hcs <- V.izipWithM (initMHG pr lh) (V.convert bs) cs
-      return $ MC3 sMc3 hcs bs 0 (emptyA [0 .. n - 2]) g
+      -- Do not reuse the initial generator.
+      gm <- newIOGenM $ head gs
+      return $ MC3 sMc3 hcs bs 0 (emptyA [0 .. n - 2]) gm
   where
     n = fromNChains $ mc3NChains sMc3
     sp = fromSwapPeriod $ mc3SwapPeriod sMc3
@@ -416,16 +414,13 @@ mc3ProposeSwap a i = do
   where
     g = mc3Generator a
 
-mc3IsInValidState :: ToJSON a => MC3 a -> Bool
-mc3IsInValidState a = V.any aIsInValidState mhgs
+mc3IsInvalidState :: ToJSON a => MC3 a -> Bool
+mc3IsInvalidState a = V.any aIsInvalidState mhgs
   where
     mhgs = mc3MHGChains a
 
--- TODO (medium): Splitmix. 'mc3Iterate' is actually not parallel, but
--- concurrent because of the IO constraint. Use pure parallel code when we have
--- a pure generator.
---
--- However, we have to take care of the mutable traces.
+-- NOTE: 'mc3Iterate' is actually not parallel, but concurrent because of the IO
+-- constraint of the mutable trace.
 mc3Iterate ::
   ToJSON a =>
   IterationMode ->
