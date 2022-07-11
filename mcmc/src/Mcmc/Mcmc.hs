@@ -24,7 +24,7 @@ where
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.RWS.Strict
+import Control.Monad.Trans.RWS.CPS
 import Mcmc.Algorithm
 import Mcmc.Cycle
 import Mcmc.Environment
