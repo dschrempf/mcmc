@@ -105,6 +105,7 @@ library
     , log-domain
     , math-functions
     , microlens
+    , mtl
     , mwc-random
     , parallel
     , pretty-show

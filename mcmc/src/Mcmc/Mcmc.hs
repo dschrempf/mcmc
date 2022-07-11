@@ -24,7 +24,7 @@ where
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Reader
+import Control.Monad.Trans.RWS.Strict
 import Mcmc.Algorithm
 import Mcmc.Cycle
 import Mcmc.Environment
@@ -36,23 +36,22 @@ import Prelude hiding (cycle)
 
 -- The MCMC algorithm has read access to an environment and uses an algorithm
 -- transforming the state @a@.
-type MCMC = ReaderT (Environment Settings) IO
+type MCMC a = RWST (Environment Settings) () a IO
 
-mcmcExecute :: Algorithm a => a -> MCMC a
-mcmcExecute a = do
+mcmcExecute :: Algorithm a => MCMC a ()
+mcmcExecute = do
   logDebugB "Executing MCMC run."
-  s <- reader settings
-  a' <- case sExecutionMode s of
-    Fail -> mcmcNewRun a
-    Overwrite -> mcmcNewRun a
-    Continue -> mcmcContinueRun a
+  s <- asks settings
+  case sExecutionMode s of
+    Fail -> mcmcNewRun
+    Overwrite -> mcmcNewRun
+    Continue -> mcmcContinueRun
   logDebugB "Executed MCMC run."
-  return a'
 
-mcmcResetAcceptance :: Algorithm a => a -> MCMC a
-mcmcResetAcceptance a = do
+mcmcResetAcceptance :: Algorithm a => MCMC a ()
+mcmcResetAcceptance = do
   logDebugB "Reset acceptance rates."
-  return $ aResetAcceptance a
+  modify aResetAcceptance
 
 mcmcExceptionHandler :: Algorithm a => Environment Settings -> a -> AsyncException -> IO b
 mcmcExceptionHandler e a err = do
@@ -78,152 +77,156 @@ mcmcExceptionHandler e a err = do
 -- XXX: Exception handling. Is it enough to mask execution of monitors and catch
 -- UserInterrupt during iterations?
 
-mcmcExecuteMonitors :: Algorithm a => a -> MCMC ()
-mcmcExecuteMonitors a = do
+mcmcExecuteMonitors :: Algorithm a => MCMC a ()
+mcmcExecuteMonitors = do
   e <- ask
   let s = settings e
       vb = sVerbosity s
       t0 = startingTime e
       iTotal = burnInIterations (sBurnIn s) + fromIterations (sIterations s)
+  a <- get
   -- NOTE: Mask asynchronous exceptions when writing monitor files.
   mStdLog <- liftIO $ mask_ $ aExecuteMonitors vb t0 iTotal a
   forM_ mStdLog (logOutB "   ")
 
-mcmcIterate :: Algorithm a => IterationMode -> Int -> a -> MCMC a
-mcmcIterate m n a
+mcmcIterate :: Algorithm a => IterationMode -> Int -> MCMC a ()
+mcmcIterate m n
   | n < 0 = error "mcmcIterate: Number of iterations is negative."
-  | n == 0 = return a
+  | n == 0 = pure ()
   | otherwise = do
       e <- ask
       p <- sParallelizationMode . settings <$> ask
+      a <- get
       -- NOTE: User interrupt is handled during iterations.
       a' <- liftIO $ catch (aIterate m p a) (mcmcExceptionHandler e a)
-      mcmcExecuteMonitors a'
-      mcmcIterate m (n - 1) a'
+      put a'
+      mcmcExecuteMonitors
+      mcmcIterate m (n - 1)
 
-mcmcNewRun :: Algorithm a => a -> MCMC a
-mcmcNewRun a = do
+mcmcNewRun :: Algorithm a => MCMC a ()
+mcmcNewRun = do
   s <- reader settings
   logInfoB "Start new MCMC sampler."
   logInfoB "Initial state."
-  logInfoB $ aStdMonitorHeader a
-  mcmcExecuteMonitors a
-  when (aIsInvalidState a) (logWarnB "The initial state is invalid!")
-  a' <- mcmcBurnIn a
+  get >>= logInfoB . aStdMonitorHeader
+  mcmcExecuteMonitors
+  isInvalid <- gets aIsInvalidState
+  when isInvalid (logWarnB "The initial state is invalid!")
+  mcmcBurnIn
   logInfoS $ "Clean chain after burn in."
   let tl = sTraceLength s
-  a'' <- liftIO $ aCleanAfterBurnIn tl a'
+  a <- get
+  a' <- liftIO $ aCleanAfterBurnIn tl a
+  put a'
   let i = fromIterations $ sIterations s
   logInfoS $ "Run chain for " ++ show i ++ " iterations."
-  logInfoB $ aStdMonitorHeader a''
-  mcmcIterate AllProposals i a''
+  get >>= logInfoB . aStdMonitorHeader
+  mcmcIterate AllProposals i
 
-mcmcContinueRun :: Algorithm a => a -> MCMC a
-mcmcContinueRun a = do
+mcmcContinueRun :: Algorithm a => MCMC a ()
+mcmcContinueRun = do
   s <- reader settings
   let iBurnIn = burnInIterations (sBurnIn s)
       iNormal = fromIterations (sIterations s)
       iTotal = iBurnIn + iNormal
   logInfoB "Continuation of MCMC sampler."
-  let iCurrent = aIteration a
+  iCurrent <- gets aIteration
   logInfoS $ "Burn in iterations: " ++ show iBurnIn ++ "."
   logInfoS $ "Normal iterations: " ++ show iNormal ++ "."
   logInfoS $ "Total iterations: " ++ show iTotal ++ "."
   logInfoS $ "Current iteration: " ++ show iCurrent ++ "."
   when (iCurrent < iBurnIn) $ error "mcmcContinueRun: Can not continue burn in."
   let di = iTotal - iCurrent
-  logInfoB $ aSummarizeCycle AllProposals a
+  get >>= logInfoB . aSummarizeCycle AllProposals
   logInfoS $ "Run chain for " ++ show di ++ " iterations."
-  logInfoB $ aStdMonitorHeader a
-  mcmcIterate AllProposals di a
+  get >>= logInfoB . aStdMonitorHeader
+  mcmcIterate AllProposals di
 
-mcmcBurnIn :: Algorithm a => a -> MCMC a
-mcmcBurnIn a = do
+mcmcBurnIn :: Algorithm a => MCMC a ()
+mcmcBurnIn = do
   s <- reader settings
   case sBurnIn s of
     NoBurnIn -> do
-      logInfoB $ aSummarizeCycle AllProposals a
+      get >>= logInfoB . aSummarizeCycle AllProposals
       logInfoS "No burn in."
-      return a
     BurnInWithoutAutoTuning n -> do
-      logInfoB $ aSummarizeCycle AllProposals a
+      get >>= logInfoB . aSummarizeCycle AllProposals
       logInfoS $ "Burn in for " <> show n <> " iterations."
       logInfoS "Auto tuning is disabled."
-      logInfoB $ aStdMonitorHeader a
-      a' <- mcmcIterate AllProposals n a
-      logInfoB $ aSummarizeCycle AllProposals a'
-      a'' <- mcmcResetAcceptance a'
+      get >>= logInfoB . aStdMonitorHeader
+      mcmcIterate AllProposals n
+      get >>= logInfoB . aSummarizeCycle AllProposals
+      mcmcResetAcceptance
       logInfoB "Burn in finished."
-      return a''
     BurnInWithAutoTuning n t -> do
-      logInfoB $ aSummarizeCycle AllProposals a
+      get >>= logInfoB . aSummarizeCycle AllProposals
       logInfoS $ "Burn in for " ++ show n ++ " iterations."
       logInfoS $ "Auto tuning is enabled with a period of " ++ show t ++ "."
-      logInfoB $ aStdMonitorHeader a
+      get >>= logInfoB . aStdMonitorHeader
       let (m, r) = n `divMod` t
           -- Don't add another auto tune period if r == 0, because then we auto
           -- tune without acceptance counts and get NaNs.
           xs = replicate m t <> [r | r > 0]
-      a' <- mcmcBurnInWithAutoTuning AllProposals xs a
+      mcmcBurnInWithAutoTuning AllProposals xs
       logInfoB "Burn in finished."
-      return a'
     BurnInWithCustomAutoTuning xs ys -> do
       logInfoS $ "Burn in for " ++ show (sum xs + sum ys) ++ " iterations."
-      a' <-
-        if null xs
-          then do
-            logInfoB $ aSummarizeCycle AllProposals a
-            pure a
-          else do
-            logInfoB $ aSummarizeCycle FastProposals a
-            logInfoS $ "Fast custom auto tuning with periods " ++ show xs ++ "."
-            logInfoB $ aStdMonitorHeader a
-            mcmcBurnInWithAutoTuning FastProposals xs a
+      if null xs
+        then get >>= logInfoB . aSummarizeCycle AllProposals
+        else do
+          get >>= logInfoB . aSummarizeCycle FastProposals
+          logInfoS $ "Fast custom auto tuning with periods " ++ show xs ++ "."
+          get >>= logInfoB . aStdMonitorHeader
+          mcmcBurnInWithAutoTuning FastProposals xs
       logInfoS $ "Full custom auto tuning with periods " ++ show ys ++ "."
-      logInfoB $ aStdMonitorHeader a
-      a'' <- mcmcBurnInWithAutoTuning AllProposals ys a'
+      get >>= logInfoB . aStdMonitorHeader
+      mcmcBurnInWithAutoTuning AllProposals ys
       logInfoB "Burn in finished."
-      return a''
 
 -- Auto tune the proposals.
-mcmcAutotune :: Algorithm a => TuningType -> Int -> a -> MCMC a
-mcmcAutotune NormalTuningStep n a = do
+mcmcAutotune :: Algorithm a => TuningType -> Int -> MCMC a ()
+mcmcAutotune NormalTuningStep n = do
   logDebugB "Auto tune."
-  liftIO $ aAutoTune NormalTuningStep n a
-mcmcAutotune LastTuningStep n a = do
+  a <- get
+  a' <- liftIO $ aAutoTune NormalTuningStep n a
+  put a'
+mcmcAutotune LastTuningStep n = do
   logDebugB "Last auto tune."
-  liftIO $ aAutoTune LastTuningStep n a
+  a <- get
+  a' <- liftIO $ aAutoTune LastTuningStep n a
+  put a'
 
-mcmcBurnInWithAutoTuning :: Algorithm a => IterationMode -> [Int] -> a -> MCMC a
-mcmcBurnInWithAutoTuning _ [] _ = error "mcmcBurnInWithAutoTuning: Empty list."
-mcmcBurnInWithAutoTuning m [x] a = do
+mcmcBurnInWithAutoTuning :: Algorithm a => IterationMode -> [Int] -> MCMC a ()
+mcmcBurnInWithAutoTuning _ [] = error "mcmcBurnInWithAutoTuning: Empty list."
+mcmcBurnInWithAutoTuning m [x] = do
   -- Last round.
-  a' <- mcmcIterate m x a
-  a'' <- mcmcAutotune LastTuningStep x a'
-  logInfoB $ aSummarizeCycle m a''
+  mcmcIterate m x
+  mcmcAutotune LastTuningStep x
+  get >>= logInfoB . aSummarizeCycle m
   logInfoS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
-  mcmcResetAcceptance a''
-mcmcBurnInWithAutoTuning m (x : xs) a = do
-  a' <- mcmcIterate m x a
-  a'' <- mcmcAutotune NormalTuningStep x a'
-  logDebugB $ aSummarizeCycle m a''
+  mcmcResetAcceptance
+mcmcBurnInWithAutoTuning m (x : xs) = do
+  mcmcIterate m x
+  mcmcAutotune NormalTuningStep x
+  get >>= logDebugB . aSummarizeCycle m
   logDebugS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
-  logDebugB $ aStdMonitorHeader a''
-  a''' <- mcmcResetAcceptance a''
-  mcmcBurnInWithAutoTuning m xs a'''
+  get >>= logDebugB . aStdMonitorHeader
+  mcmcResetAcceptance
+  mcmcBurnInWithAutoTuning m xs
 
-mcmcInitialize :: Algorithm a => a -> MCMC a
-mcmcInitialize a = do
+mcmcInitialize :: Algorithm a => MCMC a ()
+mcmcInitialize = do
+  a <- get
   logInfoS $ aName a ++ " algorithm."
   s <- settings <$> ask
   logDebugB "Opening monitors."
   a' <- liftIO $ aOpenMonitors (sAnalysisName s) (sExecutionMode s) a
+  put a'
   logDebugB "Monitors opened."
-  return a'
 
 -- Save the MCMC run.
-mcmcSave :: Algorithm a => a -> MCMC ()
-mcmcSave a = do
+mcmcSave :: Algorithm a => MCMC a ()
+mcmcSave = do
   s <- reader settings
   case sSaveMode s of
     NoSave -> logInfoB "Do not save the MCMC analysis."
@@ -233,45 +236,49 @@ mcmcSave a = do
       let nm = sAnalysisName s
       logInfoB "Save compressed MCMC analysis."
       logInfoB "For long traces, or complex objects, this may take a while."
+      a <- get
       liftIO $ aSave nm a
       logInfoB "Markov chain saved."
 
 -- Report and finish up.
-mcmcClose :: Algorithm a => a -> MCMC a
-mcmcClose a = do
+mcmcClose :: Algorithm a => MCMC a ()
+mcmcClose = do
   logDebugB "Closing MCMC run."
-  logInfoB $ aSummarizeCycle AllProposals a
-  logInfoS $ aName a ++ " algorithm finished."
-  mcmcSave a
+  get >>= logInfoB . aSummarizeCycle AllProposals
+  get >>= logInfoS . (\a -> aName a ++ " algorithm finished.")
+  mcmcSave
   logInfoEndTime
+  a <- get
   a' <- liftIO $ aCloseMonitors a
+  put a'
   e <- ask
   liftIO $ closeEnvironment e
-  return a'
 
 -- Initialize the run, execute the run, and close the run.
-mcmcRun :: Algorithm a => a -> MCMC a
-mcmcRun a = do
+mcmcRun :: Algorithm a => MCMC a ()
+mcmcRun = do
   -- Header.
   logInfoHeader
   reader settings >>= logInfoB . settingsPrettyPrint
 
   -- Initialize.
-  a' <- mcmcInitialize a
+  mcmcInitialize
   logInfoStartingTime
 
   -- Execute.
-  a'' <- mcmcExecute a'
+  mcmcExecute
 
   -- Close.
-  mcmcClose a''
+  mcmcClose
 
 -- | Run an MCMC algorithm with given settings.
 mcmc :: Algorithm a => Settings -> a -> IO a
 mcmc s a = do
   settingsCheck s $ aIteration a
   e <- initializeEnvironment s
-  runReaderT (mcmcRun a) e
+  sn <$> runRWST mcmcRun e a
+  where
+    sn (_, x, _) = x
 
 -- | Continue an MCMC algorithm for the given number of iterations.
 --

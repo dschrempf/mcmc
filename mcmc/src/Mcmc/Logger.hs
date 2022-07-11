@@ -20,7 +20,6 @@ module Mcmc.Logger
     HasStartingTime (..),
     HasLogMode (..),
     HasVerbosity (..),
-    Logger,
     logOutB,
     logDebugB,
     logDebugS,
@@ -37,7 +36,7 @@ where
 import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Reader
+import Control.Monad.Reader
 import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -81,70 +80,67 @@ class HasLogMode s where
 class HasVerbosity s where
   getVerbosity :: s -> Verbosity
 
--- | Reader transformer used for logging to a file and to standard output.
-type Logger e a = ReaderT e IO a
-
 msgPrepare :: BL.ByteString -> BL.ByteString -> BL.ByteString
 msgPrepare pref msg = BL.intercalate "\n" $ map (BL.append pref) $ BL.lines msg
 
 -- Make sure that concurrent output is not scrambled.
-atomicAction :: HasLock e => IO () -> Logger e ()
+atomicAction :: (HasLock e, MonadReader e m, MonadIO m) => IO () -> m ()
 atomicAction a = do
-  l <- reader getLock
+  l <- asks getLock
   liftIO $ withMVar l (const a)
 
 -- | Write to standard output and maybe to log file.
 logOutB ::
-  (HasLogHandles e, HasLock e) =>
+  (HasLogHandles e, HasLock e, MonadReader e m, MonadIO m) =>
   -- | Prefix.
   BL.ByteString ->
   -- | Message.
   BL.ByteString ->
-  Logger e ()
+  m ()
 logOutB pref msg = do
-  hs <- reader getLogHandles
+  hs <- asks getLogHandles
   mapM_ (atomicAction . (`BL.hPutStrLn` msg')) hs
   where
     msg' = msgPrepare pref msg
 
 -- Perform debug action.
-logDebugA :: (HasLock e, HasLogHandles e, HasVerbosity e) => Logger e () -> Logger e ()
-logDebugA a = reader getVerbosity >>= \v -> when (v >= Debug) a
+logDebugA :: (HasLock e, HasLogHandles e, HasVerbosity e, MonadReader e m, MonadIO m) => m () -> m ()
+logDebugA a = asks getVerbosity >>= \v -> when (v >= Debug) a
 
 -- | Log debug message.
-logDebugB :: (HasLock e, HasLogHandles e, HasVerbosity e) => BL.ByteString -> Logger e ()
+logDebugB :: (HasLock e, HasLogHandles e, HasVerbosity e, MonadReader e m, MonadIO m) => BL.ByteString -> m ()
 logDebugB = logDebugA . logOutB "D: "
 
 -- | Log debug message.
-logDebugS :: (HasLock e, HasLogHandles e, HasVerbosity e) => String -> Logger e ()
+logDebugS :: (HasLock e, HasLogHandles e, HasVerbosity e, MonadReader e m, MonadIO m) => String -> m ()
 logDebugS = logDebugB . BL.pack
 
 -- Perform warning action.
-logWarnA :: (HasLogHandles e, HasVerbosity e) => Logger e () -> Logger e ()
-logWarnA a = reader getVerbosity >>= \v -> when (v >= Warn) a
+logWarnA :: (HasLogHandles e, HasVerbosity e, MonadReader e m, MonadIO m) => m () -> m ()
+logWarnA a = asks getVerbosity >>= \v -> when (v >= Warn) a
 
 -- | Log warning message.
-logWarnB :: (HasLock e, HasLogHandles e, HasVerbosity e) => BL.ByteString -> Logger e ()
+logWarnB :: (HasLock e, HasLogHandles e, HasVerbosity e, MonadReader e m, MonadIO m) => BL.ByteString -> m ()
 logWarnB = logWarnA . logOutB "W: "
 
 -- | Log warning message.
-logWarnS :: (HasLock e, HasLogHandles e, HasVerbosity e) => String -> Logger e ()
+logWarnS :: (HasLock e, HasLogHandles e, HasVerbosity e, MonadReader e m, MonadIO m) => String -> m ()
 logWarnS = logWarnB . BL.pack
 
 -- Perform info action.
-logInfoA :: (HasLogHandles e, HasVerbosity e) => Logger e () -> Logger e ()
-logInfoA a = reader getVerbosity >>= \v -> when (v >= Info) a
+logInfoA :: (HasLogHandles e, HasVerbosity e, MonadReader e m, MonadIO m) => m () -> m ()
+logInfoA a = asks getVerbosity >>= \v -> when (v >= Info) a
 
 -- | Log info message.
-logInfoB :: (HasLock e, HasLogHandles e, HasVerbosity e) => BL.ByteString -> Logger e ()
+logInfoB :: (HasLock e, HasLogHandles e, HasVerbosity e, MonadReader e m, MonadIO m) => BL.ByteString -> m ()
 logInfoB = logInfoA . logOutB "   "
 
 -- | Log info message.
-logInfoS :: (HasLock e, HasLogHandles e, HasVerbosity e) => String -> Logger e ()
+logInfoS :: (HasLock e, HasLogHandles e, HasVerbosity e, MonadReader e m, MonadIO m) => String -> m ()
 logInfoS = logInfoB . BL.pack
 
 -- | Log info header.
-logInfoHeader :: (HasLock e, HasLogHandles e, HasVerbosity e) => Logger e ()
+logInfoHeader :: (HasLock e, HasLogHandles e, HasVerbosity e, MonadReader e m, MonadIO m) => m ()
 logInfoHeader = do
   logInfoS (replicate 70 '-')
   logInfoS ("MCMC sampler; version " ++ showVersion version <> ".")
@@ -153,15 +149,31 @@ logInfoHeader = do
   logInfoS (replicate 70 '-')
 
 -- | Log starting time.
-logInfoStartingTime :: (HasLock e, HasLogHandles e, HasStartingTime e, HasVerbosity e) => Logger e ()
+logInfoStartingTime ::
+  ( HasLock e,
+    HasLogHandles e,
+    HasStartingTime e,
+    HasVerbosity e,
+    MonadReader e m,
+    MonadIO m
+  ) =>
+  m ()
 logInfoStartingTime = do
-  ti <- reader getStartingTime
+  ti <- asks getStartingTime
   logInfoS $ "Starting time: " <> renderTime ti
 
 -- | Log end time.
-logInfoEndTime :: (HasLock e, HasLogHandles e, HasStartingTime e, HasVerbosity e) => Logger e ()
+logInfoEndTime ::
+  ( HasLock e,
+    HasLogHandles e,
+    HasStartingTime e,
+    HasVerbosity e,
+    MonadReader e m,
+    MonadIO m
+  ) =>
+  m ()
 logInfoEndTime = do
-  ti <- reader getStartingTime
+  ti <- asks getStartingTime
   te <- liftIO getCurrentTime
   let dt = te `diffUTCTime` ti
   logInfoB $ "Wall clock run time: " <> renderDuration dt <> "."
