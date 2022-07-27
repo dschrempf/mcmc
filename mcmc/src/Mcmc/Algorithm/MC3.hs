@@ -79,6 +79,7 @@ import Mcmc.Prior
 import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
+import System.Directory
 import System.Random.Stateful
 
 -- | Total number of parallel chains.
@@ -321,6 +322,8 @@ mc3Save nm a = do
 
 -- | Load an MC3 algorithm.
 --
+-- Also create a backup of the save.
+--
 -- See 'Mcmc.Mcmc.mcmcContinue'.
 mc3Load ::
   FromJSON a =>
@@ -331,8 +334,12 @@ mc3Load ::
   AnalysisName ->
   IO (MC3 a)
 mc3Load pr lh cc mn nm = do
+  copyFile fn fnBak
   savedMC3 <- eitherDecode . decompress <$> BL.readFile (mc3Fn nm)
   either error (fromSavedMC3 pr lh cc mn) savedMC3
+  where
+    fn = mc3Fn nm
+    fnBak = mc3Fn $ AnalysisName $ (fromAnalysisName nm ++ ".bak")
 
 -- I call the chains left and right, because it is easy to think about them as
 -- being left and right. Of course, the left chain may also have a larger index

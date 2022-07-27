@@ -51,6 +51,7 @@ import Mcmc.Prior hiding (uniform)
 import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log
+import System.Directory (copyFile)
 import System.Random.Stateful
 import Text.Printf
 import Prelude hiding (cycle)
@@ -132,6 +133,8 @@ mhgSave nm (MHG c) = do
 
 -- | Load an MHG algorithm.
 --
+-- Also create a backup of the save.
+--
 -- See 'Mcmc.Mcmc.mcmcContinue'.
 mhgLoad ::
   FromJSON a =>
@@ -143,7 +146,9 @@ mhgLoad ::
   IO (MHG a)
 mhgLoad = mhgLoadWith fromSavedChain
 
--- | See 'mhgLoad' but do not perform sanity checks.
+-- | Like 'mhgLoad' but do not perform sanity checks.
+--
+-- Also create a backup of the save.
 --
 -- Useful when restarting a run with changed prior function, likelihood function
 -- or proposals. Use with care!
@@ -168,9 +173,13 @@ mhgLoadWith ::
   AnalysisName ->
   IO (MHG a)
 mhgLoadWith f pr lh cc mn nm = do
+  copyFile fn fnBak
   savedChain <- eitherDecode . decompress <$> BL.readFile (mhgFn nm)
   chain <- either error (f pr lh cc mn) savedChain
   return $ MHG chain
+  where
+    fn = mhgFn nm
+    fnBak = mhgFn $ AnalysisName $ (fromAnalysisName nm ++ ".bak")
 
 -- | MHG ratios are stored in log domain.
 type MHGRatio = Log Double
