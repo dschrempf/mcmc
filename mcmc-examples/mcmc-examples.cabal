@@ -42,9 +42,9 @@ common exec
 executable archery
   import:          exec
   main-is:         Archery.hs
+  hs-source-dirs:  Archery
   other-modules:   Paths_mcmc_examples
   autogen-modules: Paths_mcmc_examples
-  hs-source-dirs:  Archery
   build-depends:
     , base
     , mcmc
@@ -54,9 +54,9 @@ executable archery
 executable dirichlet
   import:          exec
   main-is:         Dirichlet.hs
+  hs-source-dirs:  Dirichlet
   other-modules:   Paths_mcmc_examples
   autogen-modules: Paths_mcmc_examples
-  hs-source-dirs:  Dirichlet
   build-depends:
     , aeson
     , base
@@ -70,9 +70,9 @@ executable dirichlet
 executable gauss
   import:          exec
   main-is:         Gauss.hs
+  hs-source-dirs:  Gauss
   other-modules:   Paths_mcmc_examples
   autogen-modules: Paths_mcmc_examples
-  hs-source-dirs:  Gauss
   build-depends:
     , base
     , lens
@@ -82,9 +82,9 @@ executable gauss
 executable hamiltonian
   import:          exec
   main-is:         Hamiltonian.hs
+  hs-source-dirs:  Hamiltonian
   other-modules:   Paths_mcmc_examples
   autogen-modules: Paths_mcmc_examples
-  hs-source-dirs:  Hamiltonian
   build-depends:
     , base
     , lens
@@ -95,9 +95,9 @@ executable hamiltonian
 executable pair
   import:          exec
   main-is:         Pair.hs
+  hs-source-dirs:  Pair
   other-modules:   Paths_mcmc_examples
   autogen-modules: Paths_mcmc_examples
-  hs-source-dirs:  Pair
   build-depends:
     , base
     , mcmc
@@ -107,9 +107,9 @@ executable pair
 executable plh
   import:          exec
   main-is:         PhylogeneticLikelihood.hs
+  hs-source-dirs:  PhylogeneticLikelihood
   other-modules:   Paths_mcmc_examples
   autogen-modules: Paths_mcmc_examples
-  hs-source-dirs:  PhylogeneticLikelihood
   build-depends:
     , aeson
     , algebraic-graphs
@@ -118,3 +118,15 @@ executable plh
     , microlens
     , random
     , statistics
+
+executable poisson
+  import:          exec
+  main-is:         Poisson.hs
+  hs-source-dirs:  Poisson
+  other-modules:   Paths_mcmc_examples
+  autogen-modules: Paths_mcmc_examples
+  ghc-options:
+  build-depends:
+    , base
+    , mcmc
+    , random
