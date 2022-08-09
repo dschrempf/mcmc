@@ -39,7 +39,7 @@ logGammaG z
   | otherwise = logGammaNonDouble z
 {-# SPECIALIZE logGammaG :: Double -> Double #-}
 
--- | See 'Numeric.SpecFunctions.logGamma'.
+-- See 'Numeric.SpecFunctions.logGamma'.
 logGammaNonDouble :: RealFloat a => a -> a
 logGammaNonDouble z
   | z <= 0 = 1 / 0
@@ -53,10 +53,11 @@ logGammaNonDouble z
 
 lgamma1_15G :: RealFloat a => a -> a -> a
 lgamma1_15G zm1 zm2 =
-  r * y + r
-    * ( evaluatePolynomial zm1 tableLogGamma_1_15PG
-          / evaluatePolynomial zm1 tableLogGamma_1_15QG
-      )
+  r * y
+    + r
+      * ( evaluatePolynomial zm1 tableLogGamma_1_15PG
+            / evaluatePolynomial zm1 tableLogGamma_1_15QG
+        )
   where
     r = zm1 * zm2
     y = 0.52815341949462890625
@@ -89,10 +90,11 @@ tableLogGamma_1_15QG =
 
 lgamma15_2G :: RealFloat a => a -> a -> a
 lgamma15_2G zm1 zm2 =
-  r * y + r
-    * ( evaluatePolynomial (-zm2) tableLogGamma_15_2PG
-          / evaluatePolynomial (-zm2) tableLogGamma_15_2QG
-      )
+  r * y
+    + r
+      * ( evaluatePolynomial (-zm2) tableLogGamma_15_2PG
+            / evaluatePolynomial (-zm2) tableLogGamma_15_2QG
+        )
   where
     r = zm1 * zm2
     y = 0.452017307281494140625
@@ -133,10 +135,11 @@ lgammaSmallG = go 0
 
 lgamma2_3G :: RealFloat a => a -> a
 lgamma2_3G z =
-  r * y + r
-    * ( evaluatePolynomial zm2 tableLogGamma_2_3PG
-          / evaluatePolynomial zm2 tableLogGamma_2_3QG
-      )
+  r * y
+    + r
+      * ( evaluatePolynomial zm2 tableLogGamma_2_3PG
+            / evaluatePolynomial zm2 tableLogGamma_2_3QG
+        )
   where
     r = zm2 * (z + 1)
     zm2 = z - 2
