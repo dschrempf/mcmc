@@ -11,7 +11,6 @@
 -- Creation date: Wed Mar  3 11:39:04 2021.
 module Mcmc.Likelihood
   ( Likelihood,
-    LikelihoodG,
     LikelihoodFunction,
     LikelihoodFunctionG,
     noLikelihood,
@@ -23,14 +22,11 @@ import Numeric.Log
 -- | Likelihood values are stored in log domain.
 type Likelihood = Log Double
 
--- | Generalized likelihood.
-type LikelihoodG a = Log a
-
 -- | Likelihood function.
-type LikelihoodFunction a = LikelihoodFunctionG a Double
+type LikelihoodFunction a = a -> Log Double
 
 -- | Generalized likelihood function.
-type LikelihoodFunctionG a b = a -> LikelihoodG b
+type LikelihoodFunctionG a b = a -> Log b
 
 -- | Flat likelihood function. Useful for testing and debugging.
 noLikelihood :: RealFloat b => LikelihoodFunctionG a b

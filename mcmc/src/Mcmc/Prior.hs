@@ -13,7 +13,6 @@
 -- Creation date: Thu Jul 23 13:26:14 2020.
 module Mcmc.Prior
   ( Prior,
-    PriorG,
     PriorFunction,
     PriorFunctionG,
 
@@ -50,26 +49,14 @@ import Mcmc.Internal.SpecFunctions
 import Mcmc.Statistics.Types
 import Numeric.Log
 
--- TODO (high): Think about using a "structure" variable.
---
--- For example,
---
--- type PriorFunctionG s a = s a -> PriorG a
---
--- Many of the prior functions would need to use the Identity Functor. This may
--- be slow.
-
 -- | Prior values are stored in log domain.
-type Prior = PriorG Double
-
--- | Generalized prior.
-type PriorG a = Log a
+type Prior = Log Double
 
 -- | Prior function.
-type PriorFunction a = PriorFunctionG a Double
+type PriorFunction a = a -> Log Double
 
 -- | Generalized prior function.
-type PriorFunctionG a b = a -> PriorG b
+type PriorFunctionG a b = a -> Log b
 
 -- | Flat prior function. Useful for testing and debugging.
 noPrior :: RealFloat b => PriorFunctionG a b
