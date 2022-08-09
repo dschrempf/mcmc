@@ -1,6 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+-- |
+-- Module      :  Mcmc.Chain.Save
+-- Description :  Save and load a Markov chain
+-- Copyright   :  2021 Dominik Schrempf
+-- License     :  GPL-3.0-or-later
+--
 -- Maintainer  :  dominik.schrempf@gmail.com
 -- Stability   :  unstable
 -- Portability :  portable
@@ -10,12 +16,6 @@
 -- Save and load chains. It is easy to save and restore the current state and
 -- likelihood (or the trace), but it is not feasible to store all the proposals
 -- and so on, so they have to be provided again when continuing a run.
-
--- |
--- Module      :  Mcmc.Chain.Save
--- Description :  Save and load a Markov chain
--- Copyright   :  2021 Dominik Schrempf
--- License     :  GPL-3.0-or-later
 module Mcmc.Chain.Save
   ( SavedChain (..),
     toSavedChain,
