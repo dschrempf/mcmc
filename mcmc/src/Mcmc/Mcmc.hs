@@ -75,9 +75,6 @@ mcmcExceptionHandler e a err = do
   putStrLn "Rethrowing error."
   throw err
 
--- XXX: Exception handling. Is it enough to mask execution of monitors and catch
--- UserInterrupt during iterations?
-
 mcmcExecuteMonitors :: Algorithm a => a -> MCMC ()
 mcmcExecuteMonitors a = do
   e <- ask
@@ -96,8 +93,10 @@ mcmcIterate m n a
   | otherwise = do
       e <- ask
       p <- sParallelizationMode . settings <$> ask
-      -- NOTE: User interrupt is handled during iterations.
+      -- NOTE: User interrupt is only handled during iterations.
       a' <- liftIO $ catch (aIterate m p a) (mcmcExceptionHandler e a)
+      -- NOTE: We may want to mask execution of monitors and catch exceptions
+      -- even then?
       mcmcExecuteMonitors a'
       mcmcIterate m (n - 1) a'
 
