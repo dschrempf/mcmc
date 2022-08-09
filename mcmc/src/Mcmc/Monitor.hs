@@ -209,11 +209,11 @@ mfExec i (Link x p l) m
       Just h ->
         BL.hPutStrLn h $
           mfRenderRow $
-            BL.pack (show i) :
-            renderLog p :
-            renderLog l :
-            renderLog (p * l) :
-              [BB.toLazyByteString $ mpFunc mp x | mp <- mfParams m]
+            BL.pack (show i)
+              : renderLog p
+              : renderLog l
+              : renderLog (p * l)
+              : [BB.toLazyByteString $ mpFunc mp x | mp <- mfParams m]
 
 mfClose :: MonitorFile a -> IO ()
 mfClose m = case mfHandle m of
@@ -296,11 +296,11 @@ mbExec i t m
             mlos = mean los
         BL.hPutStrLn h $
           mfRenderRow $
-            BL.pack (show i) :
-            renderLog mlps :
-            renderLog mlls :
-            renderLog mlos :
-              [BB.toLazyByteString $ mbpFunc mbp (VB.map state xs) | mbp <- mbParams m]
+            BL.pack (show i)
+              : renderLog mlps
+              : renderLog mlls
+              : renderLog mlos
+              : [BB.toLazyByteString $ mbpFunc mbp (VB.map state xs) | mbp <- mbParams m]
 
 mbClose :: MonitorBatch a -> IO ()
 mbClose m = case mbHandle m of
