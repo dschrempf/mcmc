@@ -13,7 +13,6 @@
 -- From https://wiki.haskell.org/Random_shuffle.
 module Mcmc.Internal.Shuffle
   ( shuffle,
-    grabble,
   )
 where
 
@@ -23,19 +22,14 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as M
 import System.Random.Stateful
 
--- Fisher-Yates shuffle. See also
--- 'System.Random.MWC.Distributions.uniformPermutation' which is a little
--- cleaner, in my opinion. However, I would like to move away from MWC so I
--- leave the custom implementation for now.
---
--- NOTE: I do not need to move away from MWC anymore true because I can use
--- SplitMix with it.
+-- TODO: Remove shuffle, use System.Random.MWC.Distributions.uniformShuffle and
+-- vectors.
 
 -- | Shuffle a vector.
 shuffle :: StatefulGen g m => [a] -> g -> m [a]
 shuffle xs = grabble xs (length xs)
 
--- | @grabble xs m n@ is /O(m*n')/, where @n' = min n (length xs)@. Choose @n'@
+-- @grabble xs m n@ is /O(m*n')/, where @n' = min n (length xs)@. Choose @n'@
 -- elements from @xs@, without replacement, and that @m@ times.
 grabble :: StatefulGen g m => [a] -> Int -> g -> m [a]
 grabble xs m gen = do
