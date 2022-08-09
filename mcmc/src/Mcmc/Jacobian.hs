@@ -11,7 +11,6 @@
 -- Creation date: Tue May 31 09:37:54 2022.
 module Mcmc.Jacobian
   ( Jacobian,
-    JacobianG,
     JacobianFunction,
     JacobianFunctionG,
   )
@@ -22,11 +21,8 @@ import Numeric.Log
 -- | Absolute value of the determinant of the Jacobian matrix.
 type Jacobian = Log Double
 
--- | Generalized Jacobian.
-type JacobianG a = Log a
+-- | Function calculating the 'Jacobian'.
+type JacobianFunction a = a -> Log Double
 
 -- | Function calculating the 'Jacobian'.
-type JacobianFunction a = JacobianFunctionG a Double
-
--- | Function calculating the 'Jacobian'.
-type JacobianFunctionG a b = a -> JacobianG b
+type JacobianFunctionG a b = a -> Log b
