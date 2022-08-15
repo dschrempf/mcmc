@@ -173,13 +173,13 @@ mhgLoadWith ::
   AnalysisName ->
   IO (MHG a)
 mhgLoadWith f pr lh cc mn nm = do
-  copyFile fn fnBak
+  -- copyFile fn fnBak
   savedChain <- eitherDecode . decompress <$> BL.readFile (mhgFn nm)
   chain <- either error (f pr lh cc mn) savedChain
   return $ MHG chain
   where
+    -- fnBak = mhgFn $ AnalysisName $ (fromAnalysisName nm ++ ".bak")
     fn = mhgFn nm
-    fnBak = mhgFn $ AnalysisName $ (fromAnalysisName nm ++ ".bak")
 
 -- | MHG ratios are stored in log domain.
 type MHGRatio = Log Double

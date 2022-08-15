@@ -334,12 +334,12 @@ mc3Load ::
   AnalysisName ->
   IO (MC3 a)
 mc3Load pr lh cc mn nm = do
-  copyFile fn fnBak
+  -- copyFile fn fnBak
   savedMC3 <- eitherDecode . decompress <$> BL.readFile (mc3Fn nm)
   either error (fromSavedMC3 pr lh cc mn) savedMC3
   where
+    -- fnBak = mc3Fn $ AnalysisName $ (fromAnalysisName nm ++ ".bak")
     fn = mc3Fn nm
-    fnBak = mc3Fn $ AnalysisName $ (fromAnalysisName nm ++ ".bak")
 
 -- I call the chains left and right, because it is easy to think about them as
 -- being left and right. Of course, the left chain may also have a larger index
