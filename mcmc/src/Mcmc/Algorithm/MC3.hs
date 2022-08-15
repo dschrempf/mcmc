@@ -79,7 +79,6 @@ import Mcmc.Prior
 import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
-import System.Directory
 import System.Random.Stateful
 
 -- | Total number of parallel chains.
@@ -335,7 +334,7 @@ mc3Load ::
   IO (MC3 a)
 mc3Load pr lh cc mn nm = do
   -- copyFile fn fnBak
-  savedMC3 <- eitherDecode . decompress <$> BL.readFile (mc3Fn nm)
+  savedMC3 <- eitherDecode . decompress <$> BL.readFile fn
   either error (fromSavedMC3 pr lh cc mn) savedMC3
   where
     -- fnBak = mc3Fn $ AnalysisName $ (fromAnalysisName nm ++ ".bak")

@@ -51,7 +51,6 @@ import Mcmc.Prior hiding (uniform)
 import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log
-import System.Directory (copyFile)
 import System.Random.Stateful
 import Text.Printf
 import Prelude hiding (cycle)
@@ -174,7 +173,7 @@ mhgLoadWith ::
   IO (MHG a)
 mhgLoadWith f pr lh cc mn nm = do
   -- copyFile fn fnBak
-  savedChain <- eitherDecode . decompress <$> BL.readFile (mhgFn nm)
+  savedChain <- eitherDecode . decompress <$> BL.readFile fn
   chain <- either error (f pr lh cc mn) savedChain
   return $ MHG chain
   where
