@@ -86,7 +86,8 @@ data Chain a = Chain
     -- current likelihood. The link is updated after a proposal has been
     -- executed.
     link :: Link a,
-    -- | The current iteration or completed number of cycles.
+    -- | The current iteration. In contrast to the link, the iteration is
+    -- updated only after all proposals in the cycle have been executed.
     iteration :: Int,
     -- | The 'Trace' of the Markov chain. In contrast to the link, the trace is
     -- updated only after all proposals in the cycle have been executed.

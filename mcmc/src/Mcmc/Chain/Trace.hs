@@ -59,27 +59,19 @@ pushT x t = do
   return $ Trace s'
 {-# INLINEABLE pushT #-}
 
--- | Get the most recent link of the trace.
---
--- See 'C.get'.
+-- | Get the most recent link of the trace (see 'C.get').
 headT :: Trace a -> IO (Link a)
 headT = C.get . fromTrace
 {-# INLINEABLE headT #-}
 
--- | Get the k most recent links of the trace.
---
--- See 'C.take'.
+-- | Get the k most recent links of the trace (see 'C.take').
 takeT :: Int -> Trace a -> IO (VB.Vector (Link a))
 takeT k = C.take k . fromTrace
 
--- | Freeze the mutable trace for storage.
---
--- See 'C.freeze'.
+-- | Freeze the mutable trace for storage (see 'C.freeze').
 freezeT :: Trace a -> IO (C.Stack VB.Vector (Link a))
 freezeT = C.freeze . fromTrace
 
--- | Thaw a circular stack.
---
--- See 'See.thaw'.
+-- | Thaw a circular stack (see 'C.thaw').
 thawT :: C.Stack VB.Vector (Link a) -> IO (Trace a)
 thawT t = Trace <$> C.thaw t
