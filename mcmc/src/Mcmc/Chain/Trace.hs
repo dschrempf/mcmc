@@ -13,7 +13,6 @@ module Mcmc.Chain.Trace
   ( Trace,
     replicateT,
     fromVectorT,
-    lengthT,
     pushT,
     headT,
     takeT,
@@ -47,10 +46,6 @@ replicateT n l = Trace <$> C.replicate n l
 -- Call 'error' if the vector is empty.
 fromVectorT :: VB.Vector (Link a) -> IO (Trace a)
 fromVectorT xs = Trace <$> C.fromVector xs
-
--- | Get the length of the trace.
-lengthT :: Trace a -> Int
-lengthT = C.size . fromTrace
 
 -- | Push a 'Link' on the 'Trace'.
 pushT :: Link a -> Trace a -> IO (Trace a)
