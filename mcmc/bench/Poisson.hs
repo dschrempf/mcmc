@@ -49,7 +49,7 @@ normalizedYears = map (subtract m) ys
     ys = [1976.0 .. 1985.0]
     m = sum ys / fromIntegral (length ys)
 
-f :: (RealFloat a, Typeable a) => Int -> Double -> IG a -> LikelihoodG a
+f :: (RealFloat a, Typeable a) => Int -> Double -> LikelihoodFunctionG (IG a) a
 f ft yr xs = poisson l ft
   where
     a = xs VB.! 0
