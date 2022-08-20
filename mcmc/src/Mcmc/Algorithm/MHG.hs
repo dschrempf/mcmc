@@ -52,7 +52,6 @@ import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log
 import System.Random.Stateful
-import Text.Printf
 import Prelude hiding (cycle)
 
 -- | The MHG algorithm.
@@ -111,7 +110,7 @@ mhg s pr lh cc mn i0 g = do
   -- a monad.
   tr <- replicateT tl l0
   gm <- newIOGenM g
-  return $ MHG $ Chain Nothing l0 0 tr ac gm 0 pr lh cc mn
+  return $ MHG $ Chain l0 0 tr ac gm 0 pr lh cc mn
   where
     l0 = Link i0 (pr i0) (lh i0)
     ac = emptyA $ ccProposals cc
@@ -350,14 +349,17 @@ mhgSummarizeCycle m (MHG c) = summarizeCycle m ac cc
     cc = cycle c
     ac = acceptance c
 
-mhgOpenMonitors :: AnalysisName -> ExecutionMode -> MHG a -> IO (MHG a)
+mhgOpenMonitors ::
+  AnalysisName ->
+  ExecutionMode ->
+  MHG a ->
+  IO (MHG a)
 mhgOpenMonitors nm em (MHG c) = do
-  m' <- mOpen pre suf em m
-  return $ MHG c {monitor = m'}
+  m' <- mOpen pre "" em m
+  pure $ MHG c {monitor = m'}
   where
     m = monitor c
     pre = fromAnalysisName nm
-    suf = maybe "" (printf "%02d") $ chainId c
 
 mhgExecuteMonitors ::
   Verbosity ->

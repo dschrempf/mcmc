@@ -48,8 +48,7 @@ import Prelude hiding (cycle)
 --
 -- See 'toSavedChain'.
 data SavedChain a = SavedChain
-  { savedId :: Maybe Int,
-    savedLink :: Link a,
+  { savedLink :: Link a,
     savedIteration :: Int,
     savedTrace :: C.Stack VB.Vector (Link a),
     savedAcceptance :: Acceptance Int,
@@ -64,10 +63,10 @@ $(deriveJSON defaultOptions ''SavedChain)
 toSavedChain ::
   Chain a ->
   IO (SavedChain a)
-toSavedChain (Chain ci it i tr ac g _ _ _ cc _) = do
+toSavedChain (Chain it i tr ac g _ _ _ cc _) = do
   g' <- saveGen g
   tr' <- freezeT tr
-  return $ SavedChain ci it i tr' ac' g' ts
+  return $ SavedChain it i tr' ac' g' ts
   where
     ps = ccProposals cc
     ac' = transformKeysA ps [0 ..] ac
@@ -133,10 +132,10 @@ fromSavedChainUnsafe ::
   Monitor a ->
   SavedChain a ->
   IO (Chain a)
-fromSavedChainUnsafe pr lh cc mn (SavedChain ci it i tr ac' g' ts) = do
+fromSavedChainUnsafe pr lh cc mn (SavedChain it i tr ac' g' ts) = do
   g <- loadGen g'
   tr' <- thawT tr
-  return $ Chain ci it i tr' ac g i pr lh cc' mn
+  return $ Chain it i tr' ac g i pr lh cc' mn
   where
     ac = transformKeysA [0 ..] (ccProposals cc) ac'
     tunePs mt p = case mt of

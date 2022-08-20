@@ -80,6 +80,7 @@ import Mcmc.Proposal
 import Mcmc.Settings
 import Numeric.Log hiding (sum)
 import System.Random.Stateful
+import Text.Printf
 
 -- | Total number of parallel chains.
 --
@@ -251,14 +252,14 @@ initMHG ::
   IO (MHG a)
 initMHG prf lhf i beta a
   | i < 0 = error "initMHG: Chain index negative."
-  -- Only set the id for the cold chain.
-  | i == 0 = return $ MHG $ c {chainId = Just 0}
+  -- Do nothing for the cold chain.
+  | i == 0 = return $ MHG $ c
   | otherwise = do
       -- We have to push the current link in the trace, since it is not set by
       -- 'setReciprocalTemperature'. The other links in the trace are still
       -- pointing to the link of the cold chain, but this has no effect.
       t' <- pushT l t
-      return $ MHG $ c {chainId = Just i, trace = t'}
+      return $ MHG $ c {trace = t'}
   where
     a' = setReciprocalTemperature prf lhf beta a
     c = fromMHG a'
@@ -587,8 +588,15 @@ mc3SummarizeCycle m a =
 -- No extra monitors are opened.
 mc3OpenMonitors :: ToJSON a => AnalysisName -> ExecutionMode -> MC3 a -> IO (MC3 a)
 mc3OpenMonitors nm em a = do
-  mhgs' <- V.mapM (aOpenMonitors nm em) (mc3MHGChains a)
+  mhgs' <- V.imapM mhgOpenMonitors (mc3MHGChains a)
   return $ a {mc3MHGChains = mhgs'}
+  where
+    mhgOpenMonitors i (MHG c) = do
+      m' <- mOpen pre suf em $ monitor c
+      pure $ MHG c {monitor = m'}
+      where
+        pre = fromAnalysisName nm
+        suf = printf "%02d" i
 
 mc3ExecuteMonitors ::
   ToJSON a =>
