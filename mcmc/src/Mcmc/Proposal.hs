@@ -26,9 +26,6 @@ module Mcmc.Proposal
     PResult (..),
     Jacobian,
     JacobianFunction,
-    (@~),
-    liftProposal,
-    liftProposalWith,
     PFunction,
     createProposal,
 
@@ -46,6 +43,11 @@ module Mcmc.Proposal
     tuningParameterMax,
     tuneWithTuningParameters,
     getOptimalRate,
+
+    -- * Lift proposals
+    (@~),
+    liftProposal,
+    liftProposalWith,
 
     -- * Output
     proposalHeader,
@@ -205,37 +207,6 @@ data PResult a
     Propose !a !KernelRatio !Jacobian
   deriving (Show, Eq)
 
--- | Lift a proposal from one data type to another.
---
--- Assume the Jacobian is 1.0.
---
--- For example:
---
--- @
--- scaleFirstEntryOfTuple = _1 @~ scale
--- @
---
--- See also 'liftProposalWith'.
-infixl 7 @~
-
-(@~) :: Lens' b a -> Proposal a -> Proposal b
-(@~) = liftProposal
-
--- | See '(@~)'.
-liftProposal :: Lens' b a -> Proposal a -> Proposal b
-liftProposal = liftProposalWith (const 1.0)
-
--- | Lift a proposal from one data type to another.
---
--- A function to calculate the Jacobian has to be provided. If the Jabobian is
--- 1.0, use 'liftProposal'.
---
--- For further reference, please see the [example
--- @Pair@](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Pair/Pair.hs).
-liftProposalWith :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
-liftProposalWith jf l (Proposal n r d p w s t) =
-  Proposal n r d p w (liftPFunctionWith jf l s) (liftTunerWith jf l <$> t)
-
 -- TODO @Dominik (high, feature): Proposals should be aware of: Is this Burn in, or not?
 
 -- | Simple proposal function without tuning information.
@@ -246,23 +217,6 @@ liftProposalWith jf l (Proposal n r d p w s t) =
 -- Maybe report acceptance counts internal to the proposal (e.g., used by
 -- proposals based on Hamiltonian dynamics).
 type PFunction a = a -> IOGenM StdGen -> IO (PResult a, Maybe AcceptanceCounts)
-
--- Lift a proposal function from one data type to another.
-liftPFunctionWith :: JacobianFunction b -> Lens' b a -> PFunction a -> PFunction b
-liftPFunctionWith jf l s = s'
-  where
-    s' y g = do
-      (pr, ac) <- s (y ^. l) g
-      let pr' = case pr of
-            ForceAccept x' -> ForceAccept $ set l x' y
-            ForceReject -> ForceReject
-            Propose x' r j ->
-              let y' = set l x' y
-                  jxy = jf y
-                  jyx = jf y'
-                  j' = j * jyx / jxy
-               in Propose y' r j'
-      pure (pr', ac)
 
 -- | Create a proposal with a single tuning parameter.
 --
@@ -310,17 +264,6 @@ data Tuner a = Tuner
       AuxiliaryTuningParameters ->
       Either String (PFunction a)
   }
-
--- Lift tuner from one data type to another.
-liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
-liftTunerWith jf l (Tuner p ps nt fP g) = Tuner p ps nt fP' g'
-  where
-    -- TODO @Dominik (low, bug): There is a memory leak when tuning proposals. I
-    -- think all intermediate proposals are saved. I do not know why. The heap
-    -- profile shows increasing memory usage during burn in for
-    -- 'liftProposalWith', as well this function 'fP''.
-    fP' b d r = fP b d r . fmap (VB.map (^. l))
-    g' x xs = liftPFunctionWith jf l <$> g x xs
 
 -- | Tune proposal?
 data Tune = Tune | NoTune
@@ -437,6 +380,65 @@ getOptimalRate (PDimension n)
   | otherwise = error "getOptimalRate: Proposal dimension is not an integer?"
 getOptimalRate PDimensionUnknown = 0.234
 getOptimalRate (PSpecial _ r) = r
+
+-- | Lift a proposal from one data type to another.
+--
+-- Assume the Jacobian is 1.0.
+--
+-- For example:
+--
+-- @
+-- scaleFirstEntryOfTuple = _1 @~ scale
+-- @
+--
+-- See also 'liftProposalWith'.
+infixl 7 @~
+
+(@~) :: Lens' b a -> Proposal a -> Proposal b
+(@~) = liftProposal
+
+-- | See '(@~)'.
+liftProposal :: Lens' b a -> Proposal a -> Proposal b
+liftProposal = liftProposalWith (const 1.0)
+
+-- | Lift a proposal from one data type to another.
+--
+-- A function to calculate the Jacobian has to be provided. If the Jabobian is
+-- 1.0, use 'liftProposal'.
+--
+-- For further reference, please see the [example
+-- @Pair@](https://github.com/dschrempf/mcmc/blob/master/mcmc-examples/Pair/Pair.hs).
+liftProposalWith :: JacobianFunction b -> Lens' b a -> Proposal a -> Proposal b
+liftProposalWith jf l (Proposal n r d p w s t) =
+  Proposal n r d p w (liftPFunctionWith jf l s) (liftTunerWith jf l <$> t)
+
+-- Lift a proposal function from one data type to another.
+liftPFunctionWith :: JacobianFunction b -> Lens' b a -> PFunction a -> PFunction b
+liftPFunctionWith jf l s = s'
+  where
+    s' y g = do
+      (pr, ac) <- s (y ^. l) g
+      let pr' = case pr of
+            ForceAccept x' -> ForceAccept $ set l x' y
+            ForceReject -> ForceReject
+            Propose x' r j ->
+              let y' = set l x' y
+                  jxy = jf y
+                  jyx = jf y'
+                  j' = j * jyx / jxy
+               in Propose y' r j'
+      pure (pr', ac)
+
+-- Lift tuner from one data type to another.
+liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
+liftTunerWith jf l (Tuner p ps nt fP g) = Tuner p ps nt fP' g'
+  where
+    -- TODO @Dominik (low, bug): There is a memory leak when tuning proposals. I
+    -- think all intermediate proposals are saved. I do not know why. The heap
+    -- profile shows increasing memory usage during burn in for
+    -- 'liftProposalWith', as well this function 'fP''.
+    fP' b d r = fP b d r . fmap (VB.map (^. l))
+    g' x xs = liftPFunctionWith jf l <$> g x xs
 
 -- Warn if acceptance rate is lower.
 rateMin :: Double
