@@ -28,8 +28,8 @@ class Algorithm a where
   -- | Current iteration.
   aIteration :: a -> Int
 
-  -- | Check if the current state is invalid. At the moment this should just
-  -- check if the posterior probability is zero or NaN.
+  -- | Check if the current state is invalid. A state is invalid if the
+  -- posterior probability is positive or negative infinite or NaN.
   aIsInvalidState :: a -> Bool
 
   -- | Sample the next state.
