@@ -106,7 +106,7 @@ msRenderRow xs = alignRight msIWidth (head xs) <> BL.concat vals
 
 -- | Header of monitor to standard output.
 msHeader :: MonitorStdOut a -> BL.ByteString
-msHeader m = BL.intercalate "\n" [row, sep]
+msHeader m = row <> "\n" <> sep
   where
     row =
       msRenderRow $
@@ -219,7 +219,7 @@ mfClose m = case mfHandle m of
   Just h -> hClose h
   Nothing -> error $ "mfClose: File was not opened for monitor " <> mfName m <> "."
 
--- | Batch size.
+-- | Size of the batch used to calculate summary statistics.
 type BatchSize = Int
 
 -- | Batch monitor to a file.
