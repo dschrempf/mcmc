@@ -35,7 +35,7 @@
         mcmc-create-package = f: name: f name (./. + "/${name}") rec { };
         mcmc-overlay = (
           selfn: supern: {
-            haskellPackages = supern.haskell.packages.ghc923.override {
+            haskellPackages = supern.haskell.packages.ghc924.override {
               overrides = selfh: superh:
                 {
                   circular = circular.packages.${system}.default;
