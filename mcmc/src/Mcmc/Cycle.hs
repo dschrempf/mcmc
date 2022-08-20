@@ -23,14 +23,12 @@ module Mcmc.Cycle
     autoTuneCycle,
 
     -- * Output
-    proposalHLine,
     summarizeCycle,
   )
 where
 
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
-import Data.Default
 import Data.List
 import qualified Data.Map.Strict as M
 import qualified Data.Vector as VB
@@ -62,8 +60,6 @@ data Order
     -- chain is reversible.
     SequentialReversibleO
   deriving (Eq, Show)
-
-instance Default Order where def = RandomO
 
 -- Describe the order.
 describeOrder :: Order -> BL.ByteString
@@ -98,13 +94,13 @@ data Cycle a = Cycle
     ccRequireTrace :: Bool
   }
 
--- | Create a 'Cycle' from a list of 'Proposal's.
+-- | Create a 'Cycle' from a list of 'Proposal's; use 'RandomO', but see 'setOrder'.
 cycleFromList :: [Proposal a] -> Cycle a
 cycleFromList [] =
   error "cycleFromList: Received an empty list but cannot create an empty Cycle."
 cycleFromList xs =
   if length uniqueXs == length xs
-    then Cycle xs def (any needsTrace xs)
+    then Cycle xs RandomO (any needsTrace xs)
     else error $ "\n" ++ msg ++ "cycleFromList: Proposals are not unique."
   where
     uniqueXs = nub xs
@@ -196,10 +192,6 @@ autoTuneCycle b a mxs c = case (ccRequireTrace c, mxs) of
         Just (Just x) -> either error id $ tuneWithChainParameters b x mxs p
         _ -> p
 
--- | Horizontal line of proposal summaries.
-proposalHLine :: BL.ByteString
-proposalHLine = BL.replicate (BL.length proposalHeader) '-'
-
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance rates.
 summarizeCycle :: IterationMode -> Acceptance (Proposal a) -> Cycle a -> BL.ByteString
 summarizeCycle m a c =
@@ -228,3 +220,4 @@ summarizeCycle m a c =
       1 -> nProposalsStr <> " proposal is performed per iteration."
       _ -> nProposalsStr <> " proposals are performed per iterations."
     ar pr = acceptanceRate pr a
+    proposalHLine = BL.replicate (BL.length proposalHeader) '-'

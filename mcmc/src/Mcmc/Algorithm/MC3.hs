@@ -584,6 +584,7 @@ mc3SummarizeCycle m a =
     swapPeriodB = BB.toLazyByteString $ BB.intDec swapPeriod
     swapAcceptance = mc3SwapAcceptance a
     n = fromNChains $ mc3NChains $ mc3Settings a
+    proposalHLine = BL.replicate (BL.length proposalHeader) '-'
 
 -- No extra monitors are opened.
 mc3OpenMonitors :: ToJSON a => AnalysisName -> ExecutionMode -> MC3 a -> IO (MC3 a)

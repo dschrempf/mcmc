@@ -97,7 +97,6 @@ library
     , circular
     , containers
     , covariance         >=0.2
-    , data-default
     , directory
     , dirichlet
     , double-conversion
