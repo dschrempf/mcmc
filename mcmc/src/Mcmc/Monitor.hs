@@ -62,24 +62,23 @@ data Monitor a = Monitor
     mStdOut :: MonitorStdOut a,
     -- | Monitors writing to files.
     mFiles :: [MonitorFile a],
-    -- | Monitors calculating batch means and
-    -- writing to files.
+    -- | Monitors calculating summary statistics over the last batch of
+    -- iterations and writing to files.
     mBatches :: [MonitorBatch a]
   }
 
--- | Monitor period.
+-- | Execute monitor every given number of iterations.
 type Period = Int
 
--- | Do not monitor parameters.
---
--- Monitor prior and likelihood with given period.
+-- | Only monitor prior, likelihood and posterior functions with given period.
+-- Do not monitor parameters.
 simpleMonitor :: Period -> Monitor a
 simpleMonitor p
   | p < 1 = error "simpleMonitor: Monitor period must be 1 or larger."
   | otherwise =
       Monitor (MonitorStdOut [] p) [] []
 
--- | Monitor to standard output; constructed with 'monitorStdOut'.
+-- | Monitor to standard output; construct with 'monitorStdOut'.
 data MonitorStdOut a = MonitorStdOut
   { msParams :: [MonitorParameter a],
     msPeriod :: Period
