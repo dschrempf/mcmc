@@ -83,25 +83,31 @@ pushReject k = Acceptance . M.adjust addReject k . fromAcceptance
 pushAcceptanceCounts :: Ord k => k -> AcceptanceCounts -> Acceptance k -> Acceptance k
 pushAcceptanceCounts k c = Acceptance . M.adjust (addAcceptanceCounts c) k . fromAcceptance
 
--- | Reset acceptance storage.
+-- | Reset acceptance counts.
 resetA :: Ord k => Acceptance k -> Acceptance k
 resetA = emptyA . M.keys . fromAcceptance
 
-transformKeys :: (Ord k1, Ord k2) => [k1] -> [k2] -> M.Map k1 v -> M.Map k2 v
-transformKeys ks1 ks2 m = foldl' insrt M.empty $ zip ks1 ks2
+transformKeys :: (Ord k1, Ord k2) => [(k1, k2)] -> M.Map k1 v -> M.Map k2 v
+transformKeys ks m = foldl' insrt M.empty ks
   where
     insrt m' (k1, k2) = M.insert k2 (m M.! k1) m'
 
 -- | Transform keys using the given lists. Keys not provided will not be present
 -- in the new 'Acceptance' variable.
-transformKeysA :: (Ord k1, Ord k2) => [k1] -> [k2] -> Acceptance k1 -> Acceptance k2
-transformKeysA ks1 ks2 = Acceptance . transformKeys ks1 ks2 . fromAcceptance
+transformKeysA :: (Ord k1, Ord k2) => [(k1, k2)] -> Acceptance k1 -> Acceptance k2
+transformKeysA ks = Acceptance . transformKeys ks . fromAcceptance
 
 -- | Acceptance counts and rate for a specific proposal.
 --
+-- Return @Just (accepts, rejects, acceptance rate)@.
+--
 -- Return 'Nothing' if no proposals have been accepted or rejected (division by
 -- zero).
-acceptanceRate :: Ord k => k -> Acceptance k -> Maybe (Int, Int, AcceptanceRate)
+acceptanceRate ::
+  Ord k =>
+  k ->
+  Acceptance k ->
+  Maybe (Int, Int, AcceptanceRate)
 acceptanceRate k a = case fromAcceptance a M.!? k of
   Just (AcceptanceCounts 0 0) -> Nothing
   Just (AcceptanceCounts as rs) -> Just (as, rs, fromIntegral as / fromIntegral (as + rs))

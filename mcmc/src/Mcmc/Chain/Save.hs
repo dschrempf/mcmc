@@ -69,7 +69,7 @@ toSavedChain (Chain it i tr ac g _ _ _ cc _) = do
   return $ SavedChain it i tr' ac' g' ts
   where
     ps = ccProposals cc
-    ac' = transformKeysA ps [0 ..] ac
+    ac' = transformKeysA (zip ps [0 ..]) ac
     ts =
       [ (\t -> (tTuningParameter t, tAuxiliaryTuningParameters t)) <$> mt
         | mt <- map prTuner ps
@@ -137,7 +137,7 @@ fromSavedChainUnsafe pr lh cc mn (SavedChain it i tr ac' g' ts) = do
   tr' <- thawT tr
   return $ Chain it i tr' ac g i pr lh cc' mn
   where
-    ac = transformKeysA [0 ..] (ccProposals cc) ac'
+    ac = transformKeysA (zip [0 ..] (ccProposals cc)) ac'
     tunePs mt p = case mt of
       Nothing -> p
       Just (x, xs) -> either (error . (<> err)) id $ tuneWithTuningParameters x xs p
