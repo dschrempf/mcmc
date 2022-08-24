@@ -63,14 +63,7 @@ mcmcExceptionHandler e a err = do
   putStrLn "Closing output files."
   _ <- aCloseMonitors a
   closeEnvironment e
-  putStrLn "Saving settings."
-  let s = settings e
-  settingsSave s
-  putStrLn "Saving compressed MCMC analysis."
-  putStrLn "For long traces, or complex objects, this may take a while."
-  let nm = sAnalysisName s
-  aSave nm a
-  putStrLn "Markov chain saved. Analysis can be continued."
+  runReaderT (mcmcSave a) e
   putStrLn "Graceful termination successful."
   putStrLn "Rethrowing error."
   throw err
@@ -103,17 +96,19 @@ mcmcIterate m n a
 mcmcNewRun :: Algorithm a => a -> MCMC a
 mcmcNewRun a = do
   s <- reader settings
-  logInfoB "Start new MCMC sampler."
+  logInfoB "Starting new MCMC sampler."
   logInfoB "Initial state."
   logInfoB $ aStdMonitorHeader a
   mcmcExecuteMonitors a
   when (aIsInvalidState a) (logWarnB "The initial state is invalid!")
   a' <- mcmcBurnIn a
-  logInfoS $ "Clean chain after burn in."
+  logInfoS $ "Cleaning chain after burn in."
   let tl = sTraceLength s
   a'' <- liftIO $ aCleanAfterBurnIn tl a'
+  logInfoS $ "Saving chain after burn in."
+  mcmcSave a''
   let i = fromIterations $ sIterations s
-  logInfoS $ "Run chain for " ++ show i ++ " iterations."
+  logInfoS $ "Running chain for " ++ show i ++ " iterations."
   logInfoB $ aStdMonitorHeader a''
   mcmcIterate AllProposals i a''
 
@@ -132,7 +127,7 @@ mcmcContinueRun a = do
   when (iCurrent < iBurnIn) $ error "mcmcContinueRun: Can not continue burn in."
   let di = iTotal - iCurrent
   logInfoB $ aSummarizeCycle AllProposals a
-  logInfoS $ "Run chain for " ++ show di ++ " iterations."
+  logInfoS $ "Running chain for " ++ show di ++ " iterations."
   logInfoB $ aStdMonitorHeader a
   mcmcIterate AllProposals di a
 
@@ -146,7 +141,7 @@ mcmcBurnIn a = do
       return a
     BurnInWithoutAutoTuning n -> do
       logInfoB $ aSummarizeCycle AllProposals a
-      logInfoS $ "Burn in for " <> show n <> " iterations."
+      logInfoS $ "Burning in for " <> show n <> " iterations."
       logInfoS "Auto tuning is disabled."
       logInfoB $ aStdMonitorHeader a
       a' <- mcmcIterate AllProposals n a
@@ -156,7 +151,7 @@ mcmcBurnIn a = do
       return a''
     BurnInWithAutoTuning n t -> do
       logInfoB $ aSummarizeCycle AllProposals a
-      logInfoS $ "Burn in for " ++ show n ++ " iterations."
+      logInfoS $ "Burning in for " ++ show n ++ " iterations."
       logInfoS $ "Auto tuning is enabled with a period of " ++ show t ++ "."
       logInfoB $ aStdMonitorHeader a
       let (m, r) = n `divMod` t
@@ -167,7 +162,7 @@ mcmcBurnIn a = do
       logInfoB "Burn in finished."
       return a'
     BurnInWithCustomAutoTuning xs ys -> do
-      logInfoS $ "Burn in for " ++ show (sum xs + sum ys) ++ " iterations."
+      logInfoS $ "Burning in for " ++ show (sum xs + sum ys) ++ " iterations."
       a' <-
         if null xs
           then do
@@ -187,7 +182,7 @@ mcmcBurnIn a = do
 -- Auto tune the proposals.
 mcmcAutotune :: Algorithm a => TuningType -> Int -> a -> MCMC a
 mcmcAutotune NormalTuningStep n a = do
-  logDebugB "Auto tune."
+  logDebugB "Intermediate auto tune."
   liftIO $ aAutoTune NormalTuningStep n a
 mcmcAutotune LastTuningStep n a = do
   logDebugB "Last auto tune."
@@ -225,15 +220,15 @@ mcmcSave :: Algorithm a => a -> MCMC ()
 mcmcSave a = do
   s <- reader settings
   case sSaveMode s of
-    NoSave -> logInfoB "Do not save the MCMC analysis."
+    NoSave -> logInfoB "NoSave set; Do not save the MCMC analysis."
     Save -> do
-      logInfoB "Save settings."
+      logInfoB "Saving settings."
       liftIO $ settingsSave s
       let nm = sAnalysisName s
-      logInfoB "Save compressed MCMC analysis."
+      logInfoB "Saving compressed MCMC analysis."
       logInfoB "For long traces, or complex objects, this may take a while."
       liftIO $ aSave nm a
-      logInfoB "Markov chain saved."
+      logInfoB "Markov chain saved. Analysis can be continued."
 
 -- Report and finish up.
 mcmcClose :: Algorithm a => a -> MCMC a
