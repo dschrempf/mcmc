@@ -35,6 +35,7 @@ dist-*
 *.mhg
 *.monitor
 *.settings
+*.html
 
 # Emacs
 /**/TAGS
