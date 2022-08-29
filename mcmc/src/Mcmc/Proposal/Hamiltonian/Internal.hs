@@ -17,6 +17,7 @@
 -- - [4] Matthew D. Hoffman, Andrew Gelman (2014) The No-U-Turn Sampler:
 --   Adaptively Setting Path Lengths in Hamiltonian Monte Carlo, Journal of
 --   Machine Learning Research.
+{-# LANGUAGE BangPatterns #-}
 
 -- |
 -- Module      :  Mcmc.Proposal.Hamiltonian.Internal
@@ -259,7 +260,7 @@ hTuningFunctionWith ::
 hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
   (HNoTuneLeapfrog, HNoTuneMasses) -> Nothing
   (_, _) -> Just $
-    \tt pdim ar mxs (_, ts) ->
+    \tt pdim ar mxs (_, !ts) ->
       case mxs of
         Nothing -> error "hTuningFunctionWith: empty trace"
         Just xs ->
