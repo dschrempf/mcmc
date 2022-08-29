@@ -22,12 +22,11 @@ module Mcmc.Monitor.ParameterBatch
     (>$<),
     monitorBatchMean,
     monitorBatchMeanF,
-    monitorBatchMeanE,
+    monitorBatchMeanS,
   )
 where
 
 import qualified Data.ByteString.Builder as BB
-import qualified Data.Double.Conversion.ByteString as BC
 import Data.Functor.Contravariant
 import qualified Data.Vector as VB
 
@@ -69,32 +68,30 @@ monitorBatchMean ::
   -- | Name.
   String ->
   MonitorParameterBatch a
-monitorBatchMean n = MonitorParameterBatch n (BB.byteString . BC.toFixed 8 . mean)
+monitorBatchMean n = MonitorParameterBatch n (BB.formatDouble (BB.standard 8) . mean)
 {-# SPECIALIZE monitorBatchMean :: String -> MonitorParameterBatch Int #-}
 {-# SPECIALIZE monitorBatchMean :: String -> MonitorParameterBatch Double #-}
 
 -- | Batch mean monitor.
 --
--- Print the mean with full precision computing the shortest string of digits
--- that correctly represent the number.
+-- Print the mean with full precision.
 monitorBatchMeanF ::
   Real a =>
   -- | Name.
   String ->
   MonitorParameterBatch a
-monitorBatchMeanF n = MonitorParameterBatch n (BB.byteString . BC.toShortest . mean)
+monitorBatchMeanF n = MonitorParameterBatch n (BB.doubleDec . mean)
 {-# SPECIALIZE monitorBatchMeanF :: String -> MonitorParameterBatch Int #-}
 {-# SPECIALIZE monitorBatchMeanF :: String -> MonitorParameterBatch Double #-}
 
 -- | Batch mean monitor.
 --
--- Print the real float parameters such as 'Double' with scientific notation and
--- eight decimal places.
-monitorBatchMeanE ::
+-- Print the real float parameters such as 'Double' with scientific notation.
+monitorBatchMeanS ::
   Real a =>
   -- | Name.
   String ->
   MonitorParameterBatch a
-monitorBatchMeanE n = MonitorParameterBatch n (BB.byteString . BC.toExponential 8 . mean)
-{-# SPECIALIZE monitorBatchMeanE :: String -> MonitorParameterBatch Int #-}
-{-# SPECIALIZE monitorBatchMeanE :: String -> MonitorParameterBatch Double #-}
+monitorBatchMeanS n = MonitorParameterBatch n (BB.formatDouble BB.scientific . mean)
+{-# SPECIALIZE monitorBatchMeanS :: String -> MonitorParameterBatch Int #-}
+{-# SPECIALIZE monitorBatchMeanS :: String -> MonitorParameterBatch Double #-}

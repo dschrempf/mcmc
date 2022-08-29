@@ -55,7 +55,6 @@ import Data.Aeson
 import Data.Aeson.TH
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
-import qualified Data.Double.Conversion.ByteString as BC
 import Data.List
 import qualified Data.Map.Strict as M
 import Data.Time
@@ -548,7 +547,7 @@ mc3SummarizeCycle m a =
         Nothing -> []
         Just ar ->
           [ "MC3: Average acceptance rate across all chains: "
-              <> BL.fromStrict (BC.toFixed 2 ar)
+              <> BB.toLazyByteString (BB.formatDouble (BB.standard 2) ar)
               <> "."
           ]
       ++ [ "MC3: Reciprocal temperatures of the chains: " <> BL.intercalate ", " bsB <> ".",
@@ -579,7 +578,7 @@ mc3SummarizeCycle m a =
     mVecAr = V.map (\mp -> sum mp / fromIntegral (length mp)) <$> as
     mAr = (\vec -> V.sum vec / fromIntegral (V.length vec)) <$> mVecAr
     bs = mc3ReciprocalTemperatures a
-    bsB = map (BL.fromStrict . BC.toFixed 2) $ U.toList bs
+    bsB = map (BB.toLazyByteString . BB.formatDouble (BB.standard 2)) $ U.toList bs
     swapPeriod = fromSwapPeriod $ mc3SwapPeriod $ mc3Settings a
     swapPeriodB = BB.toLazyByteString $ BB.intDec swapPeriod
     swapAcceptance = mc3SwapAcceptance a

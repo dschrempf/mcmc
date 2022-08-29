@@ -59,7 +59,6 @@ where
 import Data.Bifunctor
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
-import qualified Data.Double.Conversion.ByteString as BC
 import Data.Function
 import qualified Data.Vector as VB
 import qualified Data.Vector.Unboxed as VU
@@ -503,12 +502,13 @@ summarizeProposal name description weight tuningParameter dimension ar =
     tuneParamStr
     manualAdjustmentStr
   where
+    fN n = BB.formatDouble (BB.standard n)
     weightStr = BB.toLazyByteString $ BB.intDec $ fromPWeight weight
     nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) ar
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) ar
-    acceptRate = BL.fromStrict $ maybe "" (BC.toFixed 2 . (^. _3)) ar
-    optimalRate = BL.fromStrict $ BC.toFixed 2 $ getOptimalRate dimension
-    tuneParamStr = BL.fromStrict $ maybe "" (BC.toFixed 4) tuningParameter
+    acceptRate = BB.toLazyByteString $ maybe "" (fN 2 . (^. _3)) ar
+    optimalRate = BB.toLazyByteString $ fN 2 $ getOptimalRate dimension
+    tuneParamStr = BB.toLazyByteString $ maybe "" (fN 4) tuningParameter
     checkRate rate
       | rate < rateMin = Just "rate too low"
       | rate > rateMax = Just "rate too high"

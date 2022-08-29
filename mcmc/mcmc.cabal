@@ -92,14 +92,13 @@ library
     , ad
     , aeson
     , async
-    , base               >=4.7 && <5
+    , base            >=4.7 && <5
     , bytestring
     , circular
     , containers
-    , covariance         >=0.2
+    , covariance      >=0.2
     , directory
     , dirichlet
-    , double-conversion
     , hmatrix
     , log-domain
     , math-functions

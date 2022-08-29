@@ -18,12 +18,11 @@ module Mcmc.Monitor.Parameter
     monitorInt,
     monitorDouble,
     monitorDoubleF,
-    monitorDoubleE,
+    monitorDoubleS,
   )
 where
 
 import qualified Data.ByteString.Builder as BB
-import qualified Data.Double.Conversion.ByteString as BC
 import Data.Functor.Contravariant
 
 -- XXX: 'MonitorParameter' has a drawback. Extracting and monitoring multiple
@@ -60,19 +59,18 @@ monitorDouble ::
   -- | Name.
   String ->
   MonitorParameter Double
-monitorDouble n = MonitorParameter n (BB.byteString . BC.toFixed 8)
+monitorDouble n = MonitorParameter n (BB.formatDouble $ BB.standard 8)
 
--- | Monitor 'Double' with full precision computing the shortest string of
--- digits that correctly represent the number.
+-- | Monitor 'Double' with full precision.
 monitorDoubleF ::
   -- | Name.
   String ->
   MonitorParameter Double
-monitorDoubleF n = MonitorParameter n (BB.byteString . BC.toShortest)
+monitorDoubleF n = MonitorParameter n BB.doubleDec
 
--- | Monitor 'Double' in exponential format and half precision.
-monitorDoubleE ::
+-- | Monitor 'Double' in scientific format.
+monitorDoubleS ::
   -- | Name.
   String ->
   MonitorParameter Double
-monitorDoubleE n = MonitorParameter n (BB.byteString . BC.toExponential 8)
+monitorDoubleS n = MonitorParameter n (BB.formatDouble BB.scientific)
