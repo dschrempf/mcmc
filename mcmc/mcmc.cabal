@@ -105,7 +105,6 @@ library
     , microlens
     , mwc-random
     , parallel
-    , pretty-show
     , primitive
     , random
     , splitmix

@@ -48,7 +48,6 @@ import Numeric.Log hiding (sum)
 import System.Directory
 import System.Random.Stateful
 import Text.Printf
-import Text.Show.Pretty
 import Prelude hiding (cycle)
 
 -- | Marginal likelihood values are stored in log domain.
@@ -393,7 +392,7 @@ marginalLikelihood s prf lhf cc mn i0 g = do
         logInfoStartingTime
         logInfoB "Estimate marginal likelihood."
         logDebugB "marginalLikelihood: The marginal likelihood settings are:"
-        logDebugS $ ppShow s
+        logDebugS $ show s
         val <- case mlAlgorithm s of
           ThermodynamicIntegration -> tiWrapper s prf lhf cc mn i0 g
           SteppingStoneSampling -> sssWrapper s prf lhf cc mn i0 g
