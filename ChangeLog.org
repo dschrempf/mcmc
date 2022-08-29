@@ -1,6 +1,19 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
 
+** 0.8.0.0
+- Use the new bytestring realfloat builder.
+- Fix a small memory leak during burn in with auto tuning.
+- Save chain after burn in.
+- New example (Poisson; see the respective [[https://dschrempf.github.io/coding/2022-06-28-sample-from-a-posterior-using-markov-chain-monte-carlo-algorithms-and-haskell/][blog post]]).
+- Simplify prior, likelihood, posterior, and Jacobian types.
+- Do not export =grabble=.
+- Remove chain index.
+- Remove =lengthT=.
+- Remove =ProposalOrder= default instance.
+- Use GHC 9.2.4 by default.
+- Reduce package dependencies as much as possible.
+
 ** 0.7.0.1
 - Use random-1.2. This means, that the random number generator type has changed
   from =GenIO= (=System.Random.MWC=) to =IOGenM StdGen=
