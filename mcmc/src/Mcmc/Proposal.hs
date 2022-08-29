@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -305,23 +306,23 @@ tuningFunctionSimple d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 -- does not handle auxiliary tuning parameters and ignores the actual samples
 -- attained during the last tuning period.
 tuningFunction :: TuningFunction a
-tuningFunction _ d r _ = bimap (tuningFunctionSimple d r) id
+tuningFunction _ d r _ (!t, !ts) = bimap (tuningFunctionSimple d r) id (t, ts)
 
 -- | Also tune auxiliary tuning parameters.
 tuningFunctionWithAux ::
   -- | Auxiliary tuning function.
   (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
   TuningFunction a
-tuningFunctionWithAux _ _ _ _ Nothing = error "tuningFunctionWithAux: empty trace"
-tuningFunctionWithAux f b d r (Just xs) = bimap (tuningFunctionSimple d r) (f b xs)
+tuningFunctionWithAux _ _ _ _ Nothing _ = error "tuningFunctionWithAux: empty trace"
+tuningFunctionWithAux f b d r (Just xs) (!t, !ts) = bimap (tuningFunctionSimple d r) (f b xs) (t, ts)
 
 -- | Only tune auxiliary tuning parameters.
 tuningFunctionOnlyAux ::
   -- | Auxiliary tuning function.
   (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
   TuningFunction a
-tuningFunctionOnlyAux _ _ _ _ Nothing = error "tuningFunctionOnlyAux: empty trace"
-tuningFunctionOnlyAux f b _ _ (Just xs) = bimap id (f b xs)
+tuningFunctionOnlyAux _ _ _ _ Nothing _ = error "tuningFunctionOnlyAux: empty trace"
+tuningFunctionOnlyAux f b _ _ (Just xs) (!t, !ts) = bimap id (f b xs) (t, ts)
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
 -- proposal with a large tuning parameter is not a problem. But then, if the
@@ -433,10 +434,6 @@ liftPFunctionWith jf l s = s'
 liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
 liftTunerWith jf l (Tuner p ps nt fP g) = Tuner p ps nt fP' g'
   where
-    -- TODO @Dominik (low, bug): There is a memory leak when tuning proposals. I
-    -- think all intermediate proposals are saved. I do not know why. The heap
-    -- profile shows increasing memory usage during burn in for
-    -- 'liftProposalWith', as well this function 'fP''.
     fP' b d r = fP b d r . fmap (VB.map (^. l))
     g' x xs = liftPFunctionWith jf l <$> g x xs
 
