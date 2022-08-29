@@ -171,7 +171,6 @@ mhgLoadWith ::
   AnalysisName ->
   IO (MHG a)
 mhgLoadWith f pr lh cc mn nm = do
-  -- copyFile fn fnBak
   savedChain <- eitherDecode . decompress <$> BL.readFile fn
   chain <- either error (f pr lh cc mn) savedChain
   return $ MHG chain

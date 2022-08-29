@@ -333,7 +333,6 @@ mc3Load ::
   AnalysisName ->
   IO (MC3 a)
 mc3Load pr lh cc mn nm = do
-  -- copyFile fn fnBak
   savedMC3 <- eitherDecode . decompress <$> BL.readFile fn
   either error (fromSavedMC3 pr lh cc mn) savedMC3
   where
