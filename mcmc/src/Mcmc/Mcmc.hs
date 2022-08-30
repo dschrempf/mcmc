@@ -56,14 +56,16 @@ mcmcResetAcceptance a = do
 
 mcmcExceptionHandler :: Algorithm a => Environment Settings -> a -> AsyncException -> IO b
 mcmcExceptionHandler e a err = do
-  putStrLn ""
-  putStrLn "INTERRUPT!"
-  putStrLn "Trying to terminate gracefully and to save chain for continuation."
-  putStrLn "Press CTRL-C (again) to terminate now."
-  _ <- runReaderT (mcmcClose a) e
+  _ <- runReaderT action e
   putStrLn "Graceful termination successful."
-  putStrLn "Rethrowing error."
-  throw err
+  putStrLn $ "Rethrowing error: " <> displayException err <> "."
+  throwIO err
+  where
+    action = do
+      logWarnS "INTERRUPT!"
+      logWarnS "Trying to terminate gracefully and to save chain for continuation."
+      logWarnS "Press CTRL-C (again) to terminate now."
+      mcmcClose a
 
 mcmcExecuteMonitors :: Algorithm a => a -> MCMC ()
 mcmcExecuteMonitors a = do
