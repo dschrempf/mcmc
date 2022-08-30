@@ -58,12 +58,9 @@ mcmcExceptionHandler :: Algorithm a => Environment Settings -> a -> AsyncExcepti
 mcmcExceptionHandler e a err = do
   putStrLn ""
   putStrLn "INTERRUPT!"
-  putStrLn "Try to terminate gracefully and save chain for continuation."
+  putStrLn "Trying to terminate gracefully and to save chain for continuation."
   putStrLn "Press CTRL-C (again) to terminate now."
-  putStrLn "Closing output files."
-  _ <- aCloseMonitors a
-  closeEnvironment e
-  runReaderT (mcmcSave a) e
+  _ <- runReaderT (mcmcClose a) e
   putStrLn "Graceful termination successful."
   putStrLn "Rethrowing error."
   throw err
@@ -75,8 +72,7 @@ mcmcExecuteMonitors a = do
       vb = sVerbosity s
       t0 = startingTime e
       iTotal = burnInIterations (sBurnIn s) + fromIterations (sIterations s)
-  -- NOTE: Mask asynchronous exceptions when writing monitor files.
-  mStdLog <- liftIO $ mask_ $ aExecuteMonitors vb t0 iTotal a
+  mStdLog <- liftIO $ aExecuteMonitors vb t0 iTotal a
   forM_ mStdLog (logOutB "   ")
 
 mcmcIterate :: Algorithm a => IterationMode -> Int -> a -> MCMC a
@@ -85,12 +81,24 @@ mcmcIterate m n a
   | n == 0 = return a
   | otherwise = do
       e <- ask
-      p <- sParallelizationMode . settings <$> ask
-      -- NOTE: User interrupt is only handled during iterations.
-      a' <- liftIO $ catch (aIterate m p a) (mcmcExceptionHandler e a)
-      -- NOTE: We may want to mask execution of monitors and catch exceptions
-      -- even then?
-      mcmcExecuteMonitors a'
+      let p = sParallelizationMode $ settings e
+      -- NOTE: Handle interrupts during iterations, before writing monitors,
+      -- using the old algorithm state @a@.
+      let handlerOld = mcmcExceptionHandler e a
+          actionIterate = aIterate m p a
+      a' <- liftIO $ actionIterate `catch` handlerOld
+      -- NOTE: Mask asynchronous exceptions while writing monitor files. Handle
+      -- interrupts after writing monitors; use the new state @a'@.
+      --
+      -- The problem that arises using this method is: What if executing the
+      -- monitors actually throws an error (and not the user or the operating
+      -- system that want to stop the chain). In this case, the chain is left in
+      -- an undefined state because the monitor files are partly written; the
+      -- new state is saved by the handler. However, I do not think I can
+      -- recover from partly written monitor files.
+      let handlerNew = mcmcExceptionHandler e a'
+          actionWrite = runReaderT (mcmcExecuteMonitors a') e
+      liftIO $ (uninterruptibleMask_ actionWrite) `catch` handlerNew
       mcmcIterate m (n - 1) a'
 
 mcmcNewRun :: Algorithm a => a -> MCMC a
@@ -233,13 +241,12 @@ mcmcSave a = do
 -- Report and finish up.
 mcmcClose :: Algorithm a => a -> MCMC a
 mcmcClose a = do
-  logDebugB "Closing MCMC run."
-  logInfoB $ aSummarizeCycle AllProposals a
-  logInfoS $ aName a ++ " algorithm finished."
-  mcmcSave a
-  logInfoEndTime
+  logInfoS "Closing monitors."
   a' <- liftIO $ aCloseMonitors a
+  mcmcSave a'
+  logInfoEndTime
   e <- ask
+  logInfoS "Closing environment."
   liftIO $ closeEnvironment e
   return a'
 
@@ -258,6 +265,8 @@ mcmcRun a = do
   a'' <- mcmcExecute a'
 
   -- Close.
+  logInfoB $ aSummarizeCycle AllProposals a
+  logInfoS $ aName a ++ " algorithm finished."
   mcmcClose a''
 
 -- | Run an MCMC algorithm with given settings.
