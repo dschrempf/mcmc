@@ -25,7 +25,9 @@ import System.IO
 
 -- | The environment of an MCMC run.
 data Environment s = Environment
-  { settings :: s,
+  { -- | Use a polymorphic settings variable, because we have 'Settings', but
+    -- also 'Mcmc.MarginalLikelihood.MLSettings'.
+    settings :: s,
     -- | List will be empty if using 'Quiet'. If 'LogStdOutAndFile' is used
     -- 'logHandles' contains two handles to the standard output and the log
     -- file.
