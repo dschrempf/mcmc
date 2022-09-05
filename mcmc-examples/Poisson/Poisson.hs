@@ -73,7 +73,7 @@ ss =
     -- the shortest trace possible. In our case, this will be a single value.
     -- However, when using batch monitors, or when auto tuning the masses of
     -- proposals based on Hamiltonian dynamics, the required length of the trace
-    -- is larger than 1. masses. The trace length can also be set manually.
+    -- is larger than 1. The trace length can also be set manually.
     TraceAuto
     -- Overwrite files created by a possible previous analysis.
     Overwrite
