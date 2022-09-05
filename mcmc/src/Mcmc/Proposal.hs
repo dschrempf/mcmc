@@ -334,7 +334,7 @@ tuningParameterMin = 1e-5
 
 -- | Maximal tuning parameter; subject to change.
 tuningParameterMax :: TuningParameter
-tuningParameterMax = 1e3
+tuningParameterMax = 5e3
 
 -- | Tune a 'Proposal'.
 --
