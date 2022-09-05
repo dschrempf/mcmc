@@ -62,7 +62,7 @@
         packages = mcmcPkgs // { default = mcmcPkgs.mcmc; };
 
         devShells.default = hpkgs.shellFor {
-          packages = _: (builtins.attrValues mcmcDev);
+          packages = _: (builtins.attrValues mcmcPkgsDev);
           buildInputs = with pkgs; [
             bashInteractive
 
