@@ -32,41 +32,42 @@
           "mcmc-examples"
           "mcmc-statistics"
         ];
-        mcmc-create-package = f: name: f name (./. + "/${name}") rec { };
-        mcmc-overlay = (
+        ghcVersion = "ghc924";
+        haskellMkPackage = f: name: f name (./. + "/${name}") rec { };
+        haskellOverlay = (
           selfn: supern: {
-            haskellPackages = supern.haskell.packages.ghc924.override {
+            haskellPackages = supern.haskell.packages.${ghcVersion}.override {
               overrides = selfh: superh:
                 {
                   circular = circular.packages.${system}.default;
                   covariance = covariance.packages.${system}.default;
                   dirichlet = dirichlet.packages.${system}.default;
                   pava = pava.packages.${system}.default;
-                } // lib.genAttrs packageNames
-                  (mcmc-create-package selfh.callCabal2nix);
+                } // lib.genAttrs packageNames (haskellMkPackage selfh.callCabal2nix);
             };
           }
         );
-        overlays = [ mcmc-overlay ];
+        overlays = [ haskellOverlay ];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
         hpkgs = pkgs.haskellPackages;
         # Set with packages.
-        mcmc = lib.genAttrs packageNames (n: hpkgs.${n});
+        mcmcPkgs = lib.genAttrs packageNames (n: hpkgs.${n});
         # List with packages with benchmark dependencies for development
         # environment.
-        mcmc-dev = builtins.mapAttrs (_: x: pkgs.haskell.lib.doBenchmark x) mcmc;
+        mcmcPkgsDev = builtins.mapAttrs (_: x: pkgs.haskell.lib.doBenchmark x) mcmcPkgs;
       in
       {
-        packages = mcmc // { default = mcmc.mcmc; };
+        packages = mcmcPkgs // { default = mcmcPkgs.mcmc; };
 
         devShells.default = hpkgs.shellFor {
-          packages = _: (builtins.attrValues mcmc-dev);
+          packages = _: (builtins.attrValues mcmcDev);
           buildInputs = with pkgs; [
             bashInteractive
 
-            haskellPackages.cabal-fmt # Build fails for newer hpkgs.
+            # TODO: `cabal-fmt` fails to build when using a newer package set.
+            haskell.packages.ghc902.cabal-fmt
 
             hpkgs.cabal-install
             hpkgs.haskell-language-server
