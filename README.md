@@ -7,10 +7,11 @@ Sample from a posterior using Markov chain Monte Carlo (MCMC) algorithms.
 
 At the moment, the following algorithms are available:
 
--   Metropolis-Hastings-Green <sup><a id="fnr.1" class="footref" href="#fn.1" role="doc-backlink">1</a></sup>;
+-   Metropolis-Hastings-Green (<a href="#citeproc_bib_item_3">Geyer 2011</a>);
 -   Metropolis-coupled Markov chain Monte Carlo (also known as parallel
-    tempering) <sup><a id="fnr.2" class="footref" href="#fn.2" role="doc-backlink">2</a></sup> <sup>, </sup><sup><a id="fnr.3" class="footref" href="#fn.3" role="doc-backlink">3</a></sup>.
--   Hamilton Monte Carlo proposal <sup><a id="fnr.4" class="footref" href="#fn.4" role="doc-backlink">4</a></sup>.
+    tempering) (<a href="#citeproc_bib_item_2">Geyer 1991</a>; <a href="#citeproc_bib_item_1">Altekar et al. 2004</a>);
+-   Hamilton Monte Carlo proposal (<a href="#citeproc_bib_item_5">Neal 2011</a>);
+-   No U-Turn Sampler (NUTS) (<a href="#citeproc_bib_item_4">Hoffman and Gelman 2014</a>).
 
 
 ## Documentation
@@ -35,18 +36,13 @@ For example, estimate the [accuracy of an archer](https://github.com/dschrempf/m
 For a more involved example, have a look at a [phylogenetic dating project](https://github.com/dschrempf/mcmc-dating).
 
 
-# Footnotes
+# References
 
-<sup><a id="fn.1" href="#fnr.1">1</a></sup> Geyer, C. J., Introduction to Markov chain Monte Carlo, In Handbook of
-Markov Chain Monte Carlo (pp. 45) (2011). CRC press.
+<style>.csl-entry{text-indent: -1.5em; margin-left: 1.5em;}</style><div class="csl-bib-body">
+  <div class="csl-entry"><a id="citeproc_bib_item_1"></a>Altekar, Gautam, Sandhya Dwarkadas, John P Huelsenbeck, and Fredrik Ronquist. 2004. “Parallel Metropolis Coupled Markov Chain Monte Carlo for Bayesian Phylogenetic Inference.” <i>Bioinformatics</i> 20 (3): 407–15.</div>
+  <div class="csl-entry"><a id="citeproc_bib_item_2"></a>Geyer, Charles J. 1991. “Markov Chain Monte Carlo Maximum Likelihood.” <i>Computing Science and Statistics, Proceedings of the 23rd Symposium on the Interface</i>.</div>
+  <div class="csl-entry"><a id="citeproc_bib_item_3"></a>———. 2011. “Introduction to Markov Chain Monte Carlo.” In <i>Handbook of Markov Chain Monte Carlo</i>, edited by Steve Brooks, Andrew Gelman, Galin Jones, and Xiao-Li Meng, 45. CRC press.</div>
+  <div class="csl-entry"><a id="citeproc_bib_item_4"></a>Hoffman, Matthew D., and Andrew Gelman. 2014. “The No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte Carlo.” <i>Journal of Machine Learning Research</i> 15 (47): 1593–1623.</div>
+  <div class="csl-entry"><a id="citeproc_bib_item_5"></a>Neal, Radford M. 2011. “MCMC Using Hamiltonian Dynamics.” In <i>Handbook of Markov Chain Monte Carlo</i>, edited by Steve Brooks, Andrew Gelman, Galin Jones, and Xiao-Li Meng. CRC press.</div>
+</div>
 
-<sup><a id="fn.2" href="#fnr.2">2</a></sup> Geyer, C. J., Markov chain monte carlo maximum likelihood, Computing
-Science and Statistics, Proceedings of the 23rd Symposium on the Interface,
-(1991).
-
-<sup><a id="fn.3" href="#fnr.3">3</a></sup> Altekar, G., Dwarkadas, S., Huelsenbeck, J. P., & Ronquist, F., Parallel
-metropolis coupled markov chain monte carlo for bayesian phylogenetic inference,
-Bioinformatics, 20(3), 407–415 (2004).
-
-<sup><a id="fn.4" href="#fnr.4">4</a></sup> Neal, R. M., Mcmc Using Hamiltonian Dynamics, In S. Brooks, A. Gelman, G.
-Jones, & X. Meng (Eds.), Handbook of Markov Chain Monte Carlo (2011). CRC press.
