@@ -1,3 +1,6 @@
+#+bibliography: ~/Evolutionary-Biology/Bibliography/bibliography.bib
+#+cite_export: basic
+
 * Markov chain Monte Carlo sampler
 #+html: <p align="center"><img src="https://travis-ci.org/dschrempf/mcmc.svg?branch=master"/></p>
 
