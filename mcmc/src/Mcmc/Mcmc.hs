@@ -267,8 +267,8 @@ mcmcRun a = do
   a'' <- mcmcExecute a'
 
   -- Close.
-  logInfoB $ aSummarizeCycle AllProposals a
-  logInfoS $ aName a ++ " algorithm finished."
+  logInfoB $ aSummarizeCycle AllProposals a''
+  logInfoS $ aName a'' ++ " algorithm finished."
   mcmcClose a''
 
 -- | Run an MCMC algorithm with given settings.
