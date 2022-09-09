@@ -5,6 +5,14 @@
 ## Unreleased changes
 
 
+## 0.8.0.1
+
+-   Improve exception handling (also during execution of monitors; also improve
+    the output).
+-   Increase maximum tuning parameter.
+-   Minor bug fix: acceptance rates are again reported at end of run.
+
+
 ## 0.8.0.0
 
 -   Use the new bytestring realfloat builder.
