@@ -330,7 +330,7 @@ tuningFunctionOnlyAux f b _ _ (Just xs) (!t, !ts) = bimap id (f b xs) (t, ts)
 
 -- | Minimal tuning parameter; subject to change.
 tuningParameterMin :: TuningParameter
-tuningParameterMin = 1e-5
+tuningParameterMin = 1e-6
 
 -- | Maximal tuning parameter; subject to change.
 tuningParameterMax :: TuningParameter
@@ -508,7 +508,7 @@ summarizeProposal name description weight tuningParameter dimension ar =
     nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) ar
     acceptRate = BB.toLazyByteString $ maybe "" (fN 2 . (^. _3)) ar
     optimalRate = BB.toLazyByteString $ fN 2 $ getOptimalRate dimension
-    tuneParamStr = BB.toLazyByteString $ maybe "" (fN 4) tuningParameter
+    tuneParamStr = BB.toLazyByteString $ maybe "" (fN 6) tuningParameter
     checkRate rate
       | rate < rateMin = Just "rate too low"
       | rate > rateMax = Just "rate too high"
