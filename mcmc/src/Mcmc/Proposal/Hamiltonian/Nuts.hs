@@ -247,6 +247,8 @@ nutsPFunction hparamsi hstruct targetWith x g = do
               else go qm'' pm'' qp'' pp'' (j + 1) y''' (n + n'') isNew'
   (x', isNew) <- go q p q p 0 q 1 Old
   pure $ case isNew of
+    -- NOTE: I am not sure if it is correct to set the expected acceptance rate
+    -- to 0 when the no u-turn leapfrog integrator fails.
     Old -> (ForceReject, Just $ AcceptanceRates 0 1)
     OldWith ac -> (ForceReject, Just ac)
     NewWith ac -> (ForceAccept $ fromVec x', Just ac)

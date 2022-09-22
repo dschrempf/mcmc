@@ -205,8 +205,6 @@ data PResult a
     Propose !a !KernelRatio !Jacobian
   deriving (Show, Eq)
 
--- TODO @Dominik (high, feature): Proposals should be aware of: Is this Burn in, or not?
-
 -- | Simple proposal function without tuning information.
 --
 -- Instruction about randomly moving from the current state to a new state,

@@ -108,14 +108,6 @@ hamiltonianPFunctionWithTuningParameters d hstruct targetWith _ ts = do
   hParamsI <- fromAuxiliaryTuningParameters d ts
   pure $ hamiltonianPFunction hParamsI hstruct targetWith
 
--- TODO @Dominik (high, issue): Acceptance counts. How to combine with values
--- reported here and from the NUTS sampler.
-
--- TODO @Dominik (high, feature): The expected acceptance counts should not be
--- calculated after burn in. Rather, the actual acceptance counts should be
--- reported. For this to work, the proposal needs to know if it is in "burn in
--- phase" or not.
-
 -- The inverted covariance matrix and the log determinant of the covariance
 -- matrix are calculated by 'hamiltonianPFunction'.
 hamiltonianPFunction ::
@@ -134,6 +126,8 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
       lR = max lL (ceiling $ 1.1 * lM)
   lRan <- uniformRM (lL, lR) g
   case leapfrog (targetWith x) msI lRan eRan q p of
+    -- NOTE: I am not sure if it is correct to set the expected acceptance rate
+    -- to 0 when the leapfrog integrator fails.
     Nothing -> pure (ForceReject, Just $ AcceptanceRates 0 1)
     -- Check if next state is accepted here, because the Jacobian is included in
     -- the target function. If not: pure (x, 0.0, 1.0).
