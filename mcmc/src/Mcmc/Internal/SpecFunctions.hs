@@ -35,7 +35,7 @@ mEulerMascheroniG = 0.5772156649015328606065121
 -- 'Numeric.SpecFunctions.logGamma'.
 logGammaG :: (Typeable a, RealFloat a) => a -> a
 logGammaG z
-  | typeOf z == typeOf (0 :: Double) = unsafeCoerce logGamma z
+  | typeOf z == typeRep (Proxy :: Proxy Double) = unsafeCoerce logGamma z
   | otherwise = logGammaNonDouble z
 {-# SPECIALIZE logGammaG :: Double -> Double #-}
 
@@ -214,7 +214,7 @@ evalRatioG coef x
 -- 'Numeric.SpecFunctions.logFactorial'.
 logFactorialG :: forall a b. (Integral a, RealFloat b, Typeable b) => a -> b
 logFactorialG n
-  | typeOf (undefined :: b) == typeOf (0 :: Double) = unsafeCoerce $ logFactorial n
+  | typeRep (Proxy :: Proxy b) == typeRep (Proxy :: Proxy Double) = unsafeCoerce $ logFactorial n
   | otherwise = logFactorialNonDouble n
 {-# SPECIALIZE logFactorialG :: Int -> Double #-}
 
