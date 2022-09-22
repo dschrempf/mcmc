@@ -233,7 +233,7 @@ mhgAccept r g
 mhgPropose :: MHG a -> Proposal a -> IO (MHG a)
 mhgPropose (MHG c) p = do
   -- 1. Sample new state.
-  !(pres, mcs) <- liftIO $ s x g
+  (!pres, !mcs) <- liftIO $ s x g
   -- 2. Define new prior and likelihood calculation functions. Avoid actual
   -- calculation of the values.
   --
