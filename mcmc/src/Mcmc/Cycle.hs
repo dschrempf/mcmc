@@ -27,6 +27,7 @@ module Mcmc.Cycle
   )
 where
 
+import Control.Applicative
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.List
@@ -175,23 +176,25 @@ tuneWithChainParameters b ar mxs p = case prTuner p of
 -- | Calculate acceptance rates and auto tunes the 'Proposal's in the 'Cycle'.
 --
 -- Do not change 'Proposal's that are not tuneable.
-autoTuneCycle :: TuningType -> Acceptance (Proposal a) -> Maybe (VB.Vector a) -> Cycle a -> Cycle a
+autoTuneCycle :: TuningType -> Acceptances (Proposal a) -> Maybe (VB.Vector a) -> Cycle a -> Cycle a
 autoTuneCycle b a mxs c = case (ccRequireTrace c, mxs) of
   (False, Just _) -> error "autoTuneCycle: trace not required"
   (True, Nothing) -> error "autoTuneCycle: trace required"
   _ ->
-    if sort (M.keys ar) == sort ps
+    if sort (M.keys $ fromAcceptances a) == sort ps
       then c {ccProposals = map tuneF ps}
       else error "autoTuneCycle: Proposals in map and cycle do not match."
     where
-      ar = acceptanceRates a
       ps = ccProposals c
-      tuneF p = case ar M.!? p of
-        Just (Just x) -> either error id $ tuneWithChainParameters b x mxs p
-        _ -> p
+      tuneF p =
+        let (_, _, mar, mtr) = acceptanceRate p a
+         in -- Favor the theoretical rate, if available.
+            case mtr <|> mar of
+              Nothing -> p
+              Just r -> either error id $ tuneWithChainParameters b r mxs p
 
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance rates.
-summarizeCycle :: IterationMode -> Acceptance (Proposal a) -> Cycle a -> BL.ByteString
+summarizeCycle :: IterationMode -> Acceptances (Proposal a) -> Cycle a -> BL.ByteString
 summarizeCycle m a c =
   BL.intercalate "\n" $
     [ "Summary of proposal(s) in cycle.",

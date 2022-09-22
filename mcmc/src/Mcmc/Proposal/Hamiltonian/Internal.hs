@@ -277,12 +277,15 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
                 HNoTuneLeapfrog -> (eps, epsMean, h)
                 HTuneLeapfrog ->
                   let delta = getOptimalRate pdim
+                      -- Algorithm 6.
                       c = recip $ m + t0
                       h' = (1.0 - c) * h + c * (delta - ar)
-                      logEps' = mu - (sqrt m / ga) * h'
-                      eps' = exp logEps'
+                      eps' = exp $ mu - (sqrt m / ga) * h'
                       mMKa = m ** negate ka
-                      epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
+                      -- Original formula is:
+                      -- epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
+                      -- Which is the same as:
+                      epsMean' = (eps' ** mMKa) * (epsMean ** (1 - mMKa))
                    in (eps', epsMean', h')
               eps''' = case tt of
                 NormalTuningStep -> eps''

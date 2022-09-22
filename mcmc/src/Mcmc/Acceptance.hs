@@ -15,11 +15,12 @@ module Mcmc.Acceptance
   ( -- * Acceptance rates
     AcceptanceRate,
     AcceptanceCounts (..),
-    Acceptance (fromAcceptance),
+    AcceptanceRates (..),
+    Acceptance,
+    Acceptances (fromAcceptances),
     emptyA,
     pushAccept,
     pushReject,
-    pushAcceptanceCounts,
     resetA,
     transformKeysA,
     acceptanceRate,
@@ -44,48 +45,64 @@ data AcceptanceCounts = AcceptanceCounts
 
 $(deriveJSON defaultOptions ''AcceptanceCounts)
 
-addAccept :: AcceptanceCounts -> AcceptanceCounts
-addAccept (AcceptanceCounts a r) = AcceptanceCounts (a + 1) r
+-- | Proposals based on Hamiltonian dynamics use acceptance rates, not counts.
+data AcceptanceRates = AcceptanceRates
+  { totalAcceptanceRate :: !Double,
+    nAcceptanceRates :: !Int
+  }
+  deriving (Show, Eq)
 
-addReject :: AcceptanceCounts -> AcceptanceCounts
-addReject (AcceptanceCounts a r) = AcceptanceCounts a (r + 1)
+$(deriveJSON defaultOptions ''AcceptanceRates)
 
-addAcceptanceCounts :: AcceptanceCounts -> AcceptanceCounts -> AcceptanceCounts
-addAcceptanceCounts (AcceptanceCounts al rl) (AcceptanceCounts ar rr) =
-  AcceptanceCounts (al + ar) (rl + rr)
+-- | Acceptance is either stored as counts, or as rates.
+data Acceptance = A AcceptanceCounts (Maybe AcceptanceRates)
+  deriving (Show, Eq)
+
+$(deriveJSON defaultOptions ''Acceptance)
+
+addAccept :: Maybe AcceptanceRates -> Acceptance -> Acceptance
+addAccept mr' (A (AcceptanceCounts a r) mr) = A (AcceptanceCounts (a + 1) r) (addAcceptanceRates mr' mr)
+
+addReject :: Maybe AcceptanceRates -> Acceptance -> Acceptance
+addReject mr' (A (AcceptanceCounts a r) mr) = A (AcceptanceCounts a (r + 1)) (addAcceptanceRates mr' mr)
+
+addAcceptanceRates :: Maybe AcceptanceRates -> Maybe AcceptanceRates -> Maybe AcceptanceRates
+addAcceptanceRates Nothing Nothing = Nothing
+addAcceptanceRates (Just r) Nothing = Just r
+addAcceptanceRates Nothing (Just r) = Just r
+addAcceptanceRates (Just (AcceptanceRates al rl)) (Just (AcceptanceRates ar rr)) =
+  Just $ AcceptanceRates (al + ar) (rl + rr)
 
 -- | For each key @k@, store the number of accepted and rejected proposals.
-newtype Acceptance k = Acceptance {fromAcceptance :: M.Map k AcceptanceCounts}
+newtype Acceptances k = Acceptances {fromAcceptances :: M.Map k Acceptance}
   deriving (Eq, Show)
 
-instance ToJSONKey k => ToJSON (Acceptance k) where
-  toJSON (Acceptance m) = toJSON m
-  toEncoding (Acceptance m) = toEncoding m
+instance ToJSONKey k => ToJSON (Acceptances k) where
+  toJSON (Acceptances m) = toJSON m
+  toEncoding (Acceptances m) = toEncoding m
 
-instance (Ord k, FromJSONKey k) => FromJSON (Acceptance k) where
-  parseJSON v = Acceptance <$> parseJSON v
+instance (Ord k, FromJSONKey k) => FromJSON (Acceptances k) where
+  parseJSON v = Acceptances <$> parseJSON v
 
 -- | In the beginning there was the Word.
 --
 -- Initialize an empty storage of accepted/rejected values.
-emptyA :: Ord k => [k] -> Acceptance k
-emptyA ks = Acceptance $ M.fromList [(k, AcceptanceCounts 0 0) | k <- ks]
+emptyA :: Ord k => [k] -> Acceptances k
+emptyA ks = Acceptances $ M.fromList [(k, A noCounts Nothing) | k <- ks]
+  where
+    noCounts = AcceptanceCounts 0 0
 
 -- | For key @k@, add an accept.
-pushAccept :: Ord k => k -> Acceptance k -> Acceptance k
-pushAccept k = Acceptance . M.adjust addAccept k . fromAcceptance
+pushAccept :: Ord k => Maybe AcceptanceRates -> k -> Acceptances k -> Acceptances k
+pushAccept mr k = Acceptances . M.adjust (addAccept mr) k . fromAcceptances
 
 -- | For key @k@, add a reject.
-pushReject :: Ord k => k -> Acceptance k -> Acceptance k
-pushReject k = Acceptance . M.adjust addReject k . fromAcceptance
-
--- | For key @k@, add acceptance counts.
-pushAcceptanceCounts :: Ord k => k -> AcceptanceCounts -> Acceptance k -> Acceptance k
-pushAcceptanceCounts k c = Acceptance . M.adjust (addAcceptanceCounts c) k . fromAcceptance
+pushReject :: Ord k => Maybe AcceptanceRates -> k -> Acceptances k -> Acceptances k
+pushReject mr k = Acceptances . M.adjust (addReject mr) k . fromAcceptances
 
 -- | Reset acceptance counts.
-resetA :: Ord k => Acceptance k -> Acceptance k
-resetA = emptyA . M.keys . fromAcceptance
+resetA :: Ord k => Acceptances k -> Acceptances k
+resetA = emptyA . M.keys . fromAcceptances
 
 transformKeys :: (Ord k1, Ord k2) => [(k1, k2)] -> M.Map k1 v -> M.Map k2 v
 transformKeys ks m = foldl' insrt M.empty ks
@@ -94,10 +111,11 @@ transformKeys ks m = foldl' insrt M.empty ks
 
 -- | Transform keys using the given lists. Keys not provided will not be present
 -- in the new 'Acceptance' variable.
-transformKeysA :: (Ord k1, Ord k2) => [(k1, k2)] -> Acceptance k1 -> Acceptance k2
-transformKeysA ks = Acceptance . transformKeys ks . fromAcceptance
+transformKeysA :: (Ord k1, Ord k2) => [(k1, k2)] -> Acceptances k1 -> Acceptances k2
+transformKeysA ks = Acceptances . transformKeys ks . fromAcceptances
 
--- | Acceptance counts and rate for a specific proposal.
+-- | Compute acceptance counts, and actual and theoretical acceptances rates for
+-- a specific proposal.
 --
 -- Return @Just (accepts, rejects, acceptance rate)@.
 --
@@ -106,23 +124,28 @@ transformKeysA ks = Acceptance . transformKeys ks . fromAcceptance
 acceptanceRate ::
   Ord k =>
   k ->
-  Acceptance k ->
-  Maybe (Int, Int, AcceptanceRate)
-acceptanceRate k a = case fromAcceptance a M.!? k of
-  Just (AcceptanceCounts 0 0) -> Nothing
-  Just (AcceptanceCounts as rs) -> Just (as, rs, fromIntegral as / fromIntegral (as + rs))
+  Acceptances k ->
+  -- | (nAccepts, nRejects, actualRate, theoreticalRate)
+  (Int, Int, Maybe AcceptanceRate, Maybe AcceptanceRate)
+acceptanceRate k a = case fromAcceptances a M.!? k of
+  Just (A (AcceptanceCounts as rs) mrs) -> (as, rs, mar, mtr)
+    where
+      s = as + rs
+      mar = if s <= 0 then Nothing else Just $ fromIntegral as / fromIntegral s
+      mtr = case mrs of
+        Nothing -> Nothing
+        Just (AcceptanceRates xs n) -> Just $ xs / fromIntegral n
   Nothing -> error "acceptanceRate: Key not found in map."
 
--- | Acceptance rates for all proposals.
+-- | Compute actual acceptance rates for all proposals.
 --
 -- Set rate to 'Nothing' if no proposals have been accepted or rejected
 -- (division by zero).
-acceptanceRates :: Acceptance k -> M.Map k (Maybe AcceptanceRate)
-acceptanceRates =
-  M.map
-    ( \(AcceptanceCounts as rs) ->
-        if as + rs == 0
-          then Nothing
-          else Just $ fromIntegral as / fromIntegral (as + rs)
-    )
-    . fromAcceptance
+acceptanceRates :: Acceptances k -> M.Map k (Maybe AcceptanceRate)
+acceptanceRates = M.map getRate . fromAcceptances
+  where
+    getRate (A (AcceptanceCounts as rs) _) =
+      let s = as + rs
+       in if s <= 0
+            then Nothing
+            else Just $ fromIntegral as / fromIntegral s

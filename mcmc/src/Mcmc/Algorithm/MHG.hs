@@ -242,15 +242,11 @@ mhgPropose (MHG c) p = do
   -- https://stackoverflow.com/a/46603680/3536806.
   let calcPrLh y = (pF y, lF y) `using` parTuple2 rdeepseq rdeepseq
       accept y pr lh =
-        let !ac' = case mcs of
-              Nothing -> pushAccept p ac
-              Just cs -> pushAcceptanceCounts p cs ac
-         in pure $ MHG $ c {link = Link y pr lh, acceptance = ac'}
+        let !ac' = pushAccept mcs p ac
+         in pure $ MHG $ c {link = Link y pr lh, acceptances = ac'}
       reject =
-        let !ac' = case mcs of
-              Nothing -> pushReject p ac
-              Just cs -> pushAcceptanceCounts p cs ac
-         in pure $ MHG $ c {acceptance = ac'}
+        let !ac' = pushReject mcs p ac
+         in pure $ MHG $ c {acceptances = ac'}
   -- 3. Accept or reject.
   --
   -- 3a. When rejection is inevitable, avoid calculation of the prior, the
@@ -274,7 +270,7 @@ mhgPropose (MHG c) p = do
     (Link x pX lX) = link c
     pF = priorFunction c
     lF = likelihoodFunction c
-    ac = acceptance c
+    ac = acceptances c
     g = generator c
 
 mhgPush :: MHG a -> IO (MHG a)
@@ -321,14 +317,14 @@ mhgAutoTune b n (MHG c) = do
       else pure Nothing
   return $ MHG $ c {cycle = autoTuneCycle b ac mxs cc}
   where
-    ac = acceptance c
+    ac = acceptances c
     cc = cycle c
     tr = trace c
 
 mhgResetAcceptance :: MHG a -> MHG a
-mhgResetAcceptance (MHG c) = MHG $ c {acceptance = resetA ac}
+mhgResetAcceptance (MHG c) = MHG $ c {acceptances = resetA ac}
   where
-    ac = acceptance c
+    ac = acceptances c
 
 mhgCleanAfterBurnIn :: TraceLength -> MHG a -> IO (MHG a)
 mhgCleanAfterBurnIn tl (MHG c) = do
@@ -346,7 +342,7 @@ mhgSummarizeCycle :: IterationMode -> MHG a -> BL.ByteString
 mhgSummarizeCycle m (MHG c) = summarizeCycle m ac cc
   where
     cc = cycle c
-    ac = acceptance c
+    ac = acceptances c
 
 mhgOpenMonitors ::
   AnalysisName ->

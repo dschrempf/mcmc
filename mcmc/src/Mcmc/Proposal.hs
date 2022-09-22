@@ -214,9 +214,9 @@ data PResult a
 -- Instruction about randomly moving from the current state to a new state,
 -- given some source of randomness.
 --
--- Maybe report acceptance counts internal to the proposal (e.g., used by
+-- Maybe report acceptance rates internal to the proposal (e.g., used by
 -- proposals based on Hamiltonian dynamics).
-type PFunction a = a -> IOGenM StdGen -> IO (PResult a, Maybe AcceptanceCounts)
+type PFunction a = a -> IOGenM StdGen -> IO (PResult a, Maybe AcceptanceRates)
 
 -- | Create a proposal with a single tuning parameter.
 --
@@ -454,15 +454,18 @@ renderRow ::
   BL.ByteString ->
   BL.ByteString ->
   BL.ByteString ->
+  BL.ByteString ->
   BL.ByteString
-renderRow name ptype weight nAccept nReject acceptRate optimalRate tuneParam manualAdjustment = nm <> pt <> wt <> na <> nr <> ra <> ro <> tp <> mt
+renderRow name ptype weight nAccept nReject acceptRateActual acceptRateTheoretical optimalRate tuneParam manualAdjustment =
+  nm <> pt <> wt <> na <> nr <> ra <> rt <> ro <> tp <> mt
   where
     nm = alignLeft 30 name
     pt = alignLeft 50 ptype
     wt = alignRight 8 weight
     na = alignRight 14 nAccept
     nr = alignRight 14 nReject
-    ra = alignRight 14 acceptRate
+    ra = alignRight 14 acceptRateActual
+    rt = alignRight 14 acceptRateTheoretical
     ro = alignRight 14 optimalRate
     tp = alignRight 20 tuneParam
     mt = alignRight 30 manualAdjustment
@@ -476,7 +479,8 @@ proposalHeader =
     "Weight"
     "Accepted"
     "Rejected"
-    "Rate"
+    "Actual rate"
+    "Theoretical rate"
     "Optimal rate"
     "Tuning parameter"
     "Consider manual adjustment"
@@ -488,7 +492,7 @@ summarizeProposal ::
   PWeight ->
   Maybe TuningParameter ->
   PDimension ->
-  Maybe (Int, Int, Double) ->
+  (Int, Int, Maybe Double, Maybe Double) ->
   BL.ByteString
 summarizeProposal name description weight tuningParameter dimension ar =
   renderRow
@@ -497,16 +501,18 @@ summarizeProposal name description weight tuningParameter dimension ar =
     weightStr
     nAccept
     nReject
-    acceptRate
+    acceptRateActual
+    acceptRateTheoretical
     optimalRate
     tuneParamStr
     manualAdjustmentStr
   where
     fN n = BB.formatDouble (BB.standard n)
     weightStr = BB.toLazyByteString $ BB.intDec $ fromPWeight weight
-    nAccept = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _1)) ar
-    nReject = BB.toLazyByteString $ maybe "" (BB.intDec . (^. _2)) ar
-    acceptRate = BB.toLazyByteString $ maybe "" (fN 2 . (^. _3)) ar
+    nAccept = BB.toLazyByteString $ BB.intDec $ ar ^. _1
+    nReject = BB.toLazyByteString $ BB.intDec $ ar ^. _2
+    acceptRateActual = BB.toLazyByteString $ maybe "" (fN 2) (ar ^. _3)
+    acceptRateTheoretical = BB.toLazyByteString $ maybe "" (fN 2) (ar ^. _4)
     optimalRate = BB.toLazyByteString $ fN 2 $ getOptimalRate dimension
     tuneParamStr = BB.toLazyByteString $ maybe "" (fN 6) tuningParameter
     checkRate rate
@@ -518,7 +524,8 @@ summarizeProposal name description weight tuningParameter dimension ar =
       | tp >= (0.9 * tuningParameterMax) = Just "tuning parameter too high"
       | otherwise = Nothing
     tps = checkTuningParam =<< tuningParameter
-    ars = (checkRate . (^. _3)) =<< ar
+    -- Use actual acceptance rate.
+    ars = checkRate =<< (ar ^. _3)
     manualAdjustmentStr =
       let
        in case (ars, tps) of

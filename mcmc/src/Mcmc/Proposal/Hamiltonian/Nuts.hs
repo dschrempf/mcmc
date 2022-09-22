@@ -79,7 +79,7 @@ deltaMax = Exp 1000
 -- Second function in Algorithm 3 and Algorithm 6, respectively in [4].
 buildTreeWith ::
   -- The exponent of the total energy of the starting state is used to
-  -- calcaulate the expected acceptance rate 'Alpha'.
+  -- calculate the expected acceptance rate 'Alpha'.
   Log Double ->
   MassesI ->
   Target ->
@@ -109,7 +109,6 @@ buildTreeWith expETot0 msI tfun g q p u v j e
                 errorIsSmall = u < deltaMax * expETot'
                 alpha' = expETot' / expETot0
                 alpha = min 1.0 alpha'
-
   -- Recursive case. This is complicated because the algorithm is written for an
   -- imperative language, and because we have two stacked monads.
   | otherwise = do
@@ -138,10 +137,10 @@ buildTreeWith expETot0 msI tfun g q p u v j e
             Nothing -> pure Nothing
             Just (qm'', pm'', qp'', pp'', q''', n''', a''', na''') -> do
               b <- uniformRM (0, 1) g :: IO Double
-              let q'''' = if b < fromIntegral n''' / fromIntegral (n' + n''') then q''' else q'
+              let n'''' = n' + n'''
+                  q'''' = if b < fromIntegral n''' / fromIntegral n'''' then q''' else q'
                   a'''' = a' + a'''
                   na'''' = na' + na'''
-                  n'''' = n' + n'''
                   -- Important: Check for U-turn. This formula differs from the
                   -- formula using indicator functions in Algorithm 3. However,
                   -- check Equation (4).
@@ -152,7 +151,7 @@ buildTreeWith expETot0 msI tfun g q p u v j e
   where
     buildTree = buildTreeWith expETot0 msI tfun g
 
--- | Paramters of the NUTS proposal.
+-- | Parameters of the NUTS proposal.
 --
 -- Includes tuning parameters and tuning configuration.
 data NParams = NParams
@@ -184,8 +183,8 @@ nutsPFunctionWithTuningParameters d hstruct targetWith _ ts = do
 
 data IsNew
   = Old
-  | OldWith {_acceptanceCountsOld :: AcceptanceCounts}
-  | NewWith {_acceptanceCountsNew :: AcceptanceCounts}
+  | OldWith {_acceptanceRatesOld :: AcceptanceRates}
+  | NewWith {_acceptanceRatesNew :: AcceptanceRates}
 
 -- First function in Algorithm 3.
 nutsPFunction ::
@@ -230,26 +229,23 @@ nutsPFunction hparamsi hstruct targetWith x g = do
           Nothing -> pure (y, isNew)
           Just (qm'', pm'', qp'', pp'', y'', n'', a, na) -> do
             let r = fromIntegral n'' / fromIntegral n :: Double
-                ar = exp (ln a) / fromIntegral na :: Double
-                getCounts s = max 0 $ min 100 $ round $ s * 100
-                ac =
-                  if ar >= 0
-                    then let cs = getCounts ar in AcceptanceCounts cs (100 - cs)
-                    else error "nutsPFunction: Acceptance rate negative."
+                arUnsafe = exp $ ln a
+                ar = max 0 $ min 1 arUnsafe
+                ars = AcceptanceRates ar na
             isAccept <-
               if r > 1.0
                 then pure True
                 else do
                   b <- uniformRM (0, 1) g
                   pure $ b < r
-            let (y''', isNew') = if isAccept then (y'', NewWith ac) else (y, OldWith ac)
+            let (y''', isNew') = if isAccept then (y'', NewWith ars) else (y, OldWith ars)
                 isUTurn = let dq = (qp'' - qm'') in (dq * pm'' < 0) || (dq * pp'' < 0)
             if isUTurn
               then pure (y''', isNew')
               else go qm'' pm'' qp'' pp'' (j + 1) y''' (n + n'') isNew'
   (x', isNew) <- go q p q p 0 q 1 Old
   pure $ case isNew of
-    Old -> (ForceReject, Just $ AcceptanceCounts 0 100)
+    Old -> (ForceReject, Just $ AcceptanceRates 0 1)
     OldWith ac -> (ForceReject, Just ac)
     NewWith ac -> (ForceAccept $ fromVec x', Just ac)
   where

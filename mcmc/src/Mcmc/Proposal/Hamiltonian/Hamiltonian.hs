@@ -134,7 +134,7 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
       lR = max lL (ceiling $ 1.1 * lM)
   lRan <- uniformRM (lL, lR) g
   case leapfrog (targetWith x) msI lRan eRan q p of
-    Nothing -> pure (ForceReject, Just $ AcceptanceCounts 0 100)
+    Nothing -> pure (ForceReject, Just $ AcceptanceRates 0 1)
     -- Check if next state is accepted here, because the Jacobian is included in
     -- the target function. If not: pure (x, 0.0, 1.0).
     Just (q', p', prQ, prQ') -> do
@@ -149,13 +149,9 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
       -- chain back to the previous state. However, we are only interested in
       -- the positions, and are not even storing the momenta.
       let pr = if accept then ForceAccept (fromVec x q') else ForceReject
-          ar = exp $ ln r
-          getCounts s = max 0 $ min 100 $ round $ s * 100
-          ac =
-            if ar >= 0
-              then let cs = getCounts ar in AcceptanceCounts cs (100 - cs)
-              else error "hamiltonianPFunction: Acceptance rate negative."
-      pure (pr, Just ac)
+          arUnsafe = exp $ ln r
+          ar = max 0 $ min 1 arUnsafe
+      pure (pr, Just $ AcceptanceRates ar 1)
   where
     (HParamsI e la ms _ _ msI mus) = hparamsi
     (HStructure _ toVec fromVec) = hstruct

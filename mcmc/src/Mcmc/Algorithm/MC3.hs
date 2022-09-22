@@ -127,7 +127,7 @@ data SavedMC3 a = SavedMC3
     savedMC3Chains :: V.Vector (SavedChain a),
     savedMC3ReciprocalTemperatures :: ReciprocalTemperatures,
     savedMC3Iteration :: Int,
-    savedMC3SwapAcceptance :: Acceptance Int,
+    savedMC3SwapAcceptance :: Acceptances Int,
     savedMC3Generator :: (Word64, Word64)
   }
   deriving (Eq, Show)
@@ -172,7 +172,7 @@ data MC3 a = MC3
     -- | Current iteration.
     mc3Iteration :: Int,
     -- | Number of accepted and rejected swaps.
-    mc3SwapAcceptance :: Acceptance Int,
+    mc3SwapAcceptances :: Acceptances Int,
     mc3Generator :: IOGenM StdGen
   }
 
@@ -411,11 +411,11 @@ mc3ProposeSwap a i = do
       -- traceIO $ "Log priors (left, right, after swap): " <> show (ln prL') <> " " <> show (ln prR')
       -- traceIO $ "Log likelihoods (left, right, before swap): " <> show (ln lhL) <> " " <> show (ln lhR)
       -- traceIO $ "Log likelihood (left, right, after swap): " <> show (ln lhL') <> " " <> show (ln lhR')
-      let !ac' = pushAccept i (mc3SwapAcceptance a)
-      return $ a {mc3MHGChains = y, mc3SwapAcceptance = ac'}
+      let !ac' = pushAccept Nothing i (mc3SwapAcceptances a)
+      return $ a {mc3MHGChains = y, mc3SwapAcceptances = ac'}
     else do
-      let !ac' = pushReject i (mc3SwapAcceptance a)
-      return $ a {mc3SwapAcceptance = ac'}
+      let !ac' = pushReject Nothing i (mc3SwapAcceptances a)
+      return $ a {mc3SwapAcceptances = ac'}
   where
     g = mc3Generator a
 
@@ -483,7 +483,7 @@ mc3AutoTune b l a = do
   mhgs' <- V.mapM (aAutoTune b l) $ mc3MHGChains a
   -- 2. Auto tune temperatures.
   let optimalRate = getOptimalRate PDimensionUnknown
-      mCurrentRates = acceptanceRates $ mc3SwapAcceptance a
+      mCurrentRates = acceptanceRates $ mc3SwapAcceptances a
       -- We assume that the acceptance rate of state swaps between two chains is
       -- roughly proportional to the ratio of the temperatures of the chains.
       -- Hence, we focus on temperature ratios, actually reciprocal temperature
@@ -518,9 +518,9 @@ mc3ResetAcceptance a = a'
     -- 1. Reset acceptance of all chains.
     mhgs' = V.map aResetAcceptance (mc3MHGChains a)
     -- 2. Reset acceptance of swaps.
-    ac' = resetA $ mc3SwapAcceptance a
+    ac' = resetA $ mc3SwapAcceptances a
     --
-    a' = a {mc3MHGChains = mhgs', mc3SwapAcceptance = ac'}
+    a' = a {mc3MHGChains = mhgs', mc3SwapAcceptances = ac'}
 
 mc3CleanAfterBurnIn :: ToJSON a => TraceLength -> MC3 a -> IO (MC3 a)
 mc3CleanAfterBurnIn tl a = do
@@ -573,14 +573,14 @@ mc3SummarizeCycle m a =
     -- Acceptance rates may be 'Nothing' when no proposals have been undertaken.
     -- The 'sequence' operations pull the 'Nothing's out of the inner
     -- structures.
-    as = sequence $ V.map (sequence . acceptanceRates . acceptance) cs
+    as = sequence $ V.map (sequence . acceptanceRates . acceptances) cs
     mVecAr = V.map (\mp -> sum mp / fromIntegral (length mp)) <$> as
     mAr = (\vec -> V.sum vec / fromIntegral (V.length vec)) <$> mVecAr
     bs = mc3ReciprocalTemperatures a
     bsB = map (BB.toLazyByteString . BB.formatDouble (BB.standard 2)) $ U.toList bs
     swapPeriod = fromSwapPeriod $ mc3SwapPeriod $ mc3Settings a
     swapPeriodB = BB.toLazyByteString $ BB.intDec swapPeriod
-    swapAcceptance = mc3SwapAcceptance a
+    swapAcceptance = mc3SwapAcceptances a
     n = fromNChains $ mc3NChains $ mc3Settings a
     proposalHLine = BL.replicate (BL.length proposalHeader) '-'
 

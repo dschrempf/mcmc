@@ -51,7 +51,7 @@ data SavedChain a = SavedChain
   { savedLink :: Link a,
     savedIteration :: Int,
     savedTrace :: C.Stack VB.Vector (Link a),
-    savedAcceptance :: Acceptance Int,
+    savedAcceptances :: Acceptances Int,
     savedSeed :: (Word64, Word64),
     savedTuningParameters :: [Maybe (TuningParameter, AuxiliaryTuningParameters)]
   }
@@ -109,18 +109,18 @@ fromSavedChain pr lh cc mn sv
                 "fromSave: Given likelihood:" <> show (lh $ state it) <> "."
               ]
        in error msg
-  | length (fromAcceptance ac) /= length (ccProposals cc) =
+  | length (fromAcceptances ac) /= length (ccProposals cc) =
       let msg =
             unlines
               [ "fromSave: The number of proposals does not match.",
-                "fromSave: Number of saved proposals:" <> show (length $ fromAcceptance ac) <> ".",
+                "fromSave: Number of saved proposals:" <> show (length $ fromAcceptances ac) <> ".",
                 "fromSave: Number of given proposals:" <> show (length $ ccProposals cc) <> "."
               ]
        in error msg
   | otherwise = fromSavedChainUnsafe pr lh cc mn sv
   where
     it = savedLink sv
-    ac = savedAcceptance sv
+    ac = savedAcceptances sv
 
 -- | See 'fromSavedChain' but do not perform sanity checks. Useful when
 -- restarting a run with changed prior function, likelihood function or
