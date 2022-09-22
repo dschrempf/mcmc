@@ -149,7 +149,7 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
       -- chain back to the previous state. However, we are only interested in
       -- the positions, and are not even storing the momenta.
       let pr = if accept then ForceAccept (fromVec x q') else ForceReject
-          -- Limit theoretical acceptance rate between 0 and 1.
+          -- Limit expected acceptance rate between 0 and 1.
           ar = max 0 $ min 1 (exp $ ln r)
       pure (pr, Just $ AcceptanceRates ar 1)
   where
@@ -200,7 +200,7 @@ hamiltonian hparams htconf hstruct htarget n w =
       tuner = do
         tfun <- hTuningFunctionWith dim toVec htconf
         let pfun = hamiltonianPFunctionWithTuningParameters dim hstruct targetWith
-        pure $ Tuner 1.0 ts True tfun pfun
+        pure $ Tuner 1.0 ts True True tfun pfun
    in case checkHStructureWith (hpsMasses hParamsI) hstruct of
         Just err -> error err
         Nothing -> hamiltonianWith tuner

@@ -92,8 +92,8 @@ data Chain a = Chain
     -- | The 'Trace' of the Markov chain. In contrast to the link, the trace is
     -- updated only after all proposals in the cycle have been executed.
     trace :: Trace a,
-    -- | For each 'Proposal', store the acceptance counts and for some
-    -- proposals also the theoretical acceptance rates.
+    -- | For each 'Proposal', store actual acceptance counts and for some
+    -- proposals also expected acceptance rates.
     acceptances :: Acceptances (Proposal a),
     -- | The random number generator.
     generator :: IOGenM StdGen,

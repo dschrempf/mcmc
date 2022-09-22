@@ -25,11 +25,13 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
+import Data.Functor
+import Mcmc.Acceptance (ResetAcceptance (ResetEverything, ResetExpectedRatesOnly))
 import Mcmc.Algorithm
 import Mcmc.Cycle
 import Mcmc.Environment
 import Mcmc.Logger
-import Mcmc.Proposal (TuningType (LastTuningStep, NormalTuningStep))
+import Mcmc.Proposal
 import Mcmc.Settings
 import System.IO
 import Prelude hiding (cycle)
@@ -52,7 +54,7 @@ mcmcExecute a = do
 mcmcResetAcceptance :: Algorithm a => a -> MCMC a
 mcmcResetAcceptance a = do
   logDebugB "Reset acceptance rates."
-  return $ aResetAcceptance a
+  return $ aResetAcceptance ResetEverything a
 
 mcmcExceptionHandler :: Algorithm a => Environment Settings -> a -> AsyncException -> IO b
 mcmcExceptionHandler e a err = do
@@ -77,8 +79,11 @@ mcmcExecuteMonitors a = do
   mStdLog <- liftIO $ aExecuteMonitors vb t0 iTotal a
   forM_ mStdLog (logOutB "   ")
 
-mcmcIterate :: Algorithm a => IterationMode -> Int -> a -> MCMC a
-mcmcIterate m n a
+data BurnInMode = DuringBurnIn | AfterBurnIn
+  deriving (Eq)
+
+mcmcIterate :: Algorithm a => BurnInMode -> IterationMode -> Int -> a -> MCMC a
+mcmcIterate b m n a
   | n < 0 = error "mcmcIterate: Number of iterations is negative."
   | n == 0 = return a
   | otherwise = do
@@ -87,7 +92,13 @@ mcmcIterate m n a
       -- NOTE: Handle interrupts during iterations, before writing monitors,
       -- using the old algorithm state @a@.
       let handlerOld = mcmcExceptionHandler e a
-          actionIterate = aIterate m p a
+          maybeIntermediateAutoTune x =
+            if b == DuringBurnIn && n > 1
+              then
+                aAutoTune IntermediateTuning 1 x
+                  <&> aResetAcceptance ResetExpectedRatesOnly
+              else pure x
+          actionIterate = aIterate m p a >>= maybeIntermediateAutoTune
       a' <- liftIO $ actionIterate `catch` handlerOld
       -- NOTE: Mask asynchronous exceptions while writing monitor files. Handle
       -- interrupts after writing monitors; use the new state @a'@.
@@ -101,7 +112,7 @@ mcmcIterate m n a
       let handlerNew = mcmcExceptionHandler e a'
           actionWrite = runReaderT (mcmcExecuteMonitors a') e
       liftIO $ uninterruptibleMask_ actionWrite `catch` handlerNew
-      mcmcIterate m (n - 1) a'
+      mcmcIterate b m (n - 1) a'
 
 mcmcNewRun :: Algorithm a => a -> MCMC a
 mcmcNewRun a = do
@@ -120,7 +131,7 @@ mcmcNewRun a = do
   let i = fromIterations $ sIterations s
   logInfoS $ "Running chain for " ++ show i ++ " iterations."
   logInfoB $ aStdMonitorHeader a''
-  mcmcIterate AllProposals i a''
+  mcmcIterate AfterBurnIn AllProposals i a''
 
 mcmcContinueRun :: Algorithm a => a -> MCMC a
 mcmcContinueRun a = do
@@ -139,7 +150,7 @@ mcmcContinueRun a = do
   logInfoB $ aSummarizeCycle AllProposals a
   logInfoS $ "Running chain for " ++ show di ++ " iterations."
   logInfoB $ aStdMonitorHeader a
-  mcmcIterate AllProposals di a
+  mcmcIterate AfterBurnIn AllProposals di a
 
 mcmcBurnIn :: Algorithm a => a -> MCMC a
 mcmcBurnIn a = do
@@ -154,7 +165,7 @@ mcmcBurnIn a = do
       logInfoS $ "Burning in for " <> show n <> " iterations."
       logInfoS "Auto tuning is disabled."
       logInfoB $ aStdMonitorHeader a
-      a' <- mcmcIterate AllProposals n a
+      a' <- mcmcIterate DuringBurnIn AllProposals n a
       logInfoB $ aSummarizeCycle AllProposals a'
       a'' <- mcmcResetAcceptance a'
       logInfoB "Burn in finished."
@@ -191,25 +202,25 @@ mcmcBurnIn a = do
 
 -- Auto tune the proposals.
 mcmcAutotune :: Algorithm a => TuningType -> Int -> a -> MCMC a
-mcmcAutotune NormalTuningStep n a = do
-  logDebugB "Intermediate auto tune."
-  liftIO $ aAutoTune NormalTuningStep n a
-mcmcAutotune LastTuningStep n a = do
-  logDebugB "Last auto tune."
-  liftIO $ aAutoTune LastTuningStep n a
+mcmcAutotune t n a = do
+  case t of
+    NormalTuning -> logDebugB "Auto tune."
+    LastTuning -> logDebugB "Last auto tune."
+    IntermediateTuning -> pure ()
+  liftIO $ aAutoTune t n a
 
 mcmcBurnInWithAutoTuning :: Algorithm a => IterationMode -> [Int] -> a -> MCMC a
 mcmcBurnInWithAutoTuning _ [] _ = error "mcmcBurnInWithAutoTuning: Empty list."
 mcmcBurnInWithAutoTuning m [x] a = do
   -- Last round.
-  a' <- mcmcIterate m x a
-  a'' <- mcmcAutotune LastTuningStep x a'
+  a' <- mcmcIterate DuringBurnIn m x a
+  a'' <- mcmcAutotune LastTuning x a'
   logInfoB $ aSummarizeCycle m a''
   logInfoS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   mcmcResetAcceptance a''
 mcmcBurnInWithAutoTuning m (x : xs) a = do
-  a' <- mcmcIterate m x a
-  a'' <- mcmcAutotune NormalTuningStep x a'
+  a' <- mcmcIterate DuringBurnIn m x a
+  a'' <- mcmcAutotune NormalTuning x a'
   logDebugB $ aSummarizeCycle m a''
   logDebugS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   logDebugB $ aStdMonitorHeader a''

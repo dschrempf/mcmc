@@ -241,7 +241,7 @@ createProposal r f s d n w Tune =
   where
     fT = tuningFunction
     g t _ = Right $ f t
-    tuner = Tuner 1.0 VU.empty False fT g
+    tuner = Tuner 1.0 VU.empty False False fT g
 createProposal r f s d n w NoTune =
   Proposal n r s d w (f 1.0) Nothing
 
@@ -251,6 +251,8 @@ data Tuner a = Tuner
     tAuxiliaryTuningParameters :: AuxiliaryTuningParameters,
     -- | Does the tuner require the trace over the last tuning period?
     tRequireTrace :: Bool,
+    -- | Can the tuner be used for 'IntermediateTuning'?
+    tSuitableForIntermediateTuning :: Bool,
     tTuningFunction :: TuningFunction a,
     -- | Given the tuning parameter, and the auxiliary tuning parameters, get
     -- the tuned propose function.
@@ -273,8 +275,16 @@ data Tune = Tune | NoTune
 -- expected acceptance rate; and vice versa.
 type TuningParameter = Double
 
--- | The last tuning step may be special.
-data TuningType = NormalTuningStep | LastTuningStep
+-- | Tuning type.
+data TuningType
+  = -- | Normal tuning step; tune all proposals.
+    NormalTuning
+  | -- | Intermediate tuning step executed after each iteration. Only suitable
+    -- for proposals which can calculate expected acceptance rates such as
+    -- proposals based on Hamiltonian dynamics.
+    IntermediateTuning
+  | -- | The last tuning step may be special.
+    LastTuning
 
 -- | Compute new tuning parameters.
 type TuningFunction a =
@@ -299,10 +309,12 @@ tuningFunctionSimple d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 
 -- | Default tuning function.
 --
--- The default tuning function only uses the acceptance rate. In particular, it
--- does not handle auxiliary tuning parameters and ignores the actual samples
--- attained during the last tuning period.
+-- The default tuning function only uses the actual acceptance rate. In
+-- particular, it does not handle auxiliary tuning parameters, ignores
+-- intermediate tuning steps, and ignores the actual samples attained during the
+-- last tuning period.
 tuningFunction :: TuningFunction a
+tuningFunction IntermediateTuning _ _ _ t = t
 tuningFunction _ d r _ (!t, !ts) = first (tuningFunctionSimple d r) (t, ts)
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
@@ -340,14 +352,14 @@ tuneWithTuningParameters ::
   Either String (Proposal a)
 tuneWithTuningParameters t ts p = case prTuner p of
   Nothing -> Left "tuneWithTuningParameters: Proposal is not tunable."
-  Just (Tuner _ _ nt fT g) ->
+  Just (Tuner _ _ reqTr inTn fT g) ->
     -- Ensure that the tuning parameter is strictly positive and well bounded.
     let t' = max tuningParameterMin t
         t'' = min tuningParameterMax t'
         psE = g t'' ts
      in case psE of
           Left err -> Left $ "tune: " <> err
-          Right ps -> Right $ p {prFunction = ps, prTuner = Just $ Tuner t'' ts nt fT g}
+          Right ps -> Right $ p {prFunction = ps, prTuner = Just $ Tuner t'' ts reqTr inTn fT g}
 
 -- | See 'PDimension'.
 getOptimalRate :: PDimension -> Double
@@ -413,7 +425,7 @@ liftPFunctionWith jf l s = s'
 
 -- Lift tuner from one data type to another.
 liftTunerWith :: JacobianFunction b -> Lens' b a -> Tuner a -> Tuner b
-liftTunerWith jf l (Tuner p ps nt fP g) = Tuner p ps nt fP' g'
+liftTunerWith jf l (Tuner p ps reqTr inTn fP g) = Tuner p ps reqTr inTn fP' g'
   where
     fP' b d r = fP b d r . fmap (VB.map (^. l))
     g' x xs = liftPFunctionWith jf l <$> g x xs
@@ -436,10 +448,9 @@ renderRow ::
   BL.ByteString ->
   BL.ByteString ->
   BL.ByteString ->
-  BL.ByteString ->
   BL.ByteString
-renderRow name ptype weight nAccept nReject acceptRateActual acceptRateTheoretical optimalRate tuneParam manualAdjustment =
-  nm <> pt <> wt <> na <> nr <> ra <> rt <> ro <> tp <> mt
+renderRow name ptype weight nAccept nReject acceptRateActual optimalRate tuneParam manualAdjustment =
+  nm <> pt <> wt <> na <> nr <> ra <> ro <> tp <> mt
   where
     nm = alignLeft 30 name
     pt = alignLeft 50 ptype
@@ -447,7 +458,6 @@ renderRow name ptype weight nAccept nReject acceptRateActual acceptRateTheoretic
     na = alignRight 14 nAccept
     nr = alignRight 14 nReject
     ra = alignRight 14 acceptRateActual
-    rt = alignRight 14 acceptRateTheoretical
     ro = alignRight 14 optimalRate
     tp = alignRight 20 tuneParam
     mt = alignRight 30 manualAdjustment
@@ -462,7 +472,6 @@ proposalHeader =
     "Accepted"
     "Rejected"
     "Actual rate"
-    "Theor. rate"
     "Optimal rate"
     "Tuning parameter"
     "Consider manual adjustment"
@@ -484,7 +493,7 @@ summarizeProposal name description weight tuningParameter dimension ar =
     nAccept
     nReject
     acceptRateActual
-    acceptRateTheoretical
+    -- acceptRateExpected
     optimalRate
     tuneParamStr
     manualAdjustmentStr
@@ -494,7 +503,6 @@ summarizeProposal name description weight tuningParameter dimension ar =
     nAccept = BB.toLazyByteString $ BB.intDec $ ar ^. _1
     nReject = BB.toLazyByteString $ BB.intDec $ ar ^. _2
     acceptRateActual = BB.toLazyByteString $ maybe "" (fN 2) (ar ^. _3)
-    acceptRateTheoretical = BB.toLazyByteString $ maybe "" (fN 2) (ar ^. _4)
     optimalRate = BB.toLazyByteString $ fN 2 $ getOptimalRate dimension
     tuneParamStr = BB.toLazyByteString $ maybe "" (fN 6) tuningParameter
     checkRate rate

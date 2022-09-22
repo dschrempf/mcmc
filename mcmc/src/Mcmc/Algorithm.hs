@@ -16,6 +16,7 @@ where
 
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Time
+import Mcmc.Acceptance
 import Mcmc.Cycle
 import Mcmc.Proposal
 import Mcmc.Settings
@@ -42,7 +43,7 @@ class Algorithm a where
   aAutoTune :: TuningType -> Int -> a -> IO a
 
   -- | Reset acceptance counts.
-  aResetAcceptance :: a -> a
+  aResetAcceptance :: ResetAcceptance -> a -> a
 
   -- | Clean after burn in. In particular, this is used to reduce the length of
   -- the trace, if required.

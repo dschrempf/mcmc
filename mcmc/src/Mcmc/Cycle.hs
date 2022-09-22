@@ -15,7 +15,7 @@
 module Mcmc.Cycle
   ( -- * Cycles
     Order (..),
-    Cycle (ccProposals, ccRequireTrace),
+    Cycle (ccProposals, ccRequireTrace, ccHasIntermediateTuners),
     cycleFromList,
     setOrder,
     IterationMode (..),
@@ -92,7 +92,10 @@ data Cycle a = Cycle
   { ccProposals :: [Proposal a],
     ccOrder :: Order,
     -- | Does the cycle require the trace when auto tuning? See 'tRequireTrace'.
-    ccRequireTrace :: Bool
+    ccRequireTrace :: Bool,
+    -- | Does the cycle include proposals that can be tuned every iterations?
+    -- See 'tSuitableForIntermediateTuning'.
+    ccHasIntermediateTuners :: Bool
   }
 
 -- | Create a 'Cycle' from a list of 'Proposal's; use 'RandomO', but see 'setOrder'.
@@ -101,7 +104,7 @@ cycleFromList [] =
   error "cycleFromList: Received an empty list but cannot create an empty Cycle."
 cycleFromList xs =
   if length uniqueXs == length xs
-    then Cycle xs RandomO (any needsTrace xs)
+    then Cycle xs RandomO (any needsTrace xs) (any isIntermediate xs)
     else error $ "\n" ++ msg ++ "cycleFromList: Proposals are not unique."
   where
     uniqueXs = nub xs
@@ -111,6 +114,7 @@ cycleFromList xs =
     removedMsgs = zipWith (\n d -> n ++ " " ++ d) removedNames removedDescriptions
     msg = unlines removedMsgs
     needsTrace p = maybe False tRequireTrace (prTuner p)
+    isIntermediate p = maybe False tSuitableForIntermediateTuning (prTuner p)
 
 -- | Set the order of 'Proposal's in a 'Cycle'.
 setOrder :: Order -> Cycle a -> Cycle a
@@ -122,7 +126,7 @@ data IterationMode = AllProposals | FastProposals
 
 -- | Replicate 'Proposal's according to their weights and possibly shuffle them.
 prepareProposals :: StatefulGen g m => IterationMode -> Cycle a -> g -> m [Proposal a]
-prepareProposals m (Cycle xs o _) g =
+prepareProposals m (Cycle xs o _ _) g =
   if null ps
     then error "prepareProposals: No proposals found."
     else case o of
@@ -145,7 +149,7 @@ prepareProposals m (Cycle xs o _) g =
 
 -- The number of proposals depends on the order.
 getNProposalsPerCycle :: IterationMode -> Cycle a -> Int
-getNProposalsPerCycle m (Cycle xs o _) = case o of
+getNProposalsPerCycle m (Cycle xs o _ _) = case o of
   RandomO -> once
   SequentialO -> once
   RandomReversibleO -> 2 * once
@@ -165,7 +169,7 @@ tuneWithChainParameters ::
   Either String (Proposal a)
 tuneWithChainParameters b ar mxs p = case prTuner p of
   Nothing -> Right p
-  Just (Tuner t ts rt fT _) -> case (rt, mxs) of
+  Just (Tuner t ts rt _ fT _) -> case (rt, mxs) of
     (True, Nothing) -> error "tuneWithChainParameters: trace required"
     _ ->
       let (t', ts') = fT b d ar mxs (t, ts)
@@ -188,7 +192,7 @@ autoTuneCycle b a mxs c = case (ccRequireTrace c, mxs) of
       ps = ccProposals c
       tuneF p =
         let (_, _, mar, mtr) = acceptanceRate p a
-         in -- Favor the theoretical rate, if available.
+         in -- Favor the expected rate, if available.
             case mtr <|> mar of
               Nothing -> p
               Just r -> either error id $ tuneWithChainParameters b r mxs p

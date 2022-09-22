@@ -321,8 +321,8 @@ mhgAutoTune b n (MHG c) = do
     cc = cycle c
     tr = trace c
 
-mhgResetAcceptance :: MHG a -> MHG a
-mhgResetAcceptance (MHG c) = MHG $ c {acceptances = resetA ac}
+mhgResetAcceptance :: ResetAcceptance -> MHG a -> MHG a
+mhgResetAcceptance a (MHG c) = MHG $ c {acceptances = resetA a ac}
   where
     ac = acceptances c
 

@@ -512,13 +512,13 @@ mc3AutoTune b l a = do
             (V.tail mhgs')
   return $ a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
 
-mc3ResetAcceptance :: ToJSON a => MC3 a -> MC3 a
-mc3ResetAcceptance a = a'
+mc3ResetAcceptance :: ToJSON a => ResetAcceptance -> MC3 a -> MC3 a
+mc3ResetAcceptance x a = a'
   where
     -- 1. Reset acceptance of all chains.
-    mhgs' = V.map aResetAcceptance (mc3MHGChains a)
+    mhgs' = V.map (aResetAcceptance x) (mc3MHGChains a)
     -- 2. Reset acceptance of swaps.
-    ac' = resetA $ mc3SwapAcceptances a
+    ac' = resetA x $ mc3SwapAcceptances a
     --
     a' = a {mc3MHGChains = mhgs', mc3SwapAcceptances = ac'}
 

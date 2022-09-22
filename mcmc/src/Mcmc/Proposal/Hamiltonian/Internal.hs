@@ -92,31 +92,45 @@ data TParamsFixed = TParamsFixed
   }
   deriving (Show)
 
--- The default tuning parameters in [4] are:
+-- The default tuning parameters in [4] which have been tweaked for tuning the
+-- proposals after every iteration are:
 --
 --   mu = log $ 10 * eps
 --   ga = 0.05
 --   t0 = 10
 --   ka = 0.75
 --
--- However, these default tuning parameters will be off, because the authors
--- suggesting these values tune the proposal after every single iteration.
+-- For reference, I used the following default parameters with longer auto
+-- tuning intervals.
 --
--- The following values are tweaked for our case, where tuning does not happen
--- after each iteration. Of course, we could tune the leapfrog parameters after
--- each generation. Even the mass parameters could be tuned each iteration when
--- the masses are estimated from more past iterations spanning many tuning
--- intervals.
+--   mu = log $ 10 * eps
+--   ga = 0.1
+--   t0 = 3
+--   ka = 0.5
 --
--- NOTE: In theory, these we could expose these internal tuning parameters to
--- the user.
+-- NOTE: In theory, we could expose these internal tuning parameters to the
+-- user.
 tParamsFixedWith :: LeapfrogScalingFactor -> TParamsFixed
 tParamsFixedWith eps = TParamsFixed eps mu ga t0 ka
   where
+    -- "Mu is a freely chosen point that the iterators are shrunk towards". I am
+    -- not exactly sure what this means. The parameter does not seem to have
+    -- much of an effect.
     mu = log $ 10 * eps
-    ga = 0.1
-    t0 = 3
-    ka = 0.5
+    -- Gamma "controls the amount of shrinkage towards mu". The larger gamma,
+    -- the less variant is epsilon.
+    --
+    -- I changed this parameter from 0.05 to get better results in test runs.
+    ga = 0.15
+    -- "Free parameter that stabilizes the initial iterations". The larger t0
+    -- is, the stabler epsilon is in the first iterations.
+    t0 = 10
+    -- "Setting the parameter ka < 1 allows us to give higher weight to more
+    -- recent iterates and to more quickly forget the iterates produced during
+    -- the early warmup stages."
+    --
+    -- I changed this parameter from 0.75 to get better results in test runs.
+    ka = 0.85
 
 -- All internal parameters.
 data HParamsI = HParamsI
@@ -269,6 +283,8 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
                 either error id $ fromAuxiliaryTuningParameters n ts
               (TParamsVar epsMean h m) = tpv
               (TParamsFixed eps0 mu ga t0 ka) = tpf
+              -- NOTE: Lazy is good here, because masses should not be
+              -- calculated for intermediate tuning steps.
               (ms', msI') = case mc of
                 HNoTuneMasses -> (ms, msI)
                 HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly toVec xs (ms, msI)
@@ -287,11 +303,12 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
                       -- Which is the same as:
                       epsMean' = (eps' ** mMKa) * (epsMean ** (1 - mMKa))
                    in (eps', epsMean', h')
-              eps''' = case tt of
-                NormalTuningStep -> eps''
-                LastTuningStep -> epsMean''
+              (eps''', ms'', msI'') = case tt of
+                NormalTuning -> (eps'', ms', msI')
+                IntermediateTuning -> (eps'', ms, msI)
+                LastTuning -> (epsMean'', ms', msI')
               tpv' = TParamsVar epsMean'' h'' (m + 1.0)
-           in (eps''' / eps0, toAuxiliaryTuningParameters $ HParamsI eps''' la ms' tpv' tpf msI' mus)
+           in (eps''' / eps0, toAuxiliaryTuningParameters $ HParamsI eps''' la ms'' tpv' tpf msI'' mus)
 
 checkHStructureWith :: Foldable s => Masses -> HStructure s -> Maybe String
 checkHStructureWith ms (HStructure x toVec fromVec)

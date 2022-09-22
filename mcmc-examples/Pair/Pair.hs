@@ -96,7 +96,7 @@ htarget :: HTarget IG
 htarget = HTarget (Just pr) lh (Just jacob)
 
 nutp :: Proposal I
-nutp = nuts defaultNParams htconf hstruct htarget (PName "Nuts") (pWeight 2)
+nutp = nuts defaultNParams htconf hstruct htarget (PName "Nuts") (pWeight 1)
 
 cc :: Cycle I
 cc = cycleFromList [nutp]
@@ -132,7 +132,7 @@ main = do
           Sequential
           Save
           LogStdOutAndFile
-          Info
+          Debug
   -- Metropolis-Hastings-Green algorithm.
   a <- mhg mcmcS pr lh cc mon start g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.

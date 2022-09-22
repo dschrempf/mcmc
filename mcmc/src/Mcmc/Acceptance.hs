@@ -21,6 +21,7 @@ module Mcmc.Acceptance
     emptyA,
     pushAccept,
     pushReject,
+    ResetAcceptance (..),
     resetA,
     transformKeysA,
     acceptanceRate,
@@ -45,7 +46,7 @@ data AcceptanceCounts = AcceptanceCounts
 
 $(deriveJSON defaultOptions ''AcceptanceCounts)
 
--- | Proposals based on Hamiltonian dynamics use acceptance rates, not counts.
+-- | Proposals based on Hamiltonian dynamics use expected acceptance rates, not counts.
 data AcceptanceRates = AcceptanceRates
   { totalAcceptanceRate :: !Double,
     nAcceptanceRates :: !Int
@@ -54,7 +55,7 @@ data AcceptanceRates = AcceptanceRates
 
 $(deriveJSON defaultOptions ''AcceptanceRates)
 
--- | Acceptance is either stored as counts, or as rates.
+-- | Stored actual acceptance counts and maybe expected acceptance rates.
 data Acceptance = A AcceptanceCounts (Maybe AcceptanceRates)
   deriving (Show, Eq)
 
@@ -100,9 +101,19 @@ pushAccept mr k = Acceptances . M.adjust (addAccept mr) k . fromAcceptances
 pushReject :: Ord k => Maybe AcceptanceRates -> k -> Acceptances k -> Acceptances k
 pushReject mr k = Acceptances . M.adjust (addReject mr) k . fromAcceptances
 
+-- | Reset acceptance specification.
+data ResetAcceptance
+  = -- | Reset actual acceptance counts and expected acceptance rates.
+    ResetEverything
+  | -- | Only reset expected acceptance rates.
+    ResetExpectedRatesOnly
+
 -- | Reset acceptance counts.
-resetA :: Ord k => Acceptances k -> Acceptances k
-resetA = emptyA . M.keys . fromAcceptances
+resetA :: Ord k => ResetAcceptance -> Acceptances k -> Acceptances k
+resetA ResetEverything = emptyA . M.keys . fromAcceptances
+resetA ResetExpectedRatesOnly = Acceptances . M.map f . fromAcceptances
+  where
+    f (A cs _) = A cs Nothing
 
 transformKeys :: (Ord k1, Ord k2) => [(k1, k2)] -> M.Map k1 v -> M.Map k2 v
 transformKeys ks m = foldl' insrt M.empty ks
@@ -114,8 +125,8 @@ transformKeys ks m = foldl' insrt M.empty ks
 transformKeysA :: (Ord k1, Ord k2) => [(k1, k2)] -> Acceptances k1 -> Acceptances k2
 transformKeysA ks = Acceptances . transformKeys ks . fromAcceptances
 
--- | Compute acceptance counts, and actual and theoretical acceptances rates for
--- a specific proposal.
+-- | Compute acceptance counts, and actual and expected acceptances rates for a
+-- specific proposal.
 --
 -- Return @Just (accepts, rejects, acceptance rate)@.
 --
@@ -125,7 +136,7 @@ acceptanceRate ::
   Ord k =>
   k ->
   Acceptances k ->
-  -- | (nAccepts, nRejects, actualRate, theoreticalRate)
+  -- | (nAccepts, nRejects, actualRate, expectedRate)
   (Int, Int, Maybe AcceptanceRate, Maybe AcceptanceRate)
 acceptanceRate k a = case fromAcceptances a M.!? k of
   Just (A (AcceptanceCounts as rs) mrs) -> (as, rs, mar, mtr)

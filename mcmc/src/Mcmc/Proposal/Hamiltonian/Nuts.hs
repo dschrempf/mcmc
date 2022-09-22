@@ -108,7 +108,7 @@ buildTreeWith expETot0 msI tfun g q p u v j e
                 n' = if u <= expEPot' * expEKin' then 1 else 0
                 errorIsSmall = u < deltaMax * expETot'
                 alpha' = expETot' / expETot0
-                -- Limit theoretical acceptance rate between 0 and 1.
+                -- Limit expected acceptance rate between 0 and 1.
                 alpha = max 0 $ min 1 alpha'
   -- Recursive case. This is complicated because the algorithm is written for an
   -- imperative language, and because we have two stacked monads.
@@ -230,7 +230,7 @@ nutsPFunction hparamsi hstruct targetWith x g = do
           Nothing -> pure (y, isNew)
           Just (qm'', pm'', qp'', pp'', y'', n'', a, na) -> do
             let r = fromIntegral n'' / fromIntegral n :: Double
-                -- Individual theoretical acceptance rates are limited in
+                -- Individual expected acceptance rates are limited in
                 -- 'buildTreeWith'.
                 ar = max 0 $ exp $ ln a
                 ars = AcceptanceRates ar na
@@ -297,7 +297,7 @@ nuts nparams htconf hstruct htarget n w =
       tuner = do
         tfun <- hTuningFunctionWith dim toVec htconf
         let pfun = nutsPFunctionWithTuningParameters dim hstruct targetWith
-        pure $ Tuner 1.0 ts True tfun pfun
+        pure $ Tuner 1.0 ts True True tfun pfun
    in case checkHStructureWith (hpsMasses hParamsI) hstruct of
         Just err -> error err
         Nothing -> nutsWith tuner
