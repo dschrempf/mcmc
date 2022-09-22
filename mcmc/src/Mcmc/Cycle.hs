@@ -109,9 +109,7 @@ cycleFromList xs =
     removedDescriptions = map (show . prDescription) removedXs
     removedMsgs = zipWith (\n d -> n ++ " " ++ d) removedNames removedDescriptions
     msg = unlines removedMsgs
-    needsTrace p = case prTuner p of
-      Nothing -> False
-      Just t -> tRequireTrace t
+    needsTrace p = maybe False tRequireTrace (prTuner p)
 
 -- | Set the order of 'Proposal's in a 'Cycle'.
 setOrder :: Order -> Cycle a -> Cycle a

@@ -100,7 +100,7 @@ mcmcIterate m n a
       -- recover from partly written monitor files.
       let handlerNew = mcmcExceptionHandler e a'
           actionWrite = runReaderT (mcmcExecuteMonitors a') e
-      liftIO $ (uninterruptibleMask_ actionWrite) `catch` handlerNew
+      liftIO $ uninterruptibleMask_ actionWrite `catch` handlerNew
       mcmcIterate m (n - 1) a'
 
 mcmcNewRun :: Algorithm a => a -> MCMC a
@@ -112,10 +112,10 @@ mcmcNewRun a = do
   mcmcExecuteMonitors a
   when (aIsInvalidState a) (logWarnB "The initial state is invalid!")
   a' <- mcmcBurnIn a
-  logInfoS $ "Cleaning chain after burn in."
+  logInfoS "Cleaning chain after burn in."
   let tl = sTraceLength s
   a'' <- liftIO $ aCleanAfterBurnIn tl a'
-  logInfoS $ "Saving chain after burn in."
+  logInfoS "Saving chain after burn in."
   mcmcSave a''
   let i = fromIterations $ sIterations s
   logInfoS $ "Running chain for " ++ show i ++ " iterations."

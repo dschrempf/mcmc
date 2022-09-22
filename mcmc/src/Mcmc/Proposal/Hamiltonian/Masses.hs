@@ -108,7 +108,7 @@ toGMatrix xs
 -- crucial. The Hamiltonian algorithms also work when the masses are off.
 cleanMatrix :: L.Matrix Double -> L.Matrix Double
 cleanMatrix xs =
-  (L.diag $ L.cmap cleanDiag xsDiag) + L.cmap cleanOffDiag xsOffDiag
+  L.diag (L.cmap cleanDiag xsDiag) + L.cmap cleanOffDiag xsOffDiag
   where
     xsDiag = L.takeDiag xs
     cleanDiag x
@@ -129,9 +129,9 @@ getMassesI xs
   | n == 0 || m == 0 = error "getMassesI: Matrix empty."
   | n /= m = error "getMassesI: Matrix not square."
   | sign /= 1.0 = error "getMassesI: Determinant of matrix is negative."
-  | otherwise = toGMatrix $ cleanMatrix $ xsI
+  | otherwise = toGMatrix $ cleanMatrix xsI
   where
-    xs' = L.unSym $ xs
+    xs' = L.unSym xs
     n = L.rows xs'
     m = L.cols xs'
     (xsI, (_, sign)) = L.invlndet xs'
@@ -214,7 +214,7 @@ findClosestPositiveDefiniteMatrix a
     m = L.cols a
     b = L.unSym $ L.sym a
     (_, s, v) = L.svd b
-    h = (L.tr v) L.<> (L.diag s L.<> v)
+    h = L.tr v L.<> (L.diag s L.<> v)
     a2 = L.scale 0.5 (b + h)
     a3 = L.unSym $ L.sym a2
     isPositiveDefinite = isJust . L.mbChol . L.trustSym

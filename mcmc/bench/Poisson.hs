@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -60,10 +59,10 @@ lh :: (RealFloat a, Typeable a) => LikelihoodFunctionG (IG a) a
 lh x = product [f ft yr x | (ft, yr) <- zip fatalities normalizedYears]
 
 proposalAlpha :: Proposal I
-proposalAlpha = (VB.element 0) @~ slideSymmetric 0.2 (PName "Alpha") (pWeight 1) NoTune
+proposalAlpha = VB.element 0 @~ slideSymmetric 0.2 (PName "Alpha") (pWeight 1) NoTune
 
 proposalBeta :: Proposal I
-proposalBeta = (VB.element 1) @~ slideSymmetric 0.2 (PName "Beta") (pWeight 1) NoTune
+proposalBeta = VB.element 1 @~ slideSymmetric 0.2 (PName "Beta") (pWeight 1) NoTune
 
 proposals :: Cycle I
 proposals = cycleFromList [proposalAlpha, proposalBeta]
@@ -103,7 +102,7 @@ poissonBench g = do
   void $ mcmc s a
 
 toVec :: I -> VS.Vector Double
-toVec xs = VS.generate 2 (\i -> xs VB.! i)
+toVec xs = VS.generate 2 (xs VB.!)
 
 fromVec :: I -> VS.Vector Double -> I
 fromVec _ xs = VB.mk2 (xs VS.! 0) (xs VS.! 1)

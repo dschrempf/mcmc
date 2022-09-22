@@ -130,8 +130,8 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
   -- of epsilon. I still think it should vary because otherwise, there may be
   -- dragons due to periodicity.
   let lM = la / eRan
-      lL = maximum [1 :: Int, floor $ 0.9 * lM]
-      lR = maximum [lL, ceiling $ 1.1 * lM]
+      lL = max (1 :: Int) (floor $ 0.9 * lM)
+      lR = max lL (ceiling $ 1.1 * lM)
   lRan <- uniformRM (lL, lR) g
   case leapfrog (targetWith x) msI lRan eRan q p of
     Nothing -> pure (ForceReject, Just $ AcceptanceCounts 0 100)
@@ -154,7 +154,7 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
           ac =
             if ar >= 0
               then let cs = getCounts ar in AcceptanceCounts cs (100 - cs)
-              else error $ "hamiltonianPFunction: Acceptance rate negative."
+              else error "hamiltonianPFunction: Acceptance rate negative."
       pure (pr, Just ac)
   where
     (HParamsI e la ms _ _ msI mus) = hparamsi

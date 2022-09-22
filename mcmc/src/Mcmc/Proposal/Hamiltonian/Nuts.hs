@@ -138,7 +138,7 @@ buildTreeWith expETot0 msI tfun g q p u v j e
             Nothing -> pure Nothing
             Just (qm'', pm'', qp'', pp'', q''', n''', a''', na''') -> do
               b <- uniformRM (0, 1) g :: IO Double
-              let q'''' = if b < fromIntegral n''' / (fromIntegral $ n' + n''') then q''' else q'
+              let q'''' = if b < fromIntegral n''' / fromIntegral (n' + n''') then q''' else q'
                   a'''' = a' + a'''
                   na'''' = na' + na'''
                   n'''' = n' + n'''
@@ -230,12 +230,12 @@ nutsPFunction hparamsi hstruct targetWith x g = do
           Nothing -> pure (y, isNew)
           Just (qm'', pm'', qp'', pp'', y'', n'', a, na) -> do
             let r = fromIntegral n'' / fromIntegral n :: Double
-                ar = (exp $ ln a) / fromIntegral na :: Double
+                ar = exp (ln a) / fromIntegral na :: Double
                 getCounts s = max 0 $ min 100 $ round $ s * 100
                 ac =
                   if ar >= 0
                     then let cs = getCounts ar in AcceptanceCounts cs (100 - cs)
-                    else error $ "nutsPFunction: Acceptance rate negative."
+                    else error "nutsPFunction: Acceptance rate negative."
             isAccept <-
               if r > 1.0
                 then pure True
@@ -250,8 +250,8 @@ nutsPFunction hparamsi hstruct targetWith x g = do
   (x', isNew) <- go q p q p 0 q 1 Old
   pure $ case isNew of
     Old -> (ForceReject, Just $ AcceptanceCounts 0 100)
-    OldWith ac -> (ForceReject, Just $ ac)
-    NewWith ac -> (ForceAccept $ fromVec x', Just $ ac)
+    OldWith ac -> (ForceReject, Just ac)
+    NewWith ac -> (ForceAccept $ fromVec x', Just ac)
   where
     (HParamsI e _ ms _ _ msI mus) = hparamsi
     (HStructure _ toVec fromVecWith) = hstruct

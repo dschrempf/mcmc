@@ -305,7 +305,7 @@ tuningFunctionSimple d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 -- does not handle auxiliary tuning parameters and ignores the actual samples
 -- attained during the last tuning period.
 tuningFunction :: TuningFunction a
-tuningFunction _ d r _ (!t, !ts) = bimap (tuningFunctionSimple d r) id (t, ts)
+tuningFunction _ d r _ (!t, !ts) = first (tuningFunctionSimple d r) (t, ts)
 
 -- | Also tune auxiliary tuning parameters.
 tuningFunctionWithAux ::
@@ -321,7 +321,7 @@ tuningFunctionOnlyAux ::
   (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
   TuningFunction a
 tuningFunctionOnlyAux _ _ _ _ Nothing _ = error "tuningFunctionOnlyAux: empty trace"
-tuningFunctionOnlyAux f b _ _ (Just xs) (!t, !ts) = bimap id (f b xs) (t, ts)
+tuningFunctionOnlyAux f b _ _ (Just xs) (!t, !ts) = second (f b xs) (t, ts)
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
 -- proposal with a large tuning parameter is not a problem. But then, if the

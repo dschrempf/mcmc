@@ -235,7 +235,7 @@ findReasonableEpsilon t ms q g = do
           a :: Double
           a = if rI > 0.5 then 1 else (-1)
           go e r =
-            if r ** a > 2 ** (negate a)
+            if r ** a > 2 ** negate a
               then case leapfrog t msI 1 e q p of
                 Nothing -> e
                 Just (_, p'', _, prQ'') ->
@@ -281,7 +281,7 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
                       h' = (1.0 - c) * h + c * (delta - ar)
                       logEps' = mu - (sqrt m / ga) * h'
                       eps' = exp logEps'
-                      mMKa = m ** (negate ka)
+                      mMKa = m ** negate ka
                       epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
                    in (eps', epsMean', h')
               eps''' = case tt of
@@ -361,7 +361,7 @@ leapfrog tF msI l eps q p = do
           else Nothing
   -- L-1 full steps for positions and momenta. This gives the positions q_{L-1},
   -- and the momenta p_{L-1/2}.
-  (qLM1, pLM1Half) <- go (l - 1) $ Just $ (q, pHalf)
+  (qLM1, pLM1Half) <- go (l - 1) $ Just (q, pHalf)
   -- The last full step of the positions.
   let qL = leapfrogStepPositions msI eps qLM1 pLM1Half
   -- The last half step of the momenta.
@@ -379,7 +379,7 @@ leapfrog tF msI l eps q p = do
           let qs' = leapfrogStepPositions msI eps qs ps
               (x, ps') = leapfrogStepMomenta eps tF qs' p
            in if x > 0.0
-                then go (n - 1) $ Just $ (qs', ps')
+                then go (n - 1) $ Just (qs', ps')
                 else Nothing
 
 leapfrogStepMomenta ::
