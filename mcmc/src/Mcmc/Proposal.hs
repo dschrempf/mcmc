@@ -38,8 +38,6 @@ module Mcmc.Proposal
     TuningFunction,
     AuxiliaryTuningParameters,
     tuningFunction,
-    tuningFunctionWithAux,
-    tuningFunctionOnlyAux,
     tuningParameterMin,
     tuningParameterMax,
     tuneWithTuningParameters,
@@ -306,22 +304,6 @@ tuningFunctionSimple d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 -- attained during the last tuning period.
 tuningFunction :: TuningFunction a
 tuningFunction _ d r _ (!t, !ts) = first (tuningFunctionSimple d r) (t, ts)
-
--- | Also tune auxiliary tuning parameters.
-tuningFunctionWithAux ::
-  -- | Auxiliary tuning function.
-  (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
-  TuningFunction a
-tuningFunctionWithAux _ _ _ _ Nothing _ = error "tuningFunctionWithAux: empty trace"
-tuningFunctionWithAux f b d r (Just xs) (!t, !ts) = bimap (tuningFunctionSimple d r) (f b xs) (t, ts)
-
--- | Only tune auxiliary tuning parameters.
-tuningFunctionOnlyAux ::
-  -- | Auxiliary tuning function.
-  (TuningType -> VB.Vector a -> AuxiliaryTuningParameters -> AuxiliaryTuningParameters) ->
-  TuningFunction a
-tuningFunctionOnlyAux _ _ _ _ Nothing _ = error "tuningFunctionOnlyAux: empty trace"
-tuningFunctionOnlyAux f b _ _ (Just xs) (!t, !ts) = second (f b xs) (t, ts)
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
 -- proposal with a large tuning parameter is not a problem. But then, if the
