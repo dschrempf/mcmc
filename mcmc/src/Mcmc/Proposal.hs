@@ -480,7 +480,7 @@ proposalHeader =
     "Accepted"
     "Rejected"
     "Actual rate"
-    "Theoretical rate"
+    "Theor. rate"
     "Optimal rate"
     "Tuning parameter"
     "Consider manual adjustment"
