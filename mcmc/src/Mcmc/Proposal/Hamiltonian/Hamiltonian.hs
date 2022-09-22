@@ -149,8 +149,8 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
       -- chain back to the previous state. However, we are only interested in
       -- the positions, and are not even storing the momenta.
       let pr = if accept then ForceAccept (fromVec x q') else ForceReject
-          arUnsafe = exp $ ln r
-          ar = max 0 $ min 1 arUnsafe
+          -- Limit theoretical acceptance rate between 0 and 1.
+          ar = max 0 $ min 1 (exp $ ln r)
       pure (pr, Just $ AcceptanceRates ar 1)
   where
     (HParamsI e la ms _ _ msI mus) = hparamsi

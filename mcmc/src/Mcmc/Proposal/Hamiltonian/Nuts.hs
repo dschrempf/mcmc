@@ -108,7 +108,8 @@ buildTreeWith expETot0 msI tfun g q p u v j e
                 n' = if u <= expEPot' * expEKin' then 1 else 0
                 errorIsSmall = u < deltaMax * expETot'
                 alpha' = expETot' / expETot0
-                alpha = min 1.0 alpha'
+                -- Limit theoretical acceptance rate between 0 and 1.
+                alpha = max 0 $ min 1 alpha'
   -- Recursive case. This is complicated because the algorithm is written for an
   -- imperative language, and because we have two stacked monads.
   | otherwise = do
@@ -229,8 +230,9 @@ nutsPFunction hparamsi hstruct targetWith x g = do
           Nothing -> pure (y, isNew)
           Just (qm'', pm'', qp'', pp'', y'', n'', a, na) -> do
             let r = fromIntegral n'' / fromIntegral n :: Double
-                arUnsafe = exp $ ln a
-                ar = max 0 $ min 1 arUnsafe
+                -- Individual theoretical acceptance rates are limited in
+                -- 'buildTreeWith'.
+                ar = max 0 $ exp $ ln a
                 ars = AcceptanceRates ar na
             isAccept <-
               if r > 1.0
