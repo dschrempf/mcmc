@@ -79,11 +79,11 @@ mcmcExecuteMonitors a = do
   mStdLog <- liftIO $ aExecuteMonitors vb t0 iTotal a
   forM_ mStdLog (logOutB "   ")
 
-data BurnInMode = DuringBurnIn | AfterBurnIn
+data IntermediateTuningSpec = IntermediateTuningOn | IntermediateTuningOff
   deriving (Eq)
 
-mcmcIterate :: Algorithm a => BurnInMode -> IterationMode -> Int -> a -> MCMC a
-mcmcIterate b m n a
+mcmcIterate :: Algorithm a => IntermediateTuningSpec -> IterationMode -> Int -> a -> MCMC a
+mcmcIterate t m n a
   | n < 0 = error "mcmcIterate: Number of iterations is negative."
   | n == 0 = return a
   | otherwise = do
@@ -93,7 +93,9 @@ mcmcIterate b m n a
       -- using the old algorithm state @a@.
       let handlerOld = mcmcExceptionHandler e a
           maybeIntermediateAutoTune x =
-            if b == DuringBurnIn && n > 1
+            -- Do not perform intermediate tuning at the last step, because a
+            -- normal tuning will be performed.
+            if t == IntermediateTuningOn && n > 1
               then
                 aAutoTune IntermediateTuning 1 x
                   <&> aResetAcceptance ResetExpectedRatesOnly
@@ -112,7 +114,7 @@ mcmcIterate b m n a
       let handlerNew = mcmcExceptionHandler e a'
           actionWrite = runReaderT (mcmcExecuteMonitors a') e
       liftIO $ uninterruptibleMask_ actionWrite `catch` handlerNew
-      mcmcIterate b m (n - 1) a'
+      mcmcIterate t m (n - 1) a'
 
 mcmcNewRun :: Algorithm a => a -> MCMC a
 mcmcNewRun a = do
@@ -131,7 +133,7 @@ mcmcNewRun a = do
   let i = fromIterations $ sIterations s
   logInfoS $ "Running chain for " ++ show i ++ " iterations."
   logInfoB $ aStdMonitorHeader a''
-  mcmcIterate AfterBurnIn AllProposals i a''
+  mcmcIterate IntermediateTuningOff AllProposals i a''
 
 mcmcContinueRun :: Algorithm a => a -> MCMC a
 mcmcContinueRun a = do
@@ -150,7 +152,7 @@ mcmcContinueRun a = do
   logInfoB $ aSummarizeCycle AllProposals a
   logInfoS $ "Running chain for " ++ show di ++ " iterations."
   logInfoB $ aStdMonitorHeader a
-  mcmcIterate AfterBurnIn AllProposals di a
+  mcmcIterate IntermediateTuningOff AllProposals di a
 
 mcmcBurnIn :: Algorithm a => a -> MCMC a
 mcmcBurnIn a = do
@@ -165,7 +167,7 @@ mcmcBurnIn a = do
       logInfoS $ "Burning in for " <> show n <> " iterations."
       logInfoS "Auto tuning is disabled."
       logInfoB $ aStdMonitorHeader a
-      a' <- mcmcIterate DuringBurnIn AllProposals n a
+      a' <- mcmcIterate IntermediateTuningOff AllProposals n a
       logInfoB $ aSummarizeCycle AllProposals a'
       a'' <- mcmcResetAcceptance a'
       logInfoB "Burn in finished."
@@ -209,17 +211,20 @@ mcmcAutotune t n a = do
     IntermediateTuning -> pure ()
   liftIO $ aAutoTune t n a
 
+-- TODO @Dominik (high, runtime): Determine if intermediate tuning is necessary
+-- by checking the cycle. Easier is to check this in aAutoTune, and so in
+-- mhgAutoTune or mc3AutoTune.
 mcmcBurnInWithAutoTuning :: Algorithm a => IterationMode -> [Int] -> a -> MCMC a
 mcmcBurnInWithAutoTuning _ [] _ = error "mcmcBurnInWithAutoTuning: Empty list."
 mcmcBurnInWithAutoTuning m [x] a = do
   -- Last round.
-  a' <- mcmcIterate DuringBurnIn m x a
+  a' <- mcmcIterate IntermediateTuningOn m x a
   a'' <- mcmcAutotune LastTuning x a'
   logInfoB $ aSummarizeCycle m a''
   logInfoS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   mcmcResetAcceptance a''
 mcmcBurnInWithAutoTuning m (x : xs) a = do
-  a' <- mcmcIterate DuringBurnIn m x a
+  a' <- mcmcIterate IntermediateTuningOn m x a
   a'' <- mcmcAutotune NormalTuning x a'
   logDebugB $ aSummarizeCycle m a''
   logDebugS $ "Acceptance rates calculated over the last " <> show x <> " iterations."

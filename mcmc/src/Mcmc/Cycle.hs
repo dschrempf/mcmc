@@ -194,6 +194,10 @@ autoTuneCycle b a mxs c = case (ccRequireTrace c, mxs) of
         let (_, _, mar, mtr) = acceptanceRate p a
          in -- Favor the expected rate, if available.
             case mtr <|> mar of
+              -- TODO @Dominik (high, feature): The masses of the Hamiltonian
+              -- proposals should be tuned before first use, even when the
+              -- acceptance rates are not available yet. This means, we should
+              -- not simply return p here.
               Nothing -> p
               Just r -> either error id $ tuneWithChainParameters b r mxs p
 

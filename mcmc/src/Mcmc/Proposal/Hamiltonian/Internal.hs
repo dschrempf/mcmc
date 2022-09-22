@@ -276,6 +276,9 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
   (_, _) -> Just $
     \tt pdim ar mxs (_, !ts) ->
       case mxs of
+        -- TODO @Dominik (high, issue): We should only throw this error when
+        -- normally tuning. When tuning the leapfrog parameters only
+        -- intermediately, the trace is not needed, and should not be provided.
         Nothing -> error "hTuningFunctionWith: empty trace"
         Just xs ->
           let (HParamsI eps la ms tpv tpf msI mus) =
