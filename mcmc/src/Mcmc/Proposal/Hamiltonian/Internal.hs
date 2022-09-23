@@ -55,6 +55,7 @@ where
 import Control.Monad
 import Control.Monad.ST
 import Data.Foldable
+import Data.Maybe
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
 import Mcmc.Proposal
@@ -271,47 +272,46 @@ hTuningFunctionWith ::
   (a -> Positions) ->
   HTuningConf ->
   Maybe (TuningFunction a)
-hTuningFunctionWith n toVec (HTuningConf lc mc) = case (lc, mc) of
-  (HNoTuneLeapfrog, HNoTuneMasses) -> Nothing
-  (_, _) -> Just $
-    \tt pdim ar mxs (_, !ts) ->
-      case mxs of
-        -- TODO @Dominik (high, issue): We should only throw this error when
-        -- normally tuning. When tuning the leapfrog parameters only
-        -- intermediately, the trace is not needed, and should not be provided.
-        Nothing -> error "hTuningFunctionWith: empty trace"
-        Just xs ->
-          let (HParamsI eps la ms tpv tpf msI mus) =
-                -- NOTE: Use error here, because a dimension mismatch is a serious bug.
-                either error id $ fromAuxiliaryTuningParameters n ts
-              (TParamsVar epsMean h m) = tpv
-              (TParamsFixed eps0 mu ga t0 ka) = tpf
-              -- NOTE: Lazy is good here, because masses should not be
-              -- calculated for intermediate tuning steps.
-              (ms', msI') = case mc of
-                HNoTuneMasses -> (ms, msI)
-                HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly toVec xs (ms, msI)
-                HTuneAllMasses -> tuneAllMasses toVec xs (ms, msI)
-              (eps'', epsMean'', h'') = case lc of
-                HNoTuneLeapfrog -> (eps, epsMean, h)
-                HTuneLeapfrog ->
-                  let delta = getOptimalRate pdim
-                      -- Algorithm 6.
-                      c = recip $ m + t0
-                      h' = (1.0 - c) * h + c * (delta - ar)
-                      eps' = exp $ mu - (sqrt m / ga) * h'
-                      mMKa = m ** negate ka
-                      -- Original formula is:
-                      -- epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
-                      -- Which is the same as:
-                      epsMean' = (eps' ** mMKa) * (epsMean ** (1 - mMKa))
-                   in (eps', epsMean', h')
-              (eps''', ms'', msI'') = case tt of
-                NormalTuning -> (eps'', ms', msI')
-                IntermediateTuning -> (eps'', ms, msI)
-                LastTuning -> (epsMean'', ms', msI')
-              tpv' = TParamsVar epsMean'' h'' (m + 1.0)
-           in (eps''' / eps0, toAuxiliaryTuningParameters $ HParamsI eps''' la ms'' tpv' tpf msI'' mus)
+hTuningFunctionWith _ _ (HTuningConf HNoTuneLeapfrog HNoTuneMasses) = Nothing
+hTuningFunctionWith n toVec (HTuningConf lc mc) = Just $ \tt pdim mar mxs (_, !ts) ->
+  case tt of
+    IntermediateTuningFastProposalsOnly -> err "fast intermediate tuning step but slow proposal"
+    NormalTuningFastProposalsOnly -> err "fast normal tuning step but slow proposal"
+    _ ->
+      let (HParamsI eps la ms tpv tpf msI mus) =
+            -- NOTE: Use error here, because a dimension mismatch is a serious bug.
+            either error id $ fromAuxiliaryTuningParameters n ts
+          (TParamsVar epsMean h m) = tpv
+          (TParamsFixed eps0 mu ga t0 ka) = tpf
+          (ms', msI') = case tt of
+            IntermediateTuningAllProposals -> (ms, msI)
+            _ ->
+              let xs = fromMaybe (err "empty trace") mxs
+               in case mc of
+                    HNoTuneMasses -> (ms, msI)
+                    HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly toVec xs (ms, msI)
+                    HTuneAllMasses -> tuneAllMasses toVec xs (ms, msI)
+          (eps'', epsMean'', h'') = case tt of
+            LastTuningFastProposalsOnly -> (eps, epsMean, h)
+            _ -> case lc of
+              HNoTuneLeapfrog -> (eps, epsMean, h)
+              HTuneLeapfrog ->
+                let ar = fromMaybe (err "no acceptance rate") mar
+                    delta = getOptimalRate pdim
+                    -- Algorithm 6.
+                    c = recip $ m + t0
+                    h' = (1.0 - c) * h + c * (delta - ar)
+                    eps' = exp $ mu - (sqrt m / ga) * h'
+                    mMKa = m ** negate ka
+                    -- Original formula is:
+                    -- epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
+                    -- Which is the same as:
+                    epsMean' = (eps' ** mMKa) * (epsMean ** (1 - mMKa))
+                 in (eps', epsMean', h')
+          tpv' = TParamsVar epsMean'' h'' (m + 1.0)
+       in (eps'' / eps0, toAuxiliaryTuningParameters $ HParamsI eps'' la ms' tpv' tpf msI' mus)
+  where
+    err msg = error $ "hTuningFunctionWith: " <> msg
 
 checkHStructureWith :: Foldable s => Masses -> HStructure s -> Maybe String
 checkHStructureWith ms (HStructure x toVec fromVec)

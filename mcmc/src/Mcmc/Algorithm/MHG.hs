@@ -310,17 +310,23 @@ mhgIterate m _ a = do
     g = generator c
 
 mhgAutoTune :: TuningType -> Int -> MHG a -> IO (MHG a)
-mhgAutoTune b n (MHG c) = do
-  -- TODO @Dominik (high, runtime): We should not provide the trace when tuning
-  -- intermediately. See also 'hTuningFunctionWith'. This probably means that we
-  -- need a separate "intermediate tuning function", but this is all so
-  -- complicated.
-  mxs <-
-    if ccRequireTrace cc
-      then Just . VB.map state <$> takeT n tr
-      else pure Nothing
-  return $ MHG $ c {cycle = autoTuneCycle b ac mxs cc}
+mhgAutoTune tt n (MHG c)
+  | isIntermediate =
+      pure . MHG $
+        if ccHasIntermediateTuners cc
+          then -- Do not provide trace when tuning intermediately.
+            c {cycle = autoTuneCycle tt ac Nothing cc}
+          else -- Skip intermediate tuning completely when unnecessary.
+            c
+  | otherwise = do
+      mxs <-
+        -- Provide the trace if required.
+        if ccRequireTrace cc
+          then Just . VB.map state <$> takeT n tr
+          else pure Nothing
+      pure $ MHG c {cycle = autoTuneCycle tt ac mxs cc}
   where
+    isIntermediate = tt == IntermediateTuningFastProposalsOnly || tt == IntermediateTuningAllProposals
     ac = acceptances c
     cc = cycle c
     tr = trace c

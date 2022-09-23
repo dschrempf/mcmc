@@ -32,6 +32,7 @@ import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.List
 import qualified Data.Map.Strict as M
+import Data.Maybe
 import qualified Data.Vector as VB
 import Mcmc.Acceptance
 import Mcmc.Internal.Shuffle
@@ -128,7 +129,11 @@ data IterationMode = AllProposals | FastProposals
 prepareProposals :: StatefulGen g m => IterationMode -> Cycle a -> g -> m [Proposal a]
 prepareProposals m (Cycle xs o _ _) g =
   if null ps
-    then error "prepareProposals: No proposals found."
+    then
+      let msg = case m of
+            FastProposals -> "no fast proposals found"
+            AllProposals -> "no proposals found"
+       in error $ "prepareProposals: " <> msg
     else case o of
       RandomO -> shuffle ps g
       SequentialO -> return ps
@@ -163,43 +168,58 @@ getNProposalsPerCycle m (Cycle xs o _ _) = case o of
 -- See 'tuneWithTuningParameters' and 'Tuner'.
 tuneWithChainParameters ::
   TuningType ->
-  AcceptanceRate ->
+  Maybe AcceptanceRate ->
   Maybe (VB.Vector a) ->
   Proposal a ->
   Either String (Proposal a)
-tuneWithChainParameters b ar mxs p = case prTuner p of
+tuneWithChainParameters tt mar mxs p = case prTuner p of
   Nothing -> Right p
-  Just (Tuner t ts rt _ fT _) -> case (rt, mxs) of
-    (True, Nothing) -> error "tuneWithChainParameters: trace required"
-    _ ->
-      let (t', ts') = fT b d ar mxs (t, ts)
-       in tuneWithTuningParameters t' ts' p
-      where
-        d = prDimension p
+  Just (Tuner t ts rt it fT _) -> case (tt, it, prSpeed p) of
+    (IntermediateTuningFastProposalsOnly, True, PFast) -> tuneIntermediate
+    (IntermediateTuningAllProposals, True, _) -> tuneIntermediate
+    (NormalTuningFastProposalsOnly, _, PFast) -> tuneNormally
+    (NormalTuningAllProposals, _, _) -> tuneNormally
+    (LastTuningFastProposalsOnly, _, _) -> tuneNormally
+    (LastTuningAllProposals, _, _) -> tuneNormally
+    _ -> Right p
+    where
+      hasTrace = isJust mxs
+      err m = Left $ "tuneWithChainParameters: " <> m
+      tuneIntermediate =
+        if hasTrace
+          then err "intermediate tuning but trace provided"
+          else tune
+      tuneNormally =
+        if rt && not hasTrace
+          then err "trace required"
+          else tune
+      tune =
+        let (t', ts') = fT tt (prDimension p) mar mxs (t, ts)
+         in tuneWithTuningParameters t' ts' p
+
+-- (_, False, Just _) ->
+-- (True, _, Just _) ->
+-- (False, True, Nothing) ->
+-- _ ->
 
 -- | Calculate acceptance rates and auto tunes the 'Proposal's in the 'Cycle'.
 --
 -- Do not change 'Proposal's that are not tuneable.
 autoTuneCycle :: TuningType -> Acceptances (Proposal a) -> Maybe (VB.Vector a) -> Cycle a -> Cycle a
-autoTuneCycle b a mxs c = case (ccRequireTrace c, mxs) of
-  (False, Just _) -> error "autoTuneCycle: trace not required"
-  (True, Nothing) -> error "autoTuneCycle: trace required"
-  _ ->
-    if sort (M.keys $ fromAcceptances a) == sort ps
-      then c {ccProposals = map tuneF ps}
-      else error "autoTuneCycle: Proposals in map and cycle do not match."
-    where
-      ps = ccProposals c
-      tuneF p =
-        let (_, _, mar, mtr) = acceptanceRate p a
-         in -- Favor the expected rate, if available.
-            case mtr <|> mar of
-              -- TODO @Dominik (high, feature): The masses of the Hamiltonian
-              -- proposals should be tuned before first use, even when the
-              -- acceptance rates are not available yet. This means, we should
-              -- not simply return p here.
-              Nothing -> p
-              Just r -> either error id $ tuneWithChainParameters b r mxs p
+autoTuneCycle tt a mxs c
+  | isJust mxs && not (ccRequireTrace c) = err "trace provided but not required"
+  | otherwise =
+      if sort (M.keys $ fromAcceptances a) == sort ps
+        then c {ccProposals = map tuneF ps}
+        else err "proposals in map and cycle do not match"
+  where
+    err msg = error $ "autoTuneCycle: " <> msg
+    ps = ccProposals c
+    tuneF p =
+      let (_, _, mar, mtr) = acceptanceRate p a
+          -- Favor the expected rate, if available.
+          mr = mtr <|> mar
+       in either error id $ tuneWithChainParameters tt mr mxs p
 
 -- | Summarize the 'Proposal's in the 'Cycle'. Also report acceptance rates.
 summarizeCycle :: IterationMode -> Acceptances (Proposal a) -> Cycle a -> BL.ByteString

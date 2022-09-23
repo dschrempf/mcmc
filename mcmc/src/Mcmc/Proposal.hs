@@ -273,24 +273,35 @@ data Tune = Tune | NoTune
 -- expected acceptance rate; and vice versa.
 type TuningParameter = Double
 
--- | Tuning type.
+-- | Tuning type. To distinguish between fast and slow proposals, see
+-- 'Mcmc.Cycle.IterationMode'.
 data TuningType
-  = -- | Normal tuning step; tune all proposals.
-    NormalTuning
-  | -- | Intermediate tuning step executed after each iteration. Only suitable
-    -- for proposals which can calculate expected acceptance rates such as
-    -- proposals based on Hamiltonian dynamics.
-    IntermediateTuning
-  | -- | The last tuning step may be special.
-    LastTuning
+  = -- | Normal tuning step with fast proposals only.
+    NormalTuningFastProposalsOnly
+  | -- | Intermediate tuning step executed after each iteration with fast
+    -- proposals only. Only suitable for proposals which can calculate expected
+    -- acceptance rates.
+    IntermediateTuningFastProposalsOnly
+  | -- | The last tuning step with fast proposals only may be special.
+    LastTuningFastProposalsOnly
+  | -- | Normal tuning step of all proposals.
+    NormalTuningAllProposals
+  | -- | Intermediate tuning step of all proposals.
+    IntermediateTuningAllProposals
+  | -- | The last tuning step with all proposals.
+    LastTuningAllProposals
+  deriving (Eq)
 
 -- | Compute new tuning parameters.
 type TuningFunction a =
   TuningType ->
   PDimension ->
-  -- | Acceptance rate of last tuning period.
-  AcceptanceRate ->
-  -- | Trace of last tuning period. Only available when requested by proposal.
+  -- | Acceptance rate of last tuning period. May not always be available
+  -- because proposals may be skipped.
+  Maybe AcceptanceRate ->
+  -- | Trace of last tuning period. Not available for 'IntermediateTuning'
+  -- steps, and only available for other tuning types when requested by
+  -- proposal.
   Maybe (VB.Vector a) ->
   (TuningParameter, AuxiliaryTuningParameters) ->
   (TuningParameter, AuxiliaryTuningParameters)
@@ -312,8 +323,10 @@ tuningFunctionSimple d r t = let rO = getOptimalRate d in exp (2 * (r - rO)) * t
 -- intermediate tuning steps, and ignores the actual samples attained during the
 -- last tuning period.
 tuningFunction :: TuningFunction a
-tuningFunction IntermediateTuning _ _ _ t = t
-tuningFunction _ d r _ (!t, !ts) = first (tuningFunctionSimple d r) (t, ts)
+tuningFunction IntermediateTuningFastProposalsOnly _ _ _ t = t
+tuningFunction IntermediateTuningAllProposals _ _ _ t = t
+tuningFunction _ _ Nothing _ t = t
+tuningFunction _ d (Just r) _ (!t, !ts) = first (tuningFunctionSimple d r) (t, ts)
 
 -- IDEA: Per proposal type tuning parameter boundaries. For example, a sliding
 -- proposal with a large tuning parameter is not a problem. But then, if the

@@ -79,7 +79,12 @@ mcmcExecuteMonitors a = do
   mStdLog <- liftIO $ aExecuteMonitors vb t0 iTotal a
   forM_ mStdLog (logOutB "   ")
 
-data IntermediateTuningSpec = IntermediateTuningOn | IntermediateTuningOff
+-- When intermediate tuning is activated, specific proposals get tuned every
+-- iterations.
+data IntermediateTuningSpec
+  = IntermediateTuningFastProposalsOnlyOn
+  | IntermediateTuningAllProposalsOn
+  | IntermediateTuningOff
   deriving (Eq)
 
 mcmcIterate :: Algorithm a => IntermediateTuningSpec -> IterationMode -> Int -> a -> MCMC a
@@ -95,11 +100,16 @@ mcmcIterate t m n a
           maybeIntermediateAutoTune x =
             -- Do not perform intermediate tuning at the last step, because a
             -- normal tuning will be performed.
-            if t == IntermediateTuningOn && n > 1
-              then
-                aAutoTune IntermediateTuning 1 x
-                  <&> aResetAcceptance ResetExpectedRatesOnly
-              else pure x
+            case t of
+              IntermediateTuningFastProposalsOnlyOn
+                | n > 1 ->
+                    aAutoTune IntermediateTuningFastProposalsOnly 1 x
+                      <&> aResetAcceptance ResetExpectedRatesOnly
+              IntermediateTuningAllProposalsOn
+                | n > 1 ->
+                    aAutoTune IntermediateTuningAllProposals 1 x
+                      <&> aResetAcceptance ResetExpectedRatesOnly
+              _ -> pure x
           actionIterate = aIterate m p a >>= maybeIntermediateAutoTune
       a' <- liftIO $ actionIterate `catch` handlerOld
       -- NOTE: Mask asynchronous exceptions while writing monitor files. Handle
@@ -206,26 +216,32 @@ mcmcBurnIn a = do
 mcmcAutotune :: Algorithm a => TuningType -> Int -> a -> MCMC a
 mcmcAutotune t n a = do
   case t of
-    NormalTuning -> logDebugB "Auto tune."
-    LastTuning -> logDebugB "Last auto tune."
-    IntermediateTuning -> pure ()
+    NormalTuningFastProposalsOnly -> logDebugB "Normal auto tune; fast proposals only."
+    IntermediateTuningFastProposalsOnly -> pure ()
+    LastTuningFastProposalsOnly -> logDebugB "Last auto tune; fast proposals only."
+    NormalTuningAllProposals -> logDebugB "Normal auto tune; all proposals."
+    IntermediateTuningAllProposals -> pure ()
+    LastTuningAllProposals -> logDebugB "Last auto tune; all proposals."
   liftIO $ aAutoTune t n a
 
--- TODO @Dominik (high, runtime): Determine if intermediate tuning is necessary
--- by checking the cycle. Easier is to check this in aAutoTune, and so in
--- mhgAutoTune or mc3AutoTune.
 mcmcBurnInWithAutoTuning :: Algorithm a => IterationMode -> [Int] -> a -> MCMC a
 mcmcBurnInWithAutoTuning _ [] _ = error "mcmcBurnInWithAutoTuning: Empty list."
 mcmcBurnInWithAutoTuning m [x] a = do
   -- Last round.
-  a' <- mcmcIterate IntermediateTuningOn m x a
-  a'' <- mcmcAutotune LastTuning x a'
+  let (tti, ttl) = case m of
+        FastProposals -> (IntermediateTuningFastProposalsOnlyOn, LastTuningFastProposalsOnly)
+        AllProposals -> (IntermediateTuningAllProposalsOn, LastTuningAllProposals)
+  a' <- mcmcIterate tti m x a
+  a'' <- mcmcAutotune ttl x a'
   logInfoB $ aSummarizeCycle m a''
   logInfoS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   mcmcResetAcceptance a''
 mcmcBurnInWithAutoTuning m (x : xs) a = do
-  a' <- mcmcIterate IntermediateTuningOn m x a
-  a'' <- mcmcAutotune NormalTuning x a'
+  let (tti, ttn) = case m of
+        FastProposals -> (IntermediateTuningFastProposalsOnlyOn, NormalTuningFastProposalsOnly)
+        AllProposals -> (IntermediateTuningAllProposalsOn, NormalTuningAllProposals)
+  a' <- mcmcIterate tti m x a
+  a'' <- mcmcAutotune ttn x a'
   logDebugB $ aSummarizeCycle m a''
   logDebugS $ "Acceptance rates calculated over the last " <> show x <> " iterations."
   logDebugB $ aStdMonitorHeader a''
