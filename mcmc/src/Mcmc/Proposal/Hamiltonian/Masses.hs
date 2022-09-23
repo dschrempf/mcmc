@@ -332,3 +332,8 @@ tuneAllMasses toVec xs (ms, msI)
 -- an averaging algorithm similar to the leapfrog dual averaging. However, I
 -- have to check if this works with positive definiteness, etc. I do a similar
 -- procedure in 'getNewMassDiagonalWithRescue'.
+
+-- TODO @Dominik (high, issue): Check discrepancy of optimal and actual
+-- acceptance rates for the pair example. After burn in, they match perfectly.
+-- But after the complete run, the actual acceptance rate is 50 percent of the
+-- optimal one (with diagonal tuning).
