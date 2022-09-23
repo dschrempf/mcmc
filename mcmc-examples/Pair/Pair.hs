@@ -132,7 +132,7 @@ main = do
           Sequential
           Save
           LogStdOutAndFile
-          Debug
+          Info
   -- Metropolis-Hastings-Green algorithm.
   a <- mhg mcmcS pr lh cc mon start g
   -- -- Metropolic-coupled Markov chain Monte Carlo algorithm.
