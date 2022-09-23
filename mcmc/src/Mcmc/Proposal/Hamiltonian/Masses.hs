@@ -336,4 +336,4 @@ tuneAllMasses toVec xs (ms, msI)
 -- TODO @Dominik (high, issue): Check discrepancy of optimal and actual
 -- acceptance rates for the pair example. After burn in, they match perfectly.
 -- But after the complete run, the actual acceptance rate is 50 percent of the
--- optimal one (with diagonal tuning).
+-- optimal one (the effect is more pronounced with diagonal tuning).
