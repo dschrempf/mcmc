@@ -327,3 +327,8 @@ tuneAllMasses toVec xs (ms, msI)
     -- Positive definite matrices are symmetric.
     msPD' = L.trustSym $ findClosestPositiveDefiniteMatrix $ L.unSym ms'
     msPDI' = if L.unSym ms' == L.unSym msPD' then msI' else getMassesI msPD'
+
+-- TODO @Dominik (high, issue): The masses vary too much. I think i should use
+-- an averaging algorithm similar to the leapfrog dual averaging. However, I
+-- have to check if this works with positive definiteness, etc. I do a similar
+-- procedure in 'getNewMassDiagonalWithRescue'.
