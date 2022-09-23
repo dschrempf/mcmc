@@ -278,7 +278,7 @@ tuneDiagonalMassesOnly toVec xs (ms, msI)
 
 -- This value was carefully tuned using the example "hamiltonian".
 defaultGraphicalLassoPenalty :: Double
-defaultGraphicalLassoPenalty = 0.4
+defaultGraphicalLassoPenalty = 0.3
 
 tuneAllMasses ::
   -- Conversion from value to vector.
