@@ -179,11 +179,27 @@ samplesAllMinWith d = samplesDiagonalMin + max samplesDiagonalMin d
 getSampleSize :: VS.Vector Double -> Int
 getSampleSize = VS.length . VS.uniq . S.gsort
 
--- I do not know where I got this function from, but it works pretty well!
-interpolate :: Double -> Double -> Double
-interpolate old new = interSqrt ** 2
-  where
-    interSqrt = recip 3 * (sqrt old + 2 * sqrt new)
+rescueAfter :: Double -> Double
+rescueAfter y
+  | massMin > abs y = signum y * massMin
+  | abs y > massMax = signum y * massMax
+  | otherwise = y
+
+rescueBefore :: (Double -> Double -> Double) -> Double -> Double -> Double
+rescueBefore f old new
+  -- Be permissive with NaN and infinite values.
+  | isNaN new = old
+  | isInfinite new = old
+  | otherwise = f old new
+
+rescue :: (Double -> Double -> Double) -> Double -> Double -> Double
+rescue f old new = rescueAfter $ rescueBefore f old new
+
+-- -- I do not know where I got this function from, but it works pretty well!
+-- interpolate :: Double -> Double -> Double
+-- interpolate old new = interSqrt ** 2
+--   where
+--     interSqrt = recip 3 * (sqrt old + 2 * sqrt new)
 
 -- Another interpolation function I came up with. It is pretty cool, because
 -- (similar to above) it interpolates the square roots, which is what we want.
@@ -195,21 +211,28 @@ interpolate' oldSquared newSquared = finSign * (fin ** 2)
     sqrt' = sqrt . abs
     old = oldSign * sqrt' oldSquared
     new = newSign * sqrt' newSquared
-    fin = recip 4 * (old + 3 * new)
+    -- The new mass will be the second last boundary. That is, the larger the
+    -- number of bins is, the more informative the new mass is compared to the
+    -- old mass.
+    nbins = 2
+    fin = recip nbins * (old + (nbins - 1) * new)
     finSign = signum fin
 
-getNewMassDiagonalWithRescue :: Int -> Double -> Double -> Double
-getNewMassDiagonalWithRescue sampleSize massOld massEstimate
+getNewMassDiagonalWithSampleSize :: Int -> Double -> Double -> Double
+getNewMassDiagonalWithSampleSize sampleSize massOld massEstimate
   | sampleSize < samplesDiagonalMin = massOld
-  -- Be permissive with NaN and negative diagonal masses. Diagonal masses are
-  -- variances which are strictly positive.
-  | isNaN massEstimate = massOld
+  -- Diagonal masses are variances which are strictly positive.
   | massEstimate <= 0 = massOld
-  | massMin > massNew = massMin
-  | massNew > massMax = massMax
-  | otherwise = massNew
-  where
-    massNew = interpolate massOld massEstimate
+  | otherwise = rescue interpolate' massOld massEstimate
+
+getNewMassDiagonal :: Double -> Double -> Double
+getNewMassDiagonal massOld massEstimate
+  -- Diagonal masses are variances which are strictly positive.
+  | massEstimate <= 0 = massOld
+  | otherwise = rescue interpolate' massOld massEstimate
+
+getNewMassOffDiagonal :: Double -> Double -> Double
+getNewMassOffDiagonal = rescue interpolate'
 
 -- The Cholesky decomposition, which is performed when sampling new momenta with
 -- 'generateMomenta', requires a positive definite covariance matrix. The
@@ -289,7 +312,7 @@ tuneDiagonalMassesOnly toVec xs (ms, msI)
     msDiagonalEstimate = VS.fromList $ map (recip . S.variance) $ L.toColumns xs''
     msDiagonalNew =
       VS.zipWith3
-        getNewMassDiagonalWithRescue
+        getNewMassDiagonalWithSampleSize
         sampleSizes
         msDiagonalOld
         msDiagonalEstimate
@@ -297,6 +320,29 @@ tuneDiagonalMassesOnly toVec xs (ms, msI)
 -- This value was carefully tuned using the example "hamiltonian".
 defaultGraphicalLassoPenalty :: Double
 defaultGraphicalLassoPenalty = 0.3
+
+interpolateElementWise :: L.Matrix Double -> L.Matrix Double -> L.Matrix Double
+interpolateElementWise old new
+  | mO /= mN = err "different number of rows"
+  | nO /= nN = err "different number of columns"
+  | mO /= nO = err "not square"
+  | mO < 1 = err "empty matrix"
+  | otherwise = L.build (mO, nO) f
+  where
+    mO = L.rows old
+    nO = L.cols old
+    mN = L.rows new
+    nN = L.cols new
+    err msg = error $ "interpolateElementWise: " <> msg
+    f iD jD =
+      let -- This sucks a bit, because we need a function (e -> e -> e), and
+          -- since the return type is Double, the indices are also Doubble.
+          i = round iD
+          j = round jD
+          g = if i == j then getNewMassDiagonal else getNewMassOffDiagonal
+          eO = old `L.atIndex` (i, j)
+          eN = new `L.atIndex` (i, j)
+       in g eO eN
 
 tuneAllMasses ::
   -- Conversion from value to vector.
@@ -317,7 +363,7 @@ tuneAllMasses toVec xs (ms, msI)
   | VB.length xs < samplesAllMinWith dimMs = fallbackDiagonal
   | L.rank xs'' /= dimState = fallbackDiagonal
   | dimState /= dimMs = error "tuneAllMasses: Dimension mismatch."
-  | otherwise = (ms', msI')
+  | otherwise = (msNew, msINew)
   where
     fallbackDiagonal = tuneDiagonalMassesOnly toVec xs (ms, msI)
     -- xs: Each element contains all parameters of one iteration.
@@ -332,27 +378,18 @@ tuneAllMasses toVec xs (ms, msI)
     dimState = VS.length $ VB.head xs'
     dimMs = L.rows $ L.unSym ms
     (_, ss, xsNormalized) = S.scale xs''
-    (sigmaNormalized, precNormalized) =
+    -- The first value is the covariance matrix sigma, which the inverted mass
+    -- matrix (precision matrix). However, we interpolate the new mass matrix
+    -- using the old one and the new estimate, so we have to recalculate the
+    -- covariance matrix anyways.
+    (_, precNormalized) =
       either error id $
         S.graphicalLasso defaultGraphicalLassoPenalty xsNormalized
-    -- Sigma is the inverted mass matrix.
-    msI' = toGMatrix $ S.rescaleSWith ss (L.unSym sigmaNormalized)
-    ms' = L.trustSym $ S.rescalePWith ss (L.unSym precNormalized)
-
--- -- -- NOTE: When encountering numerical errors, cleaning may be necessary.
--- -- The masses should be positive definite, but sometimes they happen to be
--- -- not because of numerical errors.
-
--- -- Clean numerically (NaNs, infinities, etc.).
--- --  Positive definite matrices are
--- -- symmetric.
--- msCl = findClosestPositiveDefiniteMatrix $ cleanMatrix ms'
--- (ms'', msI'') =
---   if ms' == msCl
---     then (L.trustSym ms', msI')
---     else (L.trustSym msCl, getMassesI $ L.trustSym msCl)
-
--- TODO @Dominik (high, issue): The masses vary too much. I think i should use
--- an averaging algorithm similar to the leapfrog dual averaging. However, I
--- have to check if this works with positive definiteness, etc. I do a similar
--- procedure in 'getNewMassDiagonalWithRescue'.
+    ms' = S.rescalePWith ss (L.unSym precNormalized)
+    -- Clean NaNs, infinities; ensure positive definiteness. The masses should
+    -- be positive definite, but sometimes they happen to be not because of
+    -- numerical errors.
+    msNewDirty = interpolateElementWise (L.unSym ms) ms'
+    -- Positive definite matrices are symmetric.
+    msNew = L.trustSym $ findClosestPositiveDefiniteMatrix $ cleanMatrix msNewDirty
+    msINew = getMassesI msNew
