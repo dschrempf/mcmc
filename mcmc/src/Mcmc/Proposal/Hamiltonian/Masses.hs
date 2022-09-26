@@ -185,6 +185,19 @@ interpolate old new = interSqrt ** 2
   where
     interSqrt = recip 3 * (sqrt old + 2 * sqrt new)
 
+-- Another interpolation function I came up with. It is pretty cool, because
+-- (similar to above) it interpolates the square roots, which is what we want.
+interpolate' :: Double -> Double -> Double
+interpolate' oldSquared newSquared = finSign * (fin ** 2)
+  where
+    oldSign = signum oldSquared
+    newSign = signum newSquared
+    sqrt' = sqrt . abs
+    old = oldSign * sqrt' oldSquared
+    new = newSign * sqrt' newSquared
+    fin = recip 4 * (old + 3 * new)
+    finSign = signum fin
+
 getNewMassDiagonalWithRescue :: Int -> Double -> Double -> Double
 getNewMassDiagonalWithRescue sampleSize massOld massEstimate
   | sampleSize < samplesDiagonalMin = massOld
