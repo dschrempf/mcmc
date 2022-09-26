@@ -299,7 +299,7 @@ tuneAllMasses toVec xs (ms, msI)
   | VB.length xs < samplesAllMinWith dimMs = fallbackDiagonal
   | L.rank xs'' /= dimState = fallbackDiagonal
   | dimState /= dimMs = error "tuneAllMasses: Dimension mismatch."
-  | otherwise = (msPD', msPDI')
+  | otherwise = (ms'', msI'')
   where
     fallbackDiagonal = tuneDiagonalMassesOnly toVec xs (ms, msI)
     -- xs: Each element contains all parameters of one iteration.
@@ -314,20 +314,24 @@ tuneAllMasses toVec xs (ms, msI)
     dimState = VS.length $ VB.head xs'
     dimMs = L.rows $ L.unSym ms
     (_, ss, xsNormalized) = S.scale xs''
-    sigmaNormalized =
-      L.unSym $
-        either error fst $
-          S.graphicalLasso defaultGraphicalLassoPenalty xsNormalized
+    (sigmaNormalized, precNormalized) =
+      either error id $
+        S.graphicalLasso defaultGraphicalLassoPenalty xsNormalized
     -- Sigma is the inverted mass matrix.
-    sigma = S.rescaleSWith ss sigmaNormalized
-    msI' = toGMatrix sigma
+    msI' = toGMatrix $ S.rescaleSWith ss (L.unSym sigmaNormalized)
+    ms' = S.rescalePWith ss (L.unSym precNormalized)
     -- Clean numerically (NaNs, infinities, etc.).
-    ms' = cleanMatrix $ L.inv sigma
-    -- The masses should be positive definite, but sometimes they happen to be
-    -- not because of numerical errors. Positive definite matrices are
-    -- symmetric.
-    msPD' = L.trustSym $ findClosestPositiveDefiniteMatrix ms'
-    msPDI' = if ms' == L.unSym msPD' then msI' else getMassesI msPD'
+    msCl = findClosestPositiveDefiniteMatrix $ cleanMatrix ms'
+    (ms'', msI'') =
+      if ms' == msCl
+        then (L.trustSym ms', msI')
+        else (L.trustSym msCl, getMassesI $ L.trustSym msCl)
+
+-- -- The masses should be positive definite, but sometimes they happen to be
+-- -- not because of numerical errors. Positive definite matrices are
+-- -- symmetric.
+-- msPD' = L.trustSym $ findClosestPositiveDefiniteMatrix ms'
+-- msPDI' = if ms' == L.unSym msPD' then msI' else getMassesI msPD'
 
 -- TODO @Dominik (high, issue): The masses vary too much. I think i should use
 -- an averaging algorithm similar to the leapfrog dual averaging. However, I
