@@ -179,6 +179,12 @@ samplesAllMinWith d = samplesDiagonalMin + max samplesDiagonalMin d
 getSampleSize :: VS.Vector Double -> Int
 getSampleSize = VS.length . VS.uniq . S.gsort
 
+-- I do not know where I got this function from, but it works pretty well!
+interpolate :: Double -> Double -> Double
+interpolate old new = interSqrt ** 2
+  where
+    interSqrt = recip 3 * (sqrt old + 2 * sqrt new)
+
 getNewMassDiagonalWithRescue :: Int -> Double -> Double -> Double
 getNewMassDiagonalWithRescue sampleSize massOld massEstimate
   | sampleSize < samplesDiagonalMin = massOld
@@ -188,10 +194,7 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
   | massEstimate <= 0 = massOld
   | massMin > massNew = massMin
   | massNew > massMax = massMax
-  | otherwise = massNew
-  where
-    massNewSqrt = recip 3 * (sqrt massOld + 2 * sqrt massEstimate)
-    massNew = massNewSqrt ** 2
+  | otherwise = interpolate massOld massEstimate
 
 -- The Cholesky decomposition, which is performed when sampling new momenta with
 -- 'generateMomenta', requires a positive definite covariance matrix. The
