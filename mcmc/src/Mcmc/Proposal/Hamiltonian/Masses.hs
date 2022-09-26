@@ -299,7 +299,7 @@ tuneAllMasses toVec xs (ms, msI)
   | VB.length xs < samplesAllMinWith dimMs = fallbackDiagonal
   | L.rank xs'' /= dimState = fallbackDiagonal
   | dimState /= dimMs = error "tuneAllMasses: Dimension mismatch."
-  | otherwise = (ms'', msI'')
+  | otherwise = (ms', msI')
   where
     fallbackDiagonal = tuneDiagonalMassesOnly toVec xs (ms, msI)
     -- xs: Each element contains all parameters of one iteration.
@@ -319,19 +319,20 @@ tuneAllMasses toVec xs (ms, msI)
         S.graphicalLasso defaultGraphicalLassoPenalty xsNormalized
     -- Sigma is the inverted mass matrix.
     msI' = toGMatrix $ S.rescaleSWith ss (L.unSym sigmaNormalized)
-    ms' = S.rescalePWith ss (L.unSym precNormalized)
-    -- Clean numerically (NaNs, infinities, etc.).
-    msCl = findClosestPositiveDefiniteMatrix $ cleanMatrix ms'
-    (ms'', msI'') =
-      if ms' == msCl
-        then (L.trustSym ms', msI')
-        else (L.trustSym msCl, getMassesI $ L.trustSym msCl)
+    ms' = L.trustSym $ S.rescalePWith ss (L.unSym precNormalized)
 
+-- -- -- NOTE: When encountering numerical errors, cleaning may be necessary.
 -- -- The masses should be positive definite, but sometimes they happen to be
--- -- not because of numerical errors. Positive definite matrices are
+-- -- not because of numerical errors.
+
+-- -- Clean numerically (NaNs, infinities, etc.).
+-- --  Positive definite matrices are
 -- -- symmetric.
--- msPD' = L.trustSym $ findClosestPositiveDefiniteMatrix ms'
--- msPDI' = if ms' == L.unSym msPD' then msI' else getMassesI msPD'
+-- msCl = findClosestPositiveDefiniteMatrix $ cleanMatrix ms'
+-- (ms'', msI'') =
+--   if ms' == msCl
+--     then (L.trustSym ms', msI')
+--     else (L.trustSym msCl, getMassesI $ L.trustSym msCl)
 
 -- TODO @Dominik (high, issue): The masses vary too much. I think i should use
 -- an averaging algorithm similar to the leapfrog dual averaging. However, I
