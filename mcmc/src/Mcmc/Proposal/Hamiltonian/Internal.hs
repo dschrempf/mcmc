@@ -298,7 +298,14 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = Just $ \tt pdim mar mxs (_, !t
               HTuneLeapfrog ->
                 let ar = fromMaybe (err "no acceptance rate") mar
                     delta = getOptimalRate pdim
-                    -- Algorithm 6.
+                    -- Algorithm 6; explained in Section 3.2.
+                    --
+                    -- Another good resource is the Tensorflow API
+                    -- documentation:
+                    -- https://www.tensorflow.org/probability/api_docs/python/tfp/mcmc/DualAveragingStepSizeAdaptation.
+                    --
+                    -- See also Nesterov (2007) Primal-dual subgradient methods
+                    -- for convex problems, Mathematical Programming.
                     c = recip $ m + t0
                     h' = (1.0 - c) * h + c * (delta - ar)
                     eps' = exp $ mu - (sqrt m / ga) * h'
