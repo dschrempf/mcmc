@@ -194,7 +194,9 @@ getNewMassDiagonalWithRescue sampleSize massOld massEstimate
   | massEstimate <= 0 = massOld
   | massMin > massNew = massMin
   | massNew > massMax = massMax
-  | otherwise = interpolate massOld massEstimate
+  | otherwise = massNew
+  where
+    massNew = interpolate massOld massEstimate
 
 -- The Cholesky decomposition, which is performed when sampling new momenta with
 -- 'generateMomenta', requires a positive definite covariance matrix. The
