@@ -131,7 +131,7 @@ tParamsFixedWith eps = TParamsFixed eps mu ga t0 ka
     -- the early warmup stages."
     --
     -- I changed this parameter from 0.75 to get better results in test runs.
-    ka = 0.85
+    ka = 0.75
 
 -- All internal parameters.
 data HParamsI = HParamsI
@@ -307,7 +307,8 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = Just $ \tt pdim mar mxs (_, !t
                     -- epsMean' = exp $ mMKa * logEps' + (1 - mMKa) * log epsMean
                     -- Which is the same as:
                     epsMean' = (eps' ** mMKa) * (epsMean ** (1 - mMKa))
-                 in (eps', epsMean', h')
+                    epsF = if tt == LastTuningAllProposals then epsMean' else eps'
+                 in (epsF, epsMean', h')
           tpv' = TParamsVar epsMean'' h'' (m + 1.0)
        in (eps'' / eps0, toAuxiliaryTuningParameters $ HParamsI eps'' la ms' tpv' tpf msI' mus)
   where
