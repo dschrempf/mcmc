@@ -321,19 +321,15 @@ tuneAllMasses toVec xs (ms, msI)
     -- Sigma is the inverted mass matrix.
     sigma = S.rescaleSWith ss sigmaNormalized
     msI' = toGMatrix sigma
+    -- Clean numerically (NaNs, infinities, etc.).
+    ms' = cleanMatrix $ L.inv sigma
     -- The masses should be positive definite, but sometimes they happen to be
-    -- not because of numerical errors.
-    ms' = L.sym $ cleanMatrix $ L.inv sigma
-    -- Positive definite matrices are symmetric.
-    msPD' = L.trustSym $ findClosestPositiveDefiniteMatrix $ L.unSym ms'
-    msPDI' = if L.unSym ms' == L.unSym msPD' then msI' else getMassesI msPD'
+    -- not because of numerical errors. Positive definite matrices are
+    -- symmetric.
+    msPD' = L.trustSym $ findClosestPositiveDefiniteMatrix ms'
+    msPDI' = if ms' == L.unSym msPD' then msI' else getMassesI msPD'
 
 -- TODO @Dominik (high, issue): The masses vary too much. I think i should use
 -- an averaging algorithm similar to the leapfrog dual averaging. However, I
 -- have to check if this works with positive definiteness, etc. I do a similar
 -- procedure in 'getNewMassDiagonalWithRescue'.
-
--- TODO @Dominik (high, issue): Check discrepancy of optimal and actual
--- acceptance rates for the pair example. After burn in, they match perfectly.
--- But after the complete run, the actual acceptance rate is 50 percent of the
--- optimal one (the effect is more pronounced with diagonal tuning).
