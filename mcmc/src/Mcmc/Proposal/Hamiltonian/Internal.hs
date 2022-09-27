@@ -118,8 +118,8 @@ tParamsFixedWith eps = TParamsFixed eps mu ga t0 ka
     -- not exactly sure what this means. The parameter does not seem to have
     -- much of an effect.
     mu = log $ 10 * eps
-    -- Gamma "controls the amount of shrinkage towards mu". The larger gamma,
-    -- the less variant is epsilon.
+    -- Gamma "controls the amount of shrinkage towards mu". The larger gamma is,
+    -- the less variant epsilon is.
     --
     -- I changed this parameter from 0.05 to get better results in test runs.
     ga = 0.15
@@ -283,14 +283,15 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = Just $ \tt pdim mar mxs (_, !t
             either error id $ fromAuxiliaryTuningParameters n ts
           (TParamsVar epsMean h m) = tpv
           (TParamsFixed eps0 mu ga t0 ka) = tpf
+          m' = SmoothingParameter $ round m
           (ms', msI') = case tt of
             IntermediateTuningAllProposals -> (ms, msI)
             _ ->
               let xs = fromMaybe (err "empty trace") mxs
                in case mc of
                     HNoTuneMasses -> (ms, msI)
-                    HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly toVec xs (ms, msI)
-                    HTuneAllMasses -> tuneAllMasses toVec xs (ms, msI)
+                    HTuneDiagonalMassesOnly -> tuneDiagonalMassesOnly m' toVec xs (ms, msI)
+                    HTuneAllMasses -> tuneAllMasses m' toVec xs (ms, msI)
           (eps'', epsMean'', h'') = case tt of
             LastTuningFastProposalsOnly -> (eps, epsMean, h)
             _ -> case lc of

@@ -21,6 +21,7 @@ module Mcmc.Proposal.Hamiltonian.Masses
     massesToVector,
 
     -- * Tuning
+    SmoothingParameter (..),
     tuneDiagonalMassesOnly,
     tuneAllMasses,
   )
@@ -32,6 +33,7 @@ import qualified Data.Vector.Storable as VS
 import qualified Data.Vector.Unboxed as VU
 import Mcmc.Proposal.Hamiltonian.Common
 import qualified Numeric.LinearAlgebra as L
+import Numeric.Natural
 import qualified Statistics.Covariance as S
 import qualified Statistics.Function as S
 import qualified Statistics.Sample as S
@@ -201,10 +203,17 @@ rescue f old new = rescueAfter $ rescueBefore f old new
 --   where
 --     interSqrt = recip 3 * (sqrt old + 2 * sqrt new)
 
+-- | This parameter plays the same role as @m@ in the dual averaging algorithm.
+-- In the beginning, when @m@ is zero, the newly estimated masses will take full
+-- precedence over the current masses. After some auto tuning steps, when @m@ is
+-- larger, the newly estimated masses influence the current masses only
+-- slightly.
+newtype SmoothingParameter = SmoothingParameter Natural
+
 -- Another interpolation function I came up with. It is pretty cool, because
 -- (similar to above) it interpolates the square roots, which is what we want.
-interpolate' :: Double -> Double -> Double
-interpolate' oldSquared newSquared = finSign * (fin ** 2)
+interpolate' :: SmoothingParameter -> Double -> Double -> Double
+interpolate' (SmoothingParameter m) oldSquared newSquared = finSign * (fin ** 2)
   where
     oldSign = signum oldSquared
     newSign = signum newSquared
@@ -214,25 +223,25 @@ interpolate' oldSquared newSquared = finSign * (fin ** 2)
     -- The new mass will be the second last boundary. That is, the larger the
     -- number of bins is, the more informative the new mass is compared to the
     -- old mass.
-    nbins = 2
+    nbins = max (100 - fromIntegral m) 2
     fin = recip nbins * (old + (nbins - 1) * new)
     finSign = signum fin
 
-getNewMassDiagonalWithSampleSize :: Int -> Double -> Double -> Double
-getNewMassDiagonalWithSampleSize sampleSize massOld massEstimate
+getNewMassDiagonalWithSampleSize :: SmoothingParameter -> Int -> Double -> Double -> Double
+getNewMassDiagonalWithSampleSize m sampleSize massOld massEstimate
   | sampleSize < samplesDiagonalMin = massOld
   -- Diagonal masses are variances which are strictly positive.
   | massEstimate <= 0 = massOld
-  | otherwise = rescue interpolate' massOld massEstimate
+  | otherwise = rescue (interpolate' m) massOld massEstimate
 
-getNewMassDiagonal :: Double -> Double -> Double
-getNewMassDiagonal massOld massEstimate
+getNewMassDiagonal :: SmoothingParameter -> Double -> Double -> Double
+getNewMassDiagonal m massOld massEstimate
   -- Diagonal masses are variances which are strictly positive.
   | massEstimate <= 0 = massOld
-  | otherwise = rescue interpolate' massOld massEstimate
+  | otherwise = rescue (interpolate' m) massOld massEstimate
 
-getNewMassOffDiagonal :: Double -> Double -> Double
-getNewMassOffDiagonal = rescue interpolate'
+getNewMassOffDiagonal :: SmoothingParameter -> Double -> Double -> Double
+getNewMassOffDiagonal m = rescue (interpolate' m)
 
 -- The Cholesky decomposition, which is performed when sampling new momenta with
 -- 'generateMomenta', requires a positive definite covariance matrix. The
@@ -272,6 +281,7 @@ findClosestPositiveDefiniteMatrix a
            in go x' (k + 1)
 
 tuneDiagonalMassesOnly ::
+  SmoothingParameter ->
   -- Conversion from value to vector.
   (a -> Positions) ->
   -- Value vector.
@@ -283,7 +293,7 @@ tuneDiagonalMassesOnly ::
 -- NOTE: Here, we lose time because we convert the states to vectors again,
 -- something that has already been done. But then, auto tuning is not a runtime
 -- determining factor.
-tuneDiagonalMassesOnly toVec xs (ms, msI)
+tuneDiagonalMassesOnly m toVec xs (ms, msI)
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesDiagonalMin = (ms, msI)
   | dimState /= dimMs = error "tuneDiagonalMassesOnly: Dimension mismatch."
@@ -312,7 +322,7 @@ tuneDiagonalMassesOnly toVec xs (ms, msI)
     msDiagonalEstimate = VS.fromList $ map (recip . S.variance) $ L.toColumns xs''
     msDiagonalNew =
       VS.zipWith3
-        getNewMassDiagonalWithSampleSize
+        (getNewMassDiagonalWithSampleSize m)
         sampleSizes
         msDiagonalOld
         msDiagonalEstimate
@@ -321,8 +331,8 @@ tuneDiagonalMassesOnly toVec xs (ms, msI)
 defaultGraphicalLassoPenalty :: Double
 defaultGraphicalLassoPenalty = 0.3
 
-interpolateElementWise :: L.Matrix Double -> L.Matrix Double -> L.Matrix Double
-interpolateElementWise old new
+interpolateElementWise :: SmoothingParameter -> L.Matrix Double -> L.Matrix Double -> L.Matrix Double
+interpolateElementWise m old new
   | mO /= mN = err "different number of rows"
   | nO /= nN = err "different number of columns"
   | mO /= nO = err "not square"
@@ -339,12 +349,13 @@ interpolateElementWise old new
           -- since the return type is Double, the indices are also Doubble.
           i = round iD
           j = round jD
-          g = if i == j then getNewMassDiagonal else getNewMassOffDiagonal
+          g = if i == j then getNewMassDiagonal m else getNewMassOffDiagonal m
           eO = old `L.atIndex` (i, j)
           eN = new `L.atIndex` (i, j)
        in g eO eN
 
 tuneAllMasses ::
+  SmoothingParameter ->
   -- Conversion from value to vector.
   (a -> Positions) ->
   -- Value vector.
@@ -356,7 +367,7 @@ tuneAllMasses ::
 -- NOTE: Here, we lose time because we convert the states to vectors again,
 -- something that has already been done. But then, auto tuning is not a runtime
 -- determining factor.
-tuneAllMasses toVec xs (ms, msI)
+tuneAllMasses m toVec xs (ms, msI)
   -- If not enough data is available, do not tune.
   | VB.length xs < samplesDiagonalMin = (ms, msI)
   -- If not enough data is available, only the diagonal masses are tuned.
@@ -365,7 +376,7 @@ tuneAllMasses toVec xs (ms, msI)
   | dimState /= dimMs = error "tuneAllMasses: Dimension mismatch."
   | otherwise = (msNew, msINew)
   where
-    fallbackDiagonal = tuneDiagonalMassesOnly toVec xs (ms, msI)
+    fallbackDiagonal = tuneDiagonalMassesOnly m toVec xs (ms, msI)
     -- xs: Each element contains all parameters of one iteration.
     -- xs': Each element is a vector containing all parameters changed by the
     -- proposal of one iteration.
@@ -389,7 +400,7 @@ tuneAllMasses toVec xs (ms, msI)
     -- Clean NaNs, infinities; ensure positive definiteness. The masses should
     -- be positive definite, but sometimes they happen to be not because of
     -- numerical errors.
-    msNewDirty = interpolateElementWise (L.unSym ms) ms'
+    msNewDirty = interpolateElementWise m (L.unSym ms) ms'
     -- Positive definite matrices are symmetric.
     msNew = L.trustSym $ findClosestPositiveDefiniteMatrix $ cleanMatrix msNewDirty
     msINew = getMassesI msNew
