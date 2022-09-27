@@ -59,7 +59,8 @@ import Mcmc.Prior
 import qualified Numeric.LinearAlgebra as L
 
 -- NOTE: Implementing the Riemannian adaptation (state-dependent mass matrix).
--- seems a little bit of an overkill.
+-- seems a little bit of an overkill. See also
+-- https://discourse.mc-stan.org/t/riemann-manifold-hmc-in-stan/19466/5.
 
 -- | The Hamiltonian proposal acts on a vector of floating point values referred
 -- to as positions.
