@@ -109,6 +109,9 @@ data TParamsFixed = TParamsFixed
 --   t0 = 3
 --   ka = 0.5
 --
+-- Another good resource:
+-- https://mc-stan.org/docs/2_29/reference-manual/hmc-algorithm-parameters.html.
+--
 -- NOTE: In theory, we could expose these internal tuning parameters to the
 -- user.
 tParamsFixedWith :: LeapfrogScalingFactor -> TParamsFixed
