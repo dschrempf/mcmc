@@ -249,7 +249,7 @@ data Tuner a = Tuner
     tAuxiliaryTuningParameters :: AuxiliaryTuningParameters,
     -- | Does the tuner require the trace over the last tuning period?
     tRequireTrace :: Bool,
-    -- | Can the tuner be used for 'IntermediateTuning'?
+    -- | Can the tuner be used for intermediate tuning (see 'TuningType')?
     tSuitableForIntermediateTuning :: Bool,
     tTuningFunction :: TuningFunction a,
     -- | Given the tuning parameter, and the auxiliary tuning parameters, get
@@ -299,9 +299,9 @@ type TuningFunction a =
   -- | Acceptance rate of last tuning period. May not always be available
   -- because proposals may be skipped.
   Maybe AcceptanceRate ->
-  -- | Trace of last tuning period. Not available for 'IntermediateTuning'
-  -- steps, and only available for other tuning types when requested by
-  -- proposal.
+  -- | Trace of last tuning period. Not available for intermediate tuning' steps
+  -- (see 'TuningType'), and only available for other tuning types when
+  -- requested by proposal.
   Maybe (VB.Vector a) ->
   (TuningParameter, AuxiliaryTuningParameters) ->
   (TuningParameter, AuxiliaryTuningParameters)
