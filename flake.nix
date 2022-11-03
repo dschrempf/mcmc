@@ -70,9 +70,7 @@
           buildInputs = with pkgs; [
             bashInteractive
 
-            # TODO: `cabal-fmt` fails to build when using a newer package set.
-            haskell.packages.ghc902.cabal-fmt
-
+            hpkgs.cabal-fmt
             hpkgs.cabal-install
             hpkgs.haskell-language-server
           ];
