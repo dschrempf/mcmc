@@ -37,7 +37,7 @@
           "mcmc-statistics"
         ];
         ghcVersion = "ghc924";
-        haskellMkPackage = f: name: f name (./. + "/${name}") rec { };
+        haskellMkPackage = f: name: f name (./. + "/${name}") { };
         haskellOverlay = (
           selfn: supern: {
             haskellPackages = supern.haskell.packages.${ghcVersion}.override {
