@@ -19,26 +19,25 @@ import Mcmc.Proposal
 import Numeric.Log
 import Statistics.Distribution
 
--- | Generic function to create proposals for continuous parameters (e.g.,
--- 'Double').
+-- | Generic function to create proposals using a continuous auxiliary variable
+-- of type 'Double'.
 --
 -- The procedure is as follows: Let \(\mathbb{X}\) be the state space and \(x\)
 -- be the current state.
 --
 -- 1. Let \(D\) be a continuous probability distribution on \(\mathbb{D}\);
---    sample an auxiliary variable \(epsilon \sim D\).
+--    sample an auxiliary variable \(u \sim D\).
 --
--- 2. Suppose \(\odot : \mathbb{X} \times \mathbb{D} \to \mathbb{X}\). PFunction a
---    new state \(x' = x \odot \epsilon\).
+-- 2. Let \(\odot : \mathbb{X} \times \mathbb{D} \to \mathbb{X}\). Propose a
+--    new state \(x' = x \odot u\).
 --
--- 3. If the proposal is unbiased, the Metropolis-Hastings-Green ratio can
---    directly be calculated using the posterior function.
+-- If the proposal is unbiased, the Metropolis-Hastings-Green ratio can directly
+-- be calculated using the posterior function.
 --
--- 4. However, if the proposal is biased: Suppose \(g : \mathbb{D} \to
---    \mathbb{D}\) inverses the auxiliary variable \(\epsilon\) such that \(x =
---    x' \odot g(\epsilon)\). Calculate the Metropolis-Hastings-Green ratio
---    using the posterior function, \(g\), \(D\), \(\epsilon\), and possibly a
---    Jacobian function.
+-- However, if the proposal is biased: Let \(g : \mathbb{D} \to \mathbb{D}\);
+-- \(g\) inverses the auxiliary variable \(u\) such that \(x = x' \odot g(u)\).
+-- Calculate the Metropolis-Hastings-Green ratio using the posterior function,
+-- \(g\), \(D\), \(u\), and possibly a Jacobian function.
 genericContinuous ::
   (ContDistr d, ContGen d) =>
   -- | Probability distribution
@@ -46,12 +45,12 @@ genericContinuous ::
   -- | Forward operator \(\odot\).
   --
   -- For example, for a multiplicative proposal on one variable the forward
-  -- operator is @(*)@, so that @x * u = y@.
+  -- operator is @(*)@, so that \(x' = x * u\).
   (a -> Double -> a) ->
   -- | Inverse operator \(g\) of the auxiliary variable.
   --
   -- For example, 'recip' for a multiplicative proposal on one variable, since
-  -- @y * (recip u) = x * u * (recip u) = x@.
+  -- \(x' * u^{-1} = x * u * u^{-1} = x\).
   --
   -- Required for biased proposals.
   Maybe (Double -> Double) ->
@@ -86,7 +85,8 @@ genericContinuous d f mInv mJac x g = do
   pure (Propose (x `f` u) r j, Nothing)
 {-# INLINEABLE genericContinuous #-}
 
--- | Generic function to create proposals for discrete parameters (e.g., 'Int').
+-- | Generic function to create proposals using a discrete auxiliary variable of
+-- type 'Int'.
 --
 -- See 'genericContinuous'.
 genericDiscrete ::
@@ -95,11 +95,11 @@ genericDiscrete ::
   d ->
   -- | Forward operator.
   --
-  -- For example, (+), so that x + dx = x'.
+  -- For example, (+), so that \(x + dx = x'\).
   (a -> Int -> a) ->
   -- | Inverse operator \(g\) of the auxiliary variable.
   --
-  -- For example, 'negate', so that x' + (negate dx) = x.
+  -- For example, 'negate', so that \(x' - dx = x + dx - dx = x\).
   --
   -- Only required for biased proposals.
   Maybe (Int -> Int) ->
