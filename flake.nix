@@ -27,56 +27,64 @@
     , nixpkgs
     , pava
     }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        lib = nixpkgs.lib;
-        packageNames = [
-          "mcmc"
-          "mcmc-examples"
-          "mcmc-statistics"
-        ];
-        ghcVersion = "ghc943";
-        haskellMkPackage = f: name: f name (./. + "/${name}") { };
-        haskellOverlay = (
-          selfn: supern: {
-            haskellPackages = supern.haskell.packages.${ghcVersion}.override {
-              overrides = selfh: superh:
-                {
-                  circular = circular.packages.${system}.default;
-                  covariance = covariance.packages.${system}.default;
-                  dirichlet = dirichlet.packages.${system}.default;
-                  pava = pava.packages.${system}.default;
-                } // lib.genAttrs packageNames (haskellMkPackage selfh.callCabal2nix);
-            };
-          }
-        );
-        overlays = [ haskellOverlay ];
-        pkgs = import nixpkgs {
-          inherit system overlays;
+    let
+      theseHpkgNames = [
+        "mcmc"
+        "mcmc-examples"
+        "mcmc-statistics"
+      ];
+      thisGhcVersion = "ghc943";
+      hMkPackage = h: n: h.callCabal2nix n (./. + "/${n}") { };
+      hOverlay = selfn: supern: {
+        haskell = supern.haskell // {
+          packageOverrides = selfh: superh:
+            supern.haskell.packageOverrides selfh superh //
+              nixpkgs.lib.genAttrs theseHpkgNames (hMkPackage selfh);
         };
-        hpkgs = pkgs.haskellPackages;
-        # Set with packages.
-        mcmcPkgs = lib.genAttrs packageNames (n: hpkgs.${n});
-        # List with packages with benchmark dependencies for development
-        # environment.
-        mcmcPkgsDev = builtins.mapAttrs (_: x: pkgs.haskell.lib.doBenchmark x) mcmcPkgs;
-      in
-      {
-        packages = mcmcPkgs // { default = mcmcPkgs.mcmc; };
+      };
+      perSystem = system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ hOverlay
+                         circular.overlays.default
+                         covariance.overlays.default
+                         dirichlet.overlays.default
+                         pava.overlays.default
+                       ];
+          };
+          hpkgs = pkgs.haskell.packages.${thisGhcVersion};
+          hlib = pkgs.haskell.lib;
+          theseHpkgs = nixpkgs.lib.genAttrs theseHpkgNames (n: hpkgs.${n});
+          theseHpkgsDev = builtins.mapAttrs (_: x: hlib.doBenchmark x) theseHpkgs;
+        in
+        {
+          packages = theseHpkgs // { default = theseHpkgs.mcmc; };
 
-        devShells.default = hpkgs.shellFor {
-          packages = _: (builtins.attrValues mcmcPkgsDev);
-          buildInputs = with pkgs; [
-            bashInteractive
+          devShells.default = hpkgs.shellFor {
+            # shellHook =
+            #   let
+            #     scripts = ./scripts;
+            #   in
+            #   ''
+            #     export PATH="${scripts}:$PATH"
+            #   '';
+            packages = _: (builtins.attrValues theseHpkgsDev);
+            nativeBuildInputs = with pkgs; [
+              # See https://github.com/NixOS/nixpkgs/issues/59209.
+              bashInteractive
 
-            hpkgs.cabal-fmt
-            hpkgs.cabal-install
-            hpkgs.haskell-language-server
-          ];
-          doBenchmark = true;
-          # withHoogle = true;
+              # Haskell toolchain.
+              hpkgs.cabal-fmt
+              hpkgs.cabal-install
+              hpkgs.haskell-language-server
+            ];
+            buildInputs = with pkgs; [
+            ];
+            doBenchmark = true;
+            # withHoogle = true;
+          };
         };
-      }
-    );
+    in
+    { overlays.default = hOverlay; } // flake-utils.lib.eachDefaultSystem perSystem;
 }
