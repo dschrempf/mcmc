@@ -46,12 +46,13 @@
         let
           pkgs = import nixpkgs {
             inherit system;
-            overlays = [ hOverlay
-                         circular.overlays.default
-                         covariance.overlays.default
-                         dirichlet.overlays.default
-                         pava.overlays.default
-                       ];
+            overlays = [
+              hOverlay
+              circular.overlays.default
+              covariance.overlays.default
+              dirichlet.overlays.default
+              pava.overlays.default
+            ];
           };
           hpkgs = pkgs.haskell.packages.${thisGhcVersion};
           hlib = pkgs.haskell.lib;
@@ -62,13 +63,6 @@
           packages = theseHpkgs // { default = theseHpkgs.mcmc; };
 
           devShells.default = hpkgs.shellFor {
-            # shellHook =
-            #   let
-            #     scripts = ./scripts;
-            #   in
-            #   ''
-            #     export PATH="${scripts}:$PATH"
-            #   '';
             packages = _: (builtins.attrValues theseHpkgsDev);
             nativeBuildInputs = with pkgs; [
               # See https://github.com/NixOS/nixpkgs/issues/59209.
