@@ -36,7 +36,7 @@
           "mcmc-examples"
           "mcmc-statistics"
         ];
-        ghcVersion = "ghc924";
+        ghcVersion = "ghc943";
         haskellMkPackage = f: name: f name (./. + "/${name}") { };
         haskellOverlay = (
           selfn: supern: {
