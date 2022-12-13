@@ -42,17 +42,18 @@
               nixpkgs.lib.genAttrs theseHpkgNames (hMkPackage selfh);
         };
       };
+      overlays = [
+        hOverlay
+        circular.overlays.default
+        covariance.overlays.default
+        dirichlet.overlays.default
+        pava.overlays.default
+      ];
       perSystem = system:
         let
           pkgs = import nixpkgs {
             inherit system;
-            overlays = [
-              hOverlay
-              circular.overlays.default
-              covariance.overlays.default
-              dirichlet.overlays.default
-              pava.overlays.default
-            ];
+            inherit overlays;
           };
           hpkgs = pkgs.haskell.packages.${thisGhcVersion};
           hlib = pkgs.haskell.lib;
@@ -80,5 +81,6 @@
           };
         };
     in
-    { overlays.default = hOverlay; } // flake-utils.lib.eachDefaultSystem perSystem;
+    { overlays.default = nixpkgs.lib.composeManyExtensions overlays; }
+    // flake-utils.lib.eachDefaultSystem perSystem;
 }
