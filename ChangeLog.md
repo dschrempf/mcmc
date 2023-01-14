@@ -5,6 +5,14 @@
 ## Unreleased changes
 
 
+## 0.8.1.0
+
+-   Automatic intermediate tuning for HMC and NUTS.
+-   Fix documentation for generic proposals.
+-   Tooling updates.
+-   Slight runtime improvements (strictness annotations).
+
+
 ## 0.8.0.1
 
 -   Improve exception handling (also during execution of monitors; also improve
