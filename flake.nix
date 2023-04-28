@@ -33,7 +33,7 @@
         "mcmc-examples"
         "mcmc-statistics"
       ];
-      thisGhcVersion = "ghc927";
+      # thisGhcVersion = "ghc927";
       hMkPackage = h: n: h.callCabal2nix n (./. + "/${n}") { };
       hOverlay = selfn: supern: {
         haskell = supern.haskell // {
@@ -55,7 +55,8 @@
             inherit system;
             inherit overlays;
           };
-          hpkgs = pkgs.haskell.packages.${thisGhcVersion};
+          # hpkgs = pkgs.haskell.packages.${thisGhcVersion};
+          hpkgs = pkgs.haskellPackages;
           hlib = pkgs.haskell.lib;
           theseHpkgs = nixpkgs.lib.genAttrs theseHpkgNames (n: hpkgs.${n});
           theseHpkgsDev = builtins.mapAttrs (_: x: hlib.doBenchmark x) theseHpkgs;
