@@ -184,18 +184,16 @@ sampleAtPoint x ss lhf a = do
 
 traversePoints ::
   ToJSON a =>
-  -- Current point.
-  Int ->
   NPoints ->
-  [Point] ->
+  [(Int, Point)] ->
   Settings ->
   LikelihoodFunction a ->
   MHG a ->
   -- For each point a vector of obtained likelihoods stored in the log domain.
   ML [VU.Vector Likelihood]
-traversePoints _ _ [] _ _ _ = return []
-traversePoints i k (b : bs) ss lhf a = do
-  logInfoS $ "Point " <> show i <> " of " <> show k' <> ": " <> show b <> "."
+traversePoints _ [] _ _ _ = return []
+traversePoints k ((idb, b) : bs) ss lhf a = do
+  logInfoS $ "Point " <> show idb <> " of " <> show k' <> ": " <> show b <> "."
   a' <- sampleAtPoint b ss lhf a
   -- Get the links samples at this point.
   ls <- liftIO $ takeT n $ trace $ fromMHG a'
@@ -208,7 +206,7 @@ traversePoints i k (b : bs) ss lhf a = do
   -- resulting in a severe memory leak.
   let !lhs = VU.convert $ VB.map (lhf . state) ls
   -- Sample the other points.
-  lhss <- traversePoints (i + 1) k bs ss lhf a'
+  lhss <- traversePoints k bs ss lhf a'
   return $ lhs : lhss
   where
     n = fromIterations $ sIterations ss
@@ -237,7 +235,7 @@ mlRunPar ::
   ToJSON a =>
   ParallelizationMode ->
   NPoints ->
-  [Point] ->
+  [(Int, Point)] ->
   ExecutionMode ->
   Verbosity ->
   PriorFunction a ->
@@ -247,15 +245,23 @@ mlRunPar ::
   a ->
   StdGen ->
   ML [VU.Vector Likelihood]
-mlRunPar Sequential k xs em vb prf lhf cc mn i0 g = mlRun k xs em vb prf lhf cc mn i0 g
-mlRunPar Parallel k xs em vb prf lhf cc mn i0 g = do
-  nThreads <- liftIO getNumCapabilities
-  undefined
+mlRunPar pm k xs em vb prf lhf cc mn i0 g = do
+  nThreads <- case pm of
+    Sequential -> pure 1
+    Parallel -> liftIO getNumCapabilities
+  let xsChunks = nChunks nThreads xs
+  r <- ask
+  xss <-
+    liftIO $
+      mapConcurrently
+        (\thesePoints -> runReaderT (mlRun k thesePoints em vb prf lhf cc mn i0 g) r)
+        xsChunks
+  pure $ concat xss
 
 mlRun ::
   ToJSON a =>
   NPoints ->
-  [Point] ->
+  [(Int, Point)] ->
   ExecutionMode ->
   Verbosity ->
   PriorFunction a ->
@@ -282,12 +288,12 @@ mlRun k xs em vb prf lhf cc mn i0 g = do
       ssP = Settings nm biP is trLen em Sequential NoSave LogFileOnly vb'
   logDebugB "mlRun: Initialize MHG algorithm."
   a0 <- liftIO $ mhg ssI prf lhf cc mn i0 g
-  logDebugS $ "mlRun: Perform initial burn in at first point " <> show x0 <> "."
+  logDebugS $ "mlRun: Perform initial burn in at point " <> show x0 <> " with ID " <> show id0 <> "."
   a1 <- sampleAtPoint x0 ssI lhf a0
   logDebugB "mlRun: Traverse points."
-  traversePoints 1 k xs ssP lhf a1
+  traversePoints k xs ssP lhf a1
   where
-    x0 = head xs
+    (id0, x0) = head xs
 
 -- Use lists since the number of points is expected to be low.
 integrateSimpsonTriangle ::
@@ -321,8 +327,8 @@ tiWrapper s prf lhf cc mn i0 g = do
   (lhssForward, lhssBackward) <-
     lift $
       concurrently
-        (runReaderT (mlRunPar pm k bsForward em vb prf lhf cc mn i0 g0) r)
-        (runReaderT (mlRunPar pm k bsBackward em vb prf lhf cc mn i0 g1) r)
+        (runReaderT (mlRunPar pm k (zip [1 ..] bsForward) em vb prf lhf cc mn i0 g0) r)
+        (runReaderT (mlRunPar pm k (zip [1 ..] bsBackward) em vb prf lhf cc mn i0 g1) r)
   logInfoEndTime
 
   logDebugB "tiWrapper: Calculate mean log likelihoods."
@@ -398,7 +404,7 @@ sssWrapper ::
   ML MarginalLikelihood
 sssWrapper s prf lhf cc mn i0 g = do
   logInfoB "Stepping stone sampling."
-  logLhss <- mlRunPar pm k bsForward' em vb prf lhf cc mn i0 g
+  logLhss <- mlRunPar pm k (zip [1 ..] bsForward') em vb prf lhf cc mn i0 g
   logInfoB "The last point does not need to be sampled with stepping stone sampling."
   logDebugB "sssWrapper: Calculate marginal likelihood."
   return $ sssCalculateMarginalLikelihood bsForward logLhss
