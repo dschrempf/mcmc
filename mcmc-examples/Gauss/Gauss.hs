@@ -70,6 +70,7 @@ main = do
           (BurnInWithAutoTuning 1000 100)
           (Iterations n)
           Overwrite
+          Sequential
           LogStdOutAndFile
           Info
       i0 = replicate d 0

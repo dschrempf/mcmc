@@ -118,6 +118,7 @@ main = do
           (BurnInWithAutoTuning 1000 100)
           (Iterations 6000)
           Overwrite
+          Sequential
           LogStdOutAndFile
           Info
   void $ marginalLikelihood ss pr (lh xs) cc (simpleMonitor 1000) 0.01 g

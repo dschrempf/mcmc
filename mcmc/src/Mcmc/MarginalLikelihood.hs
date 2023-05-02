@@ -21,6 +21,7 @@ module Mcmc.MarginalLikelihood
   )
 where
 
+import Control.Concurrent (getNumCapabilities)
 import Control.Concurrent.Async hiding (link)
 import Control.Monad
 import Control.Monad.IO.Class
@@ -87,13 +88,15 @@ data MLSettings = MLSettings
   { mlAnalysisName :: AnalysisName,
     mlAlgorithm :: MLAlgorithm,
     mlNPoints :: NPoints,
-    -- | Initial burn in at the starting point of the path.
+    -- | Initial burn in at the starting point of the path (or each segment if
+    -- running in parallel).
     mlInitialBurnIn :: BurnInSettings,
     -- | Repetitive burn in at each point on the path.
     mlPointBurnIn :: BurnInSettings,
     -- | The number of iterations performed at each point.
     mlIterations :: Iterations,
     mlExecutionMode :: ExecutionMode,
+    mlParallelizationMode :: ParallelizationMode,
     mlLogMode :: LogMode,
     mlVerbosity :: Verbosity
   }
@@ -211,6 +214,44 @@ traversePoints i k (b : bs) ss lhf a = do
     n = fromIterations $ sIterations ss
     (NPoints k') = k
 
+nChunks :: Int -> [a] -> [[a]]
+nChunks k xs = chop (chunks k l) xs
+  where
+    l = length xs
+
+chunks :: Int -> Int -> [Int]
+chunks c n = filter (> 0) ns
+  where
+    n' = n `div` c
+    r = n `mod` c
+    ns = replicate r (n' + 1) ++ replicate (c - r) n'
+
+chop :: [Int] -> [a] -> [[a]]
+chop [] [] = []
+chop (n : ns) xs
+  | n > 0 = take n xs : chop ns (drop n xs)
+  | otherwise = error "chop: n negative or zero"
+chop _ _ = error "chop: not all list elements handled"
+
+mlRunPar ::
+  ToJSON a =>
+  ParallelizationMode ->
+  NPoints ->
+  [Point] ->
+  ExecutionMode ->
+  Verbosity ->
+  PriorFunction a ->
+  LikelihoodFunction a ->
+  Cycle a ->
+  Monitor a ->
+  a ->
+  StdGen ->
+  ML [VU.Vector Likelihood]
+mlRunPar Sequential k xs em vb prf lhf cc mn i0 g = mlRun k xs em vb prf lhf cc mn i0 g
+mlRunPar Parallel k xs em vb prf lhf cc mn i0 g = do
+  nThreads <- liftIO getNumCapabilities
+  undefined
+
 mlRun ::
   ToJSON a =>
   NPoints ->
@@ -280,8 +321,8 @@ tiWrapper s prf lhf cc mn i0 g = do
   (lhssForward, lhssBackward) <-
     lift $
       concurrently
-        (runReaderT (mlRun k bsForward em vb prf lhf cc mn i0 g0) r)
-        (runReaderT (mlRun k bsBackward em vb prf lhf cc mn i0 g1) r)
+        (runReaderT (mlRunPar pm k bsForward em vb prf lhf cc mn i0 g0) r)
+        (runReaderT (mlRunPar pm k bsBackward em vb prf lhf cc mn i0 g1) r)
   logInfoEndTime
 
   logDebugB "tiWrapper: Calculate mean log likelihoods."
@@ -300,6 +341,7 @@ tiWrapper s prf lhf cc mn i0 g = do
     bsForward = getPoints k
     bsBackward = reverse bsForward
     em = mlExecutionMode s
+    pm = mlParallelizationMode s
     vb = mlVerbosity s
 
 -- Helper function to exponentiate log domain values with a double value.
@@ -356,7 +398,7 @@ sssWrapper ::
   ML MarginalLikelihood
 sssWrapper s prf lhf cc mn i0 g = do
   logInfoB "Stepping stone sampling."
-  logLhss <- mlRun k bsForward' em vb prf lhf cc mn i0 g
+  logLhss <- mlRunPar pm k bsForward' em vb prf lhf cc mn i0 g
   logInfoB "The last point does not need to be sampled with stepping stone sampling."
   logDebugB "sssWrapper: Calculate marginal likelihood."
   return $ sssCalculateMarginalLikelihood bsForward logLhss
@@ -365,6 +407,7 @@ sssWrapper s prf lhf cc mn i0 g = do
     bsForward = getPoints k
     bsForward' = init bsForward
     em = mlExecutionMode s
+    pm = mlParallelizationMode s
     vb = mlVerbosity s
 
 -- | Estimate the marginal likelihood.
