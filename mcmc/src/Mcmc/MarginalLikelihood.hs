@@ -142,23 +142,27 @@ getPoints x = [f i ** (1.0 / alpha) | i <- [0 .. k1]]
 
 sampleAtPoint ::
   ToJSON a =>
+  Bool ->
   Point ->
   Settings ->
   LikelihoodFunction a ->
   MHG a ->
   ML (MHG a)
-sampleAtPoint x ss lhf a = do
+sampleAtPoint isInitialBurnIn x ss lhf a = do
   a'' <- liftIO $ mcmc ss' a'
   let ch'' = fromMHG a''
       ac = acceptances ch''
       mAr = sequence $ acceptanceRates ac
   logDebugB "sampleAtPoint: Summarize cycle."
   logDebugB $ summarizeCycle AllProposals ac $ cycle ch''
-  case mAr of
-    Nothing -> logWarnB "Some acceptance rates are unavailable."
-    Just ar -> do
-      unless (M.null $ M.filter (<= 0.1) ar) $ logWarnB "Some acceptance rates are below 0.1."
-      unless (M.null $ M.filter (>= 0.9) ar) $ logWarnB "Some acceptance rates are above 0.9."
+  unless
+    isInitialBurnIn
+    ( case mAr of
+        Nothing -> logWarnB "Some acceptance rates are unavailable."
+        Just ar -> do
+          unless (M.null $ M.filter (<= 0.1) ar) $ logWarnB "Some acceptance rates are below 0.1."
+          unless (M.null $ M.filter (>= 0.9) ar) $ logWarnB "Some acceptance rates are above 0.9."
+    )
   return a''
   where
     -- For debugging set a proper analysis name.
@@ -194,7 +198,7 @@ traversePoints ::
 traversePoints _ [] _ _ _ = return []
 traversePoints k ((idb, b) : bs) ss lhf a = do
   logInfoS $ "Point " <> show idb <> " of " <> show k' <> ": " <> show b <> "."
-  a' <- sampleAtPoint b ss lhf a
+  a' <- sampleAtPoint False b ss lhf a
   -- Get the links samples at this point.
   ls <- liftIO $ takeT n $ trace $ fromMHG a'
   -- Extract the likelihoods.
@@ -289,7 +293,7 @@ mlRun k xs em vb prf lhf cc mn i0 g = do
   logDebugB "mlRun: Initialize MHG algorithm."
   a0 <- liftIO $ mhg ssI prf lhf cc mn i0 g
   logDebugS $ "mlRun: Perform initial burn in at point " <> show x0 <> " with ID " <> show id0 <> "."
-  a1 <- sampleAtPoint x0 ssI lhf a0
+  a1 <- sampleAtPoint True x0 ssI lhf a0
   logDebugB "mlRun: Traverse points."
   traversePoints k xs ssP lhf a1
   where
