@@ -197,7 +197,8 @@ traversePoints ::
   ML [VU.Vector Likelihood]
 traversePoints _ [] _ _ _ = return []
 traversePoints k ((idb, b) : bs) ss lhf a = do
-  logInfoS $ "Point " <> show idb <> " of " <> show k' <> ": " <> show b <> "."
+  let msg = printf "Point %4d of %4d: %.12f." idb k' b
+  logInfoS msg
   a' <- sampleAtPoint False b ss lhf a
   -- Get the links samples at this point.
   ls <- liftIO $ takeT n $ trace $ fromMHG a'
@@ -297,7 +298,8 @@ mlRun k xs em vb prf lhf cc mn i0 g = do
       ssP = Settings nm biP is trLen em Sequential NoSave LogFileOnly vb'
   logDebugB "mlRun: Initialize MHG algorithm."
   a0 <- liftIO $ mhg ssI prf lhf cc mn i0 g
-  logDebugS $ "mlRun: Perform initial burn in at point " <> show x0 <> " with ID " <> show id0 <> "."
+  let msg = printf "Initial burn in at point %.12f with ID %4d." x0 id0
+  logInfoS msg
   a1 <- sampleAtPoint True x0 ssI lhf a0
   logDebugB "mlRun: Traverse points."
   traversePoints k xs ssP lhf a1
