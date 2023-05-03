@@ -251,8 +251,13 @@ mlRunPar ::
   ML [VU.Vector Likelihood]
 mlRunPar pm k xs em vb prf lhf cc mn i0 g = do
   nThreads <- case pm of
-    Sequential -> pure 1
-    Parallel -> liftIO getNumCapabilities
+    Sequential -> do
+      logInfoB "Sequential execution."
+      pure 1
+    Parallel -> do
+      n <- liftIO getNumCapabilities
+      logInfoS $ "Parallel execution with " <> show n <> " cores."
+      pure n
   let xsChunks = nChunks nThreads xs
   r <- ask
   xss <-
