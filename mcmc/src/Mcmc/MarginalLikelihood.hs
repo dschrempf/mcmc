@@ -440,9 +440,9 @@ marginalLikelihood s prf lhf cc mn i0 g = do
   -- Initialize.
   e <- initializeEnvironment s
 
-  when (mlVerbosity s == Debug) $ do
-    let n = fromAnalysisName $ mlAnalysisName s
-    createDirectoryIfMissing True n
+  -- Create marginal likelihood analysis directory.
+  let n = fromAnalysisName $ mlAnalysisName s
+  createDirectoryIfMissing True n
 
   -- Run.
   runReaderT
