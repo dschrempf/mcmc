@@ -66,9 +66,6 @@
           devShells.default = hpkgs.shellFor {
             packages = _: (builtins.attrValues theseHpkgsDev);
             nativeBuildInputs = with pkgs; [
-              # See https://github.com/NixOS/nixpkgs/issues/59209.
-              bashInteractive
-
               # Haskell toolchain.
               hpkgs.cabal-fmt
               hpkgs.cabal-install
