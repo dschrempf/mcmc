@@ -55,7 +55,7 @@ data MonitorParameterBatch a = MonitorParameterBatch
 instance Contravariant MonitorParameterBatch where
   contramap f (MonitorParameterBatch n m) = MonitorParameterBatch n (m . VB.map f)
 
-mean :: Real a => VB.Vector a -> Double
+mean :: (Real a) => VB.Vector a -> Double
 mean xs = realToFrac (VB.sum xs) / fromIntegral (VB.length xs)
 {-# SPECIALIZE mean :: VB.Vector Double -> Double #-}
 {-# SPECIALIZE mean :: VB.Vector Int -> Double #-}
@@ -64,7 +64,7 @@ mean xs = realToFrac (VB.sum xs) / fromIntegral (VB.length xs)
 --
 -- Print the mean with eight decimal places (half precision).
 monitorBatchMean ::
-  Real a =>
+  (Real a) =>
   -- | Name.
   String ->
   MonitorParameterBatch a
@@ -76,7 +76,7 @@ monitorBatchMean n = MonitorParameterBatch n (BB.formatDouble (BB.standard 8) . 
 --
 -- Print the mean with full precision.
 monitorBatchMeanF ::
-  Real a =>
+  (Real a) =>
   -- | Name.
   String ->
   MonitorParameterBatch a
@@ -88,7 +88,7 @@ monitorBatchMeanF n = MonitorParameterBatch n (BB.doubleDec . mean)
 --
 -- Print the real float parameters such as 'Double' with scientific notation.
 monitorBatchMeanS ::
-  Real a =>
+  (Real a) =>
   -- | Name.
   String ->
   MonitorParameterBatch a

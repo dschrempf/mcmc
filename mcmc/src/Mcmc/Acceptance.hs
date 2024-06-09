@@ -78,7 +78,7 @@ addAcceptanceRates (Just (AcceptanceRates al rl)) (Just (AcceptanceRates ar rr))
 newtype Acceptances k = Acceptances {fromAcceptances :: M.Map k Acceptance}
   deriving (Eq, Show)
 
-instance ToJSONKey k => ToJSON (Acceptances k) where
+instance (ToJSONKey k) => ToJSON (Acceptances k) where
   toJSON (Acceptances m) = toJSON m
   toEncoding (Acceptances m) = toEncoding m
 
@@ -88,17 +88,17 @@ instance (Ord k, FromJSONKey k) => FromJSON (Acceptances k) where
 -- | In the beginning there was the Word.
 --
 -- Initialize an empty storage of accepted/rejected values.
-emptyA :: Ord k => [k] -> Acceptances k
+emptyA :: (Ord k) => [k] -> Acceptances k
 emptyA ks = Acceptances $ M.fromList [(k, A noCounts Nothing) | k <- ks]
   where
     noCounts = AcceptanceCounts 0 0
 
 -- | For key @k@, add an accept.
-pushAccept :: Ord k => Maybe AcceptanceRates -> k -> Acceptances k -> Acceptances k
+pushAccept :: (Ord k) => Maybe AcceptanceRates -> k -> Acceptances k -> Acceptances k
 pushAccept mr k = Acceptances . M.adjust (addAccept mr) k . fromAcceptances
 
 -- | For key @k@, add a reject.
-pushReject :: Ord k => Maybe AcceptanceRates -> k -> Acceptances k -> Acceptances k
+pushReject :: (Ord k) => Maybe AcceptanceRates -> k -> Acceptances k -> Acceptances k
 pushReject mr k = Acceptances . M.adjust (addReject mr) k . fromAcceptances
 
 -- | Reset acceptance specification.
@@ -109,7 +109,7 @@ data ResetAcceptance
     ResetExpectedRatesOnly
 
 -- | Reset acceptance counts.
-resetA :: Ord k => ResetAcceptance -> Acceptances k -> Acceptances k
+resetA :: (Ord k) => ResetAcceptance -> Acceptances k -> Acceptances k
 resetA ResetEverything = emptyA . M.keys . fromAcceptances
 resetA ResetExpectedRatesOnly = Acceptances . M.map f . fromAcceptances
   where
@@ -133,7 +133,7 @@ transformKeysA ks = Acceptances . transformKeys ks . fromAcceptances
 -- Return 'Nothing' if no proposals have been accepted or rejected (division by
 -- zero).
 acceptanceRate ::
-  Ord k =>
+  (Ord k) =>
   k ->
   Acceptances k ->
   -- | (nAccepts, nRejects, actualRate, expectedRate)

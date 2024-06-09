@@ -97,7 +97,7 @@ defaultHParams :: HParams
 defaultHParams = HParams Nothing Nothing Nothing
 
 hamiltonianPFunctionWithTuningParameters ::
-  Traversable s =>
+  (Traversable s) =>
   Dimension ->
   HStructure s ->
   (s Double -> Target) ->
@@ -159,7 +159,7 @@ hamiltonianPFunction hparamsi hstruct targetWith x g = do
 --
 -- May call 'error' during initialization.
 hamiltonian ::
-  Traversable s =>
+  (Traversable s) =>
   HParams ->
   HTuningConf ->
   HStructure s ->

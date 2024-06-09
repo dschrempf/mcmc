@@ -40,7 +40,7 @@ import Prelude hiding (cycle)
 -- transforming the state @a@.
 type MCMC = ReaderT (Environment Settings) IO
 
-mcmcExecute :: Algorithm a => a -> MCMC a
+mcmcExecute :: (Algorithm a) => a -> MCMC a
 mcmcExecute a = do
   logDebugB "Executing MCMC run."
   s <- reader settings
@@ -51,12 +51,12 @@ mcmcExecute a = do
   logDebugB "Executed MCMC run."
   return a'
 
-mcmcResetAcceptance :: Algorithm a => a -> MCMC a
+mcmcResetAcceptance :: (Algorithm a) => a -> MCMC a
 mcmcResetAcceptance a = do
   logDebugB "Reset acceptance rates."
   return $ aResetAcceptance ResetEverything a
 
-mcmcExceptionHandler :: Algorithm a => Environment Settings -> a -> AsyncException -> IO b
+mcmcExceptionHandler :: (Algorithm a) => Environment Settings -> a -> AsyncException -> IO b
 mcmcExceptionHandler e a err = do
   _ <- runReaderT action e
   putStrLn "Graceful termination successful."
@@ -69,7 +69,7 @@ mcmcExceptionHandler e a err = do
       logWarnS "Press CTRL-C (again) to terminate now."
       mcmcClose a
 
-mcmcExecuteMonitors :: Algorithm a => a -> MCMC ()
+mcmcExecuteMonitors :: (Algorithm a) => a -> MCMC ()
 mcmcExecuteMonitors a = do
   e <- ask
   let s = settings e
@@ -145,7 +145,7 @@ mcmcNewRun a = do
   logInfoB $ aStdMonitorHeader a''
   mcmcIterate IntermediateTuningOff AllProposals i a''
 
-mcmcContinueRun :: Algorithm a => a -> MCMC a
+mcmcContinueRun :: (Algorithm a) => a -> MCMC a
 mcmcContinueRun a = do
   s <- reader settings
   let iBurnIn = burnInIterations (sBurnIn s)
@@ -164,7 +164,7 @@ mcmcContinueRun a = do
   logInfoB $ aStdMonitorHeader a
   mcmcIterate IntermediateTuningOff AllProposals di a
 
-mcmcBurnIn :: Algorithm a => a -> MCMC a
+mcmcBurnIn :: (Algorithm a) => a -> MCMC a
 mcmcBurnIn a = do
   s <- reader settings
   case sBurnIn s of
@@ -213,7 +213,7 @@ mcmcBurnIn a = do
       return a''
 
 -- Auto tune the proposals.
-mcmcAutotune :: Algorithm a => TuningType -> Int -> a -> MCMC a
+mcmcAutotune :: (Algorithm a) => TuningType -> Int -> a -> MCMC a
 mcmcAutotune t n a = do
   case t of
     NormalTuningFastProposalsOnly -> logDebugB "Normal auto tune; fast proposals only."
@@ -224,7 +224,7 @@ mcmcAutotune t n a = do
     LastTuningAllProposals -> logDebugB "Last auto tune; all proposals."
   liftIO $ aAutoTune t n a
 
-mcmcBurnInWithAutoTuning :: Algorithm a => IterationMode -> [Int] -> a -> MCMC a
+mcmcBurnInWithAutoTuning :: (Algorithm a) => IterationMode -> [Int] -> a -> MCMC a
 mcmcBurnInWithAutoTuning _ [] _ = error "mcmcBurnInWithAutoTuning: Empty list."
 mcmcBurnInWithAutoTuning m [x] a = do
   -- Last round.
@@ -248,7 +248,7 @@ mcmcBurnInWithAutoTuning m (x : xs) a = do
   a''' <- mcmcResetAcceptance a''
   mcmcBurnInWithAutoTuning m xs a'''
 
-mcmcInitialize :: Algorithm a => a -> MCMC a
+mcmcInitialize :: (Algorithm a) => a -> MCMC a
 mcmcInitialize a = do
   logInfoS $ aName a ++ " algorithm."
   s <- settings <$> ask
@@ -258,7 +258,7 @@ mcmcInitialize a = do
   return a'
 
 -- Save the MCMC run.
-mcmcSave :: Algorithm a => a -> MCMC ()
+mcmcSave :: (Algorithm a) => a -> MCMC ()
 mcmcSave a = do
   s <- reader settings
   case sSaveMode s of
@@ -273,7 +273,7 @@ mcmcSave a = do
       logInfoB "Markov chain saved. Analysis can be continued."
 
 -- Report and finish up.
-mcmcClose :: Algorithm a => a -> MCMC a
+mcmcClose :: (Algorithm a) => a -> MCMC a
 mcmcClose a = do
   logInfoS "Closing monitors."
   a' <- liftIO $ aCloseMonitors a
@@ -285,7 +285,7 @@ mcmcClose a = do
   return a'
 
 -- Initialize the run, execute the run, and close the run.
-mcmcRun :: Algorithm a => a -> MCMC a
+mcmcRun :: (Algorithm a) => a -> MCMC a
 mcmcRun a = do
   -- Header.
   logInfoHeader
@@ -304,7 +304,7 @@ mcmcRun a = do
   mcmcClose a''
 
 -- | Run an MCMC algorithm with given settings.
-mcmc :: Algorithm a => Settings -> a -> IO a
+mcmc :: (Algorithm a) => Settings -> a -> IO a
 mcmc s a = do
   settingsCheck s $ aIteration a
   e <- initializeEnvironment s
@@ -322,7 +322,7 @@ mcmc s a = do
 -- - 'Mcmc.Algorithm.MHG.mhgLoad'
 --
 -- - 'Mcmc.Algorithm.MC3.mc3Load'
-mcmcContinue :: Algorithm a => Iterations -> Settings -> a -> IO a
+mcmcContinue :: (Algorithm a) => Iterations -> Settings -> a -> IO a
 mcmcContinue dn s = mcmc s'
   where
     n' = Iterations $ fromIterations (sIterations s) + fromIterations dn

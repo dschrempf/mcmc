@@ -59,38 +59,38 @@ type PriorFunction a = a -> Log Double
 type PriorFunctionG a b = a -> Log b
 
 -- | Flat prior function. Useful for testing and debugging.
-noPrior :: RealFloat b => PriorFunctionG a b
+noPrior :: (RealFloat b) => PriorFunctionG a b
 noPrior = const 1.0
 {-# SPECIALIZE noPrior :: PriorFunction Double #-}
 
 -- | Improper uniform prior; strictly greater than a given value.
-greaterThan :: RealFloat a => LowerBoundary a -> PriorFunctionG a a
+greaterThan :: (RealFloat a) => LowerBoundary a -> PriorFunctionG a a
 greaterThan a x
   | x > a = 1.0
   | otherwise = 0.0
 {-# SPECIALIZE greaterThan :: Double -> PriorFunction Double #-}
 
 -- | Improper uniform prior; strictly greater than zero.
-positive :: RealFloat a => PriorFunctionG a a
+positive :: (RealFloat a) => PriorFunctionG a a
 positive = greaterThan 0
 {-# SPECIALIZE positive :: PriorFunction Double #-}
 
 -- | Improper uniform prior; strictly less than a given value.
-lessThan :: RealFloat a => UpperBoundary a -> PriorFunctionG a a
+lessThan :: (RealFloat a) => UpperBoundary a -> PriorFunctionG a a
 lessThan a x
   | x < a = 1.0
   | otherwise = 0.0
 {-# SPECIALIZE lessThan :: Double -> PriorFunction Double #-}
 
 -- | Improper uniform prior; strictly less than zero.
-negative :: RealFloat a => PriorFunctionG a a
+negative :: (RealFloat a) => PriorFunctionG a a
 negative = lessThan 0.0
 {-# SPECIALIZE negative :: PriorFunction Double #-}
 
 -- | Exponential distributed prior.
 --
 -- Call 'error' if the rate is zero or negative.
-exponential :: RealFloat a => Rate a -> PriorFunctionG a a
+exponential :: (RealFloat a) => Rate a -> PriorFunctionG a a
 exponential l x
   | l <= 0.0 = error "exponential: Rate is zero or negative."
   | x <= 0.0 = 0.0
@@ -136,17 +136,17 @@ gammaMeanOne k = gamma k (recip k)
 
 -- | Calculate mean and variance of the gamma distribution given the shape and
 -- the scale.
-gammaShapeScaleToMeanVariance :: Num a => Shape a -> Scale a -> (Mean a, Variance a)
+gammaShapeScaleToMeanVariance :: (Num a) => Shape a -> Scale a -> (Mean a, Variance a)
 gammaShapeScaleToMeanVariance k t = let m = k * t in (m, m * t)
 {-# SPECIALIZE gammaShapeScaleToMeanVariance :: Double -> Double -> (Double, Double) #-}
 
 -- | Calculate shape and scale of the gamma distribution given the mean and
 -- the variance.
-gammaMeanVarianceToShapeScale :: Fractional a => Mean a -> Variance a -> (Shape a, Scale a)
+gammaMeanVarianceToShapeScale :: (Fractional a) => Mean a -> Variance a -> (Shape a, Scale a)
 gammaMeanVarianceToShapeScale m v = (m * m / v, v / m)
 {-# SPECIALIZE gammaMeanVarianceToShapeScale :: Double -> Double -> (Double, Double) #-}
 
-mLnSqrt2Pi :: RealFloat a => a
+mLnSqrt2Pi :: (RealFloat a) => a
 mLnSqrt2Pi = 0.9189385332046727417803297364056176398613974736377834128171
 {-# INLINE mLnSqrt2Pi #-}
 
@@ -158,7 +158,7 @@ mLnSqrt2Pi = 0.9189385332046727417803297364056176398613974736377834128171
 -- \(\mu\) and \(\sigma\), but are not the same as \(\mu\) and \(\sigma\)!
 --
 -- Call 'error' if the standard deviation is zero or negative.
-logNormal :: RealFloat a => Mean a -> StandardDeviation a -> PriorFunctionG a a
+logNormal :: (RealFloat a) => Mean a -> StandardDeviation a -> PriorFunctionG a a
 logNormal m s x
   | s <= 0.0 = error "logNormal: Standard deviation is zero or negative."
   | x <= 0.0 = 0.0
@@ -172,7 +172,7 @@ logNormal m s x
 -- | Normal distributed prior.
 --
 -- Call 'error' if the standard deviation is zero or negative.
-normal :: RealFloat a => Mean a -> StandardDeviation a -> PriorFunctionG a a
+normal :: (RealFloat a) => Mean a -> StandardDeviation a -> PriorFunctionG a a
 normal m s x
   | s <= 0 = error "normal: Standard deviation is zero or negative."
   | otherwise = Exp $ (-xm * xm / (2 * s * s)) - denom
@@ -184,7 +184,7 @@ normal m s x
 -- | Uniform prior on [a, b].
 --
 -- Call 'error' if the lower boundary is greather than the upper boundary.
-uniform :: RealFloat a => LowerBoundary a -> UpperBoundary a -> PriorFunctionG a a
+uniform :: (RealFloat a) => LowerBoundary a -> UpperBoundary a -> PriorFunctionG a a
 uniform a b x
   | a > b = error "uniform: Lower boundary is greater than upper boundary."
   | x < a = 0.0
@@ -205,11 +205,11 @@ poisson l n
 --
 -- Use with care because the elements are checked for positiveness, and this can
 -- take some time if the list is long and does not contain any zeroes.
-product' :: RealFloat a => [Log a] -> Log a
+product' :: (RealFloat a) => [Log a] -> Log a
 product' = fromMaybe 0 . prodM
 {-# SPECIALIZE product' :: [Log Double] -> Log Double #-}
 
 -- The type could be generalized to any MonadPlus Integer
-prodM :: RealFloat a => [Log a] -> Maybe (Log a)
+prodM :: (RealFloat a) => [Log a] -> Maybe (Log a)
 prodM = foldM (\ !acc x -> (acc * x) <$ guard (acc /= 0.0)) 1.0
 {-# SPECIALIZE prodM :: [Log Double] -> Maybe (Log Double) #-}

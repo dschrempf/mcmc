@@ -21,7 +21,7 @@ import Numeric.SpecFunctions
 import Poisson
 import System.Random.Stateful
 
-gammaBenchG :: RealFloat a => (a -> a) -> [a] -> a
+gammaBenchG :: (RealFloat a) => (a -> a) -> [a] -> a
 gammaBenchG f = foldl' (\acc x -> acc + f x) 0
 {-# SPECIALIZE gammaBenchG :: (Double -> Double) -> [Double] -> Double #-}
 

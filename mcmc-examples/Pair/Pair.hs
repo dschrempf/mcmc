@@ -39,16 +39,16 @@ analysisName = AnalysisName "pair"
 -- Improper prior for positive values of x and y. We set a bound strictly
 -- greater than 0 because otherwise, numerical problems occur when the chain
 -- traverses values very close to zero.
-pr :: RealFloat a => PriorFunctionG (IG a) a
+pr :: (RealFloat a) => PriorFunctionG (IG a) a
 pr xs = greaterThan 0.00001 (xs VB.! 0) * greaterThan 0.00001 (xs VB.! 1)
 
-f :: Num a => IG a -> a
+f :: (Num a) => IG a -> a
 -- f (x, y)= 3*x + 5*y
 f xs = (xs VB.! 0) + (xs VB.! 1)
 
 -- Likelihood function only acts on the sum of x and y, so we will need a custom
 -- Jacobian in our proposals.
-lh :: RealFloat a => LikelihoodFunctionG (IG a) a
+lh :: (RealFloat a) => LikelihoodFunctionG (IG a) a
 lh = exponential 1.0 . f
 
 -- Initial value.
@@ -56,7 +56,7 @@ start :: I
 start = VB.fromList [1.1, 1.1]
 
 -- Jacobian function. A lengthy derivation is required to find this function.
-jacob :: RealFloat a => IG a -> Log a
+jacob :: (RealFloat a) => IG a -> Log a
 jacob = Exp . log . recip . f
 
 -- -- The lens functions could be improved. How?

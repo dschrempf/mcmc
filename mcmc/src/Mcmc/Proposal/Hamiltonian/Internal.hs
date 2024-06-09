@@ -235,7 +235,7 @@ fromAuxiliaryTuningParameters d xs
 
 -- See Algorithm 4 in [4].
 findReasonableEpsilon ::
-  StatefulGen g m =>
+  (StatefulGen g m) =>
   Target ->
   Masses ->
   Positions ->
@@ -325,7 +325,7 @@ hTuningFunctionWith n toVec (HTuningConf lc mc) = Just $ \tt pdim mar mxs (_, !t
   where
     err msg = error $ "hTuningFunctionWith: " <> msg
 
-checkHStructureWith :: Foldable s => Masses -> HStructure s -> Maybe String
+checkHStructureWith :: (Foldable s) => Masses -> HStructure s -> Maybe String
 checkHStructureWith ms (HStructure x toVec fromVec)
   | toList (fromVec x xVec) /= toList x = eWith "'fromVectorWith x (toVector x) /= x' for sample state."
   | L.size xVec /= nrows = eWith "Mass matrix and 'toVector x' have different sizes for sample state."
@@ -337,7 +337,7 @@ checkHStructureWith ms (HStructure x toVec fromVec)
 
 -- Generate momenta for a new iteration.
 generateMomenta ::
-  StatefulGen g m =>
+  (StatefulGen g m) =>
   Mu ->
   Masses ->
   g ->

@@ -40,7 +40,7 @@ muTrue :: Double
 muTrue = 1.0
 
 -- Simulated distances from center.
-distances :: StatefulGen g m => g -> m [Distance]
+distances :: (StatefulGen g m) => g -> m [Distance]
 distances = replicateM nArrows . S.genContVar (S.exponential muTrue)
 
 -- Uninformative, improper prior for positive precision values.

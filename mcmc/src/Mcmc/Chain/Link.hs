@@ -34,16 +34,16 @@ data Link a = Link
   }
   deriving (Eq, Ord, Show, Read)
 
-instance ToJSON a => ToJSON (Link a) where
+instance (ToJSON a) => ToJSON (Link a) where
   toJSON (Link x (Exp p) (Exp l)) = object ["s" .= x, "p" .= p, "l" .= l]
   toEncoding (Link x (Exp p) (Exp l)) = pairs ("s" .= x <> "p" .= p <> "l" .= l)
 
-link :: FromJSON a => Object -> Parser (Link a)
+link :: (FromJSON a) => Object -> Parser (Link a)
 link v = do
   s <- v .: "s"
   p <- v .: "p"
   l <- v .: "l"
   return $ Link s (Exp p) (Exp l)
 
-instance FromJSON a => FromJSON (Link a) where
+instance (FromJSON a) => FromJSON (Link a) where
   parseJSON = withObject "Link" link

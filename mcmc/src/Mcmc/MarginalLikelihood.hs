@@ -141,7 +141,7 @@ getPoints x = [f i ** (1.0 / alpha) | i <- [0 .. k1]]
     f j = fromIntegral j / fromIntegral k1
 
 sampleAtPoint ::
-  ToJSON a =>
+  (ToJSON a) =>
   Bool ->
   Point ->
   Settings ->
@@ -187,7 +187,7 @@ sampleAtPoint isInitialBurnIn x ss lhf a = do
     a' = MHG ch'
 
 traversePoints ::
-  ToJSON a =>
+  (ToJSON a) =>
   NPoints ->
   [(Int, Point)] ->
   Settings ->
@@ -237,7 +237,7 @@ chop (n : ns) xs
 chop _ _ = error "chop: not all list elements handled"
 
 mlRunPar ::
-  ToJSON a =>
+  (ToJSON a) =>
   ParallelizationMode ->
   NPoints ->
   [(Int, Point)] ->
@@ -269,7 +269,7 @@ mlRunPar pm k xs em vb prf lhf cc mn i0 g = do
   pure $ concat xss
 
 mlRun ::
-  ToJSON a =>
+  (ToJSON a) =>
   NPoints ->
   [(Int, Point)] ->
   ExecutionMode ->
@@ -320,7 +320,7 @@ integrateSimpsonTriangle xs ys = 0.5 * go xs ys
     go _ _ = 0
 
 tiWrapper ::
-  ToJSON a =>
+  (ToJSON a) =>
   MLSettings ->
   PriorFunction a ->
   LikelihoodFunction a ->
@@ -404,7 +404,7 @@ sssCalculateMarginalLikelihood xs lhss = product $ zipWith3 f xs (tail xs) lhss
 --                 llhsNormed = VU.map (\x -> x - llhMax) llhs
 --                 lhsNormedPowered = VU.map (\x -> exp $ dbeta * x) llhsNormed
 sssWrapper ::
-  ToJSON a =>
+  (ToJSON a) =>
   MLSettings ->
   PriorFunction a ->
   LikelihoodFunction a ->
@@ -429,7 +429,7 @@ sssWrapper s prf lhf cc mn i0 g = do
 
 -- | Estimate the marginal likelihood.
 marginalLikelihood ::
-  ToJSON a =>
+  (ToJSON a) =>
   MLSettings ->
   PriorFunction a ->
   LikelihoodFunction a ->

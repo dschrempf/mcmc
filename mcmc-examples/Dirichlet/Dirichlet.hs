@@ -52,7 +52,7 @@ nObservations :: Int
 nObservations = 800
 
 -- Simulate data using a Dirichlet distribution with the true parameter values.
-simulateData :: StatefulGen g m => g -> m [V.Vector Double]
+simulateData :: (StatefulGen g m) => g -> m [V.Vector Double]
 simulateData g = replicateM nObservations (dirichletSample dd g)
   where
     dd = either error id $ dirichletDistribution alphasTrue

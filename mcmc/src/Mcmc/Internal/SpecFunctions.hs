@@ -25,10 +25,10 @@ import Numeric.Polynomial
 import Numeric.SpecFunctions
 import Unsafe.Coerce
 
-mSqrtEpsG :: RealFloat a => a
+mSqrtEpsG :: (RealFloat a) => a
 mSqrtEpsG = 1.4901161193847656e-8
 
-mEulerMascheroniG :: RealFloat a => a
+mEulerMascheroniG :: (RealFloat a) => a
 mEulerMascheroniG = 0.5772156649015328606065121
 
 -- | Generalized version of the log gamma distribution. See
@@ -40,7 +40,7 @@ logGammaG z
 {-# SPECIALIZE logGammaG :: Double -> Double #-}
 
 -- See 'Numeric.SpecFunctions.logGamma'.
-logGammaNonDouble :: RealFloat a => a -> a
+logGammaNonDouble :: (RealFloat a) => a -> a
 logGammaNonDouble z
   | z <= 0 = 1 / 0
   | z < mSqrtEpsG = log (1 / z - mEulerMascheroniG)
@@ -51,7 +51,7 @@ logGammaNonDouble z
   | z < 15 = lgammaSmallG z
   | otherwise = lanczosApproxG z
 
-lgamma1_15G :: RealFloat a => a -> a -> a
+lgamma1_15G :: (RealFloat a) => a -> a -> a
 lgamma1_15G zm1 zm2 =
   r * y
     + r
@@ -62,7 +62,7 @@ lgamma1_15G zm1 zm2 =
     r = zm1 * zm2
     y = 0.52815341949462890625
 
-tableLogGamma_1_15PG :: RealFloat a => VB.Vector a
+tableLogGamma_1_15PG :: (RealFloat a) => VB.Vector a
 tableLogGamma_1_15PG =
   VB.fromList
     [ 0.490622454069039543534e-1,
@@ -75,7 +75,7 @@ tableLogGamma_1_15PG =
     ]
 {-# NOINLINE tableLogGamma_1_15PG #-}
 
-tableLogGamma_1_15QG :: RealFloat a => VB.Vector a
+tableLogGamma_1_15QG :: (RealFloat a) => VB.Vector a
 tableLogGamma_1_15QG =
   VB.fromList
     [ 1,
@@ -88,7 +88,7 @@ tableLogGamma_1_15QG =
     ]
 {-# NOINLINE tableLogGamma_1_15QG #-}
 
-lgamma15_2G :: RealFloat a => a -> a -> a
+lgamma15_2G :: (RealFloat a) => a -> a -> a
 lgamma15_2G zm1 zm2 =
   r * y
     + r
@@ -99,7 +99,7 @@ lgamma15_2G zm1 zm2 =
     r = zm1 * zm2
     y = 0.452017307281494140625
 
-tableLogGamma_15_2PG :: RealFloat a => VB.Vector a
+tableLogGamma_15_2PG :: (RealFloat a) => VB.Vector a
 tableLogGamma_15_2PG =
   VB.fromList
     [ -0.292329721830270012337e-1,
@@ -111,7 +111,7 @@ tableLogGamma_15_2PG =
     ]
 {-# NOINLINE tableLogGamma_15_2PG #-}
 
-tableLogGamma_15_2QG :: RealFloat a => VB.Vector a
+tableLogGamma_15_2QG :: (RealFloat a) => VB.Vector a
 tableLogGamma_15_2QG =
   VB.fromList
     [ 1,
@@ -124,7 +124,7 @@ tableLogGamma_15_2QG =
     ]
 {-# NOINLINE tableLogGamma_15_2QG #-}
 
-lgammaSmallG :: RealFloat a => a -> a
+lgammaSmallG :: (RealFloat a) => a -> a
 lgammaSmallG = go 0
   where
     go acc z
@@ -133,7 +133,7 @@ lgammaSmallG = go 0
       where
         zm1 = z - 1
 
-lgamma2_3G :: RealFloat a => a -> a
+lgamma2_3G :: (RealFloat a) => a -> a
 lgamma2_3G z =
   r * y
     + r
@@ -145,7 +145,7 @@ lgamma2_3G z =
     zm2 = z - 2
     y = 0.158963680267333984375e0
 
-tableLogGamma_2_3PG :: RealFloat a => VB.Vector a
+tableLogGamma_2_3PG :: (RealFloat a) => VB.Vector a
 tableLogGamma_2_3PG =
   VB.fromList
     [ -0.180355685678449379109e-1,
@@ -158,7 +158,7 @@ tableLogGamma_2_3PG =
     ]
 {-# NOINLINE tableLogGamma_2_3PG #-}
 
-tableLogGamma_2_3QG :: RealFloat a => VB.Vector a
+tableLogGamma_2_3QG :: (RealFloat a) => VB.Vector a
 tableLogGamma_2_3QG =
   VB.fromList
     [ 1,
@@ -172,14 +172,14 @@ tableLogGamma_2_3QG =
     ]
 {-# NOINLINE tableLogGamma_2_3QG #-}
 
-lanczosApproxG :: RealFloat a => a -> a
+lanczosApproxG :: (RealFloat a) => a -> a
 lanczosApproxG z =
   (log (z + g - 0.5) - 1) * (z - 0.5)
     + log (evalRatioG tableLanczosG z)
   where
     g = 6.024680040776729583740234375
 
-tableLanczosG :: RealFloat a => VB.Vector (a, a)
+tableLanczosG :: (RealFloat a) => VB.Vector (a, a)
 tableLanczosG =
   VB.fromList
     [ (56906521.91347156388090791033559122686859, 0),
@@ -200,7 +200,7 @@ tableLanczosG =
 
 data LG a = LG !a !a
 
-evalRatioG :: RealFloat a => VB.Vector (a, a) -> a -> a
+evalRatioG :: (RealFloat a) => VB.Vector (a, a) -> a -> a
 evalRatioG coef x
   | x > 1 = fini $ VB.foldl' stepL (LG 0 0) coef
   | otherwise = fini $ VB.foldr' stepR (LG 0 0) coef
@@ -228,13 +228,13 @@ logFactorialNonDouble n
     stirling = (x - 0.5) * log x - x + mLnSqrt2Pi
     x = fromIntegral n + 1
     rx = recip x
-{-# SPECIALIZE logFactorialNonDouble :: RealFloat a => Int -> a #-}
+{-# SPECIALIZE logFactorialNonDouble :: (RealFloat a) => Int -> a #-}
 
-mLnSqrt2Pi :: RealFloat a => a
+mLnSqrt2Pi :: (RealFloat a) => a
 mLnSqrt2Pi = 0.9189385332046727417803297364056176398613974736377834128171
 {-# INLINE mLnSqrt2Pi #-}
 
-factorialTable :: RealFloat a => VB.Vector a
+factorialTable :: (RealFloat a) => VB.Vector a
 {-# NOINLINE factorialTable #-}
 factorialTable =
   VB.fromListN

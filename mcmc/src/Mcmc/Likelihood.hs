@@ -29,6 +29,6 @@ type LikelihoodFunction a = a -> Log Double
 type LikelihoodFunctionG a b = a -> Log b
 
 -- | Flat likelihood function. Useful for testing and debugging.
-noLikelihood :: RealFloat b => LikelihoodFunctionG a b
+noLikelihood :: (RealFloat b) => LikelihoodFunctionG a b
 noLikelihood = const 1.0
 {-# SPECIALIZE noLikelihood :: LikelihoodFunction Double #-}

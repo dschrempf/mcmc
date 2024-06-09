@@ -46,5 +46,5 @@ renderDurationS dt = BB.toLazyByteString $ BB.intDec ts
     ts = round dt
 
 -- | Render a time stamp.
-renderTime :: FormatTime t => t -> String
+renderTime :: (FormatTime t) => t -> String
 renderTime = formatTime defaultTimeLocale "%B %-e, %Y, at %H:%M %P, %Z."

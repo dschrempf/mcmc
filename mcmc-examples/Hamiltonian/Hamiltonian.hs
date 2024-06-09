@@ -45,19 +45,19 @@ type I = IG Double
 -- dimension :: Int
 -- dimension = 2
 
-logGauss1 :: RealFloat a => a -> a -> a
+logGauss1 :: (RealFloat a) => a -> a -> a
 logGauss1 s x = log (recip $ s * sqrt (2 * pi)) - 0.5 * x * x / s / s
 
-logGaussN :: RealFloat a => IG a -> IG a -> a
+logGaussN :: (RealFloat a) => IG a -> IG a -> a
 logGaussN ss xs = VB.foldl' (+) 0.0 (VB.zipWith logGauss1 ss xs)
 
-standardDeviations :: RealFloat a => IG a
+standardDeviations :: (RealFloat a) => IG a
 standardDeviations = VB.fromList $ map realToFrac xs
   where
     xs :: [Double]
     xs = [0.02, 0.04 .. 1.0] ++ [2, 4 .. 100]
 
-lhf :: RealFloat a => LikelihoodFunctionG (IG a) a
+lhf :: (RealFloat a) => LikelihoodFunctionG (IG a) a
 lhf = Exp . logGaussN standardDeviations
 
 dimension :: Int

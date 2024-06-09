@@ -176,7 +176,7 @@ data MC3 a = MC3
     mc3Generator :: IOGenM StdGen
   }
 
-instance ToJSON a => Algorithm (MC3 a) where
+instance (ToJSON a) => Algorithm (MC3 a) where
   aName = const "Metropolis-coupled Markov chain Monte Carlo (MC3)"
   aIteration = mc3Iteration
   aIsInvalidState = mc3IsInvalidState
@@ -311,7 +311,7 @@ mc3Fn (AnalysisName nm) = nm ++ ".mcmc.mc3"
 
 -- | Save an MC3 algorithm.
 mc3Save ::
-  ToJSON a =>
+  (ToJSON a) =>
   AnalysisName ->
   MC3 a ->
   IO ()
@@ -325,7 +325,7 @@ mc3Save nm a = do
 --
 -- See 'Mcmc.Mcmc.mcmcContinue'.
 mc3Load ::
-  FromJSON a =>
+  (FromJSON a) =>
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
@@ -419,7 +419,7 @@ mc3ProposeSwap a i = do
   where
     g = mc3Generator a
 
-mc3IsInvalidState :: ToJSON a => MC3 a -> Bool
+mc3IsInvalidState :: (ToJSON a) => MC3 a -> Bool
 mc3IsInvalidState a = V.any aIsInvalidState mhgs
   where
     mhgs = mc3MHGChains a
@@ -427,7 +427,7 @@ mc3IsInvalidState a = V.any aIsInvalidState mhgs
 -- NOTE: 'mc3Iterate' is actually not parallel, but concurrent because of the IO
 -- constraint of the mutable trace.
 mc3Iterate ::
-  ToJSON a =>
+  (ToJSON a) =>
   IterationMode ->
   ParallelizationMode ->
   MC3 a ->
@@ -477,7 +477,7 @@ tuneBeta bsOld i xi bsNew = bsNew U.// [(j, brNew)]
     rNew = (brOld / blOld) ** xi
     brNew = blNew * rNew
 
-mc3AutoTune :: ToJSON a => TuningType -> Int -> MC3 a -> IO (MC3 a)
+mc3AutoTune :: (ToJSON a) => TuningType -> Int -> MC3 a -> IO (MC3 a)
 mc3AutoTune b l a = do
   -- 1. Auto tune all chains.
   mhgs' <- V.mapM (aAutoTune b l) $ mc3MHGChains a
@@ -512,7 +512,7 @@ mc3AutoTune b l a = do
             (V.tail mhgs')
   return $ a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
 
-mc3ResetAcceptance :: ToJSON a => ResetAcceptance -> MC3 a -> MC3 a
+mc3ResetAcceptance :: (ToJSON a) => ResetAcceptance -> MC3 a -> MC3 a
 mc3ResetAcceptance x a = a'
   where
     -- 1. Reset acceptance of all chains.
@@ -522,7 +522,7 @@ mc3ResetAcceptance x a = a'
     --
     a' = a {mc3MHGChains = mhgs', mc3SwapAcceptances = ac'}
 
-mc3CleanAfterBurnIn :: ToJSON a => TraceLength -> MC3 a -> IO (MC3 a)
+mc3CleanAfterBurnIn :: (ToJSON a) => TraceLength -> MC3 a -> IO (MC3 a)
 mc3CleanAfterBurnIn tl a = do
   cs' <- V.mapM (aCleanAfterBurnIn tl) cs
   pure $ a {mc3MHGChains = cs'}
@@ -536,7 +536,7 @@ mc3CleanAfterBurnIn tl a = do
 -- - The combined acceptance rate of proposals within the hot chains.
 --
 -- - The temperatures of the chains and the acceptance rates of the state swaps.
-mc3SummarizeCycle :: ToJSON a => IterationMode -> MC3 a -> BL.ByteString
+mc3SummarizeCycle :: (ToJSON a) => IterationMode -> MC3 a -> BL.ByteString
 mc3SummarizeCycle m a =
   BL.intercalate "\n" $
     [ "MC3: Cycle of cold chain.",
@@ -585,7 +585,7 @@ mc3SummarizeCycle m a =
     proposalHLine = BL.replicate (BL.length proposalHeader) '-'
 
 -- No extra monitors are opened.
-mc3OpenMonitors :: ToJSON a => AnalysisName -> ExecutionMode -> MC3 a -> IO (MC3 a)
+mc3OpenMonitors :: (ToJSON a) => AnalysisName -> ExecutionMode -> MC3 a -> IO (MC3 a)
 mc3OpenMonitors nm em a = do
   mhgs' <- V.imapM mhgOpenMonitors (mc3MHGChains a)
   return $ a {mc3MHGChains = mhgs'}
@@ -598,7 +598,7 @@ mc3OpenMonitors nm em a = do
         suf = printf "%02d" i
 
 mc3ExecuteMonitors ::
-  ToJSON a =>
+  (ToJSON a) =>
   Verbosity ->
   -- Starting time.
   UTCTime ->
@@ -613,10 +613,10 @@ mc3ExecuteMonitors vb t0 iTotal a = V.head <$> V.imapM f (mc3MHGChains a)
     -- All other chains are to be quiet.
     f _ = aExecuteMonitors Quiet t0 iTotal
 
-mc3StdMonitorHeader :: ToJSON a => MC3 a -> BL.ByteString
+mc3StdMonitorHeader :: (ToJSON a) => MC3 a -> BL.ByteString
 mc3StdMonitorHeader = aStdMonitorHeader . V.head . mc3MHGChains
 
-mc3CloseMonitors :: ToJSON a => MC3 a -> IO (MC3 a)
+mc3CloseMonitors :: (ToJSON a) => MC3 a -> IO (MC3 a)
 mc3CloseMonitors a = do
   mhgs' <- V.mapM aCloseMonitors $ mc3MHGChains a
   return $ a {mc3MHGChains = mhgs'}

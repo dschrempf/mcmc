@@ -118,7 +118,7 @@ cc =
 
 -- Convert a number to a distance. Assume that the given number is positive
 -- and finite.
-toD :: Num a => a -> Distance a
+toD :: (Num a) => a -> Distance a
 toD = distance . unsafeFinite
 
 -- Extract the number from a distance. Assume that the distance is finite.

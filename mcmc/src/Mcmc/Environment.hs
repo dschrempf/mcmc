@@ -39,7 +39,7 @@ data Environment s = Environment
   }
   deriving (Eq)
 
-instance HasExecutionMode s => HasExecutionMode (Environment s) where
+instance (HasExecutionMode s) => HasExecutionMode (Environment s) where
   getExecutionMode = getExecutionMode . settings
 
 instance HasLock (Environment s) where
@@ -51,10 +51,10 @@ instance HasLogHandles (Environment s) where
 instance HasStartingTime (Environment s) where
   getStartingTime = startingTime
 
-instance HasLogMode s => HasLogMode (Environment s) where
+instance (HasLogMode s) => HasLogMode (Environment s) where
   getLogMode = getLogMode . settings
 
-instance HasVerbosity s => HasVerbosity (Environment s) where
+instance (HasVerbosity s) => HasVerbosity (Environment s) where
   getVerbosity = getVerbosity . settings
 
 -- | Initialize the environment.

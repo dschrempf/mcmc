@@ -126,7 +126,7 @@ data IterationMode = AllProposals | FastProposals
   deriving (Eq)
 
 -- | Replicate 'Proposal's according to their weights and possibly shuffle them.
-prepareProposals :: StatefulGen g m => IterationMode -> Cycle a -> g -> m [Proposal a]
+prepareProposals :: (StatefulGen g m) => IterationMode -> Cycle a -> g -> m [Proposal a]
 prepareProposals m (Cycle xs o _ _) g =
   if null ps
     then

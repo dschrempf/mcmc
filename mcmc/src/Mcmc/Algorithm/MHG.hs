@@ -57,7 +57,7 @@ import Prelude hiding (cycle)
 -- | The MHG algorithm.
 newtype MHG a = MHG {fromMHG :: Chain a}
 
-instance ToJSON a => Algorithm (MHG a) where
+instance (ToJSON a) => Algorithm (MHG a) where
   aName = const "Metropolis-Hastings-Green (MHG)"
   aIteration = iteration . fromMHG
   aIsInvalidState = mhgIsInvalidState
@@ -121,7 +121,7 @@ mhgFn (AnalysisName nm) = nm ++ ".mcmc.mhg"
 
 -- | Save an MHG algorithm.
 mhgSave ::
-  ToJSON a =>
+  (ToJSON a) =>
   AnalysisName ->
   MHG a ->
   IO ()
@@ -135,7 +135,7 @@ mhgSave nm (MHG c) = do
 --
 -- See 'Mcmc.Mcmc.mcmcContinue'.
 mhgLoad ::
-  FromJSON a =>
+  (FromJSON a) =>
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
@@ -151,7 +151,7 @@ mhgLoad = mhgLoadWith fromSavedChain
 -- Useful when restarting a run with changed prior function, likelihood function
 -- or proposals. Use with care!
 mhgLoadUnsafe ::
-  FromJSON a =>
+  (FromJSON a) =>
   PriorFunction a ->
   LikelihoodFunction a ->
   Cycle a ->
@@ -162,7 +162,7 @@ mhgLoadUnsafe = mhgLoadWith fromSavedChainUnsafe
 
 -- Nice type :-).
 mhgLoadWith ::
-  FromJSON a =>
+  (FromJSON a) =>
   (PriorFunction a -> LikelihoodFunction a -> Cycle a -> Monitor a -> SavedChain a -> IO (Chain a)) ->
   PriorFunction a ->
   LikelihoodFunction a ->

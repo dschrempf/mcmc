@@ -171,7 +171,7 @@ defaultNParams :: NParams
 defaultNParams = NParams Nothing Nothing
 
 nutsPFunctionWithTuningParameters ::
-  Traversable s =>
+  (Traversable s) =>
   Dimension ->
   HStructure s ->
   (s Double -> Target) ->
@@ -264,7 +264,7 @@ nutsPFunction hparamsi hstruct targetWith x g = do
 --
 -- May call 'error' during initialization.
 nuts ::
-  Traversable s =>
+  (Traversable s) =>
   NParams ->
   HTuningConf ->
   HStructure s ->

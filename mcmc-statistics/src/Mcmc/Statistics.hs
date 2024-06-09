@@ -44,9 +44,10 @@ gammaTruncated c = V.takeWhile (> 0) (gamma c) `V.snoc` 0
 -- page 16.
 initSeq :: Vector Double -> Double
 initSeq v =
-  (-V.head c) + 2
-    * V.sum
-      (smooth (V.fromList gcmIs) (V.fromList gcmVals))
+  (-V.head c)
+    + 2
+      * V.sum
+        (smooth (V.fromList gcmIs) (V.fromList gcmVals))
   where
     c = autocovariance v
     gs = gammaTruncated c

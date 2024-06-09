@@ -26,12 +26,12 @@ import System.Random.Stateful
 -- vectors.
 
 -- | Shuffle a vector.
-shuffle :: StatefulGen g m => [a] -> g -> m [a]
+shuffle :: (StatefulGen g m) => [a] -> g -> m [a]
 shuffle xs = grabble xs (length xs)
 
 -- @grabble xs m n@ is /O(m*n')/, where @n' = min n (length xs)@. Choose @n'@
 -- elements from @xs@, without replacement, and that @m@ times.
-grabble :: StatefulGen g m => [a] -> Int -> g -> m [a]
+grabble :: (StatefulGen g m) => [a] -> Int -> g -> m [a]
 grabble xs m gen = do
   swaps <- forM [0 .. min (l - 1) m] $ \i -> do
     j <- uniformRM (i, l) gen
