@@ -87,46 +87,46 @@ data IntermediateTuningSpec
   | IntermediateTuningOff
   deriving (Eq)
 
-mcmcIterate :: Algorithm a => IntermediateTuningSpec -> IterationMode -> Int -> a -> MCMC a
-mcmcIterate t m n a
-  | n < 0 = error "mcmcIterate: Number of iterations is negative."
-  | n == 0 = return a
-  | otherwise = do
-      e <- ask
-      let p = sParallelizationMode $ settings e
-      -- NOTE: Handle interrupts during iterations, before writing monitors,
-      -- using the old algorithm state @a@.
-      let handlerOld = mcmcExceptionHandler e a
-          maybeIntermediateAutoTune x =
-            -- Do not perform intermediate tuning at the last step, because a
-            -- normal tuning will be performed.
-            case t of
-              IntermediateTuningFastProposalsOnlyOn
-                | n > 1 ->
-                    aAutoTune IntermediateTuningFastProposalsOnly 1 x
-                      <&> aResetAcceptance ResetExpectedRatesOnly
-              IntermediateTuningAllProposalsOn
-                | n > 1 ->
-                    aAutoTune IntermediateTuningAllProposals 1 x
-                      <&> aResetAcceptance ResetExpectedRatesOnly
-              _ -> pure x
-          actionIterate = aIterate m p a >>= maybeIntermediateAutoTune
-      a' <- liftIO $ actionIterate `catch` handlerOld
-      -- NOTE: Mask asynchronous exceptions while writing monitor files. Handle
-      -- interrupts after writing monitors; use the new state @a'@.
-      --
-      -- The problem that arises using this method is: What if executing the
-      -- monitors actually throws an error (and not the user or the operating
-      -- system that want to stop the chain). In this case, the chain is left in
-      -- an undefined state because the monitor files are partly written; the
-      -- new state is saved by the handler. However, I do not think I can
-      -- recover from partly written monitor files.
-      let handlerNew = mcmcExceptionHandler e a'
-          actionWrite = runReaderT (mcmcExecuteMonitors a') e
-      liftIO $ uninterruptibleMask_ actionWrite `catch` handlerNew
-      mcmcIterate t m (n - 1) a'
+mcmcIterate :: (Algorithm a) => IntermediateTuningSpec -> IterationMode -> Int -> a -> MCMC a
+mcmcIterate t m n a = case n `compare` 0 of
+  LT -> error "mcmcIterate: Number of iterations is negative."
+  EQ -> return a
+  GT -> do
+    e <- ask
+    let p = sParallelizationMode $ settings e
+    -- NOTE: Handle interrupts during iterations, before writing monitors,
+    -- using the old algorithm state @a@.
+    let handlerOld = mcmcExceptionHandler e a
+        maybeIntermediateAutoTune x =
+          -- Do not perform intermediate tuning at the last step, because a
+          -- normal tuning will be performed.
+          case t of
+            IntermediateTuningFastProposalsOnlyOn
+              | n > 1 ->
+                  aAutoTune IntermediateTuningFastProposalsOnly 1 x
+                    <&> aResetAcceptance ResetExpectedRatesOnly
+            IntermediateTuningAllProposalsOn
+              | n > 1 ->
+                  aAutoTune IntermediateTuningAllProposals 1 x
+                    <&> aResetAcceptance ResetExpectedRatesOnly
+            _otherTuningSpecs -> pure x
+        actionIterate = aIterate m p a >>= maybeIntermediateAutoTune
+    a' <- liftIO $ actionIterate `catch` handlerOld
+    -- NOTE: Mask asynchronous exceptions while writing monitor files. Handle
+    -- interrupts after writing monitors; use the new state @a'@.
+    --
+    -- The problem that arises using this method is: What if executing the
+    -- monitors actually throws an error (and not the user or the operating
+    -- system that want to stop the chain). In this case, the chain is left in
+    -- an undefined state because the monitor files are partly written; the
+    -- new state is saved by the handler. However, I do not think I can
+    -- recover from partly written monitor files.
+    let handlerNew = mcmcExceptionHandler e a'
+        actionWrite = runReaderT (mcmcExecuteMonitors a') e
+    liftIO $ uninterruptibleMask_ actionWrite `catch` handlerNew
+    mcmcIterate t m (n - 1) a'
 
-mcmcNewRun :: Algorithm a => a -> MCMC a
+mcmcNewRun :: (Algorithm a) => a -> MCMC a
 mcmcNewRun a = do
   s <- reader settings
   logInfoB "Starting new MCMC sampler."
