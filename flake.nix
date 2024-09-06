@@ -19,13 +19,14 @@
   inputs.pava.inputs.nixpkgs.follows = "nixpkgs";
 
   outputs =
-    { self
-    , circular
-    , covariance
-    , dirichlet
-    , flake-utils
-    , nixpkgs
-    , pava
+    {
+      self,
+      circular,
+      covariance,
+      dirichlet,
+      flake-utils,
+      nixpkgs,
+      pava,
     }:
     let
       theseHpkgNames = [
@@ -37,9 +38,10 @@
       hMkPackage = h: n: h.callCabal2nix n (./. + "/${n}") { };
       hOverlay = selfn: supern: {
         haskell = supern.haskell // {
-          packageOverrides = selfh: superh:
-            supern.haskell.packageOverrides selfh superh //
-              nixpkgs.lib.genAttrs theseHpkgNames (hMkPackage selfh);
+          packageOverrides =
+            selfh: superh:
+            supern.haskell.packageOverrides selfh superh
+            // nixpkgs.lib.genAttrs theseHpkgNames (hMkPackage selfh);
         };
       };
       overlays = [
@@ -49,7 +51,8 @@
         dirichlet.overlays.default
         pava.overlays.default
       ];
-      perSystem = system:
+      perSystem =
+        system:
         let
           pkgs = import nixpkgs {
             inherit system;
@@ -61,23 +64,26 @@
           theseHpkgsDev = builtins.mapAttrs (_: x: hlib.doBenchmark x) theseHpkgs;
         in
         {
-          packages = theseHpkgs // { default = theseHpkgs.mcmc; };
+          packages = theseHpkgs // {
+            default = theseHpkgs.mcmc;
+          };
 
           devShells.default = hpkgs.shellFor {
             packages = _: (builtins.attrValues theseHpkgsDev);
-            nativeBuildInputs = with pkgs; [
+            nativeBuildInputs = [
               # Haskell toolchain.
               hpkgs.cabal-fmt
               hpkgs.cabal-install
               hpkgs.haskell-language-server
             ];
-            buildInputs = with pkgs; [
-            ];
+            buildInputs = [ ];
             doBenchmark = true;
             # withHoogle = true;
           };
         };
     in
-    { overlays.default = nixpkgs.lib.composeManyExtensions overlays; }
+    {
+      overlays.default = nixpkgs.lib.composeManyExtensions overlays;
+    }
     // flake-utils.lib.eachDefaultSystem perSystem;
 }
