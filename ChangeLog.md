@@ -5,6 +5,11 @@
 ## Unreleased changes
 
 
+## 0.8.3.0
+
+-   Fix auto tuning with MC3 algorithm.
+
+
 ## 0.8.1.0
 
 -   Automatic intermediate tuning for HMC and NUTS.
@@ -161,7 +166,7 @@
 ## 0.2.4
 
 -   **Change order of arguments for proposals**.
--   &rsquo;slideStem&rsquo; was renamed to &rsquo;slideBranch&rsquo;.
+-   'slideStem' was renamed to 'slideBranch'.
 -   Change ProposalSimple from newtype to type.
 -   Contravariant instances of parameter and batch monitors. Use `(>$<)` instead
     of `(@.)` and `(@#)`.

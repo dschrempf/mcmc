@@ -1,6 +1,9 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
 
+** 0.8.3.0
+- Fix auto tuning with MC3 algorithm.
+
 ** 0.8.1.0
 - Automatic intermediate tuning for HMC and NUTS.
 - Fix documentation for generic proposals.
