@@ -5,6 +5,12 @@
 ## Unreleased changes
 
 
+## 0.8.3.1
+
+-   Bug fix MC3: Do not change prir and likelihood values for auto-tuned
+    reciprocals temperatures.
+
+
 ## 0.8.3.0
 
 -   Fix auto tuning with MC3 algorithm.

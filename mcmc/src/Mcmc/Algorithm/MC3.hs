@@ -513,7 +513,7 @@ mc3AutoTune b l a = do
   return $
     if b == NormalTuningFastProposalsOnly || b == NormalTuningAllProposals
       then a {mc3MHGChains = mhgs'', mc3ReciprocalTemperatures = bs'}
-      else a {mc3MHGChains = mhgs''}
+      else a {mc3MHGChains = mhgs'}
 
 mc3ResetAcceptance :: (ToJSON a) => ResetAcceptance -> MC3 a -> MC3 a
 mc3ResetAcceptance x a = a'
