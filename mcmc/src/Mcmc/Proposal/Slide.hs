@@ -67,7 +67,7 @@ slideSymmetric s = createProposal description (slideSymmetricPFunction s) PFast 
 -- The actual proposal with tuning parameter.
 slideUniformPFunction :: Size -> TuningParameter -> PFunction Double
 slideUniformPFunction d t =
-  genericContinuous (uniformDistr (-t * d) (t * d)) (+) Nothing Nothing
+  genericContinuous (uniformDistr (-(t * d)) (t * d)) (+) Nothing Nothing
 
 -- | See 'slide'.
 --

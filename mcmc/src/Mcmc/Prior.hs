@@ -175,7 +175,7 @@ logNormal m s x
 normal :: (RealFloat a) => Mean a -> StandardDeviation a -> PriorFunctionG a a
 normal m s x
   | s <= 0 = error "normal: Standard deviation is zero or negative."
-  | otherwise = Exp $ (-xm * xm / (2 * s * s)) - denom
+  | otherwise = Exp $ (-(xm * xm / (2 * s * s))) - denom
   where
     xm = x - m
     denom = mLnSqrt2Pi + log s
