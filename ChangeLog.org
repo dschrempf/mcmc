@@ -1,5 +1,6 @@
 * Markov chain Monte Carlo sampling - ChangeLog
 ** Unreleased changes
+- GHC 9.8
 
 ** 0.8.3.1
 - Bug fix MC3: Do not change prir and likelihood values for auto-tuned
