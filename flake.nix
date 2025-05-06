@@ -34,7 +34,7 @@
         "mcmc-examples"
         "mcmc-statistics"
       ];
-      thisGhcVersion = "ghc96";
+      thisGhcVersion = "ghc98";
       hMkPackage = h: n: h.callCabal2nix n (./. + "/${n}") { };
       hOverlay = selfn: supern: {
         haskell = supern.haskell // {
