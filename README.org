@@ -40,7 +40,7 @@ For a more involved example, have a look at a [[https://github.com/dschrempf/mcm
 *** Marginal likelihood
 E.g., stepping stone (see RevBayes).
 
-*** Proposals on tree topologies.
+*** Proposals on tree topologies
 - NNI.
 - Narrow. What is this? See RevBayes.
 - FNPR (same here).
